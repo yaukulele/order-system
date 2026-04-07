@@ -1,0 +1,198 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>📦 訂單管理系統 — MOMO / PChome</title>
+<style>
+*{margin:0;padding:0;box-sizing:border-box}
+:root{--bg:#f4f3ee;--sf:#fff;--sf2:#faf9f5;--bd:#ddd9cf;--tx:#1c1b18;--dm:#807b6f;--ht:#b0aa9c;--mo:#d6336c;--mo-bg:#fdf0f5;--pc:#c0392b;--pc-bg:#fef0ee;--grn:#2d7a4f;--grn-bg:#eef7f1;--amb:#b8860b;--blu:#2563eb;--mono:'Menlo','Consolas','Courier New',monospace;--sans:-apple-system,BlinkMacSystemFont,'Noto Sans TC','Segoe UI',sans-serif}
+body{font-family:var(--sans);background:var(--bg);color:var(--tx);min-height:100vh}
+.hdr{background:var(--sf);border-bottom:1px solid var(--bd);padding:12px 20px;display:flex;align-items:center;justify-content:space-between;position:sticky;top:0;z-index:100}
+.hdr h1{font-size:16px;font-weight:800}.hdr h1 small{font-weight:400;color:var(--dm);font-size:11px;margin-left:6px}
+.sync-dot{display:inline-flex;align-items:center;gap:4px;font-size:9px;font-weight:700;padding:2px 8px;border-radius:10px}
+.sync-on{background:var(--grn-bg);color:var(--grn)}.sync-off{background:#fef9ec;color:var(--amb)}
+.dot{width:6px;height:6px;border-radius:50%;display:inline-block}.dot-on{background:var(--grn)}.dot-off{background:var(--amb);animation:pulse 1s infinite}
+@keyframes pulse{0%,100%{opacity:1}50%{opacity:.4}}
+.tabs{background:var(--sf);border-bottom:1px solid var(--bd);padding:0 20px;display:flex;gap:0;overflow-x:auto}
+.tab{padding:10px 16px;font-size:13px;font-weight:600;color:var(--dm);cursor:pointer;border:none;background:none;font-family:var(--sans);border-bottom:2px solid transparent}.tab.active{color:var(--tx);border-bottom-color:var(--grn)}.tab:hover:not(.active){color:var(--tx)}
+.badge{display:inline-block;background:var(--grn-bg);color:var(--grn);padding:1px 7px;border-radius:10px;font-size:10px;font-weight:700;margin-left:4px;font-family:var(--mono)}
+.main{max-width:1100px;margin:0 auto;padding:16px 20px}.hidden{display:none!important}
+.card{background:var(--sf);border:1px solid var(--bd);border-radius:10px;overflow:hidden;margin-bottom:14px}
+.card-h{padding:12px 16px;border-bottom:1px solid var(--bd);display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:8px}
+.card-h h3{font-size:14px;font-weight:700}.card-b{padding:16px}
+.btn{padding:6px 14px;border-radius:7px;border:1px solid var(--bd);background:var(--sf);color:var(--tx);font-family:var(--sans);font-size:12px;font-weight:600;cursor:pointer}.btn:hover{border-color:#999}
+.btn-g{background:var(--grn);color:#fff;border-color:var(--grn)}.btn-g:hover{opacity:.88}
+.btn-b{background:var(--blu);color:#fff;border-color:var(--blu)}.btn-b:hover{opacity:.88}
+textarea{width:100%;padding:12px;border:2px dashed var(--bd);border-radius:10px;font-family:var(--mono);font-size:11px;line-height:1.7;color:var(--tx);background:var(--sf2);resize:vertical;outline:none}textarea:focus{border-color:var(--grn)}
+.hint{background:#fef9ec;border:1px solid #f0e4b8;border-radius:8px;padding:10px 14px;font-size:11px;color:#8a6d0b;margin-bottom:12px;line-height:1.6}
+.result{background:var(--sf2);border:1px solid var(--bd);border-radius:8px;padding:14px;font-family:var(--mono);font-size:13px;line-height:1.9;white-space:pre-wrap;max-height:55vh;overflow-y:auto;user-select:all}
+.filter-row{display:flex;gap:6px;margin-bottom:12px;flex-wrap:wrap;align-items:center}
+.fbtn{padding:4px 12px;border-radius:16px;border:1px solid var(--bd);background:var(--sf);font-family:var(--sans);font-size:11px;font-weight:600;color:var(--dm);cursor:pointer}.fbtn.on{background:var(--grn);color:#fff;border-color:var(--grn)}
+.search{padding:5px 10px;border:1px solid var(--bd);border-radius:7px;font-size:11px;width:160px;outline:none;font-family:var(--sans)}
+table{width:100%;border-collapse:collapse;font-size:11px}
+th{padding:8px 10px;text-align:left;font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.5px;color:var(--dm);border-bottom:1px solid var(--bd);background:var(--sf2);white-space:nowrap}
+td{padding:7px 10px;border-bottom:1px solid #f0ede6}tr:hover td{background:var(--sf2)}
+.tag{display:inline-block;padding:2px 8px;border-radius:4px;font-size:10px;font-weight:700}.tag-mo{background:var(--mo-bg);color:var(--mo)}.tag-pc{background:var(--pc-bg);color:var(--pc)}
+.mono{font-family:var(--mono);font-size:11px}.trunc{max-width:180px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.act{padding:3px 7px;border:1px solid var(--bd);border-radius:4px;background:var(--sf);font-size:10px;cursor:pointer;font-family:var(--sans);color:var(--dm);font-weight:600}.act:hover{border-color:var(--blu);color:var(--blu)}
+.st-btn{padding:4px 12px;border-radius:6px;border:2px solid;font-size:11px;font-weight:700;cursor:pointer;font-family:var(--sans);min-width:70px;text-align:center}.st-btn:hover{opacity:.8}
+.st-wait{background:#fef9ec;color:var(--amb);border-color:#f0d68a}.st-ship{background:#eff4ff;color:var(--blu);border-color:#a8c4f0}.st-done{background:var(--grn-bg);color:var(--grn);border-color:#8cc4a0}.st-cancel{background:var(--pc-bg);color:var(--pc);border-color:#e8a8a4}
+.toggle-off{padding:3px 10px;border-radius:5px;border:1px solid var(--bd);background:var(--sf2);color:var(--dm);font-size:10px;font-weight:600;cursor:pointer;font-family:var(--sans)}
+.toggle-on{padding:3px 10px;border-radius:5px;border:2px solid var(--grn);background:var(--grn-bg);color:var(--grn);font-size:10px;font-weight:700;cursor:pointer;font-family:var(--sans)}
+.fee-input{width:68px;padding:3px 6px;border:2px solid var(--grn);border-radius:4px;font-size:11px;font-family:var(--mono);text-align:right;outline:none}
+.total-cell{font-family:var(--mono);font-weight:800;color:var(--grn);font-size:12px}
+.stats-g{display:grid;grid-template-columns:repeat(auto-fit,minmax(140px,1fr));gap:10px;margin-bottom:14px}
+.stat{background:var(--sf);border:1px solid var(--bd);border-radius:10px;padding:14px;border-top:3px solid var(--grn)}.stat.smo{border-top-color:var(--mo)}.stat.spc{border-top-color:var(--pc)}.stat.sall{border-top-color:#7c3aed}
+.stat-l{font-size:10px;font-weight:700;color:var(--dm);text-transform:uppercase;letter-spacing:.5px}.stat-v{font-size:22px;font-weight:900;font-family:var(--mono);margin-top:3px}.stat-s{font-size:11px;color:var(--dm);margin-top:2px}
+.overlay{position:fixed;inset:0;background:rgba(0,0,0,.3);z-index:200;display:flex;align-items:center;justify-content:center}
+.modal{background:var(--sf);border-radius:14px;width:90%;max-width:560px;max-height:85vh;overflow-y:auto;padding:20px;box-shadow:0 20px 60px rgba(0,0,0,.15)}.modal h3{font-size:15px;font-weight:700;margin-bottom:12px}
+.fg{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:8px}.fg.full{grid-template-columns:1fr}
+.fi label{display:block;font-size:10px;font-weight:700;color:var(--dm);margin-bottom:3px}.fi input,.fi select,.fi textarea{width:100%;padding:6px 10px;border:1px solid var(--bd);border-radius:6px;font-size:12px;font-family:var(--sans);outline:none}.fi textarea{resize:none;min-height:50px}
+.modal-ft{display:flex;justify-content:flex-end;gap:8px;margin-top:14px}
+.sched-row{display:flex;gap:6px;flex-wrap:wrap;align-items:center;margin-top:6px}
+.sched-btn{padding:4px 10px;border-radius:5px;border:1px solid var(--bd);background:var(--sf);font-size:11px;font-weight:600;cursor:pointer;font-family:var(--sans);color:var(--dm)}.sched-btn.picked{background:var(--blu);color:#fff;border-color:var(--blu)}.sched-btn.weekend{border-color:var(--pc)}
+.total-box{background:#eef7f1;border:2px solid #8cc4a0;border-radius:8px;padding:10px 14px;text-align:center;margin-top:10px}.total-box .t-label{font-size:10px;color:var(--dm);font-weight:700}.total-box .t-val{font-size:24px;font-weight:900;font-family:var(--mono);color:var(--grn)}
+@media(max-width:768px){.main{padding:12px}.stats-g{grid-template-columns:1fr 1fr}.fg{grid-template-columns:1fr}}
+</style>
+</head>
+<body>
+<div class="hdr"><h1>📦 訂單管理系統<small>MOMO + PChome</small></h1><div style="display:flex;align-items:center;gap:8px"><span id="sync-badge" class="sync-dot sync-off"><span class="dot dot-off"></span>連線中...</span><button class="btn" onclick="location.reload()" style="font-size:11px">🔄</button><button class="btn" onclick="if(confirm('確定清空？')){orders=[];saveAll()}" style="font-size:11px">清空</button></div></div>
+<div class="tabs"><button class="tab active" onclick="showTab('import')">📋 匯入</button><button class="tab" onclick="showTab('list')">📦 列表 <span class="badge" id="cnt">0</span></button><button class="tab" onclick="showTab('output')">📤 輸出</button><button class="tab" onclick="showTab('stats')">📊 統計</button></div>
+
+<div class="main" id="tab-import"><div class="card"><div class="card-h"><h3>貼上後台資料（自動辨識 MO / PC）</h3><div style="display:flex;gap:6px"><button class="btn" onclick="clearInput()">清空</button><button class="btn btn-b" onclick="runParse()">預覽</button><button class="btn btn-g" onclick="doImport()">匯入雲端</button></div></div><div class="card-b"><div class="hint"><b>MOMO：</b>SCM 後台 → Ctrl+A → Ctrl+C → 貼下方<br><b>PChome：</b>供應商後台 → Ctrl+A → Ctrl+C → 貼下方</div><textarea id="raw-input" rows="7" placeholder="把 MOMO 或 PChome 後台訂單資料貼在這裡..."></textarea></div></div><div id="preview-area"></div></div>
+
+<div class="main hidden" id="tab-list"><div class="filter-row"><button class="fbtn on" onclick="setF('all',this)">全部</button><button class="fbtn" onclick="setF('MO',this)">MOMO</button><button class="fbtn" onclick="setF('PC',this)">PChome</button><span style="color:var(--ht)">｜</span><button class="fbtn on" onclick="setSF('all',this)">全狀態</button><button class="fbtn" onclick="setSF('待出貨',this)">待出貨</button><button class="fbtn" onclick="setSF('已出貨',this)">已出貨</button><button class="fbtn" onclick="setSF('已完成',this)">已完成</button><span style="flex:1"></span><input class="search" id="q" placeholder="搜尋..." oninput="renderList()"></div><div id="list-area"></div></div>
+
+<div class="main hidden" id="tab-output"><div class="card"><div class="card-h"><h3>整理格式（MO 含電話 / PC 不含電話）</h3><button class="btn btn-g" onclick="copyOutput()">📋 複製全部</button></div><div class="card-b"><div class="result" id="output-area">尚無訂單</div></div></div></div>
+<div class="main hidden" id="tab-stats"><div id="stats-area"></div></div>
+<div class="overlay hidden" id="modal-overlay" onclick="if(event.target===this)closeModal()"><div class="modal" id="modal-body"></div></div>
+
+<script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-database-compat.js"></script>
+<script>
+// ===== FIREBASE CONFIG (你的專案設定) =====
+firebase.initializeApp({
+  apiKey:"AIzaSyBFIekk-vqXwYlnwBSRqJ6LtIq1vgInOaI",
+  authDomain:"order-system-dddca.firebaseapp.com",
+  databaseURL:"https://order-system-dddca-default-rtdb.firebaseio.com",
+  projectId:"order-system-dddca"
+});
+const db=firebase.database();
+let orders=[],cFilter='all',cStatus='all',editIdx=-1;
+const ST=['待出貨','已出貨','已完成','已取消'],DAYS=['週一','週二','週三','週四','週五','週六','週日'],TIMES=['早上','下午','晚上'];
+
+// Realtime listener
+db.ref('orders').on('value',snap=>{orders=snap.val()?Object.values(snap.val()):[];updateCnt();
+const at=document.querySelector('.tab.active')?.textContent||'';
+if(at.includes('列表'))renderList();if(at.includes('輸出'))renderOutput();if(at.includes('統計'))renderStats();
+document.getElementById('sync-badge').className='sync-dot sync-on';document.getElementById('sync-badge').innerHTML='<span class="dot dot-on"></span>雲端同步'});
+
+function saveAll(){document.getElementById('sync-badge').className='sync-dot sync-off';document.getElementById('sync-badge').innerHTML='<span class="dot dot-off"></span>儲存中...';const d={};orders.forEach(o=>{d[o.id]=o});db.ref('orders').set(d)}
+
+// ===== PARSERS =====
+function detect(r){if(r.includes('公克')||r.includes('一般訂單(約配)')||/\d+\(•\)/.test(r))return'MO';if(r.includes('看電話')||r.includes('廠商料號')||r.includes('DEBJ'))return'PC';return'AUTO'}
+function parseAll(r){if(!r?.trim())return[];const p=detect(r);if(p==='PC')return parsePC(r);if(p==='MO')return parseMO(r);const pc=parsePC(r),mo=parseMO(r);return pc.length>=mo.length?pc:mo}
+function parsePC(raw){const lines=raw.split('\n'),res=[],ol=[];for(let i=0;i<lines.length;i++){const m=lines[i].trim().match(/^(2026\d{7,10}-\d{2})$/);if(m)ol.push({line:i,id:m[1]})}if(!ol.length){const re=/(2026\d{7,10}-\d{2})/g;let m;while((m=re.exec(raw))!==null)ol.push({id:m[1],pos:m.index})}
+for(const op of ol){const id=op.id;let bk='';if(op.line!==undefined)bk=lines.slice(Math.max(0,op.line-15),Math.min(lines.length,op.line+30)).join('\t');else bk=raw.substring(Math.max(0,op.pos-500),Math.min(raw.length,op.pos+1500));const c=bk.replace(/\n/g,'\t').replace(/\t{2,}/g,'\t').split('\t').map(x=>x.trim()).filter(Boolean);
+let date='';for(const x of c){if(/^\d{2}\/\d{2}$/.test(x)&&x.startsWith('0')){const[mm,dd]=x.split('/');date=parseInt(mm)+'/'+parseInt(dd);break}}
+let prod='';for(const x of c){if(x.length>6&&!x.includes('出貨')&&!x.includes('商品名')&&!x.includes('勾選')&&(x.includes('鋼琴')||x.includes('電子琴')||x.includes('音箱')||x.includes('吉他')||x.includes('背帶')||x.includes('混音')||x.includes('鼓')||x.includes('琴')||x.includes('配套')||x.includes('掛勾')||x.includes('ROLAND')||x.includes('Yamaha')||x.includes('YAMAHA')||x.includes('NUX')||x.includes('Ibanez')||x.includes('aNu'))){prod=x;break}}
+if(!prod){for(const x of c){if(/^[A-Z0-9]{3,}/.test(x)&&x.length>4&&x.length<60&&(x.includes('琴')||x.includes('組')||x.includes('背帶')||x.includes('調音')||x.includes('音箱')||x.includes('混音'))){prod=x;break}}}
+let specs='';for(const x of c){if(/^(黑色|白色|紅色|藍色|原木色|桃紅|黑色保養組|白色保養組)/.test(x)&&x.length<20){specs=x;break}}
+let name='';for(let i=0;i<c.length;i++){if(c[i]==='看電話'&&i>0&&/^[\u4e00-\u9fff]{2,5}$/.test(c[i-1])){name=c[i-1];break}}if(!name){for(const x of c){const nm=x.match(/\((.{2,5})寄\)/);if(nm){name=nm[1];break}}}
+let addr='';for(const x of c){if(/^[\u4e00-\u9fff]{2,3}(市|縣)/.test(x)&&x.length>8){addr=x.replace(/\s*\(.+寄\)\s*$/,'').trim();break}}
+let amt=0;const ii=c.indexOf(id);if(ii>=0){for(let j=ii+1;j<Math.min(ii+5,c.length);j++){const n=parseInt(c[j]);if(n>100&&/^\d+$/.test(c[j])){amt=n;break}}}
+if(id&&(name||prod)){let iso=new Date().toISOString().slice(0,10);if(date){const[mm,dd]=date.split('/');iso=`2026-${String(mm).padStart(2,'0')}-${String(dd).padStart(2,'0')}`}
+res.push({id:gid(),date:iso,dateFmt:date,platform:'PC',orderNo:id,product:prod,specs,name,phone:'',address:addr,install:'否',installFee:0,installDay:'',installTime:'',addon:'否',addonFee:0,amount:amt,status:'待出貨',note:''})}}return res}
+
+function parseMO(raw){const hs=/\d+\(•\)/.test(raw);if(hs){const b=raw.split(/\d+\(•\)/).filter(x=>x.trim().length>30);const r=b.map(parseMOB).filter(Boolean);if(r.length)return r}const re=/(\d{14,}-\d{3}-\d{3}-\d{3})/g,sn=new Set(),h=[];let m;while((m=re.exec(raw))!==null){if(!sn.has(m[1])){sn.add(m[1]);h.push({id:m[1],pos:m.index})}}if(h.length){const r=[];for(let i=0;i<h.length;i++){const o=parseMOB(raw.substring(h[i].pos,i+1<h.length?h[i+1].pos:raw.length));if(o)r.push(o)}if(r.length)return r}const s=parseMOB(raw);return s?[s]:[]}
+function parseMOB(bk){let t=bk.replace(/請回覆/g,' ').replace(/請選取[^\n]*/g,' ').replace(/已配送|已確認[^\n]*|已確定[^\n]*|已電聯[^\n]*|多次電聯[^\n]*|暫時電聯[^\n]*/g,' ').replace(/需配送[^\n]*|無貨取消[^\n]*|收件資料[^\n]*|無適當[^\n]*/g,' ').replace(/宅配通|新竹貨運|統一速達|大榮貨運|順豐速運|全球快遞|通盈貨運|新航貨運|郵局|便利袋|富昇物流|其他宅配|宅配-宅配通大電/g,' ').replace(/原箱|momo制式包材-紙箱\(袋\)|momo制式包材-破壞袋|自有包材|循環箱/g,' ').replace(/其他/g,' ').replace(/\n/g,' ').replace(/\s{2,}/g,' ').trim();
+const im=t.match(/(\d{14,}-\d{3}-\d{3}-\d{3})/);if(!im)return null;const no=im[1];const dm=t.match(/(\d{4})\/(\d{2})\/(\d{2})\s+\d{2}:\d{2}/);const dt=dm?`${dm[1]}-${dm[2]}-${dm[3]}`:new Date().toISOString().slice(0,10);const df=dm?`${parseInt(dm[2])}/${parseInt(dm[3])}`:'';
+let pr='';const pm=t.match(/(【[^】]+】[^)）]*[)）]\)?)/);if(pm)pr=pm[1].trim();
+let ac='';if(pr){const ap=t.substring(t.indexOf(pr)+pr.length);const vm=ap.match(/^\s*(\d{3})\s*(黑|白|紅|藍|無|BKN|BS|煙燻黑|[^\d\s]{1,6}?)(?=\s*\d)/);if(vm&&vm[2]&&vm[2]!=='無'){const cm={'黑':'黑色','白':'白色','紅':'紅色','藍':'藍色'};ac=cm[vm[2]]||vm[2]}}
+if(pr&&ac){if(pr.includes('黑色/白色')||pr.includes('白色/黑色'))pr=pr.replace(/黑色\/白色|白色\/黑色/,ac);else if(pr.includes('/'))pr=pr.replace(/[^\s(/]+\/[^\s()）]+/,ac)}
+const nm=t.match(/([\u4e00-\u9fa5]{2,5})(?=\s*09\d{8})/);const name=nm?nm[1]:'';const ph=t.match(/(09\d{8}#\d+)/);const phone=ph?ph[1]:'';
+let addr='';if(phone){const ap=t.substring(t.indexOf(phone)+phone.length).trim();const am=ap.match(/^(\d{3}\s*[\u4e00-\u9fa5][^【]*?)(?:\s*\d{7,}\s*【|\s*\d{7,}|【)/);if(am)addr=am[1].replace(/\s+/g,' ').trim();else{const fb=ap.match(/^(\d{3}\s*[^【]+?)【/);if(fb)addr=fb[1].replace(/\s+/g,' ').replace(/\s*\d{7,}\s*$/,'').trim()}}
+if(!no||(!name&&!pr))return null;return{id:gid(),date:dt,dateFmt:df,platform:'MO',orderNo:no,product:pr,specs:'',name,phone,address:addr,install:'否',installFee:0,installDay:'',installTime:'',addon:'否',addonFee:0,amount:0,status:'待出貨',note:''}}
+
+// ===== HELPERS =====
+function gid(){return Date.now().toString(36)+Math.random().toString(36).slice(2,6)}
+function fmtS(o){const d=o.dateFmt||fmtD(o.date);if(o.platform==='PC')return[d+' PC',o.orderNo,o.product,o.specs,o.name,o.address].filter(Boolean).join('\n');return[d+' MO',o.orderNo,o.product,o.name,o.phone,o.address].filter(Boolean).join('\n')}
+function fmtD(d){if(!d)return'';const p=d.split('-');return parseInt(p[1])+'/'+parseInt(p[2])}
+function tot(o){return(o.amount||0)+(o.installFee||0)+(o.addonFee||0)}
+function $(n){return n?'$'+n.toLocaleString():'—'}
+function esc(s){return(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;')}
+function cn(v){return(v+'').replace(/^0+(?=\d)/,'')}
+function updateCnt(){document.getElementById('cnt').textContent=orders.length}
+function clearInput(){document.getElementById('raw-input').value='';document.getElementById('preview-area').innerHTML=''}
+
+// ===== TABS =====
+function showTab(t){['import','list','output','stats'].forEach(id=>document.getElementById('tab-'+id).classList.toggle('hidden',id!==t));document.querySelectorAll('.tabs .tab').forEach((b,i)=>b.classList.toggle('active',['import','list','output','stats'][i]===t));if(t==='list')renderList();if(t==='output')renderOutput();if(t==='stats')renderStats()}
+function setF(f,b){cFilter=f;document.querySelectorAll('.filter-row .fbtn').forEach((x,i)=>{if(i<3)x.classList.toggle('on',false)});b.classList.add('on');renderList()}
+function setSF(f,b){cStatus=f;document.querySelectorAll('.filter-row .fbtn').forEach((x,i)=>{if(i>=4&&i<8)x.classList.toggle('on',false)});b.classList.add('on');renderList()}
+
+// ===== IMPORT =====
+function runParse(){const r=document.getElementById('raw-input').value;if(!r.trim())return;const p=parseAll(r);if(!p.length){document.getElementById('preview-area').innerHTML='<div class="card"><div class="card-b" style="color:var(--pc)">⚠ 無法辨識</div></div>';return}const txt=p.map(fmtS).join('\n---\n');const pl=p[0]?.platform||'';document.getElementById('preview-area').innerHTML=`<div class="card"><div class="card-h"><div style="display:flex;align-items:center;gap:8px"><h3>預覽</h3><span class="badge">${p.length} 筆</span><span class="tag ${pl==='MO'?'tag-mo':'tag-pc'}">${pl}</span></div><button class="btn btn-g" onclick="navigator.clipboard.writeText(document.getElementById('pv').textContent);alert('已複製！')">複製</button></div><div class="card-b"><div class="result" id="pv">${esc(txt)}</div></div></div>`}
+function doImport(){const r=document.getElementById('raw-input').value;const p=parseAll(r);if(!p.length)return;const ex=new Set(orders.map(o=>o.orderNo));const nw=p.filter(o=>!ex.has(o.orderNo));if(!nw.length){alert('訂單已存在');return}orders.push(...nw);saveAll();alert('匯入 '+nw.length+' 筆！已同步雲端');clearInput()}
+
+// ===== LIST =====
+function toggleStatus(i){orders[i].status=ST[(ST.indexOf(orders[i].status)+1)%ST.length];saveAll();renderList()}
+function stCls(s){return s==='待出貨'?'st-btn st-wait':s==='已出貨'?'st-btn st-ship':s==='已完成'?'st-btn st-done':'st-btn st-cancel'}
+function toggleInstall(i){orders[i].install=orders[i].install==='是'?'否':'是';if(orders[i].install==='否'){orders[i].installFee=0;orders[i].installDay='';orders[i].installTime=''}saveAll();renderList()}
+function toggleAddon(i){orders[i].addon=orders[i].addon==='是'?'否':'是';if(orders[i].addon==='否')orders[i].addonFee=0;saveAll();renderList()}
+function setInstFee(i,v){orders[i].installFee=parseInt(v)||0;saveAll();document.getElementById('tot-'+i).textContent=$(tot(orders[i]))}
+function setAddonFee(i,v){orders[i].addonFee=parseInt(v)||0;saveAll();document.getElementById('tot-'+i).textContent=$(tot(orders[i]))}
+
+function renderList(){const q=(document.getElementById('q')?.value||'').toLowerCase();const fl=orders.filter(o=>{if(cFilter!=='all'&&o.platform!==cFilter)return false;if(cStatus!=='all'&&o.status!==cStatus)return false;if(q){const h=[o.orderNo,o.product,o.name,o.phone,o.address,o.note,o.specs].join(' ').toLowerCase();if(!h.includes(q))return false}return true});
+if(!fl.length){document.getElementById('list-area').innerHTML='<div class="card"><div class="card-b" style="text-align:center;padding:30px;color:var(--dm)">📦 尚無訂單</div></div>';return}
+let h=`<div class="card"><div class="card-h"><h3>${fl.length} 筆</h3><span style="font-size:11px;color:var(--dm);font-family:var(--mono)">合計 ${$(fl.reduce((s,o)=>s+tot(o),0))}</span></div><div style="overflow-x:auto"><table><thead><tr><th>日期</th><th>平台</th><th>品名</th><th>姓名</th><th>安裝</th><th>加購</th><th>合計</th><th>狀態</th><th>操作</th></tr></thead><tbody>`;
+fl.forEach(o=>{const oi=orders.indexOf(o);
+const ib=o.install==='是'?`<div style="display:flex;align-items:center;gap:4px"><button class="toggle-on" onclick="toggleInstall(${oi})">安裝</button><input type="text" inputmode="numeric" value="${o.installFee||''}" placeholder="金額" oninput="this.value=cn(this.value);setInstFee(${oi},this.value)" class="fee-input"></div>${o.installDay?'<div style="font-size:9px;color:var(--dm);margin-top:2px">'+o.installDay+' '+(o.installTime||'')+'</div>':''}`:`<button class="toggle-off" onclick="toggleInstall(${oi})">不安裝</button>`;
+const ab=o.addon==='是'?`<div style="display:flex;align-items:center;gap:4px"><button class="toggle-on" onclick="toggleAddon(${oi})">加購</button><input type="text" inputmode="numeric" value="${o.addonFee||''}" placeholder="金額" oninput="this.value=cn(this.value);setAddonFee(${oi},this.value)" class="fee-input"></div>`:`<button class="toggle-off" onclick="toggleAddon(${oi})">無加購</button>`;
+h+=`<tr><td class="mono">${fmtD(o.date)}</td><td><span class="tag ${o.platform==='MO'?'tag-mo':'tag-pc'}">${o.platform}</span></td><td class="trunc" title="${esc(o.product)}">${esc(o.product)}</td><td>${esc(o.name)}</td><td>${ib}</td><td>${ab}</td><td class="total-cell" id="tot-${oi}">${$(tot(o))}</td><td><button class="${stCls(o.status)}" onclick="toggleStatus(${oi})">${o.status}</button></td><td style="white-space:nowrap"><button class="act" onclick="openEdit(${oi})">編輯</button> <button class="act" onclick="delOrder(${oi})">刪</button></td></tr>`});
+h+='</tbody></table></div></div>';document.getElementById('list-area').innerHTML=h}
+function delOrder(i){if(!confirm('確定刪除？'))return;orders.splice(i,1);saveAll();renderList()}
+
+function renderOutput(){if(!orders.length){document.getElementById('output-area').textContent='尚無訂單';return}document.getElementById('output-area').textContent=orders.map(fmtS).join('\n---\n')}
+function copyOutput(){navigator.clipboard.writeText(document.getElementById('output-area').textContent);alert('已複製！')}
+function renderStats(){const mo=orders.filter(o=>o.platform==='MO'),pc=orders.filter(o=>o.platform==='PC');document.getElementById('stats-area').innerHTML=`<div class="stats-g"><div class="stat sall"><div class="stat-l">總訂單</div><div class="stat-v">${orders.length}</div><div class="stat-s">MO ${mo.length} / PC ${pc.length}</div></div><div class="stat smo"><div class="stat-l">MOMO</div><div class="stat-v">${mo.length}</div></div><div class="stat spc"><div class="stat-l">PChome</div><div class="stat-v">${pc.length}</div></div><div class="stat"><div class="stat-l">待出貨</div><div class="stat-v" style="color:var(--amb)">${orders.filter(o=>o.status==='待出貨').length}</div></div><div class="stat"><div class="stat-l">安裝費</div><div class="stat-v" style="color:var(--blu)">$${orders.reduce((s,o)=>s+(o.installFee||0),0).toLocaleString()}</div></div><div class="stat"><div class="stat-l">總金額</div><div class="stat-v" style="color:var(--grn)">$${orders.reduce((s,o)=>s+tot(o),0).toLocaleString()}</div></div></div>`}
+
+// ===== EDIT MODAL =====
+function openEdit(i){editIdx=i;const o=orders[i];
+document.getElementById('modal-body').innerHTML=`<h3>編輯訂單</h3>
+<div class="fg"><div class="fi"><label>日期</label><input type="date" id="e-date" value="${o.date}"></div><div class="fi"><label>平台</label><select id="e-plat"><option ${o.platform==='MO'?'selected':''}>MO</option><option ${o.platform==='PC'?'selected':''}>PC</option></select></div></div>
+<div class="fg full"><div class="fi"><label>單號</label><input id="e-no" value="${esc(o.orderNo)}" style="font-family:var(--mono)"></div></div>
+<div class="fg full"><div class="fi"><label>品名</label><input id="e-prod" value="${esc(o.product)}"></div></div>
+<div class="fg full"><div class="fi"><label>規格</label><input id="e-specs" value="${esc(o.specs||'')}"></div></div>
+<div class="fg"><div class="fi"><label>姓名</label><input id="e-name" value="${esc(o.name)}"></div><div class="fi"><label>電話</label><input id="e-phone" value="${o.phone}"></div></div>
+<div class="fg full"><div class="fi"><label>地址</label><input id="e-addr" value="${esc(o.address)}"></div></div>
+<div class="fg full"><div class="fi"><label>商品金額</label><input type="text" inputmode="numeric" id="e-amt" value="${o.amount||''}" oninput="this.value=cn(this.value);calcT()"></div></div>
+<div style="border:1px solid var(--bd);border-radius:8px;padding:12px;margin:8px 0;background:var(--sf2)"><div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px"><span style="font-size:12px;font-weight:700">🔧 安裝服務</span><button class="${o.install==='是'?'toggle-on':'toggle-off'}" onclick="togEI()" id="ei-btn">${o.install==='是'?'✓ 需要安裝':'不需要安裝'}</button></div>
+<div id="ei-panel" class="${o.install==='否'?'hidden':''}"><div class="fi" style="margin-bottom:8px"><label>安裝費用</label><input type="text" inputmode="numeric" id="e-instf" value="${o.installFee||''}" oninput="this.value=cn(this.value);calcT()"></div>
+<div style="margin-bottom:6px"><span style="font-size:10px;font-weight:700;color:var(--dm)">📅 日期</span><div class="sched-row">${DAYS.map(d=>`<button class="sched-btn${['週六','週日'].includes(d)?' weekend':''}${o.installDay===d?' picked':''}" onclick="pickD('${d}',this)">${d}</button>`).join('')}</div></div>
+<div><span style="font-size:10px;font-weight:700;color:var(--dm)">🕐 時段</span><div class="sched-row">${TIMES.map(t=>`<button class="sched-btn${o.installTime===t?' picked':''}" onclick="pickT('${t}',this)">${t}</button>`).join('')}</div></div></div></div>
+<div style="border:1px solid var(--bd);border-radius:8px;padding:12px;margin:8px 0;background:var(--sf2)"><div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px"><span style="font-size:12px;font-weight:700">🛒 加購</span><button class="${o.addon==='是'?'toggle-on':'toggle-off'}" onclick="togEA()" id="ea-btn">${o.addon==='是'?'✓ 有加購':'無加購'}</button></div>
+<div id="ea-panel" class="${o.addon==='否'?'hidden':''}"><div class="fi"><label>加購金額</label><input type="text" inputmode="numeric" id="e-addonf" value="${o.addonFee||''}" oninput="this.value=cn(this.value);calcT()"></div></div></div>
+<div class="total-box"><div class="t-label">合計金額</div><div class="t-val" id="e-tot">$${tot(o).toLocaleString()}</div></div>
+<div class="fg" style="margin-top:10px"><div class="fi"><label>狀態</label><select id="e-st">${ST.map(s=>`<option ${o.status===s?'selected':''}>${s}</option>`).join('')}</select></div></div>
+<div class="fg full"><div class="fi"><label>備註</label><textarea id="e-note">${esc(o.note)}</textarea></div></div>
+<div class="modal-ft"><button class="btn" onclick="closeModal()">取消</button><button class="btn btn-g" onclick="saveEdit()">儲存</button></div>`;
+document.getElementById('modal-overlay').classList.remove('hidden')}
+
+function togEI(){const p=document.getElementById('ei-panel'),b=document.getElementById('ei-btn');if(p.classList.contains('hidden')){p.classList.remove('hidden');b.className='toggle-on';b.textContent='✓ 需要安裝'}else{p.classList.add('hidden');b.className='toggle-off';b.textContent='不需要安裝';document.getElementById('e-instf').value='';calcT()}}
+function togEA(){const p=document.getElementById('ea-panel'),b=document.getElementById('ea-btn');if(p.classList.contains('hidden')){p.classList.remove('hidden');b.className='toggle-on';b.textContent='✓ 有加購'}else{p.classList.add('hidden');b.className='toggle-off';b.textContent='無加購';document.getElementById('e-addonf').value='';calcT()}}
+function pickD(d,btn){document.querySelectorAll('#ei-panel .sched-btn').forEach(b=>{if(!TIMES.includes(b.textContent))b.classList.remove('picked')});btn.classList.add('picked')}
+function pickT(t,btn){document.querySelectorAll('#ei-panel .sched-btn').forEach(b=>{if(TIMES.includes(b.textContent))b.classList.remove('picked')});btn.classList.add('picked')}
+function calcT(){const a=parseInt(document.getElementById('e-amt').value)||0;const i=parseInt(document.getElementById('e-instf').value)||0;const d=parseInt(document.getElementById('e-addonf').value)||0;document.getElementById('e-tot').textContent='$'+(a+i+d).toLocaleString()}
+function saveEdit(){const o=orders[editIdx];o.date=document.getElementById('e-date').value;o.platform=document.getElementById('e-plat').value;o.orderNo=document.getElementById('e-no').value.trim();o.product=document.getElementById('e-prod').value.trim();o.specs=document.getElementById('e-specs').value.trim();o.name=document.getElementById('e-name').value.trim();o.phone=document.getElementById('e-phone').value.trim();o.address=document.getElementById('e-addr').value.trim();o.amount=parseInt(document.getElementById('e-amt').value)||0;
+o.install=document.getElementById('ei-panel').classList.contains('hidden')?'否':'是';o.installFee=parseInt(document.getElementById('e-instf').value)||0;o.installDay='';o.installTime='';
+document.querySelectorAll('#ei-panel .sched-btn.picked').forEach(b=>{const v=b.textContent;if(DAYS.includes(v))o.installDay=v;if(TIMES.includes(v))o.installTime=v});
+o.addon=document.getElementById('ea-panel').classList.contains('hidden')?'否':'是';o.addonFee=parseInt(document.getElementById('e-addonf').value)||0;o.status=document.getElementById('e-st').value;
+let note=document.getElementById('e-note').value.trim().replace(/【安裝】[^\n]*/g,'').trim();
+if(o.install==='是'&&(o.installDay||o.installTime)){note='【安裝】'+o.installDay+(o.installTime?' '+o.installTime:'')+(o.installFee?' $'+o.installFee:'')+(note?'\n'+note:'')}
+o.note=note;saveAll();closeModal();renderList()}
+function closeModal(){document.getElementById('modal-overlay').classList.add('hidden');editIdx=-1}
+document.getElementById('raw-input')?.addEventListener('paste',()=>setTimeout(runParse,200));
+</script>
+</body>
+</html>
