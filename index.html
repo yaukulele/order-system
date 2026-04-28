@@ -60,7 +60,8 @@ td{padding:7px 10px;border-bottom:1px solid #f0ede6}tr:hover td{background:var(-
 <div class="hdr"><h1>📦 訂單管理系統<small>MOMO + PChome</small></h1><div style="display:flex;align-items:center;gap:8px"><span id="sync-badge" class="sync-dot sync-off"><span class="dot dot-off"></span>連線中...</span><button class="btn" onclick="location.reload()" style="font-size:11px">🔄</button><button class="btn" onclick="if(confirm('確定清空？')){orders=[];saveAll()}" style="font-size:11px">清空</button></div></div>
 <div class="tabs"><button class="tab active" onclick="showTab('import')">📋 匯入</button><button class="tab" onclick="showTab('list')">📦 列表 <span class="badge" id="cnt">0</span></button><button class="tab" onclick="showTab('output')">📤 輸出</button><button class="tab" onclick="showTab('stats')">📊 統計</button></div>
 
-<div class="main" id="tab-import"><div class="card"><div class="card-h"><h3>貼上後台資料（自動辨識 MO / PC）</h3><div style="display:flex;gap:6px"><button class="btn" onclick="clearInput()">清空</button><button class="btn btn-b" onclick="runParse()">預覽</button><button class="btn btn-g" onclick="doImport()">匯入雲端</button></div></div><div class="card-b"><div class="hint"><b>MOMO：</b>SCM 後台 → Ctrl+A → Ctrl+C → 貼下方<br><b>PChome：</b>供應商後台 → Ctrl+A → Ctrl+C → 貼下方</div><textarea id="raw-input" rows="7" placeholder="把 MOMO 或 PChome 後台訂單資料貼在這裡..."></textarea></div></div><div id="preview-area"></div></div>
+<div class="main" id="tab-import"><div class="card" style="background:linear-gradient(135deg,#fef0f5,#fff);border:1px solid #f0c4d8"><div class="card-h" style="background:transparent"><h3>🚀 自動抓取 MOMO 訂單（API 直連，無需貼上）</h3><div style="display:flex;gap:6px"><button class="btn" onclick="resetMomoApi()" title="重設 API 網址 / Token">⚙️</button><button class="btn btn-g" id="momo-auto-btn" onclick="fetchMomoAuto()" style="background:var(--mo);border-color:var(--mo)">🔄 自動抓 MOMO 未出貨訂單</button></div></div><div class="card-b" style="padding:10px 16px"><div id="momo-auto-status" style="font-size:11px;color:var(--dm);font-family:var(--mono)">第一次按會問你 API 網址跟 Token，之後直接點按鈕就抓</div></div></div>
+<div class="card"><div class="card-h"><h3>貼上後台資料（自動辨識 MO / PC）</h3><div style="display:flex;gap:6px"><button class="btn" onclick="clearInput()">清空</button><button class="btn btn-b" onclick="runParse()">預覽</button><button class="btn btn-g" onclick="doImport()">匯入雲端</button></div></div><div class="card-b"><div class="hint"><b>MOMO：</b>SCM 後台 → Ctrl+A → Ctrl+C → 貼下方<br><b>PChome：</b>供應商後台 → Ctrl+A → Ctrl+C → 貼下方</div><textarea id="raw-input" rows="7" placeholder="把 MOMO 或 PChome 後台訂單資料貼在這裡..."></textarea></div></div><div id="preview-area"></div></div>
 
 <div class="main hidden" id="tab-list"><div class="filter-row"><button class="fbtn on" onclick="setF('all',this)">全部</button><button class="fbtn" onclick="setF('MO',this)">MOMO</button><button class="fbtn" onclick="setF('PC',this)">PChome</button><span style="color:var(--ht)">｜</span><button class="fbtn on" onclick="setSF('all',this)">全狀態</button><button class="fbtn" onclick="setSF('待出貨',this)">待出貨</button><button class="fbtn" onclick="setSF('已出貨',this)">已出貨</button><button class="fbtn" onclick="setSF('已完成',this)">已完成</button><span style="flex:1"></span><input class="search" id="q" placeholder="搜尋..." oninput="renderList()"></div><div id="list-area"></div></div>
 
@@ -134,6 +135,47 @@ function setSF(f,b){cStatus=f;document.querySelectorAll('.filter-row .fbtn').for
 // ===== IMPORT =====
 function runParse(){const r=document.getElementById('raw-input').value;if(!r.trim())return;const p=parseAll(r);if(!p.length){document.getElementById('preview-area').innerHTML='<div class="card"><div class="card-b" style="color:var(--pc)">⚠ 無法辨識</div></div>';return}const txt=p.map(fmtS).join('\n---\n');const pl=p[0]?.platform||'';document.getElementById('preview-area').innerHTML=`<div class="card"><div class="card-h"><div style="display:flex;align-items:center;gap:8px"><h3>預覽</h3><span class="badge">${p.length} 筆</span><span class="tag ${pl==='MO'?'tag-mo':'tag-pc'}">${pl}</span></div><button class="btn btn-g" onclick="navigator.clipboard.writeText(document.getElementById('pv').textContent);alert('已複製！')">複製</button></div><div class="card-b"><div class="result" id="pv">${esc(txt)}</div></div></div>`}
 function doImport(){const r=document.getElementById('raw-input').value;const p=parseAll(r);if(!p.length)return;const ex=new Set(orders.map(o=>o.orderNo));const nw=p.filter(o=>!ex.has(o.orderNo));if(!nw.length){alert('訂單已存在');return}orders.push(...nw);saveAll();alert('匯入 '+nw.length+' 筆！已同步雲端');clearInput()}
+
+// ===== AUTO-FETCH MOMO via momo-integration API =====
+const MOMO_API_KEY='momo_api_url',MOMO_TK_KEY='momo_api_token';
+function getMomoApi(){let u=localStorage.getItem(MOMO_API_KEY);if(!u){u=prompt('momo-integration API 網址（不含結尾斜線）','https://momo-integration-production.up.railway.app');if(!u)return null;u=u.trim().replace(/\/+$/,'');localStorage.setItem(MOMO_API_KEY,u)}return u}
+function getMomoToken(){let t=localStorage.getItem(MOMO_TK_KEY);if(!t){t=prompt('API Token（在 Railway Variables 設的 API_TOKEN 值）');if(!t)return null;localStorage.setItem(MOMO_TK_KEY,t.trim())}return t}
+function resetMomoApi(){const u=prompt('改 API 網址（留空保留 / 輸入 X 清除全部設定）：',localStorage.getItem(MOMO_API_KEY)||'');if(u===null)return;if(u.toUpperCase()==='X'){localStorage.removeItem(MOMO_API_KEY);localStorage.removeItem(MOMO_TK_KEY);alert('已清除 API 網址 + Token');return}if(u.trim())localStorage.setItem(MOMO_API_KEY,u.trim().replace(/\/+$/,''));const t=prompt('改 Token（留空保留）：',localStorage.getItem(MOMO_TK_KEY)||'');if(t&&t.trim())localStorage.setItem(MOMO_TK_KEY,t.trim());alert('已更新')}
+
+function transformMomoOrder(o){let date=new Date().toISOString().slice(0,10),dateFmt='';const dm=(o.lastPricDate||'').match(/(\d{4})\/(\d{1,2})\/(\d{1,2})/);if(dm){date=`${dm[1]}-${String(dm[2]).padStart(2,'0')}-${String(dm[3]).padStart(2,'0')}`;dateFmt=`${parseInt(dm[2])}/${parseInt(dm[3])}`}
+return{id:gid(),date,dateFmt,platform:'MO',orderNo:o.completeOrderNo||'',product:o.goodsName||'',specs:o.goodsDtInfo||'',name:o.receiver||'',phone:o.receiverMobile||o.receiverTel||'',address:o.newReceiverAddr||o.receiverAddr||'',install:'否',installFee:0,installDay:'',installTime:'',addon:'否',addonFee:0,amount:parseInt(o.salePrice)||parseInt(o.buyPrice)||0,qty:parseInt(o.syslast)||1,status:'待出貨',note:o.newReceiverAddr?'⚠ 客戶申請改地址':''}}
+
+async function fetchMomoAuto(){
+  const api=getMomoApi();if(!api)return;
+  const token=getMomoToken();if(!token)return;
+  const daysStr=prompt('要抓最近幾天的訂單？','30');if(daysStr===null)return;
+  const days=parseInt(daysStr,10)||30;
+  const btn=document.getElementById('momo-auto-btn'),st=document.getElementById('momo-auto-status');
+  const oldText=btn.textContent;btn.disabled=true;btn.textContent='⏳ 抓取中...';st.textContent='📡 從 MOMO API 抓取資料中（最久 30 秒）...';st.style.color='var(--blu)';
+  try{
+    const r=await fetch(`${api}/api/orders/momo/unsent?days=${days}`,{headers:{'X-API-Token':token}});
+    const data=await r.json();
+    if(!r.ok||!data.ok){
+      const msg=data.error||`HTTP ${r.status}`;
+      st.textContent=`❌ 抓取失敗：${msg}`;st.style.color='var(--pc)';
+      if(r.status===401){alert(`❌ Token 錯誤\n\n${msg}\n\n按 ⚙️ 重設 Token`);}else{alert(`❌ 抓取失敗\n\n${msg}`);}
+      return;
+    }
+    const fetched=Array.isArray(data.orders)?data.orders:[];
+    if(!fetched.length){st.textContent=`📭 區間 ${data.window?.from} ~ ${data.window?.to} 沒有未出貨訂單`;st.style.color='var(--dm)';alert('區間內沒有未出貨訂單');return}
+    const ex=new Set(orders.map(o=>o.orderNo));
+    const transformed=fetched.map(transformMomoOrder);
+    const nw=transformed.filter(o=>o.orderNo&&!ex.has(o.orderNo));
+    const dup=transformed.length-nw.length;
+    if(!nw.length){st.textContent=`✅ 抓到 ${fetched.length} 筆，全部已存在（${dup} 筆重複）`;st.style.color='var(--grn)';alert(`區間內 ${fetched.length} 筆訂單，全部已在系統內`);return}
+    orders.push(...nw);saveAll();
+    st.textContent=`✅ 新增 ${nw.length} 筆${dup?`（${dup} 筆已存在已跳過）`:''}，最後同步 ${new Date().toLocaleTimeString('zh-TW')}`;st.style.color='var(--grn)';
+    alert(`🎉 自動抓取成功！\n\n新增訂單：${nw.length} 筆${dup?`\n已存在略過：${dup} 筆`:''}\n區間：${data.window?.from} ~ ${data.window?.to}`);
+  }catch(err){
+    st.textContent=`❌ 網路錯誤：${err.message}`;st.style.color='var(--pc)';
+    alert(`網路錯誤：${err.message}\n\n檢查：\n1. API 網址是否正確（按 ⚙️ 重設）\n2. 網路是否正常\n3. Railway service 是否運行中`);
+  }finally{btn.disabled=false;btn.textContent=oldText}
+}
 
 // ===== LIST =====
 function toggleStatus(i){orders[i].status=ST[(ST.indexOf(orders[i].status)+1)%ST.length];saveAll();renderList()}
