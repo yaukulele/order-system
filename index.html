@@ -152,13 +152,22 @@ async function fetchMomoAuto(){
   const days=parseInt(daysStr,10)||30;
   const btn=document.getElementById('momo-auto-btn'),st=document.getElementById('momo-auto-status');
   const oldText=btn.textContent;btn.disabled=true;btn.textContent='⏳ 抓取中...';st.textContent='📡 從 MOMO API 抓取資料中（最久 30 秒）...';st.style.color='var(--blu)';
+  const fullUrl=`${api}/api/orders/momo/unsent?days=${days}`;
   try{
-    const r=await fetch(`${api}/api/orders/momo/unsent?days=${days}`,{headers:{'X-API-Token':token}});
-    const data=await r.json();
+    const r=await fetch(fullUrl,{headers:{'X-API-Token':token}});
+    const ct=r.headers.get('content-type')||'';
+    const raw=await r.text();
+    if(!ct.includes('application/json')){
+      st.textContent=`❌ API 回應不是 JSON（很可能 URL 錯）`;st.style.color='var(--pc)';
+      const preview=raw.slice(0,200).replace(/\s+/g,' ');
+      alert(`❌ API URL 錯誤\n\n打了：${fullUrl}\nHTTP ${r.status}, Content-Type: ${ct||'(空)'}\n\n回應前 200 字：\n${preview}\n\n👉 按 ⚙️ 重設，正確網址只要 host 不要路徑：\nhttps://momo-integration-production.up.railway.app`);
+      return;
+    }
+    let data;try{data=JSON.parse(raw)}catch(e){alert(`❌ JSON 解析失敗：${e.message}\n\nresponse: ${raw.slice(0,300)}`);return}
     if(!r.ok||!data.ok){
       const msg=data.error||`HTTP ${r.status}`;
       st.textContent=`❌ 抓取失敗：${msg}`;st.style.color='var(--pc)';
-      if(r.status===401){alert(`❌ Token 錯誤\n\n${msg}\n\n按 ⚙️ 重設 Token`);}else{alert(`❌ 抓取失敗\n\n${msg}`);}
+      if(r.status===401){alert(`❌ Token 錯誤\n\n${msg}\n\n打了：${fullUrl}\n\n按 ⚙️ 重設 Token`);}else if(r.status===500&&msg.includes('API_TOKEN not configured')){alert(`❌ Server 還沒設 API_TOKEN\n\n進 Railway → momo-integration service → Variables 加：\nName: API_TOKEN\nValue: 任何隨機字串`);}else{alert(`❌ 抓取失敗\n\nHTTP ${r.status}\n${msg}\n\n打了：${fullUrl}`);}
       return;
     }
     const fetched=Array.isArray(data.orders)?data.orders:[];
