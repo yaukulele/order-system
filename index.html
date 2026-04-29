@@ -7,6 +7,9 @@
 <style>
 *{margin:0;padding:0;box-sizing:border-box}
 :root{--bg:#f4f3ee;--sf:#fff;--sf2:#faf9f5;--bd:#ddd9cf;--tx:#1c1b18;--dm:#807b6f;--ht:#b0aa9c;--mo:#d6336c;--mo-bg:#fdf0f5;--pc:#c0392b;--pc-bg:#fef0ee;--grn:#2d7a4f;--grn-bg:#eef7f1;--amb:#b8860b;--blu:#2563eb;--mono:'Menlo','Consolas','Courier New',monospace;--sans:-apple-system,BlinkMacSystemFont,'Noto Sans TC','Segoe UI',sans-serif}
+[data-theme="dark"]{--bg:#0d1117;--sf:#161b22;--sf2:#0d1117;--bd:#30363d;--tx:#e6edf3;--dm:#8b949e;--ht:#6e7681;--mo:#ff6b9a;--mo-bg:#3a1626;--pc:#ff8a7a;--pc-bg:#3a1a16;--grn:#3fb950;--grn-bg:#0e2914;--amb:#d29922;--blu:#60a5fa}
+[data-theme="dark"] .row-group-h{background:#1c2128;color:var(--ht)}
+[data-theme="dark"] .hint{background:#332b14;color:#fcd34d;border-color:#5a4818}
 body{font-family:var(--sans);background:var(--bg);color:var(--tx);min-height:100vh}
 .hdr{background:var(--sf);border-bottom:1px solid var(--bd);padding:12px 20px;display:flex;align-items:center;justify-content:space-between;position:sticky;top:0;z-index:100}
 .hdr h1{font-size:16px;font-weight:800}.hdr h1 small{font-weight:400;color:var(--dm);font-size:11px;margin-left:6px}
@@ -92,7 +95,7 @@ th,td{padding:6px 5px}
 </style>
 </head>
 <body>
-<div class="hdr"><h1>📦 訂單管理系統<small>MOMO + PChome</small></h1><div style="display:flex;align-items:center;gap:8px"><span id="sync-badge" class="sync-dot sync-off"><span class="dot dot-off"></span>連線中...</span><button class="btn" onclick="location.reload()" style="font-size:11px">🔄</button><button class="btn" onclick="if(confirm('確定清空？')){orders=[];saveAll()}" style="font-size:11px">清空</button></div></div>
+<div class="hdr"><h1>📦 訂單管理系統<small>MOMO + PChome</small></h1><div style="display:flex;align-items:center;gap:8px"><span id="sync-badge" class="sync-dot sync-off"><span class="dot dot-off"></span>連線中...</span><button class="btn" id="theme-btn" onclick="toggleTheme()" style="font-size:11px" title="切換亮色/暗色">🌙</button><button class="btn" id="notif-btn" onclick="toggleNotifications()" style="font-size:11px" title="桌面通知">🔕</button><button class="btn" onclick="location.reload()" style="font-size:11px">🔄</button><button class="btn" onclick="if(confirm('確定清空？')){orders=[];saveAll()}" style="font-size:11px">清空</button></div></div>
 <div class="tabs"><button class="tab active" onclick="showTab('import')">📋 匯入</button><button class="tab" onclick="showTab('list')">📦 列表 <span class="badge" id="cnt">0</span></button><button class="tab" onclick="showTab('output')">📤 輸出</button><button class="tab" onclick="showTab('stats')">📊 統計</button><button class="tab" onclick="showTab('customers')">👥 客戶</button></div>
 
 <div class="main" id="tab-import"><div class="card" style="background:linear-gradient(135deg,#fef0f5,#fff);border:1px solid #f0c4d8"><div class="card-h" style="background:transparent"><h3>🚀 自動抓取 MOMO 訂單（API 直連，無需貼上）</h3><div style="display:flex;gap:6px"><button class="btn" onclick="resetMomoApi()" title="重設 API 網址 / Token">⚙️</button><button class="btn btn-g" id="momo-auto-btn" onclick="fetchMomoAuto()" style="background:var(--mo);border-color:var(--mo)">🔄 自動抓 MOMO 未出貨訂單</button></div></div><div class="card-b" style="padding:10px 16px"><div id="momo-auto-status" style="font-size:11px;color:var(--dm);font-family:var(--mono)">第一次按會問你 API 網址跟 Token，之後直接點按鈕就抓</div></div></div>
@@ -100,7 +103,7 @@ th,td{padding:6px 5px}
 
 <div class="main hidden" id="tab-list"><div class="filter-row"><button class="fbtn on" onclick="setF('all',this)">全部</button><button class="fbtn" onclick="setF('MO',this)">MOMO</button><button class="fbtn" onclick="setF('PC',this)">PChome</button><span style="color:var(--ht)">｜</span><button class="fbtn on" onclick="setSF('all',this)">全狀態</button><button class="fbtn" onclick="setSF('待出貨',this)">待出貨</button><button class="fbtn" onclick="setSF('已出貨',this)">已出貨</button><button class="fbtn" onclick="setSF('已完成',this)">已完成</button><span style="color:var(--ht)">｜</span><button class="fbtn" onclick="toggleSpecial('changeAddr',this)" title="只看客戶有申請改地址的訂單">⚠️ 改址</button><button class="fbtn" onclick="toggleSpecial('newToday',this)" title="只看今日新單">🆕 今日</button><span style="flex:1"></span><input class="search" id="q" placeholder="搜尋..." oninput="renderList()"></div><div id="list-area"></div></div>
 
-<div class="main hidden" id="tab-output"><div class="card"><div class="card-h"><h3>整理格式（MO 含電話 / PC 不含電話）</h3><button class="btn btn-g" onclick="copyOutput()">📋 複製全部</button></div><div class="card-b"><div class="result" id="output-area">尚無訂單</div></div></div></div>
+<div class="main hidden" id="tab-output"><div class="card"><div class="card-h"><h3>整理格式（MO 含電話 / PC 不含電話）</h3><div style="display:flex;gap:6px;flex-wrap:wrap"><button class="btn btn-g" onclick="copyOutput()">📋 複製全部</button><button class="btn" onclick="exportCSV('all')">📊 匯出全部 CSV</button><button class="btn" onclick="exportCSV('filtered')">🔍 匯出當前篩選 CSV</button></div></div><div class="card-b"><div class="hint">CSV 用 UTF-8 BOM 編碼，Excel 開啟中文不會亂碼。包含：日期、平台、訂單編號、商品、規格、數量、姓名、電話、地址、金額、安裝、加購、合計、物流公司、物流單號、狀態、備註。</div><div class="result" id="output-area">尚無訂單</div></div></div></div>
 <div class="main hidden" id="tab-stats"><div class="filter-row" style="margin-bottom:14px"><span style="font-size:12px;color:var(--dm);font-weight:600">📅 期間：</span><button class="fbtn" onclick="setStatsPeriod('today',this)">今日</button><button class="fbtn" onclick="setStatsPeriod('7',this)">7 天</button><button class="fbtn on" onclick="setStatsPeriod('30',this)">30 天</button><button class="fbtn" onclick="setStatsPeriod('90',this)">3 個月</button><button class="fbtn" onclick="setStatsPeriod('all',this)">全部</button></div><div id="stats-area"></div></div>
 <div class="main hidden" id="tab-customers"><div class="filter-row" style="margin-bottom:10px"><input class="search" id="cq" placeholder="搜尋客戶（姓名/電話/地址）..." oninput="renderCustomers()" style="width:240px"><span style="flex:1"></span><span class="stat" style="font-size:11px;color:var(--dm)">共 <strong id="ccnt">0</strong> 位客戶</span></div><div id="cust-area"></div></div>
 <div class="overlay hidden" id="modal-overlay" onclick="if(event.target===this)closeModal()"><div class="modal" id="modal-body"></div></div>
@@ -225,6 +228,7 @@ async function fetchMomoAuto(){
     if(!nw.length){st.textContent=`✅ 抓到 ${fetched.length} 筆，全部已存在（${dup} 筆重複）`;st.style.color='var(--grn)';alert(`區間內 ${fetched.length} 筆訂單，全部已在系統內`);return}
     orders.push(...nw);saveAll();
     st.textContent=`✅ 新增 ${nw.length} 筆${dup?`（${dup} 筆已存在已跳過）`:''}，最後同步 ${new Date().toLocaleTimeString('zh-TW')}`;st.style.color='var(--grn)';
+    if(nw.length>0){const titles=nw.slice(0,3).map(o=>`${o.name||'?'} ${o.product||''}`).join(' / ');notifyDesktop(`📦 ${nw.length} 筆新 MOMO 訂單`,nw.length<=3?titles:`${titles}（共 ${nw.length} 筆）`)}
     alert(`🎉 自動抓取成功！\n\n新增訂單：${nw.length} 筆${dup?`\n已存在略過：${dup} 筆`:''}\n區間：${data.window?.from} ~ ${data.window?.to}`);
   }catch(err){
     st.textContent=`❌ 網路錯誤：${err.message}`;st.style.color='var(--pc)';
@@ -258,12 +262,13 @@ const ab=o.addon==='是'?`<div style="display:flex;align-items:center;gap:4px"><
 const newBadge=isNewOrder(o)?'<span class="tag" style="background:#dcfce7;color:#166534;margin-left:4px;font-size:9px">NEW</span>':'';
 const addrBadge=(o.note||'').includes('改地址')?'<span class="tag" style="background:#fef9ec;color:#b45309;margin-left:4px;font-size:9px" title="客戶申請改地址">改址</span>':'';
 const shipBtn=(o.platform==='MO'&&o.status==='待出貨')?`<button class="act" onclick="openShipMomo(${oi})" title="回填物流單號到 MOMO" style="border-color:var(--mo);color:var(--mo);font-weight:700">📤 出貨</button> `:'';
+const addrAckBtn=(o.platform==='MO'&&(o.note||'').includes('改地址'))?`<button class="act" onclick="changeAddrAck(${oi},true)" title="同意改地址" style="border-color:var(--grn);color:var(--grn);font-weight:700">✅</button> <button class="act" onclick="changeAddrAck(${oi},false)" title="拒絕改地址" style="border-color:var(--pc);color:var(--pc);font-weight:700">❌</button> `:'';
 const trackInfo=o.trackingNo?`<div style="font-size:9px;color:var(--dm);margin-top:2px">${esc(o.delyGbStr||'')}<br>${esc(o.trackingNo)}</div>`:'';
 const missingTrack=o.status==='已出貨'&&!o.trackingNo;
 const rowCls=missingTrack?'row-missing-track':'';
 const warnIcon=missingTrack?' <span title="已出貨但沒填物流單號" style="color:#dc2626;font-size:14px">⚠️</span>':'';
 const checked=selectedIds.has(o.id);
-h+=`<tr class="${rowCls}"><td class="batch-cell"><input type="checkbox" data-oid="${o.id}" ${checked?'checked':''} onclick="toggleRowSelected('${o.id}')"></td><td class="mono">${fmtD(o.date)}${newBadge}</td><td><span class="tag ${o.platform==='MO'?'tag-mo':'tag-pc'}">${o.platform}</span>${addrBadge}</td><td class="trunc" title="${esc(o.product)}">${esc(o.product)}</td><td class="tab-list-mobile-hide"><input type="text" inputmode="numeric" value="${o.qty||1}" oninput="this.value=cn(this.value);setQty(${oi},this.value)" class="fee-input" style="width:46px${(o.qty||1)>1?';border-color:var(--mo);background:var(--mo-bg);color:var(--mo);font-weight:800':''}"></td><td>${esc(o.name)}</td><td class="tab-list-mobile-hide">${ib}</td><td class="tab-list-mobile-hide">${ab}</td><td class="total-cell" id="tot-${oi}">${$(tot(o))}${trackInfo}</td><td><button class="${stCls(o.status)}" onclick="toggleStatus(${oi})">${o.status}</button>${warnIcon}</td><td style="white-space:nowrap">${shipBtn}<button class="act" onclick="copyShipping(${oi})" title="複製出貨資料（姓名/電話/地址/商品/單號）">📋</button> <button class="act" onclick="openEdit(${oi})">編輯</button> <button class="act" onclick="delOrder(${oi})">刪</button></td></tr>`});
+h+=`<tr class="${rowCls}"><td class="batch-cell"><input type="checkbox" data-oid="${o.id}" ${checked?'checked':''} onclick="toggleRowSelected('${o.id}')"></td><td class="mono">${fmtD(o.date)}${newBadge}</td><td><span class="tag ${o.platform==='MO'?'tag-mo':'tag-pc'}">${o.platform}</span>${addrBadge}</td><td class="trunc" title="${esc(o.product)}">${esc(o.product)}</td><td class="tab-list-mobile-hide"><input type="text" inputmode="numeric" value="${o.qty||1}" oninput="this.value=cn(this.value);setQty(${oi},this.value)" class="fee-input" style="width:46px${(o.qty||1)>1?';border-color:var(--mo);background:var(--mo-bg);color:var(--mo);font-weight:800':''}"></td><td>${esc(o.name)}</td><td class="tab-list-mobile-hide">${ib}</td><td class="tab-list-mobile-hide">${ab}</td><td class="total-cell" id="tot-${oi}">${$(tot(o))}${trackInfo}</td><td><button class="${stCls(o.status)}" onclick="toggleStatus(${oi})">${o.status}</button>${warnIcon}</td><td style="white-space:nowrap">${addrAckBtn}${shipBtn}<button class="act" onclick="copyShipping(${oi})" title="複製出貨資料（姓名/電話/地址/商品/單號）">📋</button> <button class="act" onclick="openEdit(${oi})">編輯</button> <button class="act" onclick="delOrder(${oi})">刪</button></td></tr>`});
 h+='</tbody></table></div></div>';document.getElementById('list-area').innerHTML=h;renderBatchBar(fl)}
 
 function toggleRowSelected(id){if(selectedIds.has(id))selectedIds.delete(id);else selectedIds.add(id);renderList()}
@@ -333,6 +338,30 @@ let note=document.getElementById('e-note').value.trim().replace(/【安裝】[^\
 if(o.install==='是'&&(o.installDay||o.installTime)){note='【安裝】'+o.installDay+(o.installTime?' '+o.installTime:'')+(o.installFee?' $'+o.installFee:'')+(note?'\n'+note:'')}
 o.note=note;saveAll();closeModal();renderList()}
 function closeModal(){document.getElementById('modal-overlay').classList.add('hidden');editIdx=-1}
+
+// ===== Theme & desktop notification =====
+function applyTheme(t){document.documentElement.setAttribute('data-theme',t==='dark'?'dark':'light');document.getElementById('theme-btn').textContent=t==='dark'?'☀️':'🌙';localStorage.setItem('theme',t)}
+function toggleTheme(){const cur=localStorage.getItem('theme')||'light';applyTheme(cur==='dark'?'light':'dark')}
+applyTheme(localStorage.getItem('theme')||'light');
+
+function refreshNotifBtn(){const btn=document.getElementById('notif-btn');if(!('Notification' in window)){btn.style.display='none';return}const enabled=localStorage.getItem('notif-enabled')==='1'&&Notification.permission==='granted';btn.textContent=enabled?'🔔':'🔕';btn.title=enabled?'桌面通知已開啟':'桌面通知已關閉'}
+async function toggleNotifications(){if(!('Notification' in window)){alert('你的瀏覽器不支援桌面通知');return}let perm=Notification.permission;if(perm!=='granted')perm=await Notification.requestPermission();if(perm!=='granted'){alert('權限被拒，請到瀏覽器設定開啟通知權限');refreshNotifBtn();return}const cur=localStorage.getItem('notif-enabled')==='1';localStorage.setItem('notif-enabled',cur?'0':'1');refreshNotifBtn();if(!cur)new Notification('🔔 桌面通知已啟用',{body:'之後 自動抓 MOMO 抓到新訂單會在這裡跳出'})}
+function notifyDesktop(title,body){if(localStorage.getItem('notif-enabled')!=='1')return;if(Notification.permission!=='granted')return;try{new Notification(title,{body,icon:'data:image/svg+xml,%3Csvg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100"%3E%3Ctext y="78" font-size="80"%3E📦%3C/text%3E%3C/svg%3E'})}catch(e){}}
+refreshNotifBtn();
+
+// ===== CSV 匯出 =====
+function csvCell(v){const s=String(v??'');if(/[",\n]/.test(s))return'"'+s.replace(/"/g,'""')+'"';return s}
+function exportCSV(scope){const list=scope==='filtered'?(()=>{const q=(document.getElementById('q')?.value||'').toLowerCase();return orders.filter(o=>{if(cFilter!=='all'&&o.platform!==cFilter)return false;if(cStatus!=='all'&&o.status!==cStatus)return false;if(q){const h=[o.orderNo,o.product,o.name,o.phone,o.address,o.note,o.specs].join(' ').toLowerCase();if(!h.includes(q))return false}return true})})():orders.slice();
+list.sort((a,b)=>a.date<b.date?1:-1);
+const headers=['日期','平台','訂單編號','商品','規格','數量','姓名','電話','地址','商品金額','安裝服務','安裝費用','加購','加購金額','合計','物流公司','物流單號','狀態','備註'];
+const rows=list.map(o=>[o.date||'',o.platform||'',o.orderNo||'',o.product||'',o.specs||'',o.qty||1,o.name||'',o.phone||'',o.address||'',o.amount||0,o.install||'否',o.installFee||0,o.addon||'否',o.addonFee||0,tot(o),o.delyGbStr||'',o.trackingNo||'',o.status||'',o.note||'']);
+const csv='﻿'+[headers,...rows].map(r=>r.map(csvCell).join(',')).join('\n');
+const blob=new Blob([csv],{type:'text/csv;charset=utf-8'});const url=URL.createObjectURL(blob);const a=document.createElement('a');const fname=`訂單匯出_${scope==='filtered'?'已篩選':'全部'}_${new Date().toISOString().slice(0,10)}.csv`;a.href=url;a.download=fname;a.click();setTimeout(()=>URL.revokeObjectURL(url),1000)}
+
+// ===== 同意/拒絕 改址 =====
+async function changeAddrAck(i,agree){const o=orders[i];if(!o||o.platform!=='MO'){alert('只有 MOMO 訂單可用');return}if(!(o.note||'').includes('改地址')){if(!confirm('這筆訂單看起來沒有改址申請，仍要送出 同意/拒絕？'))return}const api=getMomoApi();const token=getMomoToken();if(!api||!token){alert('需先設定 API URL + Token');return}const word=agree?'同意改地址':'拒絕改地址';if(!confirm(`確定對訂單 ${o.orderNo} 送出「${word}」？\n\n（這會立即更新到 MOMO，無法復原）`))return;
+try{const r=await fetch(`${api}/api/orders/momo/change-addr-ack`,{method:'POST',headers:{'Content-Type':'application/json','X-API-Token':token},body:JSON.stringify({orderNo:o.orderNo,agree})});const data=await r.json();if(!r.ok||!data.ok){alert(`❌ 失敗：${data.error||'HTTP '+r.status}\n\n${JSON.stringify(data.data||{},null,2).slice(0,400)}`);return}
+const note=(o.note||'').replace(/⚠ 客戶申請改地址/g,'').trim();orders[i].note=`[${word} ${new Date().toISOString().slice(0,10)}] ${note}`.trim();saveAll();renderList();alert(`✅ ${word} 已送 MOMO\nHTTP ${data.status}\n${data.data?.successCnt?`成功 ${data.data.successCnt}/${data.data.totalCnt} 筆`:''}`)}catch(err){alert('網路錯誤：'+err.message)}}
 
 // ===== MOMO 出貨確認 =====
 const MOMO_DELY_COMPANIES=['宅配通','新竹貨運','統一速達','大榮貨運','宅配通大電','順豐速運','全球快遞','通盈貨運','新航貨運','郵局','便利袋','其他宅配','其他'];
