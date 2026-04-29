@@ -80,7 +80,7 @@ firebase.initializeApp({
   projectId:"order-system-dddca"
 });
 const db=firebase.database();
-let orders=[],cFilter='all',cStatus='all',editIdx=-1;
+let orders=[],cFilter='all',cStatus='all',editIdx=-1,sortOrder='date-desc';
 const ST=['待出貨','已出貨','已完成','已取消'],DAYS=['週一','週二','週三','週四','週五','週六','週日'],TIMES=['早上','下午','晚上'];
 
 // Realtime listener
@@ -145,14 +145,19 @@ function resetMomoApi(){const u=prompt('改 API 網址（留空保留 / 輸入 X
 function transformMomoOrder(o){let date=new Date().toISOString().slice(0,10),dateFmt='';const dm=(o.lastPricDate||'').match(/(\d{4})\/(\d{1,2})\/(\d{1,2})/);if(dm){date=`${dm[1]}-${String(dm[2]).padStart(2,'0')}-${String(dm[3]).padStart(2,'0')}`;dateFmt=`${parseInt(dm[2])}/${parseInt(dm[3])}`}
 return{id:gid(),date,dateFmt,platform:'MO',orderNo:o.completeOrderNo||'',product:o.goodsName||'',specs:o.goodsDtInfo||'',name:o.receiver||'',phone:o.receiverMobile||o.receiverTel||'',address:o.newReceiverAddr||o.receiverAddr||'',install:'否',installFee:0,installDay:'',installTime:'',addon:'否',addonFee:0,amount:parseInt(o.salePrice)||parseInt(o.buyPrice)||0,qty:parseInt(o.syslast)||1,status:'待出貨',note:o.newReceiverAddr?'⚠ 客戶申請改地址':''}}
 
+function parseDateRangeInput(s){s=(s||'').trim().toLowerCase();if(!s)return{days:30};if(s==='today'||s==='今天')return{from:isoToday(),to:isoToday()};if(/^\d+$/.test(s))return{days:parseInt(s,10)};const range=s.match(/^(\d{4})[/\-](\d{1,2})[/\-](\d{1,2})\s*[-~至]\s*(\d{4})[/\-](\d{1,2})[/\-](\d{1,2})$/);if(range){return{from:`${range[1]}-${range[2].padStart(2,'0')}-${range[3].padStart(2,'0')}`,to:`${range[4]}-${range[5].padStart(2,'0')}-${range[6].padStart(2,'0')}`}}const single=s.match(/^(\d{4})[/\-](\d{1,2})[/\-](\d{1,2})$/);if(single){const d=`${single[1]}-${single[2].padStart(2,'0')}-${single[3].padStart(2,'0')}`;return{from:d,to:isoToday()}}return null}
+function isoToday(){return new Date().toISOString().slice(0,10)}
+
 async function fetchMomoAuto(){
   const api=getMomoApi();if(!api)return;
   const token=getMomoToken();if(!token)return;
-  const daysStr=prompt('要抓最近幾天的訂單？','30');if(daysStr===null)return;
-  const days=parseInt(daysStr,10)||30;
+  const help='抓哪段日期？以下任一格式：\n\n• 30  → 最近 30 天\n• today  → 只抓今天\n• 2026/4/20  → 從該日到今天\n• 2026/4/20-2026/4/29  → 指定區間\n• (留空 = 最近 30 天)';
+  const inp=prompt(help,'30');if(inp===null)return;
+  const range=parseDateRangeInput(inp);if(!range){alert('格式不對！請看提示說明');return}
   const btn=document.getElementById('momo-auto-btn'),st=document.getElementById('momo-auto-status');
   const oldText=btn.textContent;btn.disabled=true;btn.textContent='⏳ 抓取中...';st.textContent='📡 從 MOMO API 抓取資料中（最久 30 秒）...';st.style.color='var(--blu)';
-  const fullUrl=`${api}/api/orders/momo/unsent?days=${days}`;
+  const qs=range.days?`days=${range.days}`:`from=${range.from}&to=${range.to}`;
+  const fullUrl=`${api}/api/orders/momo/unsent?${qs}`;
   try{
     const r=await fetch(fullUrl,{headers:{'X-API-Token':token}});
     const ct=r.headers.get('content-type')||'';
@@ -195,9 +200,12 @@ function setInstFee(i,v){orders[i].installFee=parseInt(v)||0;saveAll();document.
 function setAddonFee(i,v){orders[i].addonFee=parseInt(v)||0;saveAll();document.getElementById('tot-'+i).textContent=$(tot(orders[i]))}
 function setQty(i,v){const n=parseInt(v);orders[i].qty=n>=1?n:1;saveAll()}
 
+function toggleSort(){sortOrder=sortOrder==='date-desc'?'date-asc':'date-desc';renderList()}
 function renderList(){const q=(document.getElementById('q')?.value||'').toLowerCase();const fl=orders.filter(o=>{if(cFilter!=='all'&&o.platform!==cFilter)return false;if(cStatus!=='all'&&o.status!==cStatus)return false;if(q){const h=[o.orderNo,o.product,o.name,o.phone,o.address,o.note,o.specs].join(' ').toLowerCase();if(!h.includes(q))return false}return true});
+fl.sort((a,b)=>{const av=a.date||'',bv=b.date||'';if(av===bv)return 0;return sortOrder==='date-desc'?(av<bv?1:-1):(av>bv?1:-1)});
 if(!fl.length){document.getElementById('list-area').innerHTML='<div class="card"><div class="card-b" style="text-align:center;padding:30px;color:var(--dm)">📦 尚無訂單</div></div>';return}
-let h=`<div class="card"><div class="card-h"><h3>${fl.length} 筆</h3><span style="font-size:11px;color:var(--dm);font-family:var(--mono)">合計 ${$(fl.reduce((s,o)=>s+tot(o),0))}</span></div><div style="overflow-x:auto"><table><thead><tr><th>日期</th><th>平台</th><th>品名</th><th>數量</th><th>姓名</th><th>安裝</th><th>加購</th><th>合計</th><th>狀態</th><th>操作</th></tr></thead><tbody>`;
+const arrow=sortOrder==='date-desc'?'↓':'↑';
+let h=`<div class="card"><div class="card-h"><h3>${fl.length} 筆</h3><span style="font-size:11px;color:var(--dm);font-family:var(--mono)">合計 ${$(fl.reduce((s,o)=>s+tot(o),0))}</span></div><div style="overflow-x:auto"><table><thead><tr><th onclick="toggleSort()" style="cursor:pointer;user-select:none" title="點擊切換排序">日期 ${arrow}</th><th>平台</th><th>品名</th><th>數量</th><th>姓名</th><th>安裝</th><th>加購</th><th>合計</th><th>狀態</th><th>操作</th></tr></thead><tbody>`;
 fl.forEach(o=>{const oi=orders.indexOf(o);
 const ib=o.install==='是'?`<div style="display:flex;align-items:center;gap:4px"><button class="toggle-on" onclick="toggleInstall(${oi})">安裝</button><input type="text" inputmode="numeric" value="${o.installFee||''}" placeholder="金額" oninput="this.value=cn(this.value);setInstFee(${oi},this.value)" class="fee-input"></div>${o.installDay?'<div style="font-size:9px;color:var(--dm);margin-top:2px">'+o.installDay+' '+(o.installTime||'')+'</div>':''}`:`<button class="toggle-off" onclick="toggleInstall(${oi})">不安裝</button>`;
 const ab=o.addon==='是'?`<div style="display:flex;align-items:center;gap:4px"><button class="toggle-on" onclick="toggleAddon(${oi})">加購</button><input type="text" inputmode="numeric" value="${o.addonFee||''}" placeholder="金額" oninput="this.value=cn(this.value);setAddonFee(${oi},this.value)" class="fee-input"></div>`:`<button class="toggle-off" onclick="toggleAddon(${oi})">無加購</button>`;
