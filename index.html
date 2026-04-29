@@ -216,7 +216,9 @@ const ib=o.install==='是'?`<div style="display:flex;align-items:center;gap:4px"
 const ab=o.addon==='是'?`<div style="display:flex;align-items:center;gap:4px"><button class="toggle-on" onclick="toggleAddon(${oi})">加購</button><input type="text" inputmode="numeric" value="${o.addonFee||''}" placeholder="金額" oninput="this.value=cn(this.value);setAddonFee(${oi},this.value)" class="fee-input"></div>`:`<button class="toggle-off" onclick="toggleAddon(${oi})">無加購</button>`;
 const newBadge=isNewOrder(o)?'<span class="tag" style="background:#dcfce7;color:#166534;margin-left:4px;font-size:9px">NEW</span>':'';
 const addrBadge=(o.note||'').includes('改地址')?'<span class="tag" style="background:#fef9ec;color:#b45309;margin-left:4px;font-size:9px" title="客戶申請改地址">改址</span>':'';
-h+=`<tr><td class="mono">${fmtD(o.date)}${newBadge}</td><td><span class="tag ${o.platform==='MO'?'tag-mo':'tag-pc'}">${o.platform}</span>${addrBadge}</td><td class="trunc" title="${esc(o.product)}">${esc(o.product)}</td><td><input type="text" inputmode="numeric" value="${o.qty||1}" oninput="this.value=cn(this.value);setQty(${oi},this.value)" class="fee-input" style="width:46px${(o.qty||1)>1?';border-color:var(--mo);background:var(--mo-bg);color:var(--mo);font-weight:800':''}"></td><td>${esc(o.name)}</td><td>${ib}</td><td>${ab}</td><td class="total-cell" id="tot-${oi}">${$(tot(o))}</td><td><button class="${stCls(o.status)}" onclick="toggleStatus(${oi})">${o.status}</button></td><td style="white-space:nowrap"><button class="act" onclick="copyShipping(${oi})" title="複製出貨資料（姓名/電話/地址/商品/單號）">📋</button> <button class="act" onclick="openEdit(${oi})">編輯</button> <button class="act" onclick="delOrder(${oi})">刪</button></td></tr>`});
+const shipBtn=(o.platform==='MO'&&o.status==='待出貨')?`<button class="act" onclick="openShipMomo(${oi})" title="回填物流單號到 MOMO" style="border-color:var(--mo);color:var(--mo);font-weight:700">📤 出貨</button> `:'';
+const trackInfo=o.trackingNo?`<div style="font-size:9px;color:var(--dm);margin-top:2px">${esc(o.delyGbStr||'')}<br>${esc(o.trackingNo)}</div>`:'';
+h+=`<tr><td class="mono">${fmtD(o.date)}${newBadge}</td><td><span class="tag ${o.platform==='MO'?'tag-mo':'tag-pc'}">${o.platform}</span>${addrBadge}</td><td class="trunc" title="${esc(o.product)}">${esc(o.product)}</td><td><input type="text" inputmode="numeric" value="${o.qty||1}" oninput="this.value=cn(this.value);setQty(${oi},this.value)" class="fee-input" style="width:46px${(o.qty||1)>1?';border-color:var(--mo);background:var(--mo-bg);color:var(--mo);font-weight:800':''}"></td><td>${esc(o.name)}</td><td>${ib}</td><td>${ab}</td><td class="total-cell" id="tot-${oi}">${$(tot(o))}${trackInfo}</td><td><button class="${stCls(o.status)}" onclick="toggleStatus(${oi})">${o.status}</button></td><td style="white-space:nowrap">${shipBtn}<button class="act" onclick="copyShipping(${oi})" title="複製出貨資料（姓名/電話/地址/商品/單號）">📋</button> <button class="act" onclick="openEdit(${oi})">編輯</button> <button class="act" onclick="delOrder(${oi})">刪</button></td></tr>`});
 h+='</tbody></table></div></div>';document.getElementById('list-area').innerHTML=h}
 function delOrder(i){if(!confirm('確定刪除？'))return;orders.splice(i,1);saveAll();renderList()}
 
@@ -276,6 +278,72 @@ let note=document.getElementById('e-note').value.trim().replace(/【安裝】[^\
 if(o.install==='是'&&(o.installDay||o.installTime)){note='【安裝】'+o.installDay+(o.installTime?' '+o.installTime:'')+(o.installFee?' $'+o.installFee:'')+(note?'\n'+note:'')}
 o.note=note;saveAll();closeModal();renderList()}
 function closeModal(){document.getElementById('modal-overlay').classList.add('hidden');editIdx=-1}
+
+// ===== MOMO 出貨確認 =====
+const MOMO_DELY_COMPANIES=['宅配通','新竹貨運','統一速達','大榮貨運','宅配通大電','順豐速運','全球快遞','通盈貨運','新航貨運','郵局','便利袋','其他宅配','其他'];
+let shipIdx=-1;
+function openShipMomo(i){const o=orders[i];if(!o)return;if(o.platform!=='MO'){alert('只有 MOMO 訂單可用此功能');return}shipIdx=i;
+document.getElementById('modal-body').innerHTML=`<h3>📤 MOMO 出貨確認 / 物流單號回填</h3>
+<div style="background:#fef9ec;border:1px solid #f0e4b8;border-radius:8px;padding:10px 14px;font-size:11px;color:#8a6d0b;margin-bottom:12px;line-height:1.6">
+<b>⚠️ 安全機制：</b><br>
+1. 預設「DRY RUN 預覽」— 看到會送什麼 payload 才會出現 真送 按鈕<br>
+2. 真送後 MOMO 會立即更新訂單狀態，無法復原</div>
+<div style="background:var(--sf2);border:1px solid var(--bd);border-radius:8px;padding:10px 14px;font-size:11px;margin-bottom:12px">
+<div><b>訂單編號：</b><span class="mono">${esc(o.orderNo)}</span></div>
+<div><b>商品：</b>${esc(o.product)}${o.specs?'（'+esc(o.specs)+'）':''} × ${o.qty||1}</div>
+<div><b>收件：</b>${esc(o.name)} ｜ ${esc(o.phone)}</div>
+<div><b>地址：</b>${esc(o.address)}</div></div>
+<div class="fg"><div class="fi"><label>配送狀態 *</label><select id="s-status" onchange="onShipStatusChange()"><option>已配送</option><option>暫時電聯不上(無須momo協助)</option><option>多次電聯不上(2天3次以上)</option><option>需配送加價協調中</option><option>無貨取消訂單</option><option>收件資料有誤/不配送地區</option><option>無適當選項，momo請協助</option></select></div></div>
+<div id="ship-shipped"><div class="fg"><div class="fi"><label>物流公司 *</label><select id="s-dely">${MOMO_DELY_COMPANIES.map(c=>`<option>${c}</option>`).join('')}</select></div><div class="fi"><label>配送單號 *</label><input id="s-slip" placeholder="物流單號" style="font-family:var(--mono)" value="${esc(o.trackingNo||'')}"></div></div></div>
+<div id="ship-other" class="hidden"><div class="fg full"><div class="fi"><label>配送訊息 *（非已配送必填）</label><textarea id="s-msg" placeholder="例：客戶來電要求改配送日，預計 3/15 配送"></textarea></div></div></div>
+<div id="ship-result" style="margin-top:12px"></div>
+<div class="modal-ft">
+<button class="btn" onclick="closeModal()">取消</button>
+<button class="btn btn-b" onclick="submitShip(false)" id="ship-dry-btn">🧪 DRY RUN 預覽</button>
+<button class="btn" onclick="submitShip(true)" id="ship-real-btn" style="background:var(--pc);color:#fff;border-color:var(--pc);display:none">⚠️ 確認真送 MOMO</button>
+</div>`;
+document.getElementById('modal-overlay').classList.remove('hidden')}
+function onShipStatusChange(){const s=document.getElementById('s-status').value;document.getElementById('ship-shipped').classList.toggle('hidden',s!=='已配送');document.getElementById('ship-other').classList.toggle('hidden',s==='已配送');document.getElementById('ship-result').innerHTML='';document.getElementById('ship-real-btn').style.display='none'}
+
+async function submitShip(force){
+  const o=orders[shipIdx];if(!o)return;
+  const status=document.getElementById('s-status').value;
+  const item={completeOrderNo:o.orderNo,remark5VStr:status,msgNote:'',delyGbStr:'',slipNo:''};
+  if(status==='已配送'){
+    item.delyGbStr=document.getElementById('s-dely').value;
+    item.slipNo=(document.getElementById('s-slip').value||'').trim();
+    if(!item.slipNo){alert('配送單號必填');return}
+  }else{
+    item.msgNote=(document.getElementById('s-msg').value||'').trim();
+    if(!item.msgNote){alert('配送訊息必填（非已配送）');return}
+  }
+  const api=getMomoApi();const token=getMomoToken();if(!api||!token){alert('需先設定 API URL + Token');return}
+  const result=document.getElementById('ship-result');
+  result.innerHTML='<div style="color:var(--blu);font-size:12px">處理中...</div>';
+  try{
+    const r=await fetch(`${api}/api/orders/momo/confirm-shipment${force?'?force=1':''}`,{method:'POST',headers:{'Content-Type':'application/json','X-API-Token':token},body:JSON.stringify({items:[item]})});
+    const data=await r.json();
+    if(!r.ok||!data.ok){
+      result.innerHTML=`<div style="background:var(--pc-bg);border:1px solid var(--pc);color:var(--pc);padding:10px;border-radius:6px;font-size:12px"><b>❌ 失敗</b><br>${esc(data.error||'HTTP '+r.status)}<br><pre style="white-space:pre-wrap;font-size:10px;margin-top:6px">${esc(JSON.stringify(data,null,2).slice(0,500))}</pre></div>`;
+      return;
+    }
+    if(data.dryRun){
+      result.innerHTML=`<div style="background:#eff6ff;border:1px solid #93c5fd;color:#1e3a8a;padding:10px;border-radius:6px;font-size:12px"><b>🧪 DRY RUN — 沒有送到 MOMO</b><br>下面這份 payload 是按「真送」會送出的內容：<pre style="white-space:pre-wrap;font-size:10px;margin-top:6px;background:#fff;padding:8px;border-radius:4px">${esc(JSON.stringify(data.wouldSend,null,2))}</pre>確認沒問題就按「⚠️ 確認真送 MOMO」</div>`;
+      document.getElementById('ship-real-btn').style.display='inline-block';
+      return;
+    }
+    // Real submit succeeded
+    result.innerHTML=`<div style="background:var(--grn-bg);border:1px solid var(--grn);color:var(--grn);padding:10px;border-radius:6px;font-size:12px"><b>✅ MOMO 已收到出貨確認</b><br>HTTP ${data.status} ｜ 重試次數 ${data.attempts||1}<br><pre style="white-space:pre-wrap;font-size:10px;margin-top:6px;background:#fff;padding:8px;border-radius:4px;color:#000">${esc(JSON.stringify(data.data,null,2).slice(0,400))}</pre></div>`;
+    // Update local order
+    if(status==='已配送'){orders[shipIdx].trackingNo=item.slipNo;orders[shipIdx].delyGbStr=item.delyGbStr;orders[shipIdx].status='已出貨'}
+    else if(status==='無貨取消訂單'){orders[shipIdx].status='已取消'}
+    orders[shipIdx].note=((orders[shipIdx].note||'')+`\n[出貨回報 ${new Date().toISOString().slice(0,10)}] ${status} ${item.delyGbStr||''} ${item.slipNo||''}`).trim();
+    saveAll();renderList();
+    setTimeout(()=>{closeModal();alert('✅ 出貨確認完成，訂單狀態已更新為「已出貨」')},800);
+  }catch(err){
+    result.innerHTML=`<div style="background:var(--pc-bg);border:1px solid var(--pc);color:var(--pc);padding:10px;border-radius:6px;font-size:12px"><b>❌ 網路錯誤</b><br>${esc(err.message)}</div>`;
+  }
+}
 document.getElementById('raw-input')?.addEventListener('paste',()=>setTimeout(runParse,200));
 </script>
 </body>
