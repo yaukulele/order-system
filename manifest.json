@@ -1,0 +1,14 @@
+{
+  "name": "訂單管理系統 — MOMO + PChome",
+  "short_name": "訂單系統",
+  "description": "MOMO + PChome 訂單管理 + 自動抓取 + 出貨確認",
+  "start_url": "./",
+  "scope": "./",
+  "display": "standalone",
+  "orientation": "any",
+  "background_color": "#f4f3ee",
+  "theme_color": "#d6336c",
+  "icons": [
+    { "src": "icon.svg", "type": "image/svg+xml", "sizes": "any", "purpose": "any maskable" }
+  ]
+}
