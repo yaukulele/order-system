@@ -212,9 +212,14 @@ db.ref('orders').on('value',snap=>{const val=snap.val();
 });
 
 // Debounced save (300ms) — 避免快速打字 fee/qty 時 spam Firebase + 引發 echo re-render
-let _saveTimer=null,_lastWrittenJson='';
-function _doSave(){_saveTimer=null;const d={};orders.forEach(o=>{d[o.id]=o});const json=JSON.stringify(d);_lastWrittenJson=json;db.ref('orders').set(d).catch(err=>{console.error('save failed',err);const sb=document.getElementById('sync-badge');if(sb){sb.className='sync-dot sync-off';sb.innerHTML='<span class="dot dot-off"></span>❌ 儲存失敗'}})}
+let _saveTimer=null,_lastWrittenJson='',_pendingOneIds=new Set();
+function _doSave(){_saveTimer=null;const d={};orders.forEach(o=>{d[o.id]=o});const json=JSON.stringify(d);_lastWrittenJson=json;
+  // Per-order writes for high-freq mutations — 比整包 set 快 + 多裝置不互相覆蓋
+  if(_pendingOneIds.size>0&&_pendingOneIds.size<orders.length){const updates={};for(const id of _pendingOneIds){const o=findO(id);if(o)updates[id]=o}_pendingOneIds.clear();db.ref('orders').update(updates).catch(_saveError);return}
+  _pendingOneIds.clear();db.ref('orders').set(d).catch(_saveError)}
+function _saveError(err){console.error('save failed',err);const sb=document.getElementById('sync-badge');if(sb){sb.className='sync-dot sync-off';sb.innerHTML='<span class="dot dot-off"></span>❌ 儲存失敗'}}
 function saveAll(immediate){const sb=document.getElementById('sync-badge');if(sb){sb.className='sync-dot sync-off';sb.innerHTML='<span class="dot dot-off"></span>儲存中...'}if(_saveTimer)clearTimeout(_saveTimer);if(immediate){_doSave()}else{_saveTimer=setTimeout(_doSave,300)}}
+function saveOne(o){if(!o||!o.id)return;_pendingOneIds.add(o.id);saveAll()}
 
 // ===== PARSERS =====
 function detect(r){if(r.includes('公克')||r.includes('一般訂單(約配)')||/\d+\(•\)/.test(r))return'MO';if(r.includes('看電話')||r.includes('廠商料號')||r.includes('DEBJ'))return'PC';return'AUTO'}
@@ -435,14 +440,14 @@ async function fetchMomoAuto(){
 
 // ===== LIST =====
 function logActivity(o,action){const ts=new Date().toISOString().slice(0,16).replace('T',' ');o.note=((o.note||'')+`\n[${ts}] ${action}`).trim()}
-function toggleStatus(oid){const o=findO(oid);if(!o)return;const prev=o.status;o.status=ST[(ST.indexOf(o.status)+1)%ST.length];logActivity(o,`狀態：${prev} → ${o.status}`);saveAll();renderList()}
+function toggleStatus(oid){const o=findO(oid);if(!o)return;const prev=o.status;o.status=ST[(ST.indexOf(o.status)+1)%ST.length];logActivity(o,`狀態：${prev} → ${o.status}`);saveOne(o);renderList()}
 function stCls(s){return s==='待出貨'?'st-btn st-wait':s==='已出貨'?'st-btn st-ship':s==='已完成'?'st-btn st-done':s==='已轉線下'?'st-btn st-offline':'st-btn st-cancel'}
-function quickStatus(oid,s){const o=findO(oid);if(!o)return;if(!confirm(`確定把這筆訂單標記為「${s}」？\n\n${o.name||''} ｜ ${o.product||''}`))return;o.status=s;if(s==='已轉線下'&&!(o.note||'').includes('線下'))o.note=((o.note||'')+' [客戶轉線下]').trim();if(s==='已取消'&&!(o.note||'').includes('取消'))o.note=((o.note||'')+` [${new Date().toISOString().slice(0,10)} 取消]`).trim();saveAll();renderList()}
-function toggleInstall(oid){const o=findO(oid);if(!o)return;o.install=o.install==='是'?'否':'是';if(o.install==='否'){o.installFee=0;o.installDay='';o.installTime=''}saveAll();renderList()}
-function toggleAddon(oid){const o=findO(oid);if(!o)return;o.addon=o.addon==='是'?'否':'是';if(o.addon==='否')o.addonFee=0;saveAll();renderList()}
-function setInstFee(oid,v){const o=findO(oid);if(!o)return;o.installFee=parseInt(v)||0;saveAll();const el=document.getElementById('tot-'+oid);if(el)el.textContent=$(tot(o))}
-function setAddonFee(oid,v){const o=findO(oid);if(!o)return;o.addonFee=parseInt(v)||0;saveAll();const el=document.getElementById('tot-'+oid);if(el)el.textContent=$(tot(o))}
-function setQty(oid,v){const o=findO(oid);if(!o)return;const n=parseInt(v);o.qty=n>=1?n:1;saveAll()}
+function quickStatus(oid,s){const o=findO(oid);if(!o)return;if(!confirm(`確定把這筆訂單標記為「${s}」？\n\n${o.name||''} ｜ ${o.product||''}`))return;o.status=s;if(s==='已轉線下'&&!(o.note||'').includes('線下'))o.note=((o.note||'')+' [客戶轉線下]').trim();if(s==='已取消'&&!(o.note||'').includes('取消'))o.note=((o.note||'')+` [${new Date().toISOString().slice(0,10)} 取消]`).trim();saveOne(o);renderList()}
+function toggleInstall(oid){const o=findO(oid);if(!o)return;o.install=o.install==='是'?'否':'是';if(o.install==='否'){o.installFee=0;o.installDay='';o.installTime=''}saveOne(o);renderList()}
+function toggleAddon(oid){const o=findO(oid);if(!o)return;o.addon=o.addon==='是'?'否':'是';if(o.addon==='否')o.addonFee=0;saveOne(o);renderList()}
+function setInstFee(oid,v){const o=findO(oid);if(!o)return;o.installFee=parseInt(v)||0;saveOne(o);const el=document.getElementById('tot-'+oid);if(el)el.textContent=$(tot(o))}
+function setAddonFee(oid,v){const o=findO(oid);if(!o)return;o.addonFee=parseInt(v)||0;saveOne(o);const el=document.getElementById('tot-'+oid);if(el)el.textContent=$(tot(o))}
+function setQty(oid,v){const o=findO(oid);if(!o)return;const n=parseInt(v);o.qty=n>=1?n:1;saveOne(o)}
 
 function toggleSort(){sortOrder=sortOrder==='date-desc'?'date-asc':'date-desc';persistFilters();renderList()}
 function restoreFilterUI(){document.querySelectorAll('#tab-list .fbtn[data-fg="plat"]').forEach(x=>x.classList.remove('on'));const fp=document.querySelector(`#tab-list .fbtn[data-fg="plat"][onclick*="'${cFilter}'"]`);if(fp)fp.classList.add('on');else document.querySelector('#tab-list .fbtn[data-fg="plat"]')?.classList.add('on');document.querySelectorAll('#tab-list .fbtn[data-fg="status"]').forEach(x=>x.classList.remove('on'));const fs=document.querySelector(`#tab-list .fbtn[data-fg="status"][onclick*="'${cStatus}'"]`);if(fs)fs.classList.add('on');else document.querySelector('#tab-list .fbtn[data-fg="status"]')?.classList.add('on')}
@@ -597,7 +602,7 @@ document.querySelectorAll('#ei-panel .sched-btn.picked').forEach(b=>{const v=b.t
 o.addon=document.getElementById('ea-panel').classList.contains('hidden')?'否':'是';o.addonFee=parseInt(document.getElementById('e-addonf').value)||0;o.status=document.getElementById('e-st').value;
 let note=document.getElementById('e-note').value.trim().replace(/【安裝】[^\n]*/g,'').trim();
 if(o.install==='是'&&(o.installDay||o.installTime)){note='【安裝】'+o.installDay+(o.installTime?' '+o.installTime:'')+(o.installFee?' $'+o.installFee:'')+(note?'\n'+note:'')}
-o.note=note;saveAll();closeModal();renderList()}
+o.note=note;saveOne(o);closeModal();renderList()}
 function closeModal(){document.getElementById('modal-overlay').classList.add('hidden');editId=null;shipId=null;document.body.style.overflow='';if(pendingRemoteOrders!==null){const v=pendingRemoteOrders;pendingRemoteOrders=null;applyRemoteOrders(v)}}
 // 全域鍵盤捷徑
 document.addEventListener('keydown',e=>{
@@ -647,7 +652,7 @@ const blob=new Blob([csv],{type:'text/csv;charset=utf-8'});const url=URL.createO
 // ===== 同意/拒絕 改址 =====
 async function changeAddrAck(oid,agree){const o=findO(oid);if(!o||o.platform!=='MO'){alert('只有 MOMO 訂單可用');return}if(!(o.note||'').includes('改地址')){if(!confirm('這筆訂單看起來沒有改址申請，仍要送出 同意/拒絕？'))return}const api=getMomoApi();const token=getMomoToken();if(!api||!token){alert('需先設定 API URL + Token');return}const word=agree?'同意改地址':'拒絕改地址';if(!confirm(`確定對訂單 ${o.orderNo} 送出「${word}」？\n\n（這會立即更新到 MOMO，無法復原）`))return;
 try{const r=await fetch(`${api}/api/orders/momo/change-addr-ack`,{method:'POST',headers:{'Content-Type':'application/json','X-API-Token':token},body:JSON.stringify({orderNo:o.orderNo,agree})});const data=await r.json();if(!r.ok||!data.ok){alert(`❌ 失敗：${data.error||'HTTP '+r.status}\n\n${JSON.stringify(data.data||{},null,2).slice(0,400)}`);return}
-const note=(o.note||'').replace(/⚠ 客戶申請改地址/g,'').trim();o.note=`[${word} ${new Date().toISOString().slice(0,10)}] ${note}`.trim();saveAll();renderList();alert(`✅ ${word} 已送 MOMO\nHTTP ${data.status}\n${data.data?.successCnt?`成功 ${data.data.successCnt}/${data.data.totalCnt} 筆`:''}`)}catch(err){alert('網路錯誤：'+err.message)}}
+const note=(o.note||'').replace(/⚠ 客戶申請改地址/g,'').trim();o.note=`[${word} ${new Date().toISOString().slice(0,10)}] ${note}`.trim();saveOne(o);renderList();alert(`✅ ${word} 已送 MOMO\nHTTP ${data.status}\n${data.data?.successCnt?`成功 ${data.data.successCnt}/${data.data.totalCnt} 筆`:''}`)}catch(err){alert('網路錯誤：'+err.message)}}
 
 // ===== MOMO 出貨確認 =====
 const MOMO_DELY_COMPANIES=['宅配通','新竹貨運','統一速達','大榮貨運','宅配通大電','順豐速運','全球快遞','通盈貨運','新航貨運','郵局','便利袋','其他宅配','其他'];
@@ -707,7 +712,7 @@ async function submitShip(force){
     if(status==='已配送'){o.trackingNo=item.slipNo;o.delyGbStr=item.delyGbStr;o.status='已出貨'}
     else if(status==='無貨取消訂單'){o.status='已取消'}
     o.note=((o.note||'')+`\n[出貨回報 ${new Date().toISOString().slice(0,10)}] ${status} ${item.delyGbStr||''} ${item.slipNo||''}`).trim();
-    saveAll();renderList();
+    saveOne(o);renderList();
     setTimeout(()=>{closeModal();alert('✅ 出貨確認完成，訂單狀態已更新為「已出貨」')},800);
   }catch(err){
     result.innerHTML=`<div style="background:var(--pc-bg);border:1px solid var(--pc);color:var(--pc);padding:10px;border-radius:6px;font-size:12px"><b>❌ 網路錯誤</b><br>${esc(err.message)}</div>`;
