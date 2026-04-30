@@ -110,6 +110,14 @@ td{padding:7px 10px;border-bottom:1px solid #f0ede6}tr:hover td{background:var(-
 .empty-state .es-icon{font-size:42px;margin-bottom:10px;opacity:.7}
 .empty-state .es-title{font-size:14px;font-weight:700;margin-bottom:4px}
 .empty-state .es-hint{font-size:11px;line-height:1.6}
+/* Toast for undo / status messages */
+.toast{position:fixed;bottom:80px;left:50%;transform:translateX(-50%);background:var(--tx);color:#fff;padding:12px 18px;border-radius:10px;display:flex;align-items:center;gap:12px;font-size:13px;font-weight:600;box-shadow:0 8px 24px rgba(0,0,0,.2);z-index:300;max-width:90vw;animation:toastIn .25s ease-out}
+.toast button{background:#fff;color:var(--tx);border:0;padding:6px 12px;border-radius:6px;cursor:pointer;font-size:12px;font-weight:700}
+.toast .toast-close{background:transparent;color:#fff;font-size:16px;padding:0 4px}
+@keyframes toastIn{from{opacity:0;transform:translate(-50%,20px)}to{opacity:1;transform:translateX(-50%)}}
+.offline-banner{position:fixed;top:0;left:0;right:0;background:var(--pc);color:#fff;text-align:center;padding:6px;font-size:12px;font-weight:700;z-index:101;animation:slideDown .3s ease-out}
+.offline-banner.hidden{display:none}
+@keyframes slideDown{from{transform:translateY(-100%)}to{transform:translateY(0)}}
 @media(max-width:768px){
 .main{padding:8px}
 .stats-g{grid-template-columns:1fr 1fr}
@@ -151,6 +159,7 @@ input[type="text"],input[type="number"],input[type="tel"],input[type="email"],in
 </style>
 </head>
 <body>
+<div class="offline-banner hidden" id="offline-banner">⚠️ 已離線 — 你的修改會在連線恢復後同步</div>
 <div class="hdr"><h1>📦 訂單管理系統<small>MOMO + PChome</small></h1><div style="display:flex;align-items:center;gap:8px"><span id="sync-badge" class="sync-dot sync-off"><span class="dot dot-off"></span>連線中...</span><button class="btn" id="theme-btn" onclick="toggleTheme()" style="font-size:11px" title="切換亮色/暗色">🌙</button><button class="btn" id="notif-btn" onclick="toggleNotifications()" style="font-size:11px" title="桌面通知">🔕</button><button class="btn" onclick="showShortcutsHelp()" style="font-size:11px" title="鍵盤捷徑（按 ? 快速打開）">⌨️</button><button class="btn" onclick="location.reload()" style="font-size:11px">🔄</button><button class="btn" onclick="if(confirm('確定清空？')){orders=[];saveAll()}" style="font-size:11px">清空</button></div></div>
 <div class="tabs"><button class="tab active" onclick="showTab('import')">📋 匯入</button><button class="tab" onclick="showTab('list')">📦 列表 <span class="badge" id="cnt">0</span></button><button class="tab" onclick="showTab('output')">📤 輸出</button><button class="tab" onclick="showTab('stats')">📊 統計</button><button class="tab" onclick="showTab('customers')">👥 客戶</button></div>
 
@@ -233,6 +242,28 @@ if(!no||(!name&&!pr))return null;return{id:gid(),date:dt,dateFmt:df,platform:'MO
 function gid(){return Date.now().toString(36)+Math.random().toString(36).slice(2,6)}
 function findO(oid){return orders.find(x=>x.id===oid)}
 function findIdx(oid){return orders.findIndex(x=>x.id===oid)}
+// Undo stack — 最近 10 次刪除可還原
+const undoStack=[];
+function pushUndo(entry){undoStack.push({...entry,t:Date.now()});if(undoStack.length>10)undoStack.shift()}
+function undoLast(){const u=undoStack.pop();if(!u){showToast('沒有可還原的動作');return}
+  if(u.kind==='delete-one'){orders.push(u.order);saveAll();renderList();showToast(`✅ 已還原「${u.order.name||u.order.product||'訂單'}」`)}
+  else if(u.kind==='delete-batch'){orders.push(...u.orders);saveAll();renderList();showToast(`✅ 已還原 ${u.orders.length} 筆訂單`)}
+}
+// Toast 系統
+let _toastEl=null,_toastTimer=null;
+function showToast(msg,actionLabel,actionFn,duration){
+  if(_toastTimer)clearTimeout(_toastTimer);
+  if(_toastEl)_toastEl.remove();
+  const el=document.createElement('div');el.className='toast';
+  let html=`<span>${esc(msg)}</span>`;
+  if(actionLabel)html+=`<button id="_toast-action">${esc(actionLabel)}</button>`;
+  html+=`<button class="toast-close" onclick="this.parentNode.remove()">✕</button>`;
+  el.innerHTML=html;document.body.appendChild(el);_toastEl=el;
+  if(actionFn)el.querySelector('#_toast-action').onclick=()=>{actionFn();el.remove();_toastEl=null};
+  _toastTimer=setTimeout(()=>{if(el.parentNode){el.style.opacity='0';el.style.transition='opacity .3s';setTimeout(()=>el.remove(),300)}_toastEl=null},duration||5000);
+}
+// Firebase 連線狀態 — .info/connected 偵測
+db.ref('.info/connected').on('value',snap=>{const ok=!!snap.val();const banner=document.getElementById('offline-banner');if(banner)banner.classList.toggle('hidden',ok)});
 function bestPhone(o){return o.realPhone||o.phone||''}
 function platformPill(p){if(p==='MO')return '<span class="brand-pill brand-mo"><span class="b-dot">M</span>momo</span>';if(p==='PC')return '<span class="brand-pill brand-pc"><span class="b-dot">24</span>PChome</span>';return `<span class="tag">${esc(p||'')}</span>`}
 function fmtS(o){const d=o.dateFmt||fmtD(o.date),q=(o.qty||1)>1?' x '+o.qty:'',pr=(o.product||'')+q,ph=bestPhone(o);if(o.platform==='PC')return[d+' PC',o.orderNo,pr,o.specs,o.name,ph,o.address].filter(Boolean).join('\n');return[d+' MO',o.orderNo,pr,o.name,ph,o.address].filter(Boolean).join('\n')}
@@ -470,11 +501,11 @@ h+='</div>';document.getElementById('list-area').innerHTML=h;renderBatchBar(fl)}
 function renderBatchBar(fl){let bar=document.getElementById('batch-bar');const selOrders=orders.filter(o=>selectedIds.has(o.id));if(selOrders.length===0){if(bar)bar.classList.add('hidden');return}if(!bar){bar=document.createElement('div');bar.id='batch-bar';bar.className='batch-bar';document.body.appendChild(bar)}bar.classList.remove('hidden');const total=selOrders.reduce((s,o)=>s+tot(o),0);bar.innerHTML=`<span style="font-size:13px;font-weight:700">已選 ${selOrders.length} 筆 ｜ 合計 $${total.toLocaleString()}</span><span style="flex:1"></span><button onclick="batchSetStatus('已出貨')">標記已出貨</button><button onclick="batchSetStatus('已完成')">標記已完成</button><button onclick="batchCopyShipping()">📋 複製出貨資料</button><button onclick="batchPrintShipping()">🖨 列印出貨單</button><button class="danger" onclick="batchDelete()">🗑 刪除</button><button onclick="selectedIds.clear();renderList()">取消選取</button>`}
 function batchSetStatus(s){const sel=orders.filter(o=>selectedIds.has(o.id));if(!sel.length)return;if(!confirm(`把選取的 ${sel.length} 筆訂單標記為「${s}」？`))return;sel.forEach(o=>{o.status=s});saveAll();renderList();alert(`✅ 已更新 ${sel.length} 筆`)}
 function batchCopyShipping(){const sel=orders.filter(o=>selectedIds.has(o.id));if(!sel.length)return;const txt=sel.map(o=>fmtShipping(o)).join('\n\n========\n\n');navigator.clipboard.writeText(txt).then(()=>alert(`✅ 已複製 ${sel.length} 筆出貨資料`)).catch(err=>alert('複製失敗：'+err.message))}
-function batchDelete(){const sel=orders.filter(o=>selectedIds.has(o.id));if(!sel.length)return;if(!confirm(`刪除選取的 ${sel.length} 筆訂單？無法復原！`))return;orders=orders.filter(o=>!selectedIds.has(o.id));selectedIds.clear();saveAll();renderList()}
+function batchDelete(){const sel=orders.filter(o=>selectedIds.has(o.id));if(!sel.length)return;if(!confirm(`刪除選取的 ${sel.length} 筆訂單？\n\n（可按 Undo 還原）`))return;pushUndo({kind:'delete-batch',orders:sel.map(o=>JSON.parse(JSON.stringify(o)))});orders=orders.filter(o=>!selectedIds.has(o.id));selectedIds.clear();saveAll();renderList();showToast(`已刪除 ${sel.length} 筆訂單`,'↩️ 還原',undoLast,8000)}
 function batchPrintShipping(){const sel=orders.filter(o=>selectedIds.has(o.id));if(!sel.length)return;openPrintWindow(sel)}
 
 function openPrintWindow(orders){const w=window.open('','_blank');if(!w){alert('請允許彈出視窗才能列印');return}const today=new Date().toISOString().slice(0,10);const html=`<!doctype html><html><head><meta charset="utf-8"><title>出貨單 ${today}</title><style>body{font-family:-apple-system,'Microsoft JhengHei',sans-serif;color:#111;margin:0;padding:0}.label{page-break-inside:avoid;page-break-after:always;padding:24px;border:2px dashed #999;margin:8px;font-size:14px;line-height:1.7}.label:last-child{page-break-after:auto}.label h2{font-size:22px;margin:0 0 12px;border-bottom:2px solid #111;padding-bottom:6px}.label .row{display:flex;gap:8px;margin:4px 0}.label .lbl{width:60px;color:#666;font-size:12px;font-weight:700}.label .val{flex:1;font-weight:600}.label .footer{margin-top:14px;padding-top:8px;border-top:1px dashed #ccc;font-size:11px;color:#999}@media print{.label{margin:0;border:0;padding:18px}.no-print{display:none}}.no-print{padding:14px;background:#f0f0f0;text-align:center}</style></head><body><div class="no-print"><h3>共 ${orders.length} 筆出貨單</h3><button onclick="window.print()" style="padding:10px 20px;font-size:14px;cursor:pointer">🖨 列印</button> <button onclick="window.close()" style="padding:10px 20px;font-size:14px;cursor:pointer">關閉</button></div>${orders.map(o=>{const q=(o.qty||1)>1?' × '+o.qty:'';const pr=(o.product||'')+(o.specs?'（'+o.specs+'）':'')+q;return`<div class="label"><h2>📦 出貨單</h2><div class="row"><span class="lbl">姓名</span><span class="val" style="font-size:18px">${esc(o.name||'')}</span></div><div class="row"><span class="lbl">電話</span><span class="val" style="font-size:16px">${phoneTel(bestPhone(o))}</span></div><div class="row"><span class="lbl">地址</span><span class="val" style="font-size:14px">${esc(o.address||'')}</span></div><div class="row"><span class="lbl">商品</span><span class="val">${esc(pr)}</span></div><div class="row"><span class="lbl">單號</span><span class="val" style="font-family:'Menlo',monospace;font-size:11px">${esc(o.orderNo||'')}</span></div>${o.note?`<div class="row"><span class="lbl">備註</span><span class="val" style="font-size:12px">${esc(o.note).replace(/\n/g,'<br>')}</span></div>`:''}<div class="footer">${o.platform==='MO'?'MOMO':'PChome'} ｜ 印於 ${new Date().toLocaleString('zh-TW')}</div></div>`}).join('')}</body></html>`;w.document.write(html);w.document.close()}
-function delOrder(oid){const i=findIdx(oid);if(i<0)return;const o=orders[i];if(!confirm(`確定刪除？\n\n${o.name||''} ｜ ${o.product||''}`))return;orders.splice(i,1);selectedIds.delete(oid);saveAll();renderList()}
+function delOrder(oid){const i=findIdx(oid);if(i<0)return;const o=orders[i];if(!confirm(`確定刪除？\n\n${o.name||''} ｜ ${o.product||''}\n\n（5 秒內可按 Undo 還原）`))return;pushUndo({kind:'delete-one',order:JSON.parse(JSON.stringify(o))});orders.splice(i,1);selectedIds.delete(oid);saveAll();renderList();showToast(`已刪除「${o.name||o.product||'訂單'}」`,'↩️ 還原',undoLast)}
 
 let outputDateMode='today',outputFrom='',outputTo='';
 function filterOutputOrders(){const list=orders.slice();const today=new Date();today.setHours(0,0,0,0);const todayISO=today.toISOString().slice(0,10);if(outputDateMode==='today')return list.filter(o=>o.date===todayISO);if(outputDateMode==='yesterday'){const y=new Date(today.getTime()-86400000).toISOString().slice(0,10);return list.filter(o=>o.date===y)}if(outputDateMode==='week'){const wkStart=new Date(today);wkStart.setDate(today.getDate()-((today.getDay()+6)%7));const ws=wkStart.toISOString().slice(0,10);return list.filter(o=>o.date>=ws&&o.date<=todayISO)}if(outputDateMode==='month'){const ms=todayISO.slice(0,7);return list.filter(o=>o.date&&o.date.startsWith(ms))}if(outputDateMode==='custom')return list.filter(o=>{if(!o.date)return false;if(outputFrom&&o.date<outputFrom)return false;if(outputTo&&o.date>outputTo)return false;return true});return list}
@@ -558,8 +589,10 @@ document.addEventListener('keydown',e=>{
   if(/^[1-5]$/.test(e.key)){const idx=parseInt(e.key)-1;showTab(tabs[idx]);return}
   // ? 顯示快捷鍵說明
   if(e.key==='?'){showShortcutsHelp();return}
+  // Ctrl+Z 還原刪除
+  if((e.ctrlKey||e.metaKey)&&e.key==='z'){e.preventDefault();undoLast();return}
 });
-function showShortcutsHelp(){const lines=['🎹 鍵盤捷徑','','/ 或 Ctrl+K — 聚焦搜尋','Esc — 關 modal / 清搜尋 / 取消批次','1 — 匯入分頁','2 — 列表','3 — 輸出','4 — 統計','5 — 客戶','? — 顯示這個說明'];alert(lines.join('\n'))}
+function showShortcutsHelp(){const lines=['🎹 鍵盤捷徑','','/ 或 Ctrl+K — 聚焦搜尋','Esc — 關 modal / 清搜尋 / 取消批次','Ctrl+Z — 還原刪除（最近 10 次）','1 — 匯入分頁','2 — 列表','3 — 輸出','4 — 統計','5 — 客戶','? — 顯示這個說明'];alert(lines.join('\n'))}
 
 // ===== Theme & desktop notification =====
 function applyTheme(t){document.documentElement.setAttribute('data-theme',t==='dark'?'dark':'light');document.getElementById('theme-btn').textContent=t==='dark'?'☀️':'🌙';localStorage.setItem('theme',t)}
