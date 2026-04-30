@@ -434,7 +434,8 @@ async function fetchMomoAuto(){
 }
 
 // ===== LIST =====
-function toggleStatus(oid){const o=findO(oid);if(!o)return;o.status=ST[(ST.indexOf(o.status)+1)%ST.length];saveAll();renderList()}
+function logActivity(o,action){const ts=new Date().toISOString().slice(0,16).replace('T',' ');o.note=((o.note||'')+`\n[${ts}] ${action}`).trim()}
+function toggleStatus(oid){const o=findO(oid);if(!o)return;const prev=o.status;o.status=ST[(ST.indexOf(o.status)+1)%ST.length];logActivity(o,`狀態：${prev} → ${o.status}`);saveAll();renderList()}
 function stCls(s){return s==='待出貨'?'st-btn st-wait':s==='已出貨'?'st-btn st-ship':s==='已完成'?'st-btn st-done':s==='已轉線下'?'st-btn st-offline':'st-btn st-cancel'}
 function quickStatus(oid,s){const o=findO(oid);if(!o)return;if(!confirm(`確定把這筆訂單標記為「${s}」？\n\n${o.name||''} ｜ ${o.product||''}`))return;o.status=s;if(s==='已轉線下'&&!(o.note||'').includes('線下'))o.note=((o.note||'')+' [客戶轉線下]').trim();if(s==='已取消'&&!(o.note||'').includes('取消'))o.note=((o.note||'')+` [${new Date().toISOString().slice(0,10)} 取消]`).trim();saveAll();renderList()}
 function toggleInstall(oid){const o=findO(oid);if(!o)return;o.install=o.install==='是'?'否':'是';if(o.install==='否'){o.installFee=0;o.installDay='';o.installTime=''}saveAll();renderList()}
@@ -517,7 +518,7 @@ ${addrAckHtml}${shipBtnHtml}
 </div></div>`});
 h+='</div>';document.getElementById('list-area').innerHTML=h;renderBatchBar(fl)}
 function renderBatchBar(fl){let bar=document.getElementById('batch-bar');const selOrders=orders.filter(o=>selectedIds.has(o.id));if(selOrders.length===0){if(bar)bar.classList.add('hidden');return}if(!bar){bar=document.createElement('div');bar.id='batch-bar';bar.className='batch-bar';document.body.appendChild(bar)}bar.classList.remove('hidden');const total=selOrders.reduce((s,o)=>s+tot(o),0);bar.innerHTML=`<span style="font-size:13px;font-weight:700">已選 ${selOrders.length} 筆 ｜ 合計 $${total.toLocaleString()}</span><span style="flex:1"></span><button onclick="batchSetStatus('已出貨')">標記已出貨</button><button onclick="batchSetStatus('已完成')">標記已完成</button><button onclick="batchCopyShipping()">📋 複製出貨資料</button><button onclick="batchPrintShipping()">🖨 列印出貨單</button><button class="danger" onclick="batchDelete()">🗑 刪除</button><button onclick="selectedIds.clear();renderList()">取消選取</button>`}
-function batchSetStatus(s){const sel=orders.filter(o=>selectedIds.has(o.id));if(!sel.length)return;if(!confirm(`把選取的 ${sel.length} 筆訂單標記為「${s}」？`))return;sel.forEach(o=>{o.status=s});saveAll();renderList();alert(`✅ 已更新 ${sel.length} 筆`)}
+function batchSetStatus(s){const sel=orders.filter(o=>selectedIds.has(o.id));if(!sel.length)return;if(!confirm(`把選取的 ${sel.length} 筆訂單標記為「${s}」？`))return;sel.forEach(o=>{const prev=o.status;o.status=s;logActivity(o,`批次狀態：${prev} → ${s}`)});saveAll();renderList();showToast(`✅ 已更新 ${sel.length} 筆訂單為「${s}」`)}
 function batchCopyShipping(){const sel=orders.filter(o=>selectedIds.has(o.id));if(!sel.length)return;const txt=sel.map(o=>fmtShipping(o)).join('\n\n========\n\n');navigator.clipboard.writeText(txt).then(()=>alert(`✅ 已複製 ${sel.length} 筆出貨資料`)).catch(err=>alert('複製失敗：'+err.message))}
 function batchDelete(){const sel=orders.filter(o=>selectedIds.has(o.id));if(!sel.length)return;if(!confirm(`刪除選取的 ${sel.length} 筆訂單？\n\n（可按 Undo 還原）`))return;pushUndo({kind:'delete-batch',orders:sel.map(o=>JSON.parse(JSON.stringify(o)))});orders=orders.filter(o=>!selectedIds.has(o.id));selectedIds.clear();saveAll();renderList();showToast(`已刪除 ${sel.length} 筆訂單`,'↩️ 還原',undoLast,8000)}
 function batchPrintShipping(){const sel=orders.filter(o=>selectedIds.has(o.id));if(!sel.length)return;openPrintWindow(sel)}
@@ -551,8 +552,9 @@ const html=`<div class="card"><div style="overflow-x:auto"><table><thead><tr><th
 document.getElementById('cust-area').innerHTML=html}
 
 // ===== EDIT MODAL =====
+function customerHistoryBadge(o){if(!o.name)return'';const same=orders.filter(x=>x.id!==o.id&&x.name===o.name);if(!same.length)return'';const total=same.reduce((s,x)=>s+tot(x),0);const lastDate=same.map(x=>x.date).filter(Boolean).sort().pop();return`<span style="display:inline-block;background:#fef0f5;color:var(--mo);font-size:10px;padding:3px 8px;border-radius:10px;font-weight:700;margin-left:6px" title="點此跳到客戶頁">回頭客 ｜ ${same.length} 筆 ｜ $${total.toLocaleString()} ｜ 最後 ${lastDate||'?'}</span>`}
 function openEdit(oid){const o=findO(oid);if(!o)return;editId=oid;
-document.getElementById('modal-body').innerHTML=`<h3>編輯訂單</h3>
+document.getElementById('modal-body').innerHTML=`<h3>編輯訂單${customerHistoryBadge(o)}</h3>
 <div class="fg"><div class="fi"><label>日期</label><input type="date" id="e-date" value="${o.date}"></div><div class="fi"><label>平台</label><select id="e-plat"><option ${o.platform==='MO'?'selected':''}>MO</option><option ${o.platform==='PC'?'selected':''}>PC</option></select></div></div>
 <div class="fg full"><div class="fi"><label>單號</label><input id="e-no" value="${esc(o.orderNo)}" style="font-family:var(--mono)"></div></div>
 <div class="fg full"><div class="fi"><label>品名</label><input id="e-prod" value="${esc(o.product)}"></div></div>
