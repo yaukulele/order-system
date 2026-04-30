@@ -207,7 +207,7 @@ setSyncOn()}
 db.ref('orders').on('value',snap=>{const val=snap.val();
   // Skip echo of own write — 避免我們剛 set 的資料又觸發 re-render
   const json=val?JSON.stringify(val):'';
-  if(json===_lastWrittenJson){orders=val?Object.values(val):[];updateCnt();setSyncOn();return}
+  if(json===_lastWrittenJson){orders=val?Object.values(val):[];pendingRemoteOrders=null;updateCnt();setSyncOn();return}
   if(isModalOpen()||isInputFocused()){pendingRemoteOrders=val;setSyncOn();return}
   applyRemoteOrders(val)
 });
@@ -615,8 +615,11 @@ document.querySelectorAll('#ei-panel .sched-btn.picked').forEach(b=>{const v=b.t
 o.addon=document.getElementById('ea-panel').classList.contains('hidden')?'否':'是';o.addonFee=parseInt(document.getElementById('e-addonf').value)||0;o.status=document.getElementById('e-st').value;
 let note=document.getElementById('e-note').value.trim().replace(/【安裝】[^\n]*/g,'').trim();
 if(o.install==='是'&&(o.installDay||o.installTime)){note='【安裝】'+o.installDay+(o.installTime?' '+o.installTime:'')+(o.installFee?' $'+o.installFee:'')+(note?'\n'+note:'')}
-o.note=note;saveOne(o);closeModal();renderList()}
-function closeModal(){document.getElementById('modal-overlay').classList.add('hidden');editId=null;shipId=null;document.body.style.overflow='';if(pendingRemoteOrders!==null){const v=pendingRemoteOrders;pendingRemoteOrders=null;applyRemoteOrders(v)}}
+o.note=note;saveOne(o);pendingRemoteOrders=null;closeModal();renderList()}
+function closeModal(){document.getElementById('modal-overlay').classList.add('hidden');editId=null;shipId=null;document.body.style.overflow='';
+  // 我們有 pending 的儲存（剛點 save）→ 我們的 local state 才是最新，不要套用過期的 pending
+  if(_saveAllTimer||_saveOneTimer){pendingRemoteOrders=null;return}
+  if(pendingRemoteOrders!==null){const v=pendingRemoteOrders;pendingRemoteOrders=null;applyRemoteOrders(v)}}
 // 全域鍵盤捷徑
 document.addEventListener('keydown',e=>{
   // 不在輸入框時才響應字母快捷鍵
