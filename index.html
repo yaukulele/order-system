@@ -446,7 +446,7 @@ async function fetchMomoAuto(){
 function logActivity(o,action){const ts=new Date().toISOString().slice(0,16).replace('T',' ');o.note=((o.note||'')+`\n[${ts}] ${action}`).trim()}
 function toggleStatus(oid){const o=findO(oid);if(!o)return;const prev=o.status;o.status=ST[(ST.indexOf(o.status)+1)%ST.length];logActivity(o,`狀態：${prev} → ${o.status}`);saveOne(o);renderList()}
 function stCls(s){return s==='待出貨'?'st-btn st-wait':s==='已出貨'?'st-btn st-ship':s==='已完成'?'st-btn st-done':s==='已轉線下'?'st-btn st-offline':'st-btn st-cancel'}
-function quickStatus(oid,s){const o=findO(oid);if(!o)return;if(!confirm(`確定把這筆訂單標記為「${s}」？\n\n${o.name||''} ｜ ${o.product||''}`))return;o.status=s;if(s==='已轉線下'&&!(o.note||'').includes('線下'))o.note=((o.note||'')+' [客戶轉線下]').trim();if(s==='已取消'&&!(o.note||'').includes('取消'))o.note=((o.note||'')+` [${new Date().toISOString().slice(0,10)} 取消]`).trim();saveOne(o);renderList()}
+function quickStatus(oid,s){const o=findO(oid);if(!o)return;if(!confirm(`確定把這筆訂單標記為「${s}」？\n\n${o.name||''} ｜ ${o.product||''}`))return;const prev=o.status;o.status=s;logActivity(o,`狀態：${prev} → ${s}${s==='已轉線下'?'（客戶轉線下）':s==='已取消'?'（取消訂單）':''}`);saveOne(o);renderList()}
 function toggleInstall(oid){const o=findO(oid);if(!o)return;o.install=o.install==='是'?'否':'是';if(o.install==='否'){o.installFee=0;o.installDay='';o.installTime=''}saveOne(o);renderList()}
 function toggleAddon(oid){const o=findO(oid);if(!o)return;o.addon=o.addon==='是'?'否':'是';if(o.addon==='否')o.addonFee=0;saveOne(o);renderList()}
 function setInstFee(oid,v){const o=findO(oid);if(!o)return;o.installFee=parseInt(v)||0;saveOne(o);const el=document.getElementById('tot-'+oid);if(el)el.textContent=$(tot(o))}
