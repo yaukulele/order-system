@@ -81,6 +81,7 @@ td{padding:7px 10px;border-bottom:1px solid #f0ede6}tr:hover td{background:var(-
 .sched-row{display:flex;gap:6px;flex-wrap:wrap;align-items:center;margin-top:6px}
 .sched-btn{padding:4px 10px;border-radius:5px;border:1px solid var(--bd);background:var(--sf);font-size:11px;font-weight:600;cursor:pointer;font-family:var(--sans);color:var(--dm)}.sched-btn.picked{background:var(--blu);color:#fff;border-color:var(--blu)}.sched-btn.weekend{border-color:var(--pc)}
 .total-box{background:#eef7f1;border:2px solid #8cc4a0;border-radius:8px;padding:10px 14px;text-align:center;margin-top:10px}.total-box .t-label{font-size:10px;color:var(--dm);font-weight:700}.total-box .t-val{font-size:24px;font-weight:900;font-family:var(--mono);color:var(--grn)}
+.fb-divider{color:var(--ht);margin:0 2px}
 @media(max-width:768px){
 .main{padding:8px}
 .stats-g{grid-template-columns:1fr 1fr}
@@ -88,24 +89,37 @@ td{padding:7px 10px;border-bottom:1px solid #f0ede6}tr:hover td{background:var(-
 .hdr{padding:10px 12px}
 .hdr h1{font-size:14px}
 .hdr h1 small{display:none}
-.tabs{padding:0 4px;gap:4px}
-.tab{padding:10px 8px;font-size:11px;flex:1;white-space:nowrap}
-.tab .badge{display:none}
+.tabs{padding:0 4px;gap:4px;position:sticky;top:43px;z-index:99;background:var(--sf)}
+.tab{padding:10px 6px;font-size:11px;flex:1;white-space:nowrap;min-width:0}
+.tab .badge{font-size:9px;padding:0 5px;margin-left:2px}
 .card-h{padding:10px 12px}
 .card-h h3{font-size:13px}
 .card-b{padding:12px}
-.btn{padding:8px 12px;font-size:12px;min-height:36px}
-.fbtn{padding:6px 10px;font-size:10px;min-height:30px}
+.btn{padding:8px 12px;font-size:12px;min-height:40px}
+.fbtn{padding:8px 10px;font-size:11px;min-height:36px}
+.fb-divider{display:none}
+.filter-row{gap:4px}
+.search{flex:1;width:auto!important;min-width:120px}
 table{font-size:10px}
-th,td{padding:6px 5px}
-.act,.toggle-on,.toggle-off,.st-btn{min-height:30px;padding:5px 8px;font-size:10px}
-.fee-input{width:50px!important;font-size:11px}
+th,td{padding:6px 4px}
+.act,.toggle-on,.toggle-off,.st-btn{min-height:36px;padding:6px 8px;font-size:10px}
+.fee-input{width:50px!important;font-size:11px;min-height:32px}
+.qty-input{width:42px!important;min-height:32px}
 .batch-bar{flex-wrap:wrap;padding:8px;font-size:11px}
-.batch-bar button{padding:6px 8px;font-size:11px;min-height:32px}
-.modal{max-width:95vw;padding:14px;max-height:90vh}
+.batch-bar button{padding:8px;font-size:11px;min-height:36px}
+.modal{max-width:95vw;padding:14px;max-height:92vh;border-radius:14px 14px 0 0;width:100%;max-width:100%;margin-bottom:0}
+.overlay{align-items:flex-end}
+.fi input,.fi select,.fi textarea{font-size:14px;padding:10px 12px}
 /* Hide secondary columns on phone — keep date/platform/product/name/total/status/actions */
 .tab-list-mobile-hide{display:none}
+.prod-cell{max-width:140px;min-width:100px}
+.name-cell{min-width:50px;font-size:10px}
 }
+/* iOS Safari: prevent input focus zoom (must be ≥16px) */
+@supports (-webkit-touch-callout:none){
+@media(max-width:768px){
+input[type="text"],input[type="number"],input[type="tel"],input[type="email"],input[type="date"],input:not([type]),select,textarea{font-size:16px}
+}}
 </style>
 </head>
 <body>
@@ -115,7 +129,7 @@ th,td{padding:6px 5px}
 <div class="main" id="tab-import"><div class="card" style="background:linear-gradient(135deg,#fef0f5,#fff);border:1px solid #f0c4d8"><div class="card-h" style="background:transparent"><h3>🚀 自動抓取 MOMO 訂單（API 直連，無需貼上）</h3><div style="display:flex;gap:6px;flex-wrap:wrap"><button class="btn" onclick="resetMomoApi()" title="重設 API 網址 / Token">⚙️</button><button class="btn" onclick="auditMomoFields()" title="檢查 MOMO API 全部欄位（證明真實電話拿不到）" style="font-size:11px">🔍 欄位稽核</button><button class="btn" onclick="testNotify()" title="送一則測試訊息到 Discord / LINE 確認連線" style="font-size:11px">🔔 測試通知</button><button class="btn" onclick="pollNow()" title="立刻 poll MOMO 一次（會推新訂單到 Discord/LINE）" style="font-size:11px">⚡ 立刻 poll</button><button class="btn btn-g" id="momo-auto-btn" onclick="fetchMomoAuto()" style="background:var(--mo);border-color:var(--mo)">🔄 自動抓 MOMO 未出貨訂單</button></div></div><div class="card-b" style="padding:10px 16px"><div id="momo-auto-status" style="font-size:11px;color:var(--dm);font-family:var(--mono)">第一次只問 Token（API 網址自動填），其他裝置直接共用 ☁️</div><div id="audit-result" style="margin-top:8px;font-size:11px;display:none"></div></div></div>
 <div class="card"><div class="card-h"><h3>貼上後台資料（自動辨識 MO / PC）</h3><div style="display:flex;gap:6px"><button class="btn" onclick="clearInput()">清空</button><button class="btn btn-b" onclick="runParse()">預覽</button><button class="btn btn-g" onclick="doImport()">匯入雲端</button></div></div><div class="card-b"><div class="hint"><b>MOMO：</b>SCM 後台 → Ctrl+A → Ctrl+C → 貼下方<br><b>PChome：</b>供應商後台 → Ctrl+A → Ctrl+C → 貼下方</div><textarea id="raw-input" rows="7" placeholder="把 MOMO 或 PChome 後台訂單資料貼在這裡..."></textarea></div></div><div id="preview-area"></div></div>
 
-<div class="main hidden" id="tab-list"><div class="filter-row"><button class="fbtn on" onclick="setF('all',this)">全部</button><button class="fbtn" onclick="setF('MO',this)">MOMO</button><button class="fbtn" onclick="setF('PC',this)">PChome</button><span style="color:var(--ht)">｜</span><button class="fbtn on" onclick="setSF('all',this)">全狀態</button><button class="fbtn" onclick="setSF('待出貨',this)">待出貨</button><button class="fbtn" onclick="setSF('已出貨',this)">已出貨</button><button class="fbtn" onclick="setSF('已完成',this)">已完成</button><button class="fbtn" onclick="setSF('已取消',this)">已取消</button><button class="fbtn" onclick="setSF('已轉線下',this)">🏪 線下</button><span style="color:var(--ht)">｜</span><button class="fbtn" onclick="toggleSpecial('changeAddr',this)" title="只看客戶有申請改地址的訂單">⚠️ 改址</button><button class="fbtn" onclick="toggleSpecial('newToday',this)" title="只看今日新單">🆕 今日</button><span style="flex:1"></span><input class="search" id="q" placeholder="搜尋..." oninput="renderList()"></div><div id="list-area"></div></div>
+<div class="main hidden" id="tab-list"><div class="filter-row"><button class="fbtn on" data-fg="plat" onclick="setF('all',this)">全部</button><button class="fbtn" data-fg="plat" onclick="setF('MO',this)">MOMO</button><button class="fbtn" data-fg="plat" onclick="setF('PC',this)">PChome</button><span class="fb-divider">｜</span><button class="fbtn on" data-fg="status" onclick="setSF('all',this)">全狀態</button><button class="fbtn" data-fg="status" onclick="setSF('待出貨',this)">待出貨</button><button class="fbtn" data-fg="status" onclick="setSF('已出貨',this)">已出貨</button><button class="fbtn" data-fg="status" onclick="setSF('已完成',this)">已完成</button><button class="fbtn" data-fg="status" onclick="setSF('已取消',this)">已取消</button><button class="fbtn" data-fg="status" onclick="setSF('已轉線下',this)">🏪 線下</button><span class="fb-divider">｜</span><button class="fbtn" data-fg="special" onclick="toggleSpecial('changeAddr',this)" title="只看客戶有申請改地址的訂單">⚠️ 改址</button><button class="fbtn" data-fg="special" onclick="toggleSpecial('newToday',this)" title="只看今日新單">🆕 今日</button><span style="flex:1"></span><input class="search" id="q" placeholder="搜尋姓名/單號/商品..." oninput="renderList()"></div><div id="list-area"></div></div>
 
 <div class="main hidden" id="tab-output"><div class="card"><div class="card-h"><h3>整理格式（自動帶代撥電話 + 真實電話）</h3><div style="display:flex;gap:6px;flex-wrap:wrap"><button class="btn btn-g" onclick="copyOutput()">📋 複製當前</button><button class="btn" onclick="exportCSV('all')">📊 匯出全部 CSV</button><button class="btn" onclick="exportCSV('filtered')">🔍 匯出當前篩選 CSV</button></div></div><div class="card-b"><div class="filter-row" style="margin-bottom:10px;align-items:center;flex-wrap:wrap;gap:6px"><span style="font-size:11px;color:var(--dm)">📅 日期：</span><button class="fbtn on" onclick="setOutputDate('today',this)">今天</button><button class="fbtn" onclick="setOutputDate('yesterday',this)">昨天</button><button class="fbtn" onclick="setOutputDate('week',this)">本週</button><button class="fbtn" onclick="setOutputDate('month',this)">本月</button><button class="fbtn" onclick="setOutputDate('all',this)">全部</button><span style="margin-left:8px;font-size:11px;color:var(--dm)">自訂區間：</span><input type="date" id="of-from" onchange="onOutputDateChange()" style="font-size:11px;padding:2px 6px"><span style="font-size:11px;color:var(--dm)">→</span><input type="date" id="of-to" onchange="onOutputDateChange()" style="font-size:11px;padding:2px 6px"><span style="flex:1"></span><span style="font-size:11px;color:var(--dm)">顯示 <strong id="ocnt">0</strong> 筆</span></div><div class="hint">CSV 用 UTF-8 BOM 編碼，Excel 開啟中文不會亂碼。包含：日期、平台、訂單編號、商品、規格、數量、姓名、電話、地址、金額、安裝、加購、合計、物流公司、物流單號、狀態、備註。</div><div class="result" id="output-area">尚無訂單</div></div></div></div>
 <div class="main hidden" id="tab-stats"><div class="filter-row" style="margin-bottom:14px"><span style="font-size:12px;color:var(--dm);font-weight:600">📅 期間：</span><button class="fbtn" onclick="setStatsPeriod('today',this)">今日</button><button class="fbtn" onclick="setStatsPeriod('7',this)">7 天</button><button class="fbtn on" onclick="setStatsPeriod('30',this)">30 天</button><button class="fbtn" onclick="setStatsPeriod('90',this)">3 個月</button><button class="fbtn" onclick="setStatsPeriod('all',this)">全部</button></div><div id="stats-area"></div></div>
@@ -137,11 +151,14 @@ let orders=[],cFilter='all',cStatus='all',editIdx=-1,sortOrder='date-desc',cSpec
 const selectedIds=new Set();
 const ST=['待出貨','已出貨','已完成','已取消','已轉線下'],DAYS=['週一','週二','週三','週四','週五','週六','週日'],TIMES=['早上','下午','晚上'];
 
-// Realtime listener
-db.ref('orders').on('value',snap=>{orders=snap.val()?Object.values(snap.val()):[];updateCnt();
+// Realtime listener — 模態視窗開著時暫存遠端更新，關閉再套用，避免覆蓋本地編輯
+let pendingRemoteOrders=null;
+function isModalOpen(){return !document.getElementById('modal-overlay').classList.contains('hidden')}
+function applyRemoteOrders(val){orders=val?Object.values(val):[];updateCnt();
 const at=document.querySelector('.tab.active')?.textContent||'';
 if(at.includes('列表'))renderList();if(at.includes('輸出'))renderOutput();if(at.includes('統計'))renderStats();if(at.includes('客戶'))renderCustomers();
-document.getElementById('sync-badge').className='sync-dot sync-on';document.getElementById('sync-badge').innerHTML='<span class="dot dot-on"></span>雲端同步'});
+document.getElementById('sync-badge').className='sync-dot sync-on';document.getElementById('sync-badge').innerHTML='<span class="dot dot-on"></span>雲端同步'}
+db.ref('orders').on('value',snap=>{const val=snap.val();if(isModalOpen()){pendingRemoteOrders=val;return}applyRemoteOrders(val)});
 
 function saveAll(){document.getElementById('sync-badge').className='sync-dot sync-off';document.getElementById('sync-badge').innerHTML='<span class="dot dot-off"></span>儲存中...';const d={};orders.forEach(o=>{d[o.id]=o});db.ref('orders').set(d)}
 
@@ -191,9 +208,9 @@ function clearInput(){document.getElementById('raw-input').value='';document.get
 
 // ===== TABS =====
 function showTab(t){['import','list','output','stats','customers'].forEach(id=>document.getElementById('tab-'+id).classList.toggle('hidden',id!==t));document.querySelectorAll('.tabs .tab').forEach((b,i)=>b.classList.toggle('active',['import','list','output','stats','customers'][i]===t));if(t==='list')renderList();if(t==='output')renderOutput();if(t==='stats')renderStats();if(t==='customers')renderCustomers()}
-function setF(f,b){cFilter=f;document.querySelectorAll('.filter-row .fbtn').forEach((x,i)=>{if(i<3)x.classList.toggle('on',false)});b.classList.add('on');renderList()}
-function setSF(f,b){cStatus=f;document.querySelectorAll('.filter-row .fbtn').forEach((x,i)=>{if(i>=4&&i<8)x.classList.toggle('on',false)});b.classList.add('on');renderList()}
-function toggleSpecial(kind,btn){if(cSpecial===kind){cSpecial=null;btn.classList.remove('on')}else{document.querySelectorAll('.filter-row .fbtn').forEach((x,i)=>{if(i>=9)x.classList.remove('on')});cSpecial=kind;btn.classList.add('on')}renderList()}
+function setF(f,b){cFilter=f;document.querySelectorAll('.filter-row .fbtn[data-fg="plat"]').forEach(x=>x.classList.remove('on'));b.classList.add('on');renderList()}
+function setSF(f,b){cStatus=f;document.querySelectorAll('.filter-row .fbtn[data-fg="status"]').forEach(x=>x.classList.remove('on'));b.classList.add('on');renderList()}
+function toggleSpecial(kind,btn){if(cSpecial===kind){cSpecial=null;btn.classList.remove('on')}else{document.querySelectorAll('.filter-row .fbtn[data-fg="special"]').forEach(x=>x.classList.remove('on'));cSpecial=kind;btn.classList.add('on')}renderList()}
 
 // ===== IMPORT =====
 function runParse(){const r=document.getElementById('raw-input').value;if(!r.trim())return;const p=parseAll(r);if(!p.length){document.getElementById('preview-area').innerHTML='<div class="card"><div class="card-b" style="color:var(--pc)">⚠ 無法辨識</div></div>';return}const txt=p.map(fmtS).join('\n---\n');const pl=p[0]?.platform||'';document.getElementById('preview-area').innerHTML=`<div class="card"><div class="card-h"><div style="display:flex;align-items:center;gap:8px"><h3>預覽</h3><span class="badge">${p.length} 筆</span>${platformPill(pl)}</div><button class="btn btn-g" onclick="navigator.clipboard.writeText(document.getElementById('pv').textContent);alert('已複製！')">複製</button></div><div class="card-b"><div class="result" id="pv">${esc(txt)}</div></div></div>`}
@@ -412,7 +429,7 @@ document.getElementById('modal-body').innerHTML=`<h3>編輯訂單</h3>
 <div class="fg" style="margin-top:10px"><div class="fi"><label>狀態</label><select id="e-st">${ST.map(s=>`<option ${o.status===s?'selected':''}>${s}</option>`).join('')}</select></div></div>
 <div class="fg full"><div class="fi"><label>備註</label><textarea id="e-note">${esc(o.note)}</textarea></div></div>
 <div class="modal-ft"><button class="btn" onclick="closeModal()">取消</button><button class="btn btn-g" onclick="saveEdit()">儲存</button></div>`;
-document.getElementById('modal-overlay').classList.remove('hidden')}
+document.getElementById('modal-overlay').classList.remove('hidden');document.body.style.overflow='hidden'}
 
 function togEI(){const p=document.getElementById('ei-panel'),b=document.getElementById('ei-btn');if(p.classList.contains('hidden')){p.classList.remove('hidden');b.className='toggle-on';b.textContent='✓ 需要安裝'}else{p.classList.add('hidden');b.className='toggle-off';b.textContent='不需要安裝';document.getElementById('e-instf').value='';calcT()}}
 function togEA(){const p=document.getElementById('ea-panel'),b=document.getElementById('ea-btn');if(p.classList.contains('hidden')){p.classList.remove('hidden');b.className='toggle-on';b.textContent='✓ 有加購'}else{p.classList.add('hidden');b.className='toggle-off';b.textContent='無加購';document.getElementById('e-addonf').value='';calcT()}}
@@ -426,7 +443,9 @@ o.addon=document.getElementById('ea-panel').classList.contains('hidden')?'否':'
 let note=document.getElementById('e-note').value.trim().replace(/【安裝】[^\n]*/g,'').trim();
 if(o.install==='是'&&(o.installDay||o.installTime)){note='【安裝】'+o.installDay+(o.installTime?' '+o.installTime:'')+(o.installFee?' $'+o.installFee:'')+(note?'\n'+note:'')}
 o.note=note;saveAll();closeModal();renderList()}
-function closeModal(){document.getElementById('modal-overlay').classList.add('hidden');editIdx=-1}
+function closeModal(){document.getElementById('modal-overlay').classList.add('hidden');editIdx=-1;shipIdx=-1;document.body.style.overflow='';if(pendingRemoteOrders!==null){const v=pendingRemoteOrders;pendingRemoteOrders=null;applyRemoteOrders(v)}}
+// Escape 鍵關閉 modal
+document.addEventListener('keydown',e=>{if(e.key==='Escape'&&isModalOpen())closeModal()});
 
 // ===== Theme & desktop notification =====
 function applyTheme(t){document.documentElement.setAttribute('data-theme',t==='dark'?'dark':'light');document.getElementById('theme-btn').textContent=t==='dark'?'☀️':'🌙';localStorage.setItem('theme',t)}
@@ -475,7 +494,7 @@ document.getElementById('modal-body').innerHTML=`<h3>📤 MOMO 出貨確認 / �
 <button class="btn btn-b" onclick="submitShip(false)" id="ship-dry-btn">🧪 DRY RUN 預覽</button>
 <button class="btn" onclick="submitShip(true)" id="ship-real-btn" style="background:var(--pc);color:#fff;border-color:var(--pc);display:none">⚠️ 確認真送 MOMO</button>
 </div>`;
-document.getElementById('modal-overlay').classList.remove('hidden')}
+document.getElementById('modal-overlay').classList.remove('hidden');document.body.style.overflow='hidden'}
 function onShipStatusChange(){const s=document.getElementById('s-status').value;document.getElementById('ship-shipped').classList.toggle('hidden',s!=='已配送');document.getElementById('ship-other').classList.toggle('hidden',s==='已配送');document.getElementById('ship-result').innerHTML='';document.getElementById('ship-real-btn').style.display='none'}
 
 async function submitShip(force){
