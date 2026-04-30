@@ -183,13 +183,24 @@ const ST=['待出貨','已出貨','已完成','已取消','已轉線下'],DAYS=[
 // Realtime listener — 模態視窗開著時暫存遠端更新，關閉再套用，避免覆蓋本地編輯
 let pendingRemoteOrders=null;
 function isModalOpen(){return !document.getElementById('modal-overlay').classList.contains('hidden')}
+function isInputFocused(){const a=document.activeElement;return a&&['INPUT','TEXTAREA','SELECT'].includes(a.tagName)&&!['q','cq','of-from','of-to','raw-input'].includes(a.id)}
+function setSyncOn(){const sb=document.getElementById('sync-badge');if(sb){sb.className='sync-dot sync-on';sb.innerHTML='<span class="dot dot-on"></span>雲端同步'}}
 function applyRemoteOrders(val){orders=val?Object.values(val):[];updateCnt();
 const at=document.querySelector('.tab.active')?.textContent||'';
 if(at.includes('列表'))renderList();if(at.includes('輸出'))renderOutput();if(at.includes('統計'))renderStats();if(at.includes('客戶'))renderCustomers();
-document.getElementById('sync-badge').className='sync-dot sync-on';document.getElementById('sync-badge').innerHTML='<span class="dot dot-on"></span>雲端同步'}
-db.ref('orders').on('value',snap=>{const val=snap.val();if(isModalOpen()){pendingRemoteOrders=val;return}applyRemoteOrders(val)});
+setSyncOn()}
+db.ref('orders').on('value',snap=>{const val=snap.val();
+  // Skip echo of own write — 避免我們剛 set 的資料又觸發 re-render
+  const json=val?JSON.stringify(val):'';
+  if(json===_lastWrittenJson){orders=val?Object.values(val):[];updateCnt();setSyncOn();return}
+  if(isModalOpen()||isInputFocused()){pendingRemoteOrders=val;setSyncOn();return}
+  applyRemoteOrders(val)
+});
 
-function saveAll(){document.getElementById('sync-badge').className='sync-dot sync-off';document.getElementById('sync-badge').innerHTML='<span class="dot dot-off"></span>儲存中...';const d={};orders.forEach(o=>{d[o.id]=o});db.ref('orders').set(d)}
+// Debounced save (300ms) — 避免快速打字 fee/qty 時 spam Firebase + 引發 echo re-render
+let _saveTimer=null,_lastWrittenJson='';
+function _doSave(){_saveTimer=null;const d={};orders.forEach(o=>{d[o.id]=o});const json=JSON.stringify(d);_lastWrittenJson=json;db.ref('orders').set(d).catch(err=>{console.error('save failed',err);const sb=document.getElementById('sync-badge');if(sb){sb.className='sync-dot sync-off';sb.innerHTML='<span class="dot dot-off"></span>❌ 儲存失敗'}})}
+function saveAll(immediate){const sb=document.getElementById('sync-badge');if(sb){sb.className='sync-dot sync-off';sb.innerHTML='<span class="dot dot-off"></span>儲存中...'}if(_saveTimer)clearTimeout(_saveTimer);if(immediate){_doSave()}else{_saveTimer=setTimeout(_doSave,300)}}
 
 // ===== PARSERS =====
 function detect(r){if(r.includes('公克')||r.includes('一般訂單(約配)')||/\d+\(•\)/.test(r))return'MO';if(r.includes('看電話')||r.includes('廠商料號')||r.includes('DEBJ'))return'PC';return'AUTO'}
@@ -641,6 +652,8 @@ async function submitShip(force){
 document.getElementById('raw-input')?.addEventListener('paste',()=>setTimeout(runParse,200));
 // Re-render on viewport breakpoint cross (mobile ↔ desktop)
 let _wasMobile=isMobile();window.addEventListener('resize',()=>{const now=isMobile();if(now!==_wasMobile){_wasMobile=now;const at=document.querySelector('.tab.active')?.textContent||'';if(at.includes('列表'))renderList()}});
+// 定期檢查並套用 pending 遠端更新（modal 關 + 沒輸入框聚焦 時）
+setInterval(()=>{if(pendingRemoteOrders!==null&&!isModalOpen()&&!isInputFocused()){const v=pendingRemoteOrders;pendingRemoteOrders=null;applyRemoteOrders(v)}},2000);
 // Register service worker (PWA support)
 if('serviceWorker' in navigator){window.addEventListener('load',()=>{navigator.serviceWorker.register('sw.js').catch(()=>{})})}
 </script>
