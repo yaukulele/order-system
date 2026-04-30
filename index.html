@@ -82,6 +82,34 @@ td{padding:7px 10px;border-bottom:1px solid #f0ede6}tr:hover td{background:var(-
 .sched-btn{padding:4px 10px;border-radius:5px;border:1px solid var(--bd);background:var(--sf);font-size:11px;font-weight:600;cursor:pointer;font-family:var(--sans);color:var(--dm)}.sched-btn.picked{background:var(--blu);color:#fff;border-color:var(--blu)}.sched-btn.weekend{border-color:var(--pc)}
 .total-box{background:#eef7f1;border:2px solid #8cc4a0;border-radius:8px;padding:10px 14px;text-align:center;margin-top:10px}.total-box .t-label{font-size:10px;color:var(--dm);font-weight:700}.total-box .t-val{font-size:24px;font-weight:900;font-family:var(--mono);color:var(--grn)}
 .fb-divider{color:var(--ht);margin:0 2px}
+/* Mobile card layout for order list */
+.ord-cards{display:flex;flex-direction:column;gap:10px}
+.ord-card{background:var(--sf);border:1px solid var(--bd);border-radius:12px;padding:12px;box-shadow:0 1px 2px rgba(0,0,0,.04);position:relative}
+.ord-card.row-missing-track{animation:flashRed 1.6s ease-in-out infinite}
+.ord-card-h{display:flex;align-items:center;gap:6px;flex-wrap:wrap;margin-bottom:8px}
+.ord-card-h .ord-date{font-family:var(--mono);font-size:11px;color:var(--dm);font-weight:700}
+.ord-card-h .ord-total{margin-left:auto;font-family:var(--mono);font-size:18px;font-weight:900;color:var(--grn)}
+.ord-card-name{font-size:16px;font-weight:800;margin-bottom:2px}
+.ord-card-prod{font-size:13px;color:var(--tx);line-height:1.45;margin-bottom:6px;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden}
+.ord-card-meta{display:flex;flex-wrap:wrap;gap:10px;font-size:11px;color:var(--dm);margin-bottom:6px}
+.ord-card-meta .qty-pill{background:var(--sf2);border:1px solid var(--bd);padding:2px 8px;border-radius:4px;font-weight:700;color:var(--tx)}
+.ord-card-meta .qty-pill.large{background:var(--mo-bg);border-color:var(--mo);color:var(--mo)}
+.ord-card-phone{font-size:13px;margin-bottom:2px;font-family:var(--mono)}
+.ord-card-phone .real-ph{color:var(--grn);margin-left:6px}
+.ord-card-addr{font-size:11px;color:var(--dm);line-height:1.4;margin-bottom:4px}
+.ord-card-note{font-size:11px;color:#b45309;background:#fef9ec;border-radius:4px;padding:4px 8px;margin-top:6px}
+.ord-card-actions{display:flex;flex-wrap:wrap;gap:6px;margin-top:10px;padding-top:10px;border-top:1px dashed var(--bd)}
+.ord-card-actions button{flex:1 1 calc(33.33% - 6px);min-height:38px;padding:8px 6px;font-size:12px;font-family:var(--sans);font-weight:600;border:1px solid var(--bd);background:var(--sf2);color:var(--tx);border-radius:6px;cursor:pointer;display:flex;align-items:center;justify-content:center;gap:3px}
+.ord-card-actions button.primary{background:var(--mo);color:#fff;border-color:var(--mo)}
+.ord-card-actions button.danger{color:var(--pc);border-color:#e8a8a4}
+.ord-card-actions button.offline{color:#7e22ce;border-color:#d8b4fe}
+.ord-card-actions button.success{color:var(--grn);border-color:#8cc4a0}
+.ord-bucket-h{font-size:11px;font-weight:700;color:var(--dm);padding:6px 4px;display:flex;align-items:center;gap:6px}
+.ord-bucket-h .bucket-cnt{color:var(--ht);font-weight:400;font-size:10px}
+.empty-state{text-align:center;padding:40px 20px;color:var(--dm)}
+.empty-state .es-icon{font-size:42px;margin-bottom:10px;opacity:.7}
+.empty-state .es-title{font-size:14px;font-weight:700;margin-bottom:4px}
+.empty-state .es-hint{font-size:11px;line-height:1.6}
 @media(max-width:768px){
 .main{padding:8px}
 .stats-g{grid-template-columns:1fr 1fr}
@@ -350,9 +378,12 @@ function setQty(oid,v){const o=findO(oid);if(!o)return;const n=parseInt(v);o.qty
 
 function toggleSort(){sortOrder=sortOrder==='date-desc'?'date-asc':'date-desc';renderList()}
 function dateBucket(dateStr){if(!dateStr)return'其他';const today=new Date().toISOString().slice(0,10);const yest=new Date(Date.now()-86400000).toISOString().slice(0,10);if(dateStr===today)return'🆕 今天';if(dateStr===yest)return'昨天';const now=new Date();const dow=now.getDay()||7;const startOfWeek=new Date(now.getTime()-(dow-1)*86400000).toISOString().slice(0,10);const startOfLastWeek=new Date(now.getTime()-(dow-1+7)*86400000).toISOString().slice(0,10);if(dateStr>=startOfWeek)return'本週';if(dateStr>=startOfLastWeek)return'上週';const cutoff30=new Date(Date.now()-30*86400000).toISOString().slice(0,10);if(dateStr>=cutoff30)return'本月';return'更早'}
-function renderList(){const q=(document.getElementById('q')?.value||'').toLowerCase();const fl=orders.filter(o=>{if(cFilter!=='all'&&o.platform!==cFilter)return false;if(cStatus!=='all'&&o.status!==cStatus)return false;if(cSpecial==='changeAddr'&&!(o.note||'').includes('改地址'))return false;if(cSpecial==='newToday'&&!isNewOrder(o))return false;if(q){const h=[o.orderNo,o.product,o.name,o.phone,o.realPhone,o.address,o.note,o.specs].join(' ').toLowerCase();if(!h.includes(q))return false}return true});
+function isMobile(){return window.matchMedia('(max-width:768px)').matches}
+function filterListOrders(){const q=(document.getElementById('q')?.value||'').toLowerCase();return orders.filter(o=>{if(cFilter!=='all'&&o.platform!==cFilter)return false;if(cStatus!=='all'&&o.status!==cStatus)return false;if(cSpecial==='changeAddr'&&!(o.note||'').includes('改地址'))return false;if(cSpecial==='newToday'&&!isNewOrder(o))return false;if(q){const h=[o.orderNo,o.product,o.name,o.phone,o.realPhone,o.address,o.note,o.specs].join(' ').toLowerCase();if(!h.includes(q))return false}return true})}
+function renderList(){const fl=filterListOrders();
 fl.sort((a,b)=>{const av=a.date||'',bv=b.date||'';if(av===bv)return 0;return sortOrder==='date-desc'?(av<bv?1:-1):(av>bv?1:-1)});
-if(!fl.length){document.getElementById('list-area').innerHTML='<div class="card"><div class="card-b" style="text-align:center;padding:30px;color:var(--dm)">📦 尚無訂單</div></div>';return}
+if(!fl.length){const hasFilter=cFilter!=='all'||cStatus!=='all'||cSpecial||(document.getElementById('q')?.value||'').trim();document.getElementById('list-area').innerHTML=`<div class="card"><div class="card-b empty-state"><div class="es-icon">${hasFilter?'🔍':'📦'}</div><div class="es-title">${hasFilter?'沒有符合篩選的訂單':'尚無訂單'}</div><div class="es-hint">${hasFilter?'試試清除篩選 / 改搜尋字':'去匯入分頁貼後台資料 或 按 🔄 自動抓 MOMO'}</div></div></div>`;renderBatchBar([]);return}
+if(isMobile())return renderListMobile(fl);
 const arrow=sortOrder==='date-desc'?'↓':'↑';
 const allChecked=fl.length>0&&fl.every(o=>selectedIds.has(o.id));
 let h=`<div class="card"><div class="card-h"><h3>${fl.length} 筆</h3><span style="font-size:11px;color:var(--dm);font-family:var(--mono)">合計 ${$(fl.reduce((s,o)=>s+tot(o),0))}</span></div><div style="overflow-x:auto"><table><thead><tr><th class="batch-cell"><input type="checkbox" ${allChecked?'checked':''} onclick="toggleAllSelected(event)" title="全選/全取消"></th><th onclick="toggleSort()" style="cursor:pointer;user-select:none" title="點擊切換排序">日期 ${arrow}</th><th>平台</th><th>品名</th><th class="tab-list-mobile-hide">數量</th><th>姓名</th><th class="tab-list-mobile-hide">安裝</th><th class="tab-list-mobile-hide">加購</th><th>合計</th><th>狀態</th><th>操作</th></tr></thead><tbody>`;
@@ -375,7 +406,47 @@ h+=`<tr class="${rowCls}"><td class="batch-cell"><input type="checkbox" data-oid
 h+='</tbody></table></div></div>';document.getElementById('list-area').innerHTML=h;renderBatchBar(fl)}
 
 function toggleRowSelected(id){if(selectedIds.has(id))selectedIds.delete(id);else selectedIds.add(id);renderList()}
-function toggleAllSelected(e){const checked=e.target.checked;const q=(document.getElementById('q')?.value||'').toLowerCase();const fl=orders.filter(o=>{if(cFilter!=='all'&&o.platform!==cFilter)return false;if(cStatus!=='all'&&o.status!==cStatus)return false;if(cSpecial==='changeAddr'&&!(o.note||'').includes('改地址'))return false;if(cSpecial==='newToday'&&!isNewOrder(o))return false;if(q){const h=[o.orderNo,o.product,o.name,o.phone,o.realPhone,o.address,o.note,o.specs].join(' ').toLowerCase();if(!h.includes(q))return false}return true});if(checked)fl.forEach(o=>selectedIds.add(o.id));else fl.forEach(o=>selectedIds.delete(o.id));renderList()}
+function toggleAllSelected(e){const checked=e.target.checked;const fl=filterListOrders();if(checked)fl.forEach(o=>selectedIds.add(o.id));else fl.forEach(o=>selectedIds.delete(o.id));renderList()}
+function renderListMobile(fl){let h='<div class="ord-cards">';let lastBucket='';
+fl.forEach(o=>{const oid=o.id;const bucket=dateBucket(o.date);
+if(bucket!==lastBucket){const cnt=fl.filter(x=>dateBucket(x.date)===bucket).length;h+=`<div class="ord-bucket-h">${bucket} <span class="bucket-cnt">${cnt} 筆</span></div>`;lastBucket=bucket}
+const newBadge=isNewOrder(o)?'<span class="tag" style="background:#dcfce7;color:#166534;font-size:9px">NEW</span>':'';
+const addrBadge=(o.note||'').includes('改地址')?'<span class="tag" style="background:#fef9ec;color:#b45309;font-size:9px">改址</span>':'';
+const missingTrack=o.status==='已出貨'&&!o.trackingNo;
+const cardCls='ord-card'+(missingTrack?' row-missing-track':'');
+const checked=selectedIds.has(o.id);
+const qty=o.qty||1;
+const ph=bestPhone(o);
+const noteShort=(o.note||'').replace(/\n/g,' ').slice(0,80);
+const shipBtnHtml=(o.platform==='MO'&&o.status==='待出貨')?`<button class="primary" onclick="openShipMomo('${oid}')">📤 出貨</button>`:'';
+const addrAckHtml=(o.platform==='MO'&&(o.note||'').includes('改地址'))?`<button class="success" onclick="changeAddrAck('${oid}',true)">✅ 同意改址</button><button class="danger" onclick="changeAddrAck('${oid}',false)">❌ 拒絕改址</button>`:'';
+h+=`<div class="${cardCls}" data-oid="${oid}">
+<div class="ord-card-h">
+<input type="checkbox" data-oid="${oid}" ${checked?'checked':''} onclick="toggleRowSelected('${oid}')" style="width:18px;height:18px;cursor:pointer">
+<span class="ord-date">${fmtD(o.date)}</span>
+${platformPill(o.platform)}${addrBadge}${newBadge}
+<span class="ord-total">${$(tot(o))}</span>
+</div>
+<div class="ord-card-name">${esc(o.name||'(無姓名)')}${qty>1?` <span class="qty-pill large">× ${qty}</span>`:''}</div>
+<div class="ord-card-prod">${esc(o.product||'')}${o.specs?`（${esc(o.specs)}）`:''}</div>
+<div class="ord-card-meta">
+<button class="${stCls(o.status)}" onclick="toggleStatus('${oid}')" style="min-height:30px">${o.status}</button>
+${qty===1?`<span class="qty-pill">數量 1</span>`:''}
+${o.install==='是'?'<span class="qty-pill" style="color:var(--blu);border-color:var(--blu)">🔧 安裝 +$'+(o.installFee||0)+'</span>':''}
+${o.addon==='是'?'<span class="qty-pill" style="color:var(--mo);border-color:var(--mo)">🛒 加購 +$'+(o.addonFee||0)+'</span>':''}
+</div>
+${ph?`<div class="ord-card-phone">📞 ${phoneTel(ph)}${o.realPhone?`<span class="real-ph">📱 ${phoneTel(o.realPhone)}</span>`:''}</div>`:''}
+${o.address?`<div class="ord-card-addr">📍 ${esc(o.address)}</div>`:''}
+${noteShort?`<div class="ord-card-note">${esc(noteShort)}</div>`:''}
+<div class="ord-card-actions">
+${addrAckHtml}${shipBtnHtml}
+<button onclick="copyShipping('${oid}',this)">📋 複製</button>
+<button onclick="openEdit('${oid}')">✏️ 編輯</button>
+<button class="offline" onclick="quickStatus('${oid}','已轉線下')">🏪 線下</button>
+<button class="danger" onclick="quickStatus('${oid}','已取消')">❌ 取消</button>
+<button class="danger" onclick="delOrder('${oid}')">🗑 刪除</button>
+</div></div>`});
+h+='</div>';document.getElementById('list-area').innerHTML=h;renderBatchBar(fl)}
 function renderBatchBar(fl){let bar=document.getElementById('batch-bar');const selOrders=orders.filter(o=>selectedIds.has(o.id));if(selOrders.length===0){if(bar)bar.classList.add('hidden');return}if(!bar){bar=document.createElement('div');bar.id='batch-bar';bar.className='batch-bar';document.body.appendChild(bar)}bar.classList.remove('hidden');const total=selOrders.reduce((s,o)=>s+tot(o),0);bar.innerHTML=`<span style="font-size:13px;font-weight:700">已選 ${selOrders.length} 筆 ｜ 合計 $${total.toLocaleString()}</span><span style="flex:1"></span><button onclick="batchSetStatus('已出貨')">標記已出貨</button><button onclick="batchSetStatus('已完成')">標記已完成</button><button onclick="batchCopyShipping()">📋 複製出貨資料</button><button onclick="batchPrintShipping()">🖨 列印出貨單</button><button class="danger" onclick="batchDelete()">🗑 刪除</button><button onclick="selectedIds.clear();renderList()">取消選取</button>`}
 function batchSetStatus(s){const sel=orders.filter(o=>selectedIds.has(o.id));if(!sel.length)return;if(!confirm(`把選取的 ${sel.length} 筆訂單標記為「${s}」？`))return;sel.forEach(o=>{o.status=s});saveAll();renderList();alert(`✅ 已更新 ${sel.length} 筆`)}
 function batchCopyShipping(){const sel=orders.filter(o=>selectedIds.has(o.id));if(!sel.length)return;const txt=sel.map(o=>fmtShipping(o)).join('\n\n========\n\n');navigator.clipboard.writeText(txt).then(()=>alert(`✅ 已複製 ${sel.length} 筆出貨資料`)).catch(err=>alert('複製失敗：'+err.message))}
@@ -538,6 +609,8 @@ async function submitShip(force){
   }
 }
 document.getElementById('raw-input')?.addEventListener('paste',()=>setTimeout(runParse,200));
+// Re-render on viewport breakpoint cross (mobile ↔ desktop)
+let _wasMobile=isMobile();window.addEventListener('resize',()=>{const now=isMobile();if(now!==_wasMobile){_wasMobile=now;const at=document.querySelector('.tab.active')?.textContent||'';if(at.includes('列表'))renderList()}});
 // Register service worker (PWA support)
 if('serviceWorker' in navigator){window.addEventListener('load',()=>{navigator.serviceWorker.register('sw.js').catch(()=>{})})}
 </script>
