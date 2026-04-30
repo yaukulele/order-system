@@ -582,6 +582,7 @@ document.getElementById('cust-area').innerHTML=html}
 
 // ===== EDIT MODAL =====
 function customerHistoryBadge(o){if(!o.name)return'';const same=orders.filter(x=>x.id!==o.id&&x.name===o.name);if(!same.length)return'';const total=same.reduce((s,x)=>s+tot(x),0);const lastDate=same.map(x=>x.date).filter(Boolean).sort().pop();return`<span style="display:inline-block;background:#fef0f5;color:var(--mo);font-size:10px;padding:3px 8px;border-radius:10px;font-weight:700;margin-left:6px" title="點此跳到客戶頁">回頭客 ｜ ${same.length} 筆 ｜ $${total.toLocaleString()} ｜ 最後 ${lastDate||'?'}</span>`}
+function activityTimelineHTML(note){if(!note)return'';const lines=note.split('\n').filter(l=>l.trim());const events=[];const others=[];for(const ln of lines){const m=ln.match(/^\[(\d{4}-\d{2}-\d{2}(?:\s\d{2}:\d{2})?)\]\s*(.+)/);if(m)events.push({ts:m[1],msg:m[2]});else others.push(ln)}if(!events.length)return'';events.reverse();const list=events.slice(0,8).map(e=>`<div style="display:flex;gap:8px;font-size:11px;line-height:1.5;padding:3px 0;border-bottom:1px dashed #f0ede6"><span style="color:var(--ht);font-family:var(--mono);font-size:10px;white-space:nowrap;flex-shrink:0">${esc(e.ts)}</span><span>${esc(e.msg)}</span></div>`).join('');return`<details style="background:var(--sf2);border:1px solid var(--bd);border-radius:8px;padding:8px 12px;margin-bottom:8px"><summary style="cursor:pointer;font-size:11px;font-weight:700;color:var(--dm)">📋 活動紀錄 (${events.length})${events.length>8?' — 顯示最近 8 筆':''}</summary><div style="margin-top:6px">${list}</div></details>`}
 function openEdit(oid){const o=findO(oid);if(!o)return;editId=oid;
 document.getElementById('modal-body').innerHTML=`<h3>編輯訂單${customerHistoryBadge(o)}</h3>
 <div class="fg"><div class="fi"><label>日期</label><input type="date" id="e-date" value="${o.date}"></div><div class="fi"><label>平台</label><select id="e-plat"><option ${o.platform==='MO'?'selected':''}>MO</option><option ${o.platform==='PC'?'selected':''}>PC</option></select></div></div>
@@ -600,7 +601,7 @@ document.getElementById('modal-body').innerHTML=`<h3>編輯訂單${customerHisto
 <div id="ea-panel" class="${o.addon==='否'?'hidden':''}"><div class="fi"><label>加購金額</label><input type="text" inputmode="numeric" id="e-addonf" value="${o.addonFee||''}" oninput="this.value=cn(this.value);calcT()"></div></div></div>
 <div class="total-box"><div class="t-label">合計金額</div><div class="t-val" id="e-tot">$${tot(o).toLocaleString()}</div></div>
 <div class="fg" style="margin-top:10px"><div class="fi"><label>狀態</label><select id="e-st">${ST.map(s=>`<option ${o.status===s?'selected':''}>${s}</option>`).join('')}</select></div></div>
-<div class="fg full"><div class="fi"><label>備註</label><textarea id="e-note">${esc(o.note)}</textarea></div></div>
+${activityTimelineHTML(o.note)}<div class="fg full"><div class="fi"><label>備註（含活動紀錄）</label><textarea id="e-note">${esc(o.note)}</textarea></div></div>
 <div class="modal-ft"><button class="btn" onclick="closeModal()">取消</button><button class="btn btn-g" onclick="saveEdit()">儲存</button></div>`;
 document.getElementById('modal-overlay').classList.remove('hidden');document.body.style.overflow='hidden'}
 
