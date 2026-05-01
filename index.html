@@ -634,9 +634,8 @@ document.addEventListener('keydown',e=>{
     if(selectedIds.size>0){selectedIds.clear();renderList();return}
   }
   if(inInput)return;
-  // Ctrl+K / "/" → focus 搜尋
-  if((e.ctrlKey||e.metaKey)&&e.key==='k'){e.preventDefault();const at=document.querySelector('.tab.active')?.textContent||'';const id=at.includes('客戶')?'cq':'q';document.getElementById(id)?.focus();return}
-  if(e.key==='/'){e.preventDefault();const at=document.querySelector('.tab.active')?.textContent||'';const id=at.includes('客戶')?'cq':'q';document.getElementById(id)?.focus();return}
+  // Ctrl+K / "/" → focus 搜尋（會自動切到列表 tab 如果不在）
+  if(((e.ctrlKey||e.metaKey)&&e.key==='k')||e.key==='/'){e.preventDefault();const at=document.querySelector('.tab.active')?.textContent||'';if(at.includes('客戶')){document.getElementById('cq')?.focus()}else{if(!at.includes('列表'))showTab('list');setTimeout(()=>document.getElementById('q')?.focus(),50)}return}
   // 1-5 切 tab
   const tabs=['import','list','output','stats','customers'];
   if(/^[1-5]$/.test(e.key)){const idx=parseInt(e.key)-1;showTab(tabs[idx]);return}
