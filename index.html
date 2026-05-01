@@ -688,7 +688,7 @@ o.note=(o.note||'').replace(/⚠ 客戶申請改地址/g,'').trim();logActivity(
 
 // ===== MOMO 出貨確認 =====
 const MOMO_DELY_COMPANIES=['宅配通','新竹貨運','統一速達','大榮貨運','宅配通大電','順豐速運','全球快遞','通盈貨運','新航貨運','郵局','便利袋','其他宅配','其他'];
-function openShipMomo(oid){const o=findO(oid);if(!o)return;if(o.platform!=='MO'){alert('只有 MOMO 訂單可用此功能');return}shipId=oid;
+function openShipMomo(oid){const o=findO(oid);if(!o)return;if(o.platform!=='MO'){alert('只有 MOMO 訂單可用此功能');return}shipId=oid;_modalDirty=false;
 document.getElementById('modal-body').innerHTML=`<h3>📤 MOMO 出貨確認 / 物流單號回填</h3>
 <div style="background:#fef9ec;border:1px solid #f0e4b8;border-radius:8px;padding:10px 14px;font-size:11px;color:#8a6d0b;margin-bottom:12px;line-height:1.6">
 <b>⚠️ 安全機制：</b><br>
