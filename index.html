@@ -446,7 +446,7 @@ async function fetchMomoAuto(){
 }
 
 // ===== LIST =====
-function logActivity(o,action){const ts=new Date().toISOString().slice(0,16).replace('T',' ');let note=((o.note||'')+`\n[${ts}] ${action}`).trim();const lines=note.split('\n');if(lines.length>60)note=lines.slice(-60).join('\n');o.note=note}
+function logActivity(o,action){const d=new Date();const p=n=>String(n).padStart(2,'0');const ts=`${d.getFullYear()}-${p(d.getMonth()+1)}-${p(d.getDate())} ${p(d.getHours())}:${p(d.getMinutes())}`;let note=((o.note||'')+`\n[${ts}] ${action}`).trim();const lines=note.split('\n');if(lines.length>60)note=lines.slice(-60).join('\n');o.note=note}
 function toggleStatus(oid){const o=findO(oid);if(!o)return;const prev=o.status;o.status=ST[(ST.indexOf(o.status)+1)%ST.length];logActivity(o,`狀態：${prev} → ${o.status}`);saveOne(o);renderList()}
 function stCls(s){return s==='待出貨'?'st-btn st-wait':s==='已出貨'?'st-btn st-ship':s==='已完成'?'st-btn st-done':s==='已轉線下'?'st-btn st-offline':'st-btn st-cancel'}
 function quickStatus(oid,s){const o=findO(oid);if(!o)return;if(!confirm(`確定把這筆訂單標記為「${s}」？\n\n${o.name||''} ｜ ${o.product||''}`))return;const prev=o.status;o.status=s;logActivity(o,`狀態：${prev} → ${s}${s==='已轉線下'?'（客戶轉線下）':s==='已取消'?'（取消訂單）':''}`);saveOne(o);renderList()}
