@@ -288,7 +288,7 @@ function isNewOrder(o){if(!o.date)return false;return o.date===localDateISO()}
 function fmtD(d){if(!d)return'';const p=d.split('-');return parseInt(p[1])+'/'+parseInt(p[2])}
 function tot(o){return(o.amount||0)+(o.installFee||0)+(o.addonFee||0)}
 function $(n){return n?'$'+n.toLocaleString():'—'}
-function esc(s){return(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;')}
+function esc(s){return(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;').replace(/'/g,'&#39;')}
 function phoneTel(p){if(!p)return'';const s=String(p).trim();if(!s)return'';const safe=esc(s);const m=s.match(/^(\+?\d+)#(\d+)$/);const href=m?`tel:${m[1]},${m[2]}`:`tel:${s.replace(/[^\d+]/g,'')}`;return `<a href="${href}" class="tel-link" title="${m?'MOMO 代撥：撥打總機後自動送出分機 '+m[2]:'撥打 '+safe}" style="color:inherit;text-decoration:none;border-bottom:1px dashed currentColor">${safe}</a>`}
 function cn(v){return(v+'').replace(/^0+(?=\d)/,'')}
 function updateCnt(){
@@ -597,8 +597,8 @@ document.getElementById('modal-body').innerHTML=`<h3>編輯訂單${customerHisto
 <div class="fg full"><div class="fi"><label>單號</label><input id="e-no" value="${esc(o.orderNo)}" style="font-family:var(--mono)"></div></div>
 <div class="fg full"><div class="fi"><label>品名</label><input id="e-prod" value="${esc(o.product)}"></div></div>
 <div class="fg full"><div class="fi"><label>規格</label><input id="e-specs" value="${esc(o.specs||'')}"></div></div>
-<div class="fg"><div class="fi"><label>姓名</label><input id="e-name" value="${esc(o.name)}"></div><div class="fi"><label>電話（MOMO 代撥）</label><input id="e-phone" value="${o.phone||''}"></div></div>
-<div class="fg full"><div class="fi"><label>📱 真實電話（手動填入，例如客戶 LINE 或來電留下的）</label><input id="e-realPhone" value="${o.realPhone||''}" placeholder="客戶真實手機，留空表示沒有" inputmode="tel" style="border-color:var(--grn);background:var(--grn-bg)"></div></div>
+<div class="fg"><div class="fi"><label>姓名</label><input id="e-name" value="${esc(o.name)}"></div><div class="fi"><label>電話（MOMO 代撥）</label><input id="e-phone" value="${esc(o.phone||'')}"></div></div>
+<div class="fg full"><div class="fi"><label>📱 真實電話（手動填入，例如客戶 LINE 或來電留下的）</label><input id="e-realPhone" value="${esc(o.realPhone||'')}" placeholder="客戶真實手機，留空表示沒有" inputmode="tel" style="border-color:var(--grn);background:var(--grn-bg)"></div></div>
 <div class="fg full"><div class="fi"><label>地址</label><input id="e-addr" value="${esc(o.address)}"></div></div>
 <div class="fg"><div class="fi"><label>數量</label><input type="text" inputmode="numeric" id="e-qty" value="${o.qty||1}" oninput="this.value=cn(this.value)"></div><div class="fi"><label>商品金額</label><input type="text" inputmode="numeric" id="e-amt" value="${o.amount||''}" oninput="this.value=cn(this.value);calcT()"></div></div>
 <div style="border:1px solid var(--bd);border-radius:8px;padding:12px;margin:8px 0;background:var(--sf2)"><div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px"><span style="font-size:12px;font-weight:700">🔧 安裝服務</span><button class="${o.install==='是'?'toggle-on':'toggle-off'}" onclick="togEI()" id="ei-btn">${o.install==='是'?'✓ 需要安裝':'不需要安裝'}</button></div>
