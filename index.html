@@ -273,8 +273,8 @@ function showToast(msg,actionLabel,actionFn,duration){
   if(actionLabel)html+=`<button id="_toast-action">${esc(actionLabel)}</button>`;
   html+=`<button class="toast-close" onclick="this.parentNode.remove()">✕</button>`;
   el.innerHTML=html;document.body.appendChild(el);_toastEl=el;
-  if(actionFn)el.querySelector('#_toast-action').onclick=()=>{actionFn();el.remove();_toastEl=null};
-  _toastTimer=setTimeout(()=>{if(el.parentNode){el.style.opacity='0';el.style.transition='opacity .3s';setTimeout(()=>el.remove(),300)}_toastEl=null},duration||5000);
+  if(actionFn)el.querySelector('#_toast-action').onclick=()=>{actionFn();el.remove();if(_toastEl===el)_toastEl=null};
+  _toastTimer=setTimeout(()=>{if(el.parentNode){el.style.opacity='0';el.style.transition='opacity .3s';setTimeout(()=>el.remove(),300)}if(_toastEl===el)_toastEl=null},duration||5000);
 }
 // Firebase 連線狀態 — .info/connected 偵測
 db.ref('.info/connected').on('value',snap=>{const ok=!!snap.val();const banner=document.getElementById('offline-banner');if(banner)banner.classList.toggle('hidden',ok)});
