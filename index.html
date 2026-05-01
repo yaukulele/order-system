@@ -123,6 +123,7 @@ td{padding:7px 10px;border-bottom:1px solid #f0ede6}tr:hover td{background:var(-
 @keyframes toastIn{from{opacity:0;transform:translate(-50%,20px)}to{opacity:1;transform:translateX(-50%)}}
 .offline-banner{position:fixed;top:0;left:0;right:0;background:var(--pc);color:#fff;text-align:center;padding:6px;font-size:12px;font-weight:700;z-index:101;animation:slideDown .3s ease-out}
 .offline-banner.hidden{display:none}
+body.offline{padding-top:30px} /* 騰出空間給 banner，header 不會被蓋 */
 @keyframes slideDown{from{transform:translateY(-100%)}to{transform:translateY(0)}}
 @media(max-width:768px){
 .main{padding:8px}
@@ -278,7 +279,7 @@ function showToast(msg,actionLabel,actionFn,duration){
   _toastTimer=setTimeout(()=>{if(el.parentNode){el.style.opacity='0';el.style.transition='opacity .3s';setTimeout(()=>el.remove(),300)}if(_toastEl===el)_toastEl=null},duration||5000);
 }
 // Firebase 連線狀態 — .info/connected 偵測
-db.ref('.info/connected').on('value',snap=>{const ok=!!snap.val();const banner=document.getElementById('offline-banner');if(banner)banner.classList.toggle('hidden',ok)});
+db.ref('.info/connected').on('value',snap=>{const ok=!!snap.val();document.body.classList.toggle('offline',!ok);const banner=document.getElementById('offline-banner');if(banner)banner.classList.toggle('hidden',ok)});
 function bestPhone(o){return o.realPhone||o.phone||''}
 function platformPill(p){if(p==='MO')return '<span class="brand-pill brand-mo"><span class="b-dot">M</span>momo</span>';if(p==='PC')return '<span class="brand-pill brand-pc"><span class="b-dot">24</span>PChome</span>';return `<span class="tag">${esc(p||'')}</span>`}
 function fmtS(o){const d=o.dateFmt||fmtD(o.date),q=(o.qty||1)>1?' x '+o.qty:'',pr=(o.product||'')+q,ph=bestPhone(o);if(o.platform==='PC')return[d+' PC',o.orderNo,pr,o.specs,o.name,ph,o.address].filter(Boolean).join('\n');return[d+' MO',o.orderNo,pr,o.name,ph,o.address].filter(Boolean).join('\n')}
