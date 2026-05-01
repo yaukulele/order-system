@@ -230,7 +230,7 @@ function saveOne(o){if(!o||!o.id)return;_setSavingBadge();if(_saveAllTimer)retur
 // ===== PARSERS =====
 function detect(r){if(r.includes('公克')||r.includes('一般訂單(約配)')||/\d+\(•\)/.test(r))return'MO';if(r.includes('看電話')||r.includes('廠商料號')||r.includes('DEBJ'))return'PC';return'AUTO'}
 function parseAll(r){if(!r?.trim())return[];const p=detect(r);if(p==='PC')return parsePC(r);if(p==='MO')return parseMO(r);const pc=parsePC(r),mo=parseMO(r);return pc.length>=mo.length?pc:mo}
-function parsePC(raw){const lines=raw.split('\n'),res=[],ol=[];for(let i=0;i<lines.length;i++){const m=lines[i].trim().match(/^(2026\d{7,10}-\d{2})$/);if(m)ol.push({line:i,id:m[1]})}if(!ol.length){const re=/(2026\d{7,10}-\d{2})/g;let m;while((m=re.exec(raw))!==null)ol.push({id:m[1],pos:m.index})}
+function parsePC(raw){const lines=raw.split('\n'),res=[],ol=[];for(let i=0;i<lines.length;i++){const m=lines[i].trim().match(/^(20\d{2}\d{7,10}-\d{2})$/);if(m)ol.push({line:i,id:m[1]})}if(!ol.length){const re=/(20\d{2}\d{7,10}-\d{2})/g;let m;while((m=re.exec(raw))!==null)ol.push({id:m[1],pos:m.index})}
 for(const op of ol){const id=op.id;let bk='';if(op.line!==undefined)bk=lines.slice(Math.max(0,op.line-15),Math.min(lines.length,op.line+30)).join('\t');else bk=raw.substring(Math.max(0,op.pos-500),Math.min(raw.length,op.pos+1500));const c=bk.replace(/\n/g,'\t').replace(/\t{2,}/g,'\t').split('\t').map(x=>x.trim()).filter(Boolean);
 let date='';for(const x of c){if(/^\d{2}\/\d{2}$/.test(x)&&x.startsWith('0')){const[mm,dd]=x.split('/');date=parseInt(mm)+'/'+parseInt(dd);break}}
 let prod='';for(const x of c){if(x.length>6&&!x.includes('出貨')&&!x.includes('商品名')&&!x.includes('勾選')&&(x.includes('鋼琴')||x.includes('電子琴')||x.includes('音箱')||x.includes('吉他')||x.includes('背帶')||x.includes('混音')||x.includes('鼓')||x.includes('琴')||x.includes('配套')||x.includes('掛勾')||x.includes('ROLAND')||x.includes('Yamaha')||x.includes('YAMAHA')||x.includes('NUX')||x.includes('Ibanez')||x.includes('aNu'))){prod=x;break}}
@@ -239,7 +239,7 @@ let specs='';for(const x of c){if(/^(黑色|白色|紅色|藍色|原木色|桃�
 let name='';for(let i=0;i<c.length;i++){if(c[i]==='看電話'&&i>0&&/^[\u4e00-\u9fff]{2,5}$/.test(c[i-1])){name=c[i-1];break}}if(!name){for(const x of c){const nm=x.match(/\((.{2,5})寄\)/);if(nm){name=nm[1];break}}}
 let addr='';for(const x of c){if(/^[\u4e00-\u9fff]{2,3}(市|縣)/.test(x)&&x.length>8){addr=x.replace(/\s*\(.+寄\)\s*$/,'').trim();break}}
 let amt=0,qty=1;const ii=c.indexOf(id);if(ii>=0){const q=parseInt(c[ii+1]);if(/^\d+$/.test(c[ii+1]||'')&&q>=1&&q<=99)qty=q;for(let j=ii+1;j<Math.min(ii+5,c.length);j++){const n=parseInt(c[j]);if(n>100&&/^\d+$/.test(c[j])){amt=n;break}}}
-if(id&&(name||prod)){let iso=localDateISO();if(date){const[mm,dd]=date.split('/');iso=`2026-${String(mm).padStart(2,'0')}-${String(dd).padStart(2,'0')}`}
+if(id&&(name||prod)){let iso=localDateISO();if(date){const[mm,dd]=date.split('/');const yr=id.slice(0,4);iso=`${yr}-${String(mm).padStart(2,'0')}-${String(dd).padStart(2,'0')}`}
 // 嘗試從同一段 context 找客戶手機（如果用戶有先在 PC 後台點「看電話」展開）
 let phPC='';const phM=bk.match(/\b(09\d{8})\b/);if(phM)phPC=phM[1];
 res.push({id:gid(),date:iso,dateFmt:date,platform:'PC',orderNo:id,product:prod,specs,name,phone:phPC,realPhone:phPC,address:addr,install:'否',installFee:0,installDay:'',installTime:'',addon:'否',addonFee:0,amount:amt,qty,status:'待出貨',note:''})}}return res}
