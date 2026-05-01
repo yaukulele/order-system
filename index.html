@@ -446,7 +446,7 @@ async function fetchMomoAuto(){
 }
 
 // ===== LIST =====
-function logActivity(o,action){const ts=new Date().toISOString().slice(0,16).replace('T',' ');o.note=((o.note||'')+`\n[${ts}] ${action}`).trim()}
+function logActivity(o,action){const ts=new Date().toISOString().slice(0,16).replace('T',' ');let note=((o.note||'')+`\n[${ts}] ${action}`).trim();const lines=note.split('\n');if(lines.length>60)note=lines.slice(-60).join('\n');o.note=note}
 function toggleStatus(oid){const o=findO(oid);if(!o)return;const prev=o.status;o.status=ST[(ST.indexOf(o.status)+1)%ST.length];logActivity(o,`狀態：${prev} → ${o.status}`);saveOne(o);renderList()}
 function stCls(s){return s==='待出貨'?'st-btn st-wait':s==='已出貨'?'st-btn st-ship':s==='已完成'?'st-btn st-done':s==='已轉線下'?'st-btn st-offline':'st-btn st-cancel'}
 function quickStatus(oid,s){const o=findO(oid);if(!o)return;if(!confirm(`確定把這筆訂單標記為「${s}」？\n\n${o.name||''} ｜ ${o.product||''}`))return;const prev=o.status;o.status=s;logActivity(o,`狀態：${prev} → ${s}${s==='已轉線下'?'（客戶轉線下）':s==='已取消'?'（取消訂單）':''}`);saveOne(o);renderList()}
@@ -671,7 +671,7 @@ const blob=new Blob([csv],{type:'text/csv;charset=utf-8'});const url=URL.createO
 // ===== 同意/拒絕 改址 =====
 async function changeAddrAck(oid,agree){const o=findO(oid);if(!o||o.platform!=='MO'){alert('只有 MOMO 訂單可用');return}if(!(o.note||'').includes('改地址')){if(!confirm('這筆訂單看起來沒有改址申請，仍要送出 同意/拒絕？'))return}const api=getMomoApi();const token=getMomoToken();if(!api||!token){alert('需先設定 API URL + Token');return}const word=agree?'同意改地址':'拒絕改地址';if(!confirm(`確定對訂單 ${o.orderNo} 送出「${word}」？\n\n（這會立即更新到 MOMO，無法復原）`))return;
 try{const r=await fetch(`${api}/api/orders/momo/change-addr-ack`,{method:'POST',headers:{'Content-Type':'application/json','X-API-Token':token},body:JSON.stringify({orderNo:o.orderNo,agree})});const data=await r.json();if(!r.ok||!data.ok){alert(`❌ 失敗：${data.error||'HTTP '+r.status}\n\n${JSON.stringify(data.data||{},null,2).slice(0,400)}`);return}
-const note=(o.note||'').replace(/⚠ 客戶申請改地址/g,'').trim();o.note=`[${word} ${new Date().toISOString().slice(0,10)}] ${note}`.trim();saveOne(o);renderList();alert(`✅ ${word} 已送 MOMO\nHTTP ${data.status}\n${data.data?.successCnt?`成功 ${data.data.successCnt}/${data.data.totalCnt} 筆`:''}`)}catch(err){alert('網路錯誤：'+err.message)}}
+o.note=(o.note||'').replace(/⚠ 客戶申請改地址/g,'').trim();logActivity(o,`${word}（已送 MOMO）`);saveOne(o);renderList();alert(`✅ ${word} 已送 MOMO\nHTTP ${data.status}\n${data.data?.successCnt?`成功 ${data.data.successCnt}/${data.data.totalCnt} 筆`:''}`)}catch(err){alert('網路錯誤：'+err.message)}}
 
 // ===== MOMO 出貨確認 =====
 const MOMO_DELY_COMPANIES=['宅配通','新竹貨運','統一速達','大榮貨運','宅配通大電','順豐速運','全球快遞','通盈貨運','新航貨運','郵局','便利袋','其他宅配','其他'];
@@ -730,7 +730,7 @@ async function submitShip(force){
     // Update local order
     if(status==='已配送'){o.trackingNo=item.slipNo;o.delyGbStr=item.delyGbStr;o.status='已出貨'}
     else if(status==='無貨取消訂單'){o.status='已取消'}
-    o.note=((o.note||'')+`\n[出貨回報 ${new Date().toISOString().slice(0,10)}] ${status} ${item.delyGbStr||''} ${item.slipNo||''}`).trim();
+    logActivity(o,`出貨回報：${status}${item.delyGbStr?' ｜ '+item.delyGbStr:''}${item.slipNo?' ｜ '+item.slipNo:''}`);
     saveOne(o);renderList();
     setTimeout(()=>{closeModal();alert('✅ 出貨確認完成，訂單狀態已更新為「已出貨」')},800);
   }catch(err){
