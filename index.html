@@ -199,7 +199,7 @@ let pendingRemoteOrders=null;
 function isModalOpen(){return !document.getElementById('modal-overlay').classList.contains('hidden')}
 function isInputFocused(){const a=document.activeElement;return a&&['INPUT','TEXTAREA','SELECT'].includes(a.tagName)&&!['q','cq','of-from','of-to','raw-input'].includes(a.id)}
 let _lastSyncAt=null;
-function setSyncOn(){const sb=document.getElementById('sync-badge');if(sb){_lastSyncAt=new Date();const ts=_lastSyncAt.toLocaleTimeString('zh-TW',{hour:'2-digit',minute:'2-digit'});sb.className='sync-dot sync-on';sb.title=`最後同步：${ts}`;sb.innerHTML=`<span class="dot dot-on"></span>${ts}`}}
+function setSyncOn(){const sb=document.getElementById('sync-badge');if(sb){_lastSyncAt=new Date();const ts=_lastSyncAt.toLocaleTimeString('zh-TW',{hour:'2-digit',minute:'2-digit',hour12:false});sb.className='sync-dot sync-on';sb.title=`最後同步：${ts}`;sb.innerHTML=`<span class="dot dot-on"></span>${ts}`}}
 function applyRemoteOrders(val){orders=val?Object.values(val):[];updateCnt();
 const at=document.querySelector('.tab.active')?.textContent||'';
 if(at.includes('列表'))renderList();if(at.includes('輸出'))renderOutput();if(at.includes('統計'))renderStats();if(at.includes('客戶'))renderCustomers();
@@ -437,7 +437,7 @@ async function fetchMomoAuto(){
     const dup=transformed.length-nw.length;
     if(!nw.length){st.textContent=`✅ 抓到 ${fetched.length} 筆，全部已存在（${dup} 筆重複）`;st.style.color='var(--grn)';alert(`區間內 ${fetched.length} 筆訂單，全部已在系統內`);return}
     orders.push(...nw);saveAll();
-    st.textContent=`✅ 新增 ${nw.length} 筆${dup?`（${dup} 筆已存在已跳過）`:''}，最後同步 ${new Date().toLocaleTimeString('zh-TW')}`;st.style.color='var(--grn)';
+    st.textContent=`✅ 新增 ${nw.length} 筆${dup?`（${dup} 筆已存在已跳過）`:''}，最後同步 ${new Date().toLocaleTimeString('zh-TW',{hour:'2-digit',minute:'2-digit',hour12:false})}`;st.style.color='var(--grn)';
     if(nw.length>0){const titles=nw.slice(0,3).map(o=>`${o.name||'?'} ${o.product||''}`).join(' / ');notifyDesktop(`📦 ${nw.length} 筆新 MOMO 訂單`,nw.length<=3?titles:`${titles}（共 ${nw.length} 筆）`)}
     alert(`🎉 自動抓取成功！\n\n新增訂單：${nw.length} 筆${dup?`\n已存在略過：${dup} 筆`:''}\n區間：${data.window?.from} ~ ${data.window?.to}`);
   }catch(err){
