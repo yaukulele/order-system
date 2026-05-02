@@ -60,11 +60,12 @@ td{padding:7px 10px;border-bottom:1px solid #f0ede6}tr:hover td{background:var(-
 .mono{font-family:var(--mono);font-size:11px}.trunc{max-width:180px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .prod-cell{max-width:280px;min-width:200px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .name-cell{min-width:70px;white-space:nowrap}
-.qty-cell{width:50px;text-align:center}
-.qty-input{width:36px!important;text-align:center;padding:3px 4px}
-.acc-cell{width:64px;text-align:center}
-.acc-cell .toggle-off,.acc-cell .toggle-on{padding:3px 6px!important;font-size:9px!important}
-.act{padding:3px 7px;border:1px solid var(--bd);border-radius:4px;background:var(--sf);font-size:10px;cursor:pointer;font-family:var(--sans);color:var(--dm);font-weight:600}.act:hover{border-color:var(--blu);color:var(--blu)}
+.qty-cell{width:48px;text-align:center;padding:6px 2px}
+.qty-input{width:34px!important;text-align:center;padding:3px 4px}
+.acc-cell{width:52px;text-align:center;padding:6px 2px}
+.acc-cell .toggle-off,.acc-cell .toggle-on{padding:2px 4px!important;font-size:9px!important;min-width:0!important}
+.acc-cell .fee-input{width:42px!important;padding:2px 3px}
+.act{padding:3px 5px;border:1px solid var(--bd);border-radius:4px;background:var(--sf);font-size:10px;cursor:pointer;font-family:var(--sans);color:var(--dm);font-weight:600;margin-right:2px}.act:hover{border-color:var(--blu);color:var(--blu)}
 .st-btn{padding:4px 12px;border-radius:6px;border:2px solid;font-size:11px;font-weight:700;cursor:pointer;font-family:var(--sans);min-width:70px;text-align:center}.st-btn:hover{opacity:.8}
 .st-wait{background:#fef9ec;color:var(--amb);border-color:#f0d68a}.st-ship{background:#eff4ff;color:var(--blu);border-color:#a8c4f0}.st-done{background:var(--grn-bg);color:var(--grn);border-color:#8cc4a0}.st-cancel{background:var(--pc-bg);color:var(--pc);border-color:#e8a8a4}.st-offline{background:#f3e8ff;color:#7e22ce;border-color:#d8b4fe}
 .toggle-off{padding:3px 10px;border-radius:5px;border:1px solid var(--bd);background:var(--sf2);color:var(--dm);font-size:10px;font-weight:600;cursor:pointer;font-family:var(--sans)}
@@ -477,7 +478,7 @@ if(!fl.length){const hasFilter=cFilter!=='all'||cStatus!=='all'||cSpecial||(docu
 if(isMobile())return renderListMobile(fl);
 const arrow=sortOrder==='date-desc'?'↓':'↑';
 const allChecked=fl.length>0&&fl.every(o=>selectedIds.has(o.id));
-let h=`<div class="card"><div class="card-h"><h3>${fl.length} 筆</h3><span style="font-size:11px;color:var(--dm);font-family:var(--mono)">合計 ${$(fl.reduce((s,o)=>s+tot(o),0))}</span></div><div style="overflow-x:auto"><table><thead><tr><th class="batch-cell"><input type="checkbox" ${allChecked?'checked':''} onclick="toggleAllSelected(event)" title="全選/全取消"></th><th onclick="toggleSort()" style="cursor:pointer;user-select:none" title="點擊切換排序">日期 ${arrow}</th><th>平台</th><th>品名</th><th class="tab-list-mobile-hide">數量</th><th>姓名</th><th class="tab-list-mobile-hide">安裝</th><th class="tab-list-mobile-hide">加購</th><th>合計</th><th>狀態</th><th>操作</th></tr></thead><tbody>`;
+let h=`<div class="card"><div class="card-h"><h3>${fl.length} 筆</h3><span style="font-size:11px;color:var(--dm);font-family:var(--mono)">合計 ${$(fl.reduce((s,o)=>s+tot(o),0))}</span></div><div style="overflow-x:auto"><table><thead><tr><th class="batch-cell"><input type="checkbox" ${allChecked?'checked':''} onclick="toggleAllSelected(event)" title="全選/全取消"></th><th onclick="toggleSort()" style="cursor:pointer;user-select:none" title="點擊切換排序">日期 ${arrow}</th><th>平台</th><th>品名</th><th class="tab-list-mobile-hide qty-cell">數量</th><th class="name-cell">姓名</th><th class="tab-list-mobile-hide acc-cell">安裝</th><th class="tab-list-mobile-hide acc-cell">加購</th><th>合計</th><th>狀態</th><th>操作</th></tr></thead><tbody>`;
 let lastBucket='';
 fl.forEach(o=>{const oid=o.id;
 const bucket=dateBucket(o.date);
