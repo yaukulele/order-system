@@ -39,13 +39,13 @@
     }
     phones.push(phone);
 
-    // 關 popup（多種策略）
-    document.body.dispatchEvent(
-      new KeyboardEvent("keydown", { key: "Escape", keyCode: 27, which: 27, bubbles: true })
-    );
-    [...document.querySelectorAll('[class*="close"], button[aria-label*="關閉"]')].forEach((b) => {
-      try { b.click(); } catch (e) {}
-    });
+    // 關 popup — 找出剛剛 popup 內的 close X 按鈕，不用 Esc 避免觸發頁面導航
+    if (popup) {
+      const closeBtn = popup.querySelector('[class*="close"], [aria-label*="關閉"], [aria-label*="close"], button.close, .el-dialog__close, .ant-modal-close');
+      if (closeBtn) {
+        try { closeBtn.click(); } catch (e) {}
+      }
+    }
     await sleep(200);
   }
 
