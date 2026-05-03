@@ -527,25 +527,31 @@ async function setUserPassword(u){
   if(!isAdmin()&&u!==currentUser){alert('沒權限');return}
   const np=prompt('要把「'+u+'」的密碼改成？');
   if(!np)return;
-  await db.ref('users/'+u+'/password').set(np);
-  await logUserAction('change-password','改 '+u+' 密碼');
-  alert('✅ 已更新');
+  try{
+    await db.ref('users/'+u+'/password').set(np);
+    await logUserAction('change-password','改 '+u+' 密碼');
+    alert('✅ 已更新');
+  }catch(e){alert('更新失敗：'+e.message);return}
   renderAccount();
 }
 async function setUserRole(u,newRole){
   if(!isAdmin()){alert('只有管理員可調整角色');return}
   if(u===currentUser){alert('不能改自己的角色');return}
   if(!confirm('要把「'+u+'」設為「'+(newRole==='admin'?'管理員':'一般')+'」嗎？'))return;
-  await db.ref('users/'+u+'/role').set(newRole);
-  await logUserAction('change-role',u+' → '+newRole);
+  try{
+    await db.ref('users/'+u+'/role').set(newRole);
+    await logUserAction('change-role',u+' → '+newRole);
+  }catch(e){alert('更新失敗：'+e.message);return}
   renderAccount();
 }
 async function deleteUser(u){
   if(!isAdmin()){alert('只有管理員可刪');return}
   if(u===currentUser){alert('不能刪自己');return}
   if(!confirm('真的要刪除「'+u+'」？無法復原'))return;
-  await db.ref('users/'+u).remove();
-  await logUserAction('delete-user','刪除 '+u);
+  try{
+    await db.ref('users/'+u).remove();
+    await logUserAction('delete-user','刪除 '+u);
+  }catch(e){alert('刪除失敗：'+e.message);return}
   renderAccount();
 }
 function setF(f,b){cFilter=f;_mobileExpand=false;document.querySelectorAll('.filter-row .fbtn[data-fg="plat"]').forEach(x=>x.classList.remove('on'));if(b)b.classList.add('on');else{const auto=document.querySelector(`.fbtn[data-fg="plat"][onclick*="setF('${f}'"]`);if(auto)auto.classList.add('on')}persistFilters();renderList()}
