@@ -200,7 +200,7 @@ body.has-batch-bar .main{padding-bottom:140px}
 </head>
 <body>
 <div class="offline-banner hidden" id="offline-banner">⚠️ 已離線 — 你的修改會在連線恢復後同步</div>
-<div class="hdr"><h1>📦 訂單管理系統<small>MOMO + PChome</small></h1><div style="display:flex;align-items:center;gap:8px"><span id="sync-badge" class="sync-dot sync-off"><span class="dot dot-off"></span>連線中...</span><button class="btn" id="theme-btn" onclick="toggleTheme()" style="font-size:11px" title="切換亮色/暗色">🌙</button><button class="btn" id="notif-btn" onclick="toggleNotifications()" style="font-size:11px" title="桌面通知">🔕</button><button class="btn" onclick="showShortcutsHelp()" style="font-size:11px" title="鍵盤捷徑（按 ? 快速打開）">⌨️</button><button class="btn" onclick="location.reload()" style="font-size:11px">🔄</button><button class="btn" onclick="if(confirm('確定清空？')){orders=[];saveAll()}" style="font-size:11px">清空</button></div></div>
+<div class="hdr"><h1>📦 訂單管理系統<small>MOMO + PChome</small></h1><div style="display:flex;align-items:center;gap:8px"><span id="sync-badge" class="sync-dot sync-off"><span class="dot dot-off"></span>連線中...</span><button class="btn" id="theme-btn" onclick="toggleTheme()" style="font-size:11px" title="切換亮色/暗色">🌙</button><button class="btn" id="notif-btn" onclick="toggleNotifications()" style="font-size:11px" title="桌面通知">🔕</button><button class="btn" onclick="showShortcutsHelp()" style="font-size:11px" title="鍵盤捷徑（按 ? 快速打開）">⌨️</button><button class="btn" onclick="location.reload()" style="font-size:11px">🔄</button><button class="btn" onclick="confirmWipeAll()" style="font-size:11px;color:var(--pc);border-color:#e8a8a4" title="清空所有訂單（危險動作 — 需打字確認）">清空</button></div></div>
 <div class="tabs"><button class="tab active" onclick="showTab('import')">📋 匯入</button><button class="tab" onclick="showTab('list')">📦 列表 <span class="badge" id="cnt">0</span></button><button class="tab" onclick="showTab('output')">📤 輸出</button><button class="tab" onclick="showTab('stats')">📊 統計</button><button class="tab" onclick="showTab('customers')">👥 客戶</button><button class="tab" onclick="showTab('account')">👤 帳號 <span id="user-badge" style="font-size:10px;color:var(--dm);margin-left:4px"></span></button></div>
 
 <div class="main" id="tab-import"><div id="today-summary" style="display:none"></div><div class="card" style="background:var(--card-momo-bg);border:1px solid var(--card-momo-bd)"><div class="card-h" style="background:transparent"><h3>🚀 自動抓取 MOMO 訂單（API 直連，無需貼上）</h3><div style="display:flex;gap:6px;flex-wrap:wrap"><button class="btn" onclick="resetMomoApi()" title="重設 API 網址 / Token">⚙️</button><button class="btn" onclick="testNotify()" title="送一則測試訊息到 Discord / LINE 確認連線" style="font-size:11px">🔔 測試通知</button><button class="btn btn-g" id="momo-auto-btn" onclick="fetchMomoAuto()" style="background:var(--mo);border-color:var(--mo)">🔄 自動抓 MOMO 未出貨訂單</button></div></div><div class="card-b" style="padding:10px 16px"><div id="momo-auto-status" style="font-size:11px;color:var(--dm);font-family:var(--mono)">第一次只問 Token（API 網址自動填），其他裝置直接共用 ☁️</div></div></div>
@@ -1121,6 +1121,16 @@ document.addEventListener('keydown',e=>{
   if((e.ctrlKey||e.metaKey)&&e.key==='z'){e.preventDefault();undoLast();return}
 });
 function showShortcutsHelp(){const lines=['🎹 鍵盤捷徑','','/ 或 Ctrl+K — 聚焦搜尋','Esc — 關 modal / 清搜尋 / 取消批次','Ctrl+Z — 還原刪除（最近 10 次）','1 — 匯入分頁','2 — 列表','3 — 輸出','4 — 統計','5 — 客戶','6 — 帳號','? — 顯示這個說明'];alert(lines.join('\n'))}
+function confirmWipeAll(){
+  if(!isAdmin()){alert('只有管理員可清空');return}
+  const cnt=orders.length;
+  if(!cnt){alert('已經沒有訂單了');return}
+  const expected='清空 '+cnt;
+  const got=prompt(`⚠️ 危險動作 ⚠️\n\n要清空全部 ${cnt} 筆訂單嗎？此動作無法復原（雲端也會清掉）。\n\n請打字輸入下面這串字確認：\n\n${expected}`);
+  if(got!==expected){alert('輸入不符 — 動作取消');return}
+  orders=[];selectedIds.clear();saveAll(true);
+  showToast(`✅ 已清空 ${cnt} 筆訂單`,null,null,4000);
+}
 
 // ===== Theme & desktop notification =====
 function applyTheme(t){document.documentElement.setAttribute('data-theme',t==='dark'?'dark':'light');document.getElementById('theme-btn').textContent=t==='dark'?'☀️':'🌙';localStorage.setItem('theme',t)}
