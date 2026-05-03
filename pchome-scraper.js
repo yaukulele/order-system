@@ -90,7 +90,11 @@
   const required = ['orderNo', 'product', 'name', 'address'];
   const missing = required.filter(k => idx[k] < 0);
   if (missing.length) {
-    alert('❌ 缺少必要欄位：' + missing.join(', ') + '\n\n表 header：\n' + headers.join(' | ') + '\n\n把這段 alert 截圖給我');
+    const isAddrOnly = missing.length === 1 && missing[0] === 'address';
+    const hint = isAddrOnly
+      ? '\n\n⚠️ 你目前在「訂單管理」list view，這個 view 沒有「收貨地址」欄位。\n\n請切換到含「收貨地址 / Zip」欄位的 view —\n通常是上方功能列「商品明細 / 印貨資料 / 出貨明細」之類的那一頁。\n切過去再跑一次這個 script。'
+      : '\n\n找不到的欄位代表 PChome 改了 layout 或選錯 view，把這個 alert 截圖給開發者。';
+    alert('❌ 缺少必要欄位：' + missing.join(', ') + hint + '\n\n找到的 header：\n' + headers.join(' | '));
     return;
   }
 
