@@ -149,7 +149,8 @@ body.offline{padding-top:30px} /* 騰出空間給 banner，header 不會被蓋 *
 .fbtn{padding:8px 10px;font-size:11px;min-height:36px;flex-shrink:0}
 .fb-divider{display:none}
 /* 手機：篩選列改成橫向卷軸，避免擠太多顆按鈕變很高 */
-.filter-row{gap:4px;flex-wrap:nowrap;overflow-x:auto;overflow-y:hidden;-webkit-overflow-scrolling:touch;padding-bottom:6px;scrollbar-width:thin}
+.filter-row{gap:4px;flex-wrap:nowrap;overflow-x:auto;overflow-y:hidden;-webkit-overflow-scrolling:touch;padding:6px 4px;scrollbar-width:thin;background:var(--bg);position:sticky;top:75px;z-index:80}
+body.fullscreen-mode .filter-row{top:32px}
 .filter-row::-webkit-scrollbar{height:3px}
 .filter-row::-webkit-scrollbar-thumb{background:var(--bd);border-radius:2px}
 .search{flex-shrink:0;width:140px!important;min-width:120px}
