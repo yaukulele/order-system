@@ -746,7 +746,20 @@ function splitProductSpecs(o){
 
 // ===== LIST =====
 function logActivity(o,action){const d=new Date();const p=n=>String(n).padStart(2,'0');const ts=`${d.getFullYear()}-${p(d.getMonth()+1)}-${p(d.getDate())} ${p(d.getHours())}:${p(d.getMinutes())}`;let note=((o.note||'')+`\n[${ts}] ${action}`).trim();const lines=note.split('\n');if(lines.length>60)note=lines.slice(-60).join('\n');o.note=note}
-function toggleStatus(oid){const o=findO(oid);if(!o)return;const prev=o.status;o.status=ST[(ST.indexOf(o.status)+1)%ST.length];logActivity(o,`狀態：${prev} → ${o.status}`);saveOne(o);renderList()}
+function toggleStatus(oid){
+  const o=findO(oid);if(!o)return;
+  const prev=o.status;
+  o.status=ST[(ST.indexOf(o.status)+1)%ST.length];
+  logActivity(o,`狀態：${prev} → ${o.status}`);
+  saveOne(o);
+  // 如果有篩選狀態，狀態變了可能會讓這筆消失或進入 → 還是要 full render
+  if(cStatus!=='all'){renderList();return}
+  // 快速路徑：只更新這顆按鈕，不重建整個列表（避免 200+ 筆訂單卡頓）
+  const btns=document.querySelectorAll(`button.st-btn[onclick*="toggleStatus('${oid}')"]`);
+  if(btns.length){btns.forEach(btn=>{btn.className=stCls(o.status);btn.textContent=o.status});updateCnt();return}
+  // 找不到按鈕 → fallback full render
+  renderList();
+}
 function stCls(s){return s==='已確認'?'st-btn st-confirmed':s==='未接電'?'st-btn st-noanswer':(s==='未確認'||s==='待出貨')?'st-btn st-wait':s==='已出貨'?'st-btn st-ship':s==='已完成'?'st-btn st-done':(s==='轉線下'||s==='已轉線下')?'st-btn st-offline':'st-btn st-cancel'}
 function toggleInstall(oid){const o=findO(oid);if(!o)return;o.install=o.install==='是'?'否':'是';if(o.install==='否'){o.installFee=0;o.installDay='';o.installTime='';o.installPaidAmount=0}saveOne(o);renderList()}
 function toggleAddon(oid){const o=findO(oid);if(!o)return;o.addon=o.addon==='是'?'否':'是';if(o.addon==='否'){o.addonFee=0;o.addonPaidAmount=0;o.addonItems=''}saveOne(o);renderList()}
