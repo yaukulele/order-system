@@ -1128,7 +1128,7 @@ async function submitShip(force){
     else if(status==='無貨取消訂單'){o.status='已取消'}
     else if(status==='暫時電聯不上(無須momo協助)'||status==='多次電聯不上(2天3次以上)'){o.status='未接電'}
     // 其他狀態（需配送加價協調中/收件資料有誤/無適當選項，momo請協助）保持原狀，使用者手動再決定
-    logActivity(o,`出貨回報：${status}${item.delyGbStr?' ｜ '+item.delyGbStr:''}${item.slipNo?' ｜ '+item.slipNo:''}`);
+    logActivity(o,`出貨回報：${status}${item.delyGbStr?' ｜ '+item.delyGbStr:''}${item.slipNo?' ｜ '+item.slipNo:''}${item.msgNote?' ｜ '+item.msgNote:''}`);
     saveOne(o);renderList();
     _modalDirty=false; // 已成功送出，關閉時不再警告未儲存
     const localMsg=status==='已配送'?'已出貨':status==='無貨取消訂單'?'已取消':(status==='暫時電聯不上(無須momo協助)'||status==='多次電聯不上(2天3次以上)')?'未接電':o.status;
