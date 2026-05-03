@@ -233,21 +233,21 @@ const at=document.querySelector('.tab.active')?.textContent||'';
 if(at.includes('列表'))renderList();if(at.includes('輸出'))renderOutput();if(at.includes('統計'))renderStats();if(at.includes('客戶'))renderCustomers();
 setSyncOn();window.scrollTo(0,sc)}
 db.ref('orders').on('value',snap=>{const val=snap.val();
-  // Skip echo of own write — 避免我們剛 set 的資料又觸發 re-render
+  // Skip echo of own write — 比對 local state，相同就不 re-render（避免 spam UI）
   const json=val?JSON.stringify(val):'';
-  if(json===_lastWrittenJson){orders=val?Object.values(val):[];pendingRemoteOrders=null;updateCnt();setSyncOn();return}
+  if(json===_snapshotJson()){pendingRemoteOrders=null;ordersLoaded=true;updateCnt();setSyncOn();return}
   if(isModalOpen()||isInputFocused()){pendingRemoteOrders=val;setSyncOn();return}
   applyRemoteOrders(val)
 });
 
 // Debounced save (300ms) — 避免快速打字 fee/qty 時 spam Firebase + 引發 echo re-render
 // 兩條路徑分開：saveAll = 整包 set / saveOne = 單筆 update
-let _saveAllTimer=null,_saveOneTimer=null,_lastWrittenJson='',_pendingOneIds=new Set();
+let _saveAllTimer=null,_saveOneTimer=null,_pendingOneIds=new Set();
 function _setSavingBadge(){const sb=document.getElementById('sync-badge');if(sb){sb.className='sync-dot sync-off';sb.innerHTML='<span class="dot dot-off"></span>儲存中...'}}
 function _saveError(err){console.error('save failed',err);const sb=document.getElementById('sync-badge');if(sb){sb.className='sync-dot sync-off';sb.innerHTML='<span class="dot dot-off"></span>❌ 儲存失敗'}}
 function _snapshotJson(){const d={};orders.forEach(o=>{d[o.id]=o});return JSON.stringify(d)}
-function _doSaveAll(){_saveAllTimer=null;const d={};orders.forEach(o=>{d[o.id]=o});_lastWrittenJson=JSON.stringify(d);_pendingOneIds.clear();db.ref('orders').set(d).catch(_saveError)}
-function _doSaveOnes(){_saveOneTimer=null;if(_pendingOneIds.size===0)return;const updates={};for(const id of _pendingOneIds){const o=findO(id);if(o)updates[id]=o}_pendingOneIds.clear();_lastWrittenJson=_snapshotJson();db.ref('orders').update(updates).catch(_saveError)}
+function _doSaveAll(){_saveAllTimer=null;const d={};orders.forEach(o=>{d[o.id]=o});_pendingOneIds.clear();db.ref('orders').set(d).catch(_saveError)}
+function _doSaveOnes(){_saveOneTimer=null;if(_pendingOneIds.size===0)return;const updates={};for(const id of _pendingOneIds){const o=findO(id);if(o)updates[id]=o}_pendingOneIds.clear();db.ref('orders').update(updates).catch(_saveError)}
 // saveAll = full snapshot set — 取消 pending saveOne，由 saveAll 統一處理
 function saveAll(immediate){_setSavingBadge();_pendingOneIds.clear();if(_saveOneTimer){clearTimeout(_saveOneTimer);_saveOneTimer=null}if(_saveAllTimer)clearTimeout(_saveAllTimer);if(immediate)_doSaveAll();else _saveAllTimer=setTimeout(_doSaveAll,300)}
 // saveOne = single order update — 如果 saveAll 已 pending，等 saveAll 處理（包括這個 order）
