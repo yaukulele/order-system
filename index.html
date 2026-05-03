@@ -452,8 +452,8 @@ async function bootAuth(){
     showLoginModal();
   }catch(e){console.error('bootAuth failed',e);if(!currentUser)showLoginModal()}
 }
-function showLoginModal(){const ov=document.getElementById('login-overlay');if(ov){ov.classList.remove('hidden');setTimeout(()=>document.getElementById('login-user')?.focus(),100)}}
-function hideLoginModal(){document.getElementById('login-overlay')?.classList.add('hidden')}
+function showLoginModal(){const ov=document.getElementById('login-overlay');if(ov){ov.classList.remove('hidden');document.body.style.overflow='hidden';setTimeout(()=>document.getElementById('login-user')?.focus(),100)}}
+function hideLoginModal(){document.getElementById('login-overlay')?.classList.add('hidden');document.body.style.overflow=''}
 async function doLogin(){
   const u=document.getElementById('login-user').value.trim();
   const p=document.getElementById('login-pass').value;
