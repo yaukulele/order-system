@@ -596,7 +596,10 @@ function toggleSpecial(kind,btn){_mobileExpand=false;if(cSpecial===kind){cSpecia
 
 // ===== IMPORT =====
 function runParse(){const r=document.getElementById('raw-input').value;if(!r.trim())return;const p=parseAll(r);if(!p.length){document.getElementById('preview-area').innerHTML='<div class="card"><div class="card-b" style="color:var(--pc)">⚠ 無法辨識</div></div>';return}const txt=p.map(fmtS).join('\n---\n');const pl=p[0]?.platform||'';document.getElementById('preview-area').innerHTML=`<div class="card"><div class="card-h"><div style="display:flex;align-items:center;gap:8px"><h3>預覽</h3><span class="badge">${p.length} 筆</span>${platformPill(pl)}</div><button class="btn btn-g" onclick="copyText(document.getElementById('pv').textContent,'已複製！')">複製</button></div><div class="card-b"><div class="result" id="pv">${esc(txt)}</div></div></div>`}
-function doImport(){const r=document.getElementById('raw-input').value;const p=parseAll(r);if(!p.length){alert('沒有解析到任何訂單');return}const ex=new Set(orders.map(o=>o.orderNo));const nw=p.filter(o=>!ex.has(o.orderNo));const dup=p.length-nw.length;if(!nw.length){alert(`訂單都已存在（${dup} 筆重複）`);return}orders.push(...nw);saveAll(true);showToast(`✅ 匯入 ${nw.length} 筆${dup?`（${dup} 筆重複略過）`:''}`,null,null,3500);clearInput()}
+function doImport(){const r=document.getElementById('raw-input').value;const p=parseAll(r);if(!p.length){alert('沒有解析到任何訂單');return}
+// 解析結果內部 dedup（同 orderNo 只取第一筆，避免某些 parser bug 重複）
+const seenInBatch=new Set();const dedup=p.filter(o=>{if(!o.orderNo||seenInBatch.has(o.orderNo))return false;seenInBatch.add(o.orderNo);return true});
+const ex=new Set(orders.map(o=>o.orderNo));const nw=dedup.filter(o=>!ex.has(o.orderNo));const dupExisting=dedup.length-nw.length;const dupInBatch=p.length-dedup.length;if(!nw.length){alert(`訂單都已存在（${dupExisting} 筆已在系統${dupInBatch?'，'+dupInBatch+' 筆解析重複':''}）`);return}orders.push(...nw);saveAll(true);showToast(`✅ 匯入 ${nw.length} 筆${dupExisting?`（${dupExisting} 筆已存在略過）`:''}${dupInBatch?`（解析中 ${dupInBatch} 筆重複合併）`:''}`,null,null,3500);clearInput()}
 // 同單號自動覆蓋 — 給修壞舊資料用（保留 status/install/addon/note 等使用者改過的欄位）
 function doReimport(){
   const r=document.getElementById('raw-input').value;const p=parseAll(r);if(!p.length){alert('沒有解析到訂單');return}
