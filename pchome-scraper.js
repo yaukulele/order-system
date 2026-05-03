@@ -68,47 +68,68 @@
   }
   console.log(TAG, 'headers:', headers);
 
-  // Header → 欄位 mapping（包含可能的多個關鍵字）
+  // Header → 欄位 mapping（hint 用 includes 比對，多備一些 variant）
   const FIELD_HINTS = {
-    product:  ['商品名稱'],
+    product:  ['商品名稱', '品名'],
     specs:    ['商品規格', '規格'],
     skuCode:  ['商品編號', '料號'],
-    qty:      ['印貨數量', '出貨數量', '數量'],
-    amount:   ['商品價格', '商品總價', '單價', '售價'],
-    orderNo:  ['訂單編號', '出貨單編號'],
-    name:     ['收貨人'],
-    zip:      ['Zip', 'ZIP', '郵遞'],
-    address:  ['收貨地址', '送貨地址'],
+    qty:      ['印貨數量', '出貨數量', '訂購數量', '數量'],
+    amount:   ['商品價格', '商品總價', '單價', '售價', '金額'],
+    orderNo:  ['訂單編號', '出貨單編號', '收貨單編號', '訂單號'],
+    name:     ['收貨人姓名', '收貨人', '收件人'],
+    zip:      ['Zip', 'ZIP', 'zip', '郵遞', '郵區'],
+    address:  ['收貨人地址', '收貨地址', '送貨地址', '配送地址', '收件地址', '收貨人住址'],
   };
   const idx = {};
   for (const [k, hints] of Object.entries(FIELD_HINTS)) {
-    idx[k] = headers.findIndex(h => hints.some(x => h.includes(x)));
+    // 為避免 '規格'(含商品規格的子字串) 重複命中前面的欄位，header 比對用「最長 hint 優先」
+    let best = -1, bestLen = 0;
+    headers.forEach((h, i) => {
+      for (const hint of hints) {
+        if (h.includes(hint) && hint.length > bestLen) { best = i; bestLen = hint.length; }
+      }
+    });
+    idx[k] = best;
   }
   console.log(TAG, '欄位 idx:', idx);
 
-  // 必要欄位檢查
-  const required = ['orderNo', 'product', 'name', 'address'];
-  const missing = required.filter(k => idx[k] < 0);
-  if (missing.length) {
-    const isAddrOnly = missing.length === 1 && missing[0] === 'address';
-    const hint = isAddrOnly
-      ? '\n\n⚠️ 你目前在「訂單管理」list view，這個 view 沒有「收貨地址」欄位。\n\n請切換到含「收貨地址 / Zip」欄位的 view —\n通常是上方功能列「商品明細 / 印貨資料 / 出貨明細」之類的那一頁。\n切過去再跑一次這個 script。'
-      : '\n\n找不到的欄位代表 PChome 改了 layout 或選錯 view，把這個 alert 截圖給開發者。';
-    alert('❌ 缺少必要欄位：' + missing.join(', ') + hint + '\n\n找到的 header：\n' + headers.join(' | '));
-    return;
+  // Regex fallback：找不到 orderNo / address header 時，掃整行 cell 撈
+  function fallbackOrderNoFrom(cells){
+    for (let i = 0; i < cells.length; i++) {
+      if (/^20\d{6,12}-\d{2}$/.test(cells[i].trim())) return i;
+    }
+    return -1;
+  }
+  function fallbackAddressFrom(cells){
+    for (let i = 0; i < cells.length; i++) {
+      const c = cells[i];
+      if ((c.includes('市') || c.includes('縣')) && /\d+號|\d+巷|\d+弄|\d+段|\d+路|\d+街/.test(c)) return i;
+    }
+    return -1;
   }
 
   // 抽資料 row（跳過 header row 之前 + header row 本身）
   const dataRows = allTr.slice(headerRowIdx + 1);
   const orders = [];
+  let orderNoFallbackIdx = -1, addressFallbackIdx = -1;
   for (const tr of dataRows) {
     const cells = [...tr.querySelectorAll('td')].map(c => norm(c.textContent || ''));
     if (cells.length < headers.length / 2) continue; // 排除分隔/小計/空 row
-    const orderNo = idx.orderNo >= 0 ? cells[idx.orderNo] : '';
-    if (!/20\d{6,12}-\d{2}/.test(orderNo)) continue; // 不像訂單編號就跳過
 
-    // address 砍掉「(XXX寄)」尾巴
+    // orderNo：先用 header idx，沒命中就 regex 掃整行（鎖定第一個成功的 col index 之後 reuse）
+    let orderNo = idx.orderNo >= 0 ? cells[idx.orderNo] : '';
+    if (!/^20\d{6,12}-\d{2}$/.test(orderNo.trim())) {
+      if (orderNoFallbackIdx < 0) orderNoFallbackIdx = fallbackOrderNoFrom(cells);
+      if (orderNoFallbackIdx >= 0) orderNo = cells[orderNoFallbackIdx] || '';
+    }
+    if (!/20\d{6,12}-\d{2}/.test(orderNo)) continue;
+
+    // address：先 header idx，沒命中就掃含「市/縣 + 號/巷/弄/段/路/街」的 cell
     let address = idx.address >= 0 ? cells[idx.address] : '';
+    if (!address || !(address.includes('市') || address.includes('縣'))) {
+      if (addressFallbackIdx < 0) addressFallbackIdx = fallbackAddressFrom(cells);
+      if (addressFallbackIdx >= 0) address = cells[addressFallbackIdx] || address;
+    }
     address = address.replace(/\s*\([^)]*寄\)\s*/g, '').trim();
 
     // specs 可能是「白色 002」或「黑色全套 001」— 砍掉尾巴 3 位數編號
