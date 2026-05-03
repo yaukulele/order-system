@@ -968,8 +968,17 @@ if(days.length){const max=Math.max(...days.map(d=>d[1]));html+=`<div class="card
 document.getElementById('stats-area').innerHTML=html}
 
 function setCustomerSort(s,btn){customerSort=s;localStorage.setItem('customerSort',s);document.querySelectorAll('.fbtn[data-fg="csort"]').forEach(x=>x.classList.remove('on'));if(btn)btn.classList.add('on');renderCustomers()}
-// 從客戶頁點客戶名 → 跳到列表搜尋此客戶
-function searchCustomerOrders(name){if(!name)return;showTab('list');setF('all');setSF('all');cSpecial=null;persistFilters();const q=document.getElementById('q');if(q){q.value=name;_mobileExpand=false;renderList()}}
+// 從客戶頁點客戶名 → 跳到列表搜尋此客戶（一次設好 state 再 render，避免 3 次 re-render）
+function searchCustomerOrders(name){if(!name)return;
+  cFilter='all';cStatus='all';cSpecial=null;
+  document.querySelectorAll('#tab-list .fbtn').forEach(x=>x.classList.remove('on'));
+  document.querySelector('#tab-list .fbtn[data-fg="plat"]')?.classList.add('on');
+  document.querySelector('#tab-list .fbtn[data-fg="status"]')?.classList.add('on');
+  persistFilters();
+  showTab('list');
+  const q=document.getElementById('q');
+  if(q){q.value=name;_mobileExpand=false;renderList()}
+}
 // 搜尋輸入防抖（150ms）— 大量訂單時打字不卡
 let _searchListTm=null,_searchCustTm=null;
 function searchListDebounced(){_mobileExpand=false;if(_searchListTm)clearTimeout(_searchListTm);_searchListTm=setTimeout(()=>{_searchListTm=null;renderList()},150)}
