@@ -932,21 +932,21 @@ ${activityTimelineHTML(o.note)}<div class="fg full"><div class="fi"><label>備�
 <div class="modal-ft"><button class="btn" onclick="closeModal()">取消</button><button class="btn btn-g" onclick="saveEdit()">儲存</button></div>`;
 document.getElementById('modal-overlay').classList.remove('hidden');document.body.style.overflow='hidden'}
 
-function togEI(){const p=document.getElementById('ei-panel'),b=document.getElementById('ei-btn');if(p.classList.contains('hidden')){p.classList.remove('hidden');b.className='toggle-on';b.textContent='✓ 需要安裝'}else{p.classList.add('hidden');b.className='toggle-off';b.textContent='不需要安裝';
+function togEI(){_modalDirty=true;const p=document.getElementById('ei-panel'),b=document.getElementById('ei-btn');if(p.classList.contains('hidden')){p.classList.remove('hidden');b.className='toggle-on';b.textContent='✓ 需要安裝'}else{p.classList.add('hidden');b.className='toggle-off';b.textContent='不需要安裝';
   // 關掉安裝時清掉相關欄位避免不一致
   const fee=document.getElementById('e-instf');if(fee)fee.value='';
   document.querySelectorAll('#ei-panel .sched-btn.picked').forEach(b=>b.classList.remove('picked'));
   calcT()
 }}
-function togEA(){const p=document.getElementById('ea-panel'),b=document.getElementById('ea-btn');if(p.classList.contains('hidden')){p.classList.remove('hidden');b.className='toggle-on';b.textContent='✓ 有加購'}else{p.classList.add('hidden');b.className='toggle-off';b.textContent='無加購';
+function togEA(){_modalDirty=true;const p=document.getElementById('ea-panel'),b=document.getElementById('ea-btn');if(p.classList.contains('hidden')){p.classList.remove('hidden');b.className='toggle-on';b.textContent='✓ 有加購'}else{p.classList.add('hidden');b.className='toggle-off';b.textContent='無加購';
   // 關掉加購時清掉相關欄位
   const fee=document.getElementById('e-addonf');if(fee)fee.value='';
   const it=document.getElementById('e-addonitems');if(it)it.value='';
   calcT()
 }}
-function pickRadio(groupId,value,btn){const grp=document.getElementById(groupId);if(!grp)return;grp.querySelectorAll('.sched-btn').forEach(b=>b.classList.remove('picked'));btn.classList.add('picked');grp.dataset.value=value}
-function pickD(d,btn){const wasPicked=btn.classList.contains('picked');document.querySelectorAll('#ei-panel .sched-btn').forEach(b=>{if(!TIMES.includes(b.textContent))b.classList.remove('picked')});if(!wasPicked)btn.classList.add('picked')}
-function pickT(t,btn){const wasPicked=btn.classList.contains('picked');document.querySelectorAll('#ei-panel .sched-btn').forEach(b=>{if(TIMES.includes(b.textContent))b.classList.remove('picked')});if(!wasPicked)btn.classList.add('picked')}
+function pickRadio(groupId,value,btn){_modalDirty=true;const grp=document.getElementById(groupId);if(!grp)return;grp.querySelectorAll('.sched-btn').forEach(b=>b.classList.remove('picked'));btn.classList.add('picked');grp.dataset.value=value}
+function pickD(d,btn){_modalDirty=true;const wasPicked=btn.classList.contains('picked');document.querySelectorAll('#ei-panel .sched-btn').forEach(b=>{if(!TIMES.includes(b.textContent))b.classList.remove('picked')});if(!wasPicked)btn.classList.add('picked')}
+function pickT(t,btn){_modalDirty=true;const wasPicked=btn.classList.contains('picked');document.querySelectorAll('#ei-panel .sched-btn').forEach(b=>{if(TIMES.includes(b.textContent))b.classList.remove('picked')});if(!wasPicked)btn.classList.add('picked')}
 function calcT(){const a=parseInt(document.getElementById('e-amt').value)||0;const i=parseInt(document.getElementById('e-instf').value)||0;const d=parseInt(document.getElementById('e-addonf').value)||0;document.getElementById('e-tot').textContent='$'+(a+i+d).toLocaleString()}
 function saveEdit(){const o=findO(editId);if(!o){alert('訂單已不存在（可能被別的裝置刪了）');closeModal();return}o.date=document.getElementById('e-date').value;o.platform=document.getElementById('e-plat').value;o.orderNo=document.getElementById('e-no').value.trim();o.product=document.getElementById('e-prod').value.trim();o.specs=document.getElementById('e-specs').value.trim();o.name=document.getElementById('e-name').value.trim();o.phone=document.getElementById('e-phone').value.trim();o.realPhone=(document.getElementById('e-realPhone')?.value||'').trim();o.address=document.getElementById('e-addr').value.trim();o.addrMgmt=document.getElementById('e-mgmt')?.dataset.value??(o.addrMgmt||'');o.addrElev=document.getElementById('e-elev')?.dataset.value??(o.addrElev||'');o.amount=parseInt(document.getElementById('e-amt').value)||0;o.qty=parseInt(document.getElementById('e-qty').value)||1;
 o.install=document.getElementById('ei-panel').classList.contains('hidden')?'否':'是';
@@ -970,9 +970,9 @@ function closeModal(){
   // 我們有 pending 的儲存（剛點 save）→ 我們的 local state 才是最新，不要套用過期的 pending
   if(_saveAllTimer||_saveOneTimer){pendingRemoteOrders=null;return}
   if(pendingRemoteOrders!==null){const v=pendingRemoteOrders;pendingRemoteOrders=null;applyRemoteOrders(v)}}
-// 編輯 modal dirty 偵測 — 用過的單一 listener，不重複綁定
-document.getElementById('modal-body').addEventListener('input',()=>{if(editId!==null)_modalDirty=true});
-document.getElementById('modal-body').addEventListener('change',()=>{if(editId!==null)_modalDirty=true});
+// 編輯/出貨 modal dirty 偵測 — 用過的單一 listener，不重複綁定
+document.getElementById('modal-body').addEventListener('input',()=>{if(editId!==null||shipId!==null)_modalDirty=true});
+document.getElementById('modal-body').addEventListener('change',()=>{if(editId!==null||shipId!==null)_modalDirty=true});
 // 全域鍵盤捷徑
 document.addEventListener('keydown',e=>{
   // 不在輸入框時才響應字母快捷鍵
@@ -1093,6 +1093,7 @@ async function submitShip(force){
     else if(status==='無貨取消訂單'){o.status='已取消'}
     logActivity(o,`出貨回報：${status}${item.delyGbStr?' ｜ '+item.delyGbStr:''}${item.slipNo?' ｜ '+item.slipNo:''}`);
     saveOne(o);renderList();
+    _modalDirty=false; // 已成功送出，關閉時不再警告未儲存
     setTimeout(()=>{closeModal();alert('✅ 出貨確認完成，訂單狀態已更新為「已出貨」')},800);
   }catch(err){
     result.innerHTML=`<div style="background:var(--pc-bg);border:1px solid var(--pc);color:var(--pc);padding:10px;border-radius:6px;font-size:12px"><b>❌ 網路錯誤</b><br>${esc(err.message)}</div>`;
