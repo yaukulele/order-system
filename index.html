@@ -842,9 +842,9 @@ function updateFilterCounts(){
 }
 function setBtnCount(btn,cnt){
   let pill=btn.querySelector('.cnt-pill');
-  if(cnt===0){if(pill)pill.remove();return}
   if(!pill){pill=document.createElement('span');pill.className='cnt-pill';btn.appendChild(pill)}
   pill.textContent=cnt;
+  pill.style.opacity=cnt===0?'0.4':'1';
 }
 function renderList(){updateFilterIndicator();updateFilterCounts();const fl=filterListOrders();
 fl.sort((a,b)=>{const av=a.date||'',bv=b.date||'';if(av===bv)return 0;return sortOrder==='date-desc'?(av<bv?1:-1):(av>bv?1:-1)});
