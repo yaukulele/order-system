@@ -242,11 +242,22 @@ if(op.line!==undefined){const prevEnd=idx>0?ol[idx-1].line:-1;const nextStart=id
 else{const prevEnd=idx>0?ol[idx-1].pos:-1;const nextStart=idx<ol.length-1?ol[idx+1].pos:raw.length;const lo=Math.max(prevEnd+1,op.pos-300);const hi=Math.min(nextStart,op.pos+1500);bk=raw.substring(lo,hi)}
 const c=bk.replace(/\n/g,'\t').replace(/\t{2,}/g,'\t').split('\t').map(x=>x.trim()).filter(Boolean);
 let date='';for(const x of c){if(/^\d{2}\/\d{2}$/.test(x)&&x.startsWith('0')){const[mm,dd]=x.split('/');date=parseInt(mm)+'/'+parseInt(dd);break}}
-let prod='';
-for(const x of c){if(x.length>6&&x.length<80&&!x.includes('出貨')&&!x.includes('商品名')&&!x.includes('勾選')&&!x.includes('看電話')&&PC_PROD_KW.some(kw=>x.includes(kw))){prod=x;break}}
-// fallback：英數開頭 + 含中文敘述（涵蓋無命中關鍵字的型號類產品名）
+// ★ 主策略：DEBJ 廠商料號當錨點 — 品名永遠是它前一行，規格是它後一行（最穩，不靠關鍵字）
+let prod='',specs='';
+const debjIdx=c.findIndex(x=>/^DEBJ[A-Z0-9]*-/i.test(x));
+if(debjIdx>0){
+  const cand=c[debjIdx-1];
+  if(cand&&cand.length>=2&&cand.length<=80&&!/^\d+$/.test(cand)&&cand!=='看電話'&&!/^\d{2}\/\d{2}$/.test(cand))prod=cand;
+  for(let j=debjIdx+1;j<Math.min(debjIdx+4,c.length);j++){
+    const v=c[j];
+    if(v&&v.length<=15&&/[一-鿿]/.test(v)&&!/^\d/.test(v)&&!v.includes('kg')&&!v.includes('cm')&&!/^(同上|全同|看電話|回填)$/.test(v)){specs=v;break}
+  }
+}
+// fallback 1：關鍵字命中（case-insensitive）
+if(!prod){for(const x of c){if(x.length>6&&x.length<80&&!x.includes('出貨')&&!x.includes('商品名')&&!x.includes('勾選')&&!x.includes('看電話')&&PC_PROD_KW.some(kw=>x.toLowerCase().includes(kw.toLowerCase()))){prod=x;break}}}
+// fallback 2：英數開頭 + 含中文敘述
 if(!prod){for(const x of c){if(x.length>=8&&x.length<60&&/^[A-Za-z0-9][A-Za-z0-9\-+_ ]{2,}/.test(x)&&/[一-鿿]/.test(x)&&!/^20\d{7}/.test(x)&&!x.includes('看電話')&&!/^[一-鿿]{2,3}(市|縣)/.test(x)){prod=x;break}}}
-let specs='';for(const x of c){if(/^(黑色|白色|紅色|藍色|原木色|桃紅|黑色保養組|白色保養組)/.test(x)&&x.length<20){specs=x;break}}
+if(!specs){for(const x of c){if(/^(黑色|白色|紅色|藍色|原木色|桃紅|消光黑|消光白|奶油色|黑色保養組|白色保養組|黑色全套|白色全套)/.test(x)&&x.length<20){specs=x;break}}}
 let name='';for(let i=0;i<c.length;i++){if(c[i]==='看電話'&&i>0&&/^[\u4e00-\u9fff]{2,5}$/.test(c[i-1])){name=c[i-1];break}}if(!name){for(const x of c){const nm=x.match(/\((.{2,5})寄\)/);if(nm){name=nm[1];break}}}
 let addr='';for(const x of c){if(/^[\u4e00-\u9fff]{2,3}(市|縣)/.test(x)&&x.length>8){addr=x.replace(/\s*\(.+寄\)\s*$/,'').trim();break}}
 let amt=0,qty=1;const ii=c.indexOf(id);if(ii>=0){const q=parseInt(c[ii+1]);if(/^\d+$/.test(c[ii+1]||'')&&q>=1&&q<=99)qty=q;for(let j=ii+1;j<Math.min(ii+5,c.length);j++){const n=parseInt(c[j]);if(n>100&&/^\d+$/.test(c[j])){amt=n;break}}}
