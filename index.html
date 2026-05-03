@@ -346,7 +346,7 @@ function escWithHL(s){const safe=esc(s||'');const q=(document.getElementById('q'
 function mapsLink(addr){if(!addr)return'';const url='https://www.google.com/maps/search/?api=1&query='+encodeURIComponent(addr);return `<a href="${url}" target="_blank" rel="noopener" style="color:inherit;text-decoration:none;border-bottom:1px dashed currentColor" title="點擊用 Google Maps 開啟">${esc(addr)}</a>`}
 function copyOrderNo(no,btn){if(!no)return;navigator.clipboard.writeText(no).then(()=>{if(btn){const old=btn.textContent;btn.textContent='✓';btn.style.color='var(--grn)';setTimeout(()=>{btn.textContent=old;btn.style.color=''},1100)}}).catch(()=>{})}
 function platformPill(p){if(p==='MO')return '<span class="brand-pill brand-mo" title="momo">M</span>';if(p==='PC')return '<span class="brand-pill brand-pc" title="PChome 24h">P</span>';return `<span class="tag">${esc(p||'')}</span>`}
-function cleanNote(n){return(n||'').split('\n').filter(l=>!/^\[\d{4}-\d{2}-\d{2}\s\d{2}:\d{2}\]/.test(l.trim())).filter(l=>!/^【(?:安裝|加購)】/.test(l.trim())).map(l=>l.trim()).filter(Boolean).join('\n')}
+function cleanNote(n){return String(n||'').split('\n').filter(l=>!/^\[\d{4}-\d{2}-\d{2}\s\d{2}:\d{2}\]/.test(l.trim())).filter(l=>!/^【(?:安裝|加購)】/.test(l.trim())).map(l=>l.trim()).filter(Boolean).join('\n')}
 // 從 install/addon 欄位 + 用戶 note 重建備註行；安裝/加購用 toggle 設好的 fee 即使從沒進過編輯視窗也會出現
 function buildNoteLine(o){const parts=[];/* 地址屬性放最前 */if(o.addrMgmt)parts.push((o.addrMgmt==='有'?'有':'無')+'管理室');if(o.addrElev&&o.addrElev!=='不適用')parts.push((o.addrElev==='有'?'有':'無')+'電梯');
 if(o.install==='是'){
@@ -374,7 +374,7 @@ function isNewOrder(o){if(!o.date)return false;return o.date===localDateISO()}
 function fmtD(d){if(!d)return'';const p=d.split('-');return parseInt(p[1])+'/'+parseInt(p[2])}
 function tot(o){return(o.amount||0)+(o.installFee||0)+(o.addonFee||0)}
 function $(n){return n?'$'+n.toLocaleString():'—'}
-function esc(s){return(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;').replace(/'/g,'&#39;')}
+function esc(s){return String(s==null?'':s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;').replace(/'/g,'&#39;')}
 function phoneTel(p){if(!p)return'';const s=String(p).trim();if(!s)return'';const safe=esc(s);const m=s.match(/^(\+?\d+)#(\d+)$/);const href=m?`tel:${m[1]},${m[2]}`:`tel:${s.replace(/[^\d+]/g,'')}`;return `<a href="${href}" class="tel-link" title="${m?'MOMO 代撥：撥打總機後自動送出分機 '+m[2]:'撥打 '+safe}" style="color:inherit;text-decoration:none;border-bottom:1px dashed currentColor">${safe}</a>`}
 function cn(v){return(v+'').replace(/^0+(?=\d)/,'')}
 function updateCnt(){
