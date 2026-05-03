@@ -337,15 +337,18 @@ const momoConfigReady=new Promise(resolve=>{
   db.ref('momo_config').once('value').then(snap=>{
     const cfg=snap.val();
     if(cfg){
-      if(cfg.api&&!localStorage.getItem(MOMO_API_KEY))localStorage.setItem(MOMO_API_KEY,cfg.api);
-      if(cfg.token&&!localStorage.getItem(MOMO_TK_KEY))localStorage.setItem(MOMO_TK_KEY,cfg.token);
+      // Firebase 是 source of truth — 一律覆蓋 localStorage，避免某台電腦 localStorage 有舊/壞值卡住
+      if(cfg.api)localStorage.setItem(MOMO_API_KEY,cfg.api);
+      if(cfg.token)localStorage.setItem(MOMO_TK_KEY,cfg.token);
       const st=document.getElementById('momo-auto-status');
       if(st&&cfg.token)st.textContent='✅ 已從雲端載入 API 設定（任一裝置設定後其他裝置免重輸）';
-    }else{syncMomoConfigToFirebase()}
+    }
+    // 雲端沒值 或 雲端 api 是空 → 自動補預設 URL 上去（讓所有裝置零設定就能用）
+    if(!cfg||!cfg.api){localStorage.setItem(MOMO_API_KEY,DEFAULT_MOMO_API);db.ref('momo_config/api').set(DEFAULT_MOMO_API).catch(()=>{})}
     resolve();
   }).catch(()=>resolve());
 });
-function getMomoApi(){let u=localStorage.getItem(MOMO_API_KEY);if(!u){u=DEFAULT_MOMO_API;localStorage.setItem(MOMO_API_KEY,u);syncMomoConfigToFirebase()}return u}
+function getMomoApi(){let u=localStorage.getItem(MOMO_API_KEY);if(!u||!/^https?:\/\//.test(u)){u=DEFAULT_MOMO_API;localStorage.setItem(MOMO_API_KEY,u);syncMomoConfigToFirebase()}return u}
 function getMomoToken(){let t=localStorage.getItem(MOMO_TK_KEY);if(!t){t=prompt('🔑 第一次使用：請輸入 API Token（之後所有裝置自動共用，不會再問）\n\n值 = Railway Variables 裡的 API_TOKEN');if(!t)return null;localStorage.setItem(MOMO_TK_KEY,t.trim());syncMomoConfigToFirebase()}return t}
 function resetMomoApi(){const u=prompt('改 API 網址（留空保留 / 輸入 X 清除全部設定 / 預設 = 自動填入）：',localStorage.getItem(MOMO_API_KEY)||DEFAULT_MOMO_API);if(u===null)return;if(u.toUpperCase()==='X'){localStorage.removeItem(MOMO_API_KEY);localStorage.removeItem(MOMO_TK_KEY);db.ref('momo_config').remove().catch(()=>{});alert('已清除（含雲端）');return}if(u.trim())localStorage.setItem(MOMO_API_KEY,u.trim().replace(/\/+$/,''));const t=prompt('改 Token（留空保留）：',localStorage.getItem(MOMO_TK_KEY)||'');if(t&&t.trim())localStorage.setItem(MOMO_TK_KEY,t.trim());syncMomoConfigToFirebase();alert('已更新（已同步到雲端，所有裝置共用）')}
 
