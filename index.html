@@ -1117,10 +1117,13 @@ async function submitShip(force){
     // Update local order
     if(status==='已配送'){o.trackingNo=item.slipNo;o.delyGbStr=item.delyGbStr;o.status='已出貨'}
     else if(status==='無貨取消訂單'){o.status='已取消'}
+    else if(status==='暫時電聯不上(無須momo協助)'||status==='多次電聯不上(2天3次以上)'){o.status='未接電'}
+    // 其他狀態（需配送加價協調中/收件資料有誤/無適當選項，momo請協助）保持原狀，使用者手動再決定
     logActivity(o,`出貨回報：${status}${item.delyGbStr?' ｜ '+item.delyGbStr:''}${item.slipNo?' ｜ '+item.slipNo:''}`);
     saveOne(o);renderList();
     _modalDirty=false; // 已成功送出，關閉時不再警告未儲存
-    setTimeout(()=>{closeModal();alert('✅ 出貨確認完成，訂單狀態已更新為「已出貨」')},800);
+    const localMsg=status==='已配送'?'已出貨':status==='無貨取消訂單'?'已取消':(status==='暫時電聯不上(無須momo協助)'||status==='多次電聯不上(2天3次以上)')?'未接電':o.status;
+    setTimeout(()=>{closeModal();alert(`✅ 出貨確認完成，訂單狀態已更新為「${localMsg}」`)},800);
   }catch(err){
     result.innerHTML=`<div style="background:var(--pc-bg);border:1px solid var(--pc);color:var(--pc);padding:10px;border-radius:6px;font-size:12px"><b>❌ 網路錯誤</b><br>${esc(err.message)}</div>`;
   }
