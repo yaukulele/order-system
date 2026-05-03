@@ -837,7 +837,9 @@ const cardCls='ord-card';
 const checked=selectedIds.has(o.id);
 const qty=o.qty||1;
 const ph=bestPhone(o);
-const noteShort=(o.note||'').replace(/\n/g,' ').slice(0,80);
+// 過濾掉活動紀錄/【安裝】/【加購】行，只顯示用戶手寫筆記
+const noteFull=cleanNote(o.note).replace(/\n/g,' ');
+const noteShort=noteFull.length>80?noteFull.slice(0,80)+'…':noteFull;
 const ps=splitProductSpecs(o);
 const shipBtnHtml=(o.platform==='MO'&&isPending(o.status))?`<button class="primary" onclick="openShipMomo('${oid}')">📤 出貨</button>`:'';
 const instPaidHtml=o.install==='是'?(((o.installPaidAmount||0)>0)?`<button class="success" onclick="togInstallPaid('${oid}')">🔧 已收 $${o.installPaidAmount}</button>`:`<button onclick="togInstallPaid('${oid}')" style="color:var(--amb);border-color:#f0d68a">🔧 未收 ⚠</button>`):'';
