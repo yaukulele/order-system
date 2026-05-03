@@ -76,8 +76,8 @@ td{padding:7px 10px;border-bottom:1px solid #f0ede6}tr:hover td{background:var(-
 .stats-g{display:grid;grid-template-columns:repeat(auto-fit,minmax(140px,1fr));gap:10px;margin-bottom:14px}
 .stat{background:var(--sf);border:1px solid var(--bd);border-radius:10px;padding:14px;border-top:3px solid var(--grn)}.stat.smo{border-top-color:var(--mo)}.stat.spc{border-top-color:var(--pc)}.stat.sall{border-top-color:#7c3aed}
 .stat-l{font-size:10px;font-weight:700;color:var(--dm);text-transform:uppercase;letter-spacing:.5px}.stat-v{font-size:22px;font-weight:900;font-family:var(--mono);margin-top:3px}.stat-s{font-size:11px;color:var(--dm);margin-top:2px}
-.overlay{position:fixed;inset:0;background:rgba(0,0,0,.3);z-index:200;display:flex;align-items:center;justify-content:center}
-.modal{background:var(--sf);border-radius:14px;width:90%;max-width:560px;max-height:85vh;overflow-y:auto;padding:20px;box-shadow:0 20px 60px rgba(0,0,0,.15)}.modal h3{font-size:15px;font-weight:700;margin-bottom:12px}
+.overlay{position:fixed;inset:0;background:rgba(0,0,0,.4);z-index:200;display:flex;align-items:center;justify-content:center;backdrop-filter:blur(2px)}
+.modal{background:var(--sf);border-radius:14px;width:90%;max-width:560px;max-height:85vh;overflow-y:auto;padding:20px;box-shadow:0 20px 60px rgba(0,0,0,.15);overscroll-behavior:contain}.modal h3{font-size:15px;font-weight:700;margin-bottom:12px}
 .fg{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:8px}.fg.full{grid-template-columns:1fr}
 .fi label{display:block;font-size:10px;font-weight:700;color:var(--dm);margin-bottom:3px}.fi input,.fi select,.fi textarea{width:100%;padding:6px 10px;border:1px solid var(--bd);border-radius:6px;font-size:12px;font-family:var(--sans);outline:none}.fi textarea{resize:vertical;min-height:96px;font-family:var(--mono);font-size:11px;line-height:1.6}
 .modal-ft{display:flex;justify-content:flex-end;gap:8px;margin-top:14px}
@@ -89,6 +89,7 @@ td{padding:7px 10px;border-bottom:1px solid #f0ede6}tr:hover td{background:var(-
 /* Mobile card layout for order list */
 .ord-cards{display:flex;flex-direction:column;gap:10px}
 .ord-card{background:var(--sf);border:1px solid var(--bd);border-radius:12px;padding:12px;box-shadow:0 1px 2px rgba(0,0,0,.04);position:relative;transition:transform .15s,box-shadow .15s}
+[data-theme="dark"] .ord-card{box-shadow:0 1px 3px rgba(0,0,0,.4)}
 .ord-card:active{transform:scale(.99)}
 .btn,.fbtn,.act,.toggle-on,.toggle-off,.st-btn{transition:transform .1s,opacity .15s,background .15s,border-color .15s}
 .btn:active,.fbtn:active,.act:active,.toggle-on:active,.toggle-off:active,.st-btn:active{transform:scale(.96)}
