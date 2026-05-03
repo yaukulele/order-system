@@ -387,7 +387,8 @@ function syncMomoTokenToFirebase(){const t=localStorage.getItem(MOMO_TK_KEY)||''
 const momoConfigReady=new Promise(resolve=>{
   db.ref('momo_config').once('value').then(snap=>{
     const cfg=snap.val();
-    // 只信 Token，且必須不是 URL（防止某次誤貼 URL 進去毒害所有裝置 — 這次 bug 就是這樣發生的）
+    const localTk=localStorage.getItem(MOMO_TK_KEY);
+    // 只信 Token，且必須不是 URL（防止某次誤貼 URL 進去毒害所有裝置）
     if(cfg&&cfg.token&&!looksLikeUrl(cfg.token)){
       localStorage.setItem(MOMO_TK_KEY,cfg.token);
       const st=document.getElementById('momo-auto-status');
@@ -395,6 +396,10 @@ const momoConfigReady=new Promise(resolve=>{
     }
     // 雲端 Token 看起來像 URL → 自動清掉，免得繼續毒害其他裝置
     if(cfg&&cfg.token&&looksLikeUrl(cfg.token)){db.ref('momo_config').remove().catch(()=>{})}
+    // ★ 一勞永逸關鍵：本機有 Token 但雲端沒 → 自動上傳，讓其他裝置零設定就能用
+    if((!cfg||!cfg.token||looksLikeUrl(cfg.token))&&localTk&&!looksLikeUrl(localTk)){
+      db.ref('momo_config').update({token:localTk,updatedAt:new Date().toISOString()}).catch(()=>{});
+    }
     resolve();
   }).catch(()=>resolve());
 });
