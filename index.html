@@ -124,6 +124,7 @@ td{padding:7px 10px;border-bottom:1px solid #f0ede6}tr:hover td{background:var(-
 .empty-state .es-hint{font-size:11px;line-height:1.6}
 /* Toast for undo / status messages */
 .toast{position:fixed;bottom:80px;left:50%;transform:translateX(-50%);background:var(--tx);color:#fff;padding:12px 18px;border-radius:10px;display:flex;align-items:center;gap:12px;font-size:13px;font-weight:600;box-shadow:0 8px 24px rgba(0,0,0,.2);z-index:300;max-width:90vw;animation:toastIn .25s ease-out}
+body.has-batch-bar .toast{bottom:140px}
 .toast button{background:#fff;color:var(--tx);border:0;padding:6px 12px;border-radius:6px;cursor:pointer;font-size:12px;font-weight:700}
 .toast .toast-close{background:transparent;color:#fff;font-size:16px;padding:0 4px}
 @keyframes toastIn{from{opacity:0;transform:translate(-50%,20px)}to{opacity:1;transform:translateX(-50%)}}
