@@ -124,53 +124,62 @@
   });
   console.log(TAG, 'data row 候選（全文掃）:', dataRows.length, '個（minCells=' + minCells + '）');
 
+  // ⚠️ 重要：data row 在 nested per-order <table> 內，column 順序跟外層 header 不一致。
+  // → 不再吃 idx，純粹用「每個 cell 的內容 pattern」分配欄位
+  const SPEC_RE = /^(?:[黑白紅藍綠紫橙黃粉灰金銀]|消光|啞光|奶油|原木|霧面|亮面|無|淺|深)[一-龥]{0,8}(色|款|套|組)?$/;
+  const NAME_RE = /^[一-龥]{2,5}$/;
+  const ADDRESS_PIECE_RE = /\d+號|\d+巷|\d+弄|\d+段|\d+路|\d+街/;
   const orders = [];
-  let orderNoFallbackIdx = -1, addressFallbackIdx = -1;
   for (const tr of dataRows) {
     const cells = [...tr.querySelectorAll('td')].map(c => norm(c.textContent || ''));
-    if (cells.length < minCells) continue; // 雙重防護
+    if (cells.length < 3) continue;
 
-    // orderNo：先用 header idx，沒命中就 regex 掃整行（鎖定第一個成功的 col index 之後 reuse）
-    let orderNo = idx.orderNo >= 0 ? cells[idx.orderNo] : '';
-    if (!/^20\d{6,12}-\d{2}$/.test(orderNo.trim())) {
-      if (orderNoFallbackIdx < 0) orderNoFallbackIdx = fallbackOrderNoFrom(cells);
-      if (orderNoFallbackIdx >= 0) orderNo = cells[orderNoFallbackIdx] || '';
+    let orderNo = '', product = '', specs = '', skuCode = '', name = '', zip = '', address = '';
+    const numericCells = [];
+
+    for (const raw of cells) {
+      const c = raw.trim();
+      if (!c) continue;
+      // orderNo
+      if (!orderNo) {
+        const m = c.match(/(20\d{6,12}-\d{2})/);
+        if (m && m[1] === c) { orderNo = m[1]; continue; }
+        if (m) { orderNo = m[1]; /* 不 continue — cell 可能還含其他資訊（地址合併） */ }
+      }
+      // skuCode (DEBJ 料號)
+      if (!skuCode && /^DEBJ[A-Z0-9-]+/i.test(c)) { skuCode = c; continue; }
+      // address: 有「市/縣」+ 路/巷/段/弄/號 → 地址。砍訂單號 + (XXX寄)
+      if (!address && (c.includes('市') || c.includes('縣')) && ADDRESS_PIECE_RE.test(c)) {
+        address = c.replace(/\s*20\d{6,12}-\d{2}\s*/g, ' ')
+                   .replace(/\s*\([^)]*寄\)\s*/g, '')
+                   .replace(/\s+/g, ' ').trim();
+        continue;
+      }
+      // zip: 3-5 純數字
+      if (!zip && /^\d{3,5}$/.test(c)) { zip = c; continue; }
+      // 純數字 cell → 進 numeric pool（之後挑 qty / amount）
+      if (/^[\d,]+$/.test(c)) { const n = parseInt(c.replace(/,/g, '')); if (!isNaN(n)) numericCells.push(n); continue; }
+      // specs: 顏色/款式短字串
+      if (!specs && SPEC_RE.test(c) && c.length <= 12) { specs = c; continue; }
+      // name: 2-5 純中文
+      if (!name && NAME_RE.test(c)) { name = c; continue; }
+      // product: 含中文/英文 + 長度合理 + 不是其他欄位
+      if (!product && c.length >= 3 && c.length < 80 && /[一-龥A-Za-z]/.test(c) && !/^(同上|全同|看電話|回填|未出貨|已出貨|請選擇|不出貨|清除)/.test(c)) {
+        product = c.replace(/\s*DEBJ[A-Z0-9-]+/gi, '').replace(/\s+/g, ' ').trim();
+        continue;
+      }
     }
-    if (!/20\d{6,12}-\d{2}/.test(orderNo)) continue;
 
-    // address：先 header idx，沒命中就掃含「市/縣 + 號/巷/弄/段/路/街」的 cell
-    let address = idx.address >= 0 ? cells[idx.address] : '';
-    if (!address || !(address.includes('市') || address.includes('縣'))) {
-      if (addressFallbackIdx < 0) addressFallbackIdx = fallbackAddressFrom(cells);
-      if (addressFallbackIdx >= 0) address = cells[addressFallbackIdx] || address;
-    }
-    // PChome 後台常把「收貨人地址 / 訂單編號」併成同一個 cell（多行），norm 後變成
-    // "新北市XXX 20260504024316-01" — 把尾巴的訂單號也砍掉
-    address = address.replace(/\s*20\d{6,12}-\d{2}\s*/g, ' ').replace(/\s*\([^)]*寄\)\s*/g, '').replace(/\s+/g, ' ').trim();
+    if (!orderNo) continue;
 
-    // specs 可能是「白色 002」或「黑色全套 001」— 砍掉尾巴 3 位數編號
-    let specs = idx.specs >= 0 ? cells[idx.specs] : '';
-    specs = specs.replace(/\s*\d{3}\s*$/, '').trim();
+    // qty / amount 從 numericCells 推
+    let qty = 1, amount = 0;
+    const small = numericCells.filter(n => n >= 1 && n <= 99);
+    const big = numericCells.filter(n => n >= 100).sort((a, b) => b - a);
+    if (small.length) qty = small[0];
+    if (big.length) amount = big[0];
 
-    // 數量 / 金額 抽純數字
-    const qty = idx.qty >= 0 ? (parseInt(cells[idx.qty].replace(/[^\d]/g, '')) || 1) : 1;
-    const amount = idx.amount >= 0 ? (parseInt(cells[idx.amount].replace(/[^\d]/g, '')) || 0) : 0;
-
-    // 「商品名稱商品ID」這種 cell 內含 DEBJ 料號，砍掉
-    let product = idx.product >= 0 ? cells[idx.product] : '';
-    product = product.replace(/\s*DEBJ[A-Z0-9-]+/g, '').replace(/\s+/g, ' ').trim();
-
-    orders.push({
-      orderNo,
-      product,
-      specs,
-      skuCode: idx.skuCode >= 0 ? cells[idx.skuCode] : '',
-      qty,
-      amount,
-      name: idx.name >= 0 ? cells[idx.name] : '',
-      zip: idx.zip >= 0 ? cells[idx.zip] : '',
-      address,
-    });
+    orders.push({ orderNo, product, specs, skuCode, qty, amount, name, zip, address });
   }
 
   console.log(TAG, '抽出', orders.length, '筆');
