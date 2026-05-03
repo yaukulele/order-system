@@ -68,7 +68,7 @@ td{padding:7px 10px;border-bottom:1px solid #f0ede6}tr:hover td{background:var(-
 .acc-cell .fee-input{width:42px!important;padding:2px 3px}
 .act{padding:3px 5px;border:1px solid var(--bd);border-radius:4px;background:var(--sf);font-size:10px;cursor:pointer;font-family:var(--sans);color:var(--dm);font-weight:600;margin-right:2px}.act:hover{border-color:var(--blu);color:var(--blu)}
 .st-btn{padding:4px 12px;border-radius:6px;border:2px solid;font-size:11px;font-weight:700;cursor:pointer;font-family:var(--sans);min-width:70px;text-align:center}.st-btn:hover{opacity:.8}
-.st-wait{background:#fef9ec;color:var(--amb);border-color:#f0d68a}.st-confirmed{background:#dbeafe;color:#1d4ed8;border-color:#93c5fd}.st-noanswer{background:#fee2e2;color:#dc2626;border-color:#fca5a5}.st-ship{background:#eff4ff;color:var(--blu);border-color:#a8c4f0}.st-done{background:var(--grn-bg);color:var(--grn);border-color:#8cc4a0}.st-cancel{background:var(--pc-bg);color:var(--pc);border-color:#e8a8a4}.st-offline{background:#f3e8ff;color:#7e22ce;border-color:#d8b4fe}
+.st-wait{background:#fef9ec;color:var(--amb);border-color:#f0d68a}.st-confirmed{background:#dbeafe;color:#1d4ed8;border-color:#93c5fd}.st-noanswer{background:#fed7aa;color:#9a3412;border-color:#fdba74}.st-ship{background:#eff4ff;color:var(--blu);border-color:#a8c4f0}.st-done{background:var(--grn-bg);color:var(--grn);border-color:#8cc4a0}.st-cancel{background:#e5e7eb;color:#6b7280;border-color:#d1d5db}.st-offline{background:#f3e8ff;color:#7e22ce;border-color:#d8b4fe}
 .toggle-off{padding:3px 10px;border-radius:5px;border:1px solid var(--bd);background:var(--sf2);color:var(--dm);font-size:10px;font-weight:600;cursor:pointer;font-family:var(--sans)}
 .toggle-on{padding:3px 10px;border-radius:5px;border:2px solid var(--grn);background:var(--grn-bg);color:var(--grn);font-size:10px;font-weight:700;cursor:pointer;font-family:var(--sans)}
 .fee-input{width:68px;padding:3px 6px;border:2px solid var(--grn);border-radius:4px;font-size:11px;font-family:var(--mono);text-align:right;outline:none}
@@ -170,7 +170,7 @@ input[type="text"],input[type="number"],input[type="tel"],input[type="email"],in
 <body>
 <div class="offline-banner hidden" id="offline-banner">⚠️ 已離線 — 你的修改會在連線恢復後同步</div>
 <div class="hdr"><h1>📦 訂單管理系統<small>MOMO + PChome</small></h1><div style="display:flex;align-items:center;gap:8px"><span id="sync-badge" class="sync-dot sync-off"><span class="dot dot-off"></span>連線中...</span><button class="btn" id="theme-btn" onclick="toggleTheme()" style="font-size:11px" title="切換亮色/暗色">🌙</button><button class="btn" id="notif-btn" onclick="toggleNotifications()" style="font-size:11px" title="桌面通知">🔕</button><button class="btn" onclick="showShortcutsHelp()" style="font-size:11px" title="鍵盤捷徑（按 ? 快速打開）">⌨️</button><button class="btn" onclick="location.reload()" style="font-size:11px">🔄</button><button class="btn" onclick="if(confirm('確定清空？')){orders=[];saveAll()}" style="font-size:11px">清空</button></div></div>
-<div class="tabs"><button class="tab active" onclick="showTab('import')">📋 匯入</button><button class="tab" onclick="showTab('list')">📦 列表 <span class="badge" id="cnt">0</span></button><button class="tab" onclick="showTab('output')">📤 輸出</button><button class="tab" onclick="showTab('stats')">📊 統計</button><button class="tab" onclick="showTab('customers')">👥 客戶</button></div>
+<div class="tabs"><button class="tab active" onclick="showTab('import')">📋 匯入</button><button class="tab" onclick="showTab('list')">📦 列表 <span class="badge" id="cnt">0</span></button><button class="tab" onclick="showTab('output')">📤 輸出</button><button class="tab" onclick="showTab('stats')">📊 統計</button><button class="tab" onclick="showTab('customers')">👥 客戶</button><button class="tab" onclick="showTab('account')">👤 帳號 <span id="user-badge" style="font-size:10px;color:var(--dm);margin-left:4px"></span></button></div>
 
 <div class="main" id="tab-import"><div id="today-summary" style="display:none"></div><div class="card" style="background:var(--card-momo-bg);border:1px solid var(--card-momo-bd)"><div class="card-h" style="background:transparent"><h3>🚀 自動抓取 MOMO 訂單（API 直連，無需貼上）</h3><div style="display:flex;gap:6px;flex-wrap:wrap"><button class="btn" onclick="resetMomoApi()" title="重設 API 網址 / Token">⚙️</button><button class="btn" onclick="testNotify()" title="送一則測試訊息到 Discord / LINE 確認連線" style="font-size:11px">🔔 測試通知</button><button class="btn btn-g" id="momo-auto-btn" onclick="fetchMomoAuto()" style="background:var(--mo);border-color:var(--mo)">🔄 自動抓 MOMO 未出貨訂單</button></div></div><div class="card-b" style="padding:10px 16px"><div id="momo-auto-status" style="font-size:11px;color:var(--dm);font-family:var(--mono)">第一次只問 Token（API 網址自動填），其他裝置直接共用 ☁️</div><div id="audit-result" style="margin-top:8px;font-size:11px;display:none"></div></div></div>
 <div class="card"><div class="card-h"><h3>貼上後台資料（自動辨識 MO / PC / F12 JSON）</h3><div style="display:flex;gap:6px;flex-wrap:wrap"><button class="btn" onclick="clearInput()">清空</button><button class="btn btn-b" onclick="runParse()">預覽</button><button class="btn btn-g" onclick="doImport()">匯入雲端</button><button class="btn" onclick="doReimport()" title="同單號自動覆蓋（修舊資料用）" style="border-color:#f59e0b;color:#b45309">🔄 重新匯入覆蓋</button><button class="btn" onclick="copyPCScript()" title="複製 PChome F12 撈單 script" style="border-color:#7c3aed;color:#7c3aed;font-weight:700">📋 複製 PChome F12 script</button></div></div><div class="card-b"><div class="hint"><b>MOMO：</b>SCM 後台 → Ctrl+A → Ctrl+C → 貼下方<br><b>PChome（F12 撈單，新方式）：</b>按上方 <strong>📋 複製 PChome F12 script</strong> → 切到 PChome「印貨資料」view → F12 → Console → Ctrl+V Enter → 跳出 alert 確認 → 回來貼到下方<br><b>PChome（舊方式 / fallback）：</b>供應商後台 → Ctrl+A → Ctrl+C → 貼下方</div><textarea id="raw-input" rows="7" placeholder="把 MOMO 後台、PChome 後台、或 F12 script 抓到的 JSON 貼在這裡..."></textarea></div></div><div id="preview-area"></div></div>
@@ -180,6 +180,8 @@ input[type="text"],input[type="number"],input[type="tel"],input[type="email"],in
 <div class="main hidden" id="tab-output"><div class="card"><div class="card-h"><h3>整理格式（自動帶代撥電話 + 真實電話）</h3><div style="display:flex;gap:6px;flex-wrap:wrap"><button class="btn btn-g" onclick="copyOutput()">📋 複製當前</button><button class="btn" onclick="exportCSV('filtered')">🔍 篩選 CSV</button><button class="btn" onclick="exportCSV('all')">📊 全部 CSV</button></div></div><div class="card-b"><div class="filter-row" style="margin-bottom:10px;align-items:center;flex-wrap:wrap;gap:6px"><span style="font-size:11px;color:var(--dm)">📅 日期：</span><button class="fbtn on" onclick="setOutputDate('today',this)">今天</button><button class="fbtn" onclick="setOutputDate('yesterday',this)">昨天</button><button class="fbtn" onclick="setOutputDate('week',this)">本週</button><button class="fbtn" onclick="setOutputDate('month',this)">本月</button><button class="fbtn" onclick="setOutputDate('all',this)">全部</button><span style="margin-left:8px;font-size:11px;color:var(--dm)">自訂區間：</span><input type="date" id="of-from" onchange="onOutputDateChange()" style="font-size:11px;padding:2px 6px"><span style="font-size:11px;color:var(--dm)">→</span><input type="date" id="of-to" onchange="onOutputDateChange()" style="font-size:11px;padding:2px 6px"><span style="flex:1"></span><span style="font-size:11px;color:var(--dm)">顯示 <strong id="ocnt">0</strong> 筆</span></div><div class="hint">CSV 用 UTF-8 BOM 編碼，Excel 開啟中文不會亂碼。包含：日期、平台、訂單編號、商品、規格、數量、姓名、電話、地址、金額、安裝、加購、合計、物流公司、物流單號、狀態、備註。</div><div class="result" id="output-area">尚無訂單</div></div></div></div>
 <div class="main hidden" id="tab-stats"><div class="filter-row" style="margin-bottom:14px;flex-wrap:wrap;gap:6px"><span style="font-size:12px;color:var(--dm);font-weight:600">📅 期間：</span><button class="fbtn" onclick="setStatsPeriod('today',this)">今日</button><button class="fbtn" onclick="setStatsPeriod('7',this)">7 天</button><button class="fbtn on" onclick="setStatsPeriod('30',this)">30 天</button><button class="fbtn" onclick="setStatsPeriod('90',this)">3 個月</button><button class="fbtn" onclick="setStatsPeriod('all',this)">全部</button><span style="margin-left:8px;color:var(--ht)">｜</span><span style="font-size:11px;color:var(--dm)">指定月份：</span><input type="month" id="stats-month" onchange="setStatsMonth(this.value)" style="font-size:12px;padding:4px 8px;border:1px solid var(--bd);border-radius:6px;background:var(--sf)"></div><div id="stats-area"></div></div>
 <div class="main hidden" id="tab-customers"><div class="filter-row" style="margin-bottom:10px;flex-wrap:wrap;gap:6px"><input class="search" id="cq" placeholder="搜尋客戶（姓名/電話/地址）..." oninput="renderCustomers()" style="width:240px"><span style="font-size:11px;color:var(--dm);margin-left:8px">排序：</span><button class="fbtn on" data-fg="csort" onclick="setCustomerSort('lastDate',this)">最近訂購</button><button class="fbtn" data-fg="csort" onclick="setCustomerSort('total',this)">總消費</button><button class="fbtn" data-fg="csort" onclick="setCustomerSort('cnt',this)">訂購次數</button><button class="fbtn" data-fg="csort" onclick="setCustomerSort('name',this)">姓名</button><span style="flex:1"></span><span class="stat" style="font-size:11px;color:var(--dm)">共 <strong id="ccnt">0</strong> 位客戶</span></div><div id="cust-area"></div></div>
+<div class="main hidden" id="tab-account"><div class="card"><div class="card-b" style="text-align:center;padding:30px"><div style="color:var(--dm)">載入中...</div></div></div></div>
+<div class="overlay hidden" id="login-overlay" style="z-index:400"><div class="modal" style="max-width:380px"><h3>🔐 訂單管理系統 登入</h3><div class="fg full" style="margin-top:10px"><div class="fi"><label>使用者名稱</label><input id="login-user" type="text" autocomplete="username" autofocus></div></div><div class="fg full"><div class="fi"><label>密碼</label><input id="login-pass" type="password" autocomplete="current-password" onkeypress="if(event.key==='Enter')doLogin()"></div></div><div id="login-err" style="color:var(--pc);font-size:12px;min-height:18px;margin-top:6px"></div><div class="modal-ft"><button class="btn btn-g" onclick="doLogin()">登入</button></div><div style="font-size:11px;color:var(--dm);margin-top:10px;line-height:1.6">📌 預設帳號：Allie / 阿淵（管理員）／雨停（一般）<br>密碼預設同帳號名（請登入後盡速改）</div></div></div>
 <div class="overlay hidden" id="modal-overlay" onclick="if(event.target===this)closeModal()"><div class="modal" id="modal-body"></div></div>
 
 <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-app-compat.js"></script>
@@ -308,7 +310,7 @@ function bestPhone(o){return o.realPhone||o.phone||''}
 function platformPill(p){if(p==='MO')return '<span class="brand-pill brand-mo" title="momo">M</span>';if(p==='PC')return '<span class="brand-pill brand-pc" title="PChome 24h">P</span>';return `<span class="tag">${esc(p||'')}</span>`}
 function cleanNote(n){return(n||'').split('\n').filter(l=>!/^\[\d{4}-\d{2}-\d{2}\s\d{2}:\d{2}\]/.test(l.trim())).filter(l=>!/^【安裝】/.test(l.trim())).map(l=>l.trim()).filter(Boolean).join('\n')}
 // 從 install/addon 欄位 + 用戶 note 重建備註行；安裝/加購用 toggle 設好的 fee 即使從沒進過編輯視窗也會出現
-function buildNoteLine(o){const parts=[];if(o.install==='是'){let s='【安裝】';if(o.installDay)s+=o.installDay+(o.installTime?' '+o.installTime:'');if(o.installFee)s+=(s==='【安裝】'?'':' ')+'$'+o.installFee;if(s==='【安裝】')s='【安裝】是';parts.push(s.trim())}if(o.addon==='是'){parts.push('【加購】'+(o.addonFee?'$'+o.addonFee:'是'))}const cn=cleanNote(o.note);if(cn)parts.push(cn.replace(/\n/g,' / '));return parts.length?'備註：'+parts.join(' / '):''}
+function buildNoteLine(o){const parts=[];/* 地址屬性放最前 */if(o.addrMgmt)parts.push((o.addrMgmt==='有'?'有':'無')+'管理室');if(o.addrElev&&o.addrElev!=='不適用')parts.push((o.addrElev==='有'?'有':'無')+'電梯');if(o.install==='是'){let s='【安裝】';if(o.installDay)s+=o.installDay+(o.installTime?' '+o.installTime:'');if(o.installFee)s+=(s==='【安裝】'?'':' ')+'$'+o.installFee;if(s==='【安裝】')s='【安裝】是';parts.push(s.trim())}if(o.addon==='是'){parts.push('【加購】'+(o.addonFee?'$'+o.addonFee:'是'))}const cn=cleanNote(o.note);if(cn)parts.push(cn.replace(/\n/g,' / '));return parts.length?'備註：'+parts.join(' / '):''}
 function fmtS(o){const d=o.dateFmt||fmtD(o.date),q=(o.qty||1)>1?' x '+o.qty:'',pr=(o.product||'')+q,ph=bestPhone(o);const noteLine=buildNoteLine(o);if(o.platform==='PC')return[d+' PC',o.orderNo,pr,o.specs,o.name,ph,o.address,noteLine].filter(Boolean).join('\n');return[d+' MO',o.orderNo,pr,o.specs,o.name,ph,o.address,noteLine].filter(Boolean).join('\n')}
 function fmtShipping(o){const q=(o.qty||1)>1?' × '+o.qty:'',pr=(o.product||'')+(o.specs?'（'+o.specs+'）':'')+q,ph=bestPhone(o);const noteLine=buildNoteLine(o);return[`姓名：${o.name||''}`,ph?`電話：${ph}`:'',`地址：${o.address||''}`,`商品：${pr}`,`單號：${o.orderNo||''}`,noteLine].filter(Boolean).join('\n')}
 function copyShipping(oid,btn){const o=findO(oid);if(!o)return;const txt=fmtShipping(o);navigator.clipboard.writeText(txt).then(()=>{if(!btn)return;const old=btn.textContent;btn.textContent='✓';btn.style.color='var(--grn)';setTimeout(()=>{if(btn){btn.textContent=old;btn.style.color=''}},1300)}).catch(err=>alert('複製失敗：'+err.message))}
@@ -347,7 +349,154 @@ function clearInput(){document.getElementById('raw-input').value='';document.get
 async function copyPCScript(){try{const r=await fetch('pchome-scraper.js?_='+Date.now());if(!r.ok)throw new Error('HTTP '+r.status);const code=await r.text();await navigator.clipboard.writeText(code);alert('✅ PChome F12 撈單 script 已複製到剪貼簿！\n\n下一步：\n1. 切到 PChome 廠商後台「印貨資料 / 商品明細」view（看得到 商品名稱、收貨人、訂單編號 那個 view）\n2. F12 → Console → Ctrl+V → Enter\n3. 跳出 alert 顯示抓到 N 筆 → 訂單 JSON 已自動複製\n4. 回來這頁 → 在下方大框 Ctrl+V → 按「匯入雲端」')}catch(e){alert('複製失敗：'+e.message+'\n\n你可以直接打開 yaukulele.github.io/order-system/pchome-scraper.js 手動 copy')}}
 
 // ===== TABS =====
-function showTab(t){['import','list','output','stats','customers'].forEach(id=>document.getElementById('tab-'+id).classList.toggle('hidden',id!==t));document.querySelectorAll('.tabs .tab').forEach((b,i)=>b.classList.toggle('active',['import','list','output','stats','customers'][i]===t));if(t==='list')renderList();if(t==='output')renderOutput();if(t==='stats')renderStats();if(t==='customers')renderCustomers()}
+function showTab(t){const tabs=['import','list','output','stats','customers','account'];tabs.forEach(id=>document.getElementById('tab-'+id).classList.toggle('hidden',id!==t));document.querySelectorAll('.tabs .tab').forEach((b,i)=>b.classList.toggle('active',tabs[i]===t));if(t==='list')renderList();if(t==='output')renderOutput();if(t==='stats')renderStats();if(t==='customers')renderCustomers();if(t==='account')renderAccount()}
+
+// ===== AUTH / 使用者帳號系統 =====
+let currentUser=null,currentRole='';
+async function bootAuth(){
+  try{
+    const usersSnap=await db.ref('users').once('value');
+    if(!usersSnap.exists()){
+      const ts=new Date().toISOString();
+      await db.ref('users').set({
+        'Allie':{password:'Allie',role:'admin',createdAt:ts},
+        '阿淵':{password:'阿淵',role:'admin',createdAt:ts},
+        '雨停':{password:'雨停',role:'user',createdAt:ts}
+      });
+    }
+    const saved=localStorage.getItem('orderSysUser');
+    if(saved){
+      const snap=await db.ref('users/'+saved).once('value');
+      if(snap.exists()){currentUser=saved;currentRole=snap.val().role||'user';onAuthReady();return}
+      localStorage.removeItem('orderSysUser');
+    }
+    showLoginModal();
+  }catch(e){console.error('bootAuth failed',e);showLoginModal()}
+}
+function showLoginModal(){const ov=document.getElementById('login-overlay');if(ov){ov.classList.remove('hidden');setTimeout(()=>document.getElementById('login-user')?.focus(),100)}}
+function hideLoginModal(){document.getElementById('login-overlay')?.classList.add('hidden')}
+async function doLogin(){
+  const u=document.getElementById('login-user').value.trim();
+  const p=document.getElementById('login-pass').value;
+  const err=document.getElementById('login-err');
+  if(!u||!p){err.textContent='請填寫帳號跟密碼';return}
+  try{
+    const snap=await db.ref('users/'+u).once('value');
+    const data=snap.val();
+    if(!data||data.password!==p){err.textContent='帳號或密碼錯誤';return}
+    currentUser=u;currentRole=data.role||'user';
+    localStorage.setItem('orderSysUser',u);
+    await logUserAction('login','');
+    hideLoginModal();
+    document.getElementById('login-pass').value='';
+    err.textContent='';
+    onAuthReady();
+  }catch(e){err.textContent='登入失敗：'+e.message}
+}
+async function doLogout(){
+  if(!confirm('確定要登出？'))return;
+  await logUserAction('logout','');
+  currentUser=null;currentRole='';
+  localStorage.removeItem('orderSysUser');
+  showLoginModal();
+}
+async function logUserAction(action,detail){
+  if(!currentUser)return;
+  try{await db.ref('activityLog').push({ts:new Date().toISOString(),user:currentUser,action,detail:detail||''})}catch(e){}
+}
+function onAuthReady(){
+  const sb=document.getElementById('user-badge');
+  if(sb)sb.textContent=currentUser+(currentRole==='admin'?' 🛡️':'');
+}
+function isAdmin(){return currentRole==='admin'}
+
+async function renderAccount(){
+  if(!currentUser){document.getElementById('tab-account').innerHTML='<div class="card"><div class="card-b">請先登入</div></div>';return}
+  const snap=await db.ref('users').once('value');
+  const users=snap.val()||{};
+  const me=users[currentUser]||{};
+  let html='<div class="card"><div class="card-h"><h3>👤 我的帳號</h3></div><div class="card-b">'+
+    '<div style="margin-bottom:6px">使用者：<strong>'+esc(currentUser)+'</strong></div>'+
+    '<div style="margin-bottom:10px">角色：'+(me.role==='admin'?'<span class="tag" style="background:var(--mo-bg);color:var(--mo)">🛡️ 管理員</span>':'<span class="tag">一般使用者</span>')+'</div>'+
+    '<button class="btn btn-g" onclick="changeOwnPassword()">🔐 修改我的密碼</button> '+
+    '<button class="btn" onclick="doLogout()" style="border-color:var(--pc);color:var(--pc)">🚪 登出</button>'+
+    '</div></div>';
+  if(isAdmin()){
+    html+='<div class="card"><div class="card-h"><h3>🛡️ 帳號管理</h3><button class="btn btn-g" onclick="addUser()">+ 新增帳號</button></div><div class="card-b" style="overflow-x:auto"><table style="width:100%"><thead><tr><th>使用者</th><th>密碼</th><th>角色</th><th>建立時間</th><th>操作</th></tr></thead><tbody>';
+    for(const [u,d] of Object.entries(users)){
+      const isMe=u===currentUser;
+      const uJS=JSON.stringify(u);
+      const otherRole=d.role==='admin'?'user':'admin';
+      const adminBtns=isMe?'':` <button class="act" onclick="setUserRole(${uJS},'${otherRole}')">${d.role==='admin'?'降一般':'升管理'}</button> <button class="act" onclick="deleteUser(${uJS})" style="color:var(--pc);border-color:#e8a8a4">刪</button>`;
+      html+=`<tr><td><strong>${esc(u)}${isMe?' (我)':''}</strong></td>`+
+        `<td class="mono">${esc(d.password||'')}</td>`+
+        `<td>${d.role==='admin'?'🛡️ 管理員':'一般'}</td>`+
+        `<td class="mono" style="font-size:10px">${esc((d.createdAt||'').slice(0,16).replace('T',' '))}</td>`+
+        `<td style="white-space:nowrap"><button class="act" onclick="setUserPassword(${uJS})">改密碼</button>${adminBtns}</td></tr>`;
+    }
+    html+='</tbody></table></div></div>';
+    const logSnap=await db.ref('activityLog').orderByChild('ts').limitToLast(100).once('value');
+    const logs=[];logSnap.forEach(c=>logs.push(c.val()));logs.reverse();
+    html+='<div class="card"><div class="card-h"><h3>📜 操作紀錄（最近 '+logs.length+' 筆）</h3><button class="btn" onclick="renderAccount()">🔄 重新整理</button></div><div class="card-b" style="overflow-x:auto;max-height:60vh;overflow-y:auto"><table style="width:100%;font-size:11px"><thead><tr><th>時間</th><th>使用者</th><th>動作</th><th>詳情</th></tr></thead><tbody>';
+    for(const l of logs){
+      html+='<tr><td class="mono" style="font-size:10px;white-space:nowrap">'+esc((l.ts||'').slice(0,19).replace('T',' '))+'</td><td>'+esc(l.user||'')+'</td><td>'+esc(l.action||'')+'</td><td style="color:var(--dm)">'+esc(l.detail||'')+'</td></tr>';
+    }
+    html+='</tbody></table></div></div>';
+  }
+  document.getElementById('tab-account').innerHTML=html;
+}
+async function changeOwnPassword(){
+  const cur=prompt('目前密碼：');
+  if(cur===null)return;
+  const snap=await db.ref('users/'+currentUser).once('value');
+  if(!snap.exists()||snap.val().password!==cur){alert('原密碼錯誤');return}
+  const np=prompt('新密碼：');
+  if(!np)return;
+  await db.ref('users/'+currentUser+'/password').set(np);
+  await logUserAction('change-password','改自己密碼');
+  alert('✅ 密碼已更新');
+  renderAccount();
+}
+async function addUser(){
+  if(!isAdmin()){alert('只有管理員可新增');return}
+  const u=prompt('新使用者名稱：');
+  if(!u||!u.trim())return;
+  const trimmed=u.trim();
+  const exists=await db.ref('users/'+trimmed).once('value');
+  if(exists.exists()){alert('「'+trimmed+'」已存在');return}
+  const p=prompt('初始密碼：');
+  if(!p)return;
+  const role=confirm('要設為管理員嗎？\\n\\n確定 = 管理員（可看所有人密碼/新增帳號）\\n取消 = 一般使用者')?'admin':'user';
+  await db.ref('users/'+trimmed).set({password:p,role,createdAt:new Date().toISOString()});
+  await logUserAction('create-user','新增 '+trimmed+' ('+role+')');
+  alert('✅ 已新增「'+trimmed+'」，密碼：'+p);
+  renderAccount();
+}
+async function setUserPassword(u){
+  if(!isAdmin()&&u!==currentUser){alert('沒權限');return}
+  const np=prompt('要把「'+u+'」的密碼改成？');
+  if(!np)return;
+  await db.ref('users/'+u+'/password').set(np);
+  await logUserAction('change-password','改 '+u+' 密碼');
+  alert('✅ 已更新');
+  renderAccount();
+}
+async function setUserRole(u,newRole){
+  if(!isAdmin()){alert('只有管理員可調整角色');return}
+  if(u===currentUser){alert('不能改自己的角色');return}
+  if(!confirm('要把「'+u+'」設為「'+(newRole==='admin'?'管理員':'一般')+'」嗎？'))return;
+  await db.ref('users/'+u+'/role').set(newRole);
+  await logUserAction('change-role',u+' → '+newRole);
+  renderAccount();
+}
+async function deleteUser(u){
+  if(!isAdmin()){alert('只有管理員可刪');return}
+  if(u===currentUser){alert('不能刪自己');return}
+  if(!confirm('真的要刪除「'+u+'」？無法復原'))return;
+  await db.ref('users/'+u).remove();
+  await logUserAction('delete-user','刪除 '+u);
+  renderAccount();
+}
 function setF(f,b){cFilter=f;_mobileExpand=false;document.querySelectorAll('.filter-row .fbtn[data-fg="plat"]').forEach(x=>x.classList.remove('on'));if(b)b.classList.add('on');else{const auto=document.querySelector(`.fbtn[data-fg="plat"][onclick*="setF('${f}'"]`);if(auto)auto.classList.add('on')}persistFilters();renderList()}
 function setSF(f,b){cStatus=f;_mobileExpand=false;document.querySelectorAll('.filter-row .fbtn[data-fg="status"]').forEach(x=>x.classList.remove('on'));if(b)b.classList.add('on');else{const auto=document.querySelector(`.fbtn[data-fg="status"][onclick*="setSF('${f}'"]`);if(auto)auto.classList.add('on')}persistFilters();renderList()}
 function toggleSpecial(kind,btn){_mobileExpand=false;if(cSpecial===kind){cSpecial=null;btn.classList.remove('on')}else{document.querySelectorAll('.filter-row .fbtn[data-fg="special"]').forEach(x=>x.classList.remove('on'));cSpecial=kind;btn.classList.add('on')}renderList()}
@@ -608,16 +757,19 @@ let lastBucket='';
 fl.forEach(o=>{const oid=o.id;
 const bucket=dateBucket(o.date);
 if(bucket!==lastBucket){const cnt=fl.filter(x=>dateBucket(x.date)===bucket).length;h+=`<tr class="row-group-h"><td colspan="12">${bucket} <span style="color:var(--ht);font-weight:400;margin-left:6px">(${cnt} 筆)</span></td></tr>`;lastBucket=bucket}
-const ib=o.install==='是'?`<div style="display:flex;flex-direction:column;align-items:center;gap:2px"><button class="toggle-on" onclick="toggleInstall('${oid}')" style="white-space:nowrap">安裝</button><input type="text" inputmode="numeric" value="${o.installFee||''}" placeholder="$" oninput="this.value=cn(this.value);setInstFee('${oid}',this.value)" class="fee-input" style="width:50px"></div>${o.installDay?'<div style="font-size:9px;color:var(--dm);margin-top:2px;text-align:center;line-height:1.2">'+o.installDay+(o.installTime?' '+o.installTime:'')+'</div>':''}`:`<button class="toggle-off" onclick="toggleInstall('${oid}')" style="white-space:nowrap">不安裝</button>`;
-const ab=o.addon==='是'?`<div style="display:flex;flex-direction:column;align-items:center;gap:2px"><button class="toggle-on" onclick="toggleAddon('${oid}')" style="white-space:nowrap">加購</button><input type="text" inputmode="numeric" value="${o.addonFee||''}" placeholder="$" oninput="this.value=cn(this.value);setAddonFee('${oid}',this.value)" class="fee-input" style="width:50px"></div>`:`<button class="toggle-off" onclick="toggleAddon('${oid}')" style="white-space:nowrap">無加購</button>`;
+// 兩格保留同樣的 subtitle 空間（沒內容也佔位 → 加購跟安裝高度一致）
+const subSlot=t=>`<div style="font-size:9px;color:var(--dm);margin-top:2px;text-align:center;line-height:1.2;min-height:13px;${t?'':'visibility:hidden'}">${t||'·'}</div>`;
+const ibInner=o.install==='是'?`<div style="display:flex;flex-direction:column;align-items:center;gap:2px"><button class="toggle-on" onclick="toggleInstall('${oid}')" style="white-space:nowrap">安裝</button><input type="text" inputmode="numeric" value="${o.installFee||''}" placeholder="$" oninput="this.value=cn(this.value);setInstFee('${oid}',this.value)" class="fee-input" style="width:50px"></div>`:`<button class="toggle-off" onclick="toggleInstall('${oid}')" style="white-space:nowrap">不安裝</button>`;
+const ib=ibInner+subSlot(o.installDay?o.installDay+(o.installTime?' '+o.installTime:''):'');
+const abInner=o.addon==='是'?`<div style="display:flex;flex-direction:column;align-items:center;gap:2px"><button class="toggle-on" onclick="toggleAddon('${oid}')" style="white-space:nowrap">加購</button><input type="text" inputmode="numeric" value="${o.addonFee||''}" placeholder="$" oninput="this.value=cn(this.value);setAddonFee('${oid}',this.value)" class="fee-input" style="width:50px"></div>`:`<button class="toggle-off" onclick="toggleAddon('${oid}')" style="white-space:nowrap">無加購</button>`;
+const ab=abInner+subSlot('');
 const newBadge=isNewOrder(o)?'<span class="tag" style="background:#dcfce7;color:#166534;margin-left:4px;font-size:9px">NEW</span>':'';
 const addrBadge=(o.note||'').includes('改地址')?'<span class="tag" style="background:#fef9ec;color:#b45309;margin-left:4px;font-size:9px" title="客戶申請改地址">改址</span>':'';
 const shipBtn=(o.platform==='MO'&&isPending(o.status))?`<button class="act" onclick="openShipMomo('${oid}')" title="回填物流單號到 MOMO" style="border-color:var(--mo);color:var(--mo);font-weight:700">📤 出貨</button> `:'';
 const addrAckBtn=(o.platform==='MO'&&(o.note||'').includes('改地址'))?`<button class="act" onclick="changeAddrAck('${oid}',true)" title="同意改地址" style="border-color:var(--grn);color:var(--grn);font-weight:700">✅</button> <button class="act" onclick="changeAddrAck('${oid}',false)" title="拒絕改地址" style="border-color:var(--pc);color:var(--pc);font-weight:700">❌</button> `:'';
 const trackInfo=o.trackingNo?`<div style="font-size:9px;color:var(--dm);margin-top:2px">${esc(o.delyGbStr||'')}<br>${esc(o.trackingNo)}</div>`:'';
-const missingTrack=o.status==='已出貨'&&!o.trackingNo;
-const rowCls=missingTrack?'row-missing-track':'';
-const warnIcon=missingTrack?' <span title="已出貨但沒填物流單號" style="color:#dc2626;font-size:14px">⚠️</span>':'';
+const rowCls='';
+const warnIcon='';
 const checked=selectedIds.has(o.id);
 const ps=splitProductSpecs(o);
 h+=`<tr class="${rowCls}"><td class="batch-cell"><input type="checkbox" data-oid="${o.id}" ${checked?'checked':''} onclick="toggleRowSelected('${o.id}')"></td><td class="mono" style="width:60px">${fmtD(o.date)}${newBadge}</td><td style="width:50px;text-align:center">${platformPill(o.platform)}${addrBadge}</td><td class="prod-cell" onclick="openEdit('${oid}')" style="cursor:pointer" title="點擊編輯：${esc(o.product)}">${esc(ps.name)}</td><td class="spec-cell" title="${esc(ps.specs)}">${ps.specs?`<span class="spec-pill">${esc(ps.specs)}</span>`:'<span style="color:#cbd5e1">—</span>'}</td><td class="tab-list-mobile-hide qty-cell"><input type="text" inputmode="numeric" value="${o.qty||1}" oninput="this.value=cn(this.value);setQty('${oid}',this.value)" class="fee-input qty-input" style="width:36px${(o.qty||1)>1?';border-color:var(--mo);background:var(--mo-bg);color:var(--mo);font-weight:800':''}"></td><td class="name-cell">${esc(o.name)}</td><td class="tab-list-mobile-hide acc-cell">${ib}</td><td class="tab-list-mobile-hide acc-cell">${ab}</td><td class="total-cell" id="tot-${oid}" style="width:90px">${$(tot(o))}${trackInfo}</td><td style="width:84px"><button class="${stCls(o.status)}" onclick="toggleStatus('${oid}')">${o.status}</button>${warnIcon}</td><td style="white-space:nowrap">${addrAckBtn}${shipBtn}<button class="act" onclick="openEdit('${oid}')">編輯</button> <button class="act" onclick="copyShipping('${oid}',this)" title="複製出貨資料（姓名/電話/地址/商品/單號）">📋</button> <button class="act" onclick="delOrder('${oid}')">刪</button></td></tr>`});
@@ -631,8 +783,7 @@ list.forEach(o=>{const oid=o.id;const bucket=dateBucket(o.date);
 if(bucket!==lastBucket){const cnt=fl.filter(x=>dateBucket(x.date)===bucket).length;h+=`<div class="ord-bucket-h">${bucket} <span class="bucket-cnt">${cnt} 筆</span></div>`;lastBucket=bucket}
 const newBadge=isNewOrder(o)?'<span class="tag" style="background:#dcfce7;color:#166534;font-size:9px">NEW</span>':'';
 const addrBadge=(o.note||'').includes('改地址')?'<span class="tag" style="background:#fef9ec;color:#b45309;font-size:9px">改址</span>':'';
-const missingTrack=o.status==='已出貨'&&!o.trackingNo;
-const cardCls='ord-card'+(missingTrack?' row-missing-track':'');
+const cardCls='ord-card';
 const checked=selectedIds.has(o.id);
 const qty=o.qty||1;
 const ph=bestPhone(o);
@@ -728,6 +879,7 @@ document.getElementById('modal-body').innerHTML=`<h3>編輯訂單${customerHisto
 <div class="fg"><div class="fi"><label>姓名</label><input id="e-name" value="${esc(o.name)}"></div><div class="fi"><label>電話（MOMO 代撥）</label><input id="e-phone" value="${esc(o.phone||'')}"></div></div>
 <div class="fg full"><div class="fi"><label>📱 真實電話（手動填入，例如客戶 LINE 或來電留下的）</label><input id="e-realPhone" value="${esc(o.realPhone||'')}" placeholder="客戶真實手機，留空表示沒有" inputmode="tel" style="border-color:var(--grn);background:var(--grn-bg)"></div></div>
 <div class="fg full"><div class="fi"><label>地址</label><input id="e-addr" value="${esc(o.address)}"></div></div>
+<div class="fg" style="margin-bottom:8px"><div class="fi"><label>🏢 管理室</label><div class="sched-row" id="e-mgmt"><button class="sched-btn ${o.addrMgmt==='有'?'picked':''}" onclick="pickRadio('e-mgmt','有',this)">有</button><button class="sched-btn ${o.addrMgmt==='無'?'picked':''}" onclick="pickRadio('e-mgmt','無',this)">無</button><button class="sched-btn ${(!o.addrMgmt||o.addrMgmt==='')?'picked':''}" onclick="pickRadio('e-mgmt','',this)">未填</button></div></div><div class="fi"><label>🛗 電梯（2 樓以上）</label><div class="sched-row" id="e-elev"><button class="sched-btn ${o.addrElev==='有'?'picked':''}" onclick="pickRadio('e-elev','有',this)">有</button><button class="sched-btn ${o.addrElev==='無'?'picked':''}" onclick="pickRadio('e-elev','無',this)">無</button><button class="sched-btn ${o.addrElev==='不適用'?'picked':''}" onclick="pickRadio('e-elev','不適用',this)">不適用</button><button class="sched-btn ${(!o.addrElev||o.addrElev==='')?'picked':''}" onclick="pickRadio('e-elev','',this)">未填</button></div></div></div>
 <div class="fg"><div class="fi"><label>數量</label><input type="text" inputmode="numeric" id="e-qty" value="${o.qty||1}" oninput="this.value=cn(this.value)"></div><div class="fi"><label>商品金額</label><input type="text" inputmode="numeric" id="e-amt" value="${o.amount||''}" oninput="this.value=cn(this.value);calcT()"></div></div>
 <div style="border:1px solid var(--bd);border-radius:8px;padding:12px;margin:8px 0;background:var(--sf2)"><div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px"><span style="font-size:12px;font-weight:700">🔧 安裝服務</span><button class="${o.install==='是'?'toggle-on':'toggle-off'}" onclick="togEI()" id="ei-btn">${o.install==='是'?'✓ 需要安裝':'不需要安裝'}</button></div>
 <div id="ei-panel" class="${o.install==='否'?'hidden':''}"><div class="fi" style="margin-bottom:8px"><label>安裝費用</label><input type="text" inputmode="numeric" id="e-instf" value="${o.installFee||''}" oninput="this.value=cn(this.value);calcT()"></div>
@@ -743,10 +895,11 @@ document.getElementById('modal-overlay').classList.remove('hidden');document.bod
 
 function togEI(){const p=document.getElementById('ei-panel'),b=document.getElementById('ei-btn');if(p.classList.contains('hidden')){p.classList.remove('hidden');b.className='toggle-on';b.textContent='✓ 需要安裝'}else{p.classList.add('hidden');b.className='toggle-off';b.textContent='不需要安裝';document.getElementById('e-instf').value='';calcT()}}
 function togEA(){const p=document.getElementById('ea-panel'),b=document.getElementById('ea-btn');if(p.classList.contains('hidden')){p.classList.remove('hidden');b.className='toggle-on';b.textContent='✓ 有加購'}else{p.classList.add('hidden');b.className='toggle-off';b.textContent='無加購';document.getElementById('e-addonf').value='';calcT()}}
+function pickRadio(groupId,value,btn){const grp=document.getElementById(groupId);if(!grp)return;grp.querySelectorAll('.sched-btn').forEach(b=>b.classList.remove('picked'));btn.classList.add('picked');grp.dataset.value=value}
 function pickD(d,btn){const wasPicked=btn.classList.contains('picked');document.querySelectorAll('#ei-panel .sched-btn').forEach(b=>{if(!TIMES.includes(b.textContent))b.classList.remove('picked')});if(!wasPicked)btn.classList.add('picked')}
 function pickT(t,btn){const wasPicked=btn.classList.contains('picked');document.querySelectorAll('#ei-panel .sched-btn').forEach(b=>{if(TIMES.includes(b.textContent))b.classList.remove('picked')});if(!wasPicked)btn.classList.add('picked')}
 function calcT(){const a=parseInt(document.getElementById('e-amt').value)||0;const i=parseInt(document.getElementById('e-instf').value)||0;const d=parseInt(document.getElementById('e-addonf').value)||0;document.getElementById('e-tot').textContent='$'+(a+i+d).toLocaleString()}
-function saveEdit(){const o=findO(editId);if(!o){alert('訂單已不存在（可能被別的裝置刪了）');closeModal();return}o.date=document.getElementById('e-date').value;o.platform=document.getElementById('e-plat').value;o.orderNo=document.getElementById('e-no').value.trim();o.product=document.getElementById('e-prod').value.trim();o.specs=document.getElementById('e-specs').value.trim();o.name=document.getElementById('e-name').value.trim();o.phone=document.getElementById('e-phone').value.trim();o.realPhone=(document.getElementById('e-realPhone')?.value||'').trim();o.address=document.getElementById('e-addr').value.trim();o.amount=parseInt(document.getElementById('e-amt').value)||0;o.qty=parseInt(document.getElementById('e-qty').value)||1;
+function saveEdit(){const o=findO(editId);if(!o){alert('訂單已不存在（可能被別的裝置刪了）');closeModal();return}o.date=document.getElementById('e-date').value;o.platform=document.getElementById('e-plat').value;o.orderNo=document.getElementById('e-no').value.trim();o.product=document.getElementById('e-prod').value.trim();o.specs=document.getElementById('e-specs').value.trim();o.name=document.getElementById('e-name').value.trim();o.phone=document.getElementById('e-phone').value.trim();o.realPhone=(document.getElementById('e-realPhone')?.value||'').trim();o.address=document.getElementById('e-addr').value.trim();o.addrMgmt=document.getElementById('e-mgmt')?.dataset.value??(o.addrMgmt||'');o.addrElev=document.getElementById('e-elev')?.dataset.value??(o.addrElev||'');o.amount=parseInt(document.getElementById('e-amt').value)||0;o.qty=parseInt(document.getElementById('e-qty').value)||1;
 o.install=document.getElementById('ei-panel').classList.contains('hidden')?'否':'是';o.installFee=parseInt(document.getElementById('e-instf').value)||0;o.installDay='';o.installTime='';
 document.querySelectorAll('#ei-panel .sched-btn.picked').forEach(b=>{const v=b.textContent;if(DAYS.includes(v))o.installDay=v;if(TIMES.includes(v))o.installTime=v});
 o.addon=document.getElementById('ea-panel').classList.contains('hidden')?'否':'是';o.addonFee=parseInt(document.getElementById('e-addonf').value)||0;o.status=document.getElementById('e-st').value;
@@ -880,6 +1033,7 @@ async function submitShip(force){
   }
 }
 document.getElementById('raw-input')?.addEventListener('paste',()=>setTimeout(runParse,200));
+bootAuth();
 // Re-render on viewport breakpoint cross (mobile ↔ desktop)
 let _wasMobile=isMobile();window.addEventListener('resize',()=>{const now=isMobile();if(now!==_wasMobile){_wasMobile=now;updateCnt();const at=document.querySelector('.tab.active')?.textContent||'';if(at.includes('列表'))renderList()}});
 // 定期檢查並套用 pending 遠端更新（modal 關 + 沒輸入框聚焦 時）
