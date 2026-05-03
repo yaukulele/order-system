@@ -236,7 +236,12 @@ function isModalOpen(){return !document.getElementById('modal-overlay').classLis
 function isInputFocused(){const a=document.activeElement;return a&&['INPUT','TEXTAREA','SELECT'].includes(a.tagName)&&!['q','cq','of-from','of-to','raw-input'].includes(a.id)}
 let _lastSyncAt=null;
 function setSyncOn(){const sb=document.getElementById('sync-badge');if(sb){_lastSyncAt=new Date();const ts=_lastSyncAt.toLocaleTimeString('zh-TW',{hour:'2-digit',minute:'2-digit',hour12:false});sb.className='sync-dot sync-on';sb.title=`最後同步：${ts}`;sb.innerHTML=`<span class="dot dot-on"></span>${ts}`}}
-function applyRemoteOrders(val){const sc=window.scrollY;orders=val?Object.values(val):[];orders.forEach(migrateStatus);ordersLoaded=true;updateCnt();
+function applyRemoteOrders(val){const sc=window.scrollY;orders=val?Object.values(val):[];orders.forEach(migrateStatus);
+// 檢測同 orderNo 多筆 — 顯示警告但不自動刪除（用戶判斷）
+const dupGroups=new Map();orders.forEach(o=>{if(!o.orderNo)return;if(!dupGroups.has(o.orderNo))dupGroups.set(o.orderNo,[]);dupGroups.get(o.orderNo).push(o)});
+const dupSets=[...dupGroups.values()].filter(arr=>arr.length>1);
+if(dupSets.length&&!window._dupWarned){window._dupWarned=true;console.warn('Duplicate orderNos detected:',dupSets);if(typeof showToast==='function')showToast(`⚠️ 偵測到 ${dupSets.length} 組重複單號（${dupSets.reduce((s,a)=>s+a.length,0)} 筆），到帳號頁開 console 看詳情`,null,null,8000)}
+ordersLoaded=true;updateCnt();
 const at=document.querySelector('.tab.active')?.textContent||'';
 if(at.includes('列表'))renderList();if(at.includes('輸出'))renderOutput();if(at.includes('統計'))renderStats();if(at.includes('客戶'))renderCustomers();
 setSyncOn();window.scrollTo(0,sc)}
