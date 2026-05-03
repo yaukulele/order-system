@@ -1196,6 +1196,9 @@ let _wasMobile=isMobile();window.addEventListener('resize',()=>{const now=isMobi
 setInterval(()=>{if(pendingRemoteOrders!==null&&!isModalOpen()&&!isInputFocused()){const v=pendingRemoteOrders;pendingRemoteOrders=null;applyRemoteOrders(v)}},2000);
 // Register service worker (PWA support)
 if('serviceWorker' in navigator){window.addEventListener('load',()=>{navigator.serviceWorker.register('sw.js').catch(()=>{})})}
+// Global error handler — 未捕獲的錯誤會顯示 toast 通知用戶有東西壞了，不靜默死
+window.addEventListener('error',e=>{if(typeof showToast==='function')showToast('⚠️ 系統錯誤：'+(e.message||'未知'),null,null,5000);console.error('Uncaught:',e.error||e.message)});
+window.addEventListener('unhandledrejection',e=>{if(typeof showToast==='function')showToast('⚠️ Promise 失敗：'+(e.reason?.message||e.reason||'未知'),null,null,5000);console.error('Unhandled rejection:',e.reason)});
 </script>
 </body>
 </html>
