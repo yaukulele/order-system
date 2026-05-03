@@ -932,16 +932,32 @@ ${activityTimelineHTML(o.note)}<div class="fg full"><div class="fi"><label>備�
 <div class="modal-ft"><button class="btn" onclick="closeModal()">取消</button><button class="btn btn-g" onclick="saveEdit()">儲存</button></div>`;
 document.getElementById('modal-overlay').classList.remove('hidden');document.body.style.overflow='hidden'}
 
-function togEI(){const p=document.getElementById('ei-panel'),b=document.getElementById('ei-btn');if(p.classList.contains('hidden')){p.classList.remove('hidden');b.className='toggle-on';b.textContent='✓ 需要安裝'}else{p.classList.add('hidden');b.className='toggle-off';b.textContent='不需要安裝';document.getElementById('e-instf').value='';calcT()}}
-function togEA(){const p=document.getElementById('ea-panel'),b=document.getElementById('ea-btn');if(p.classList.contains('hidden')){p.classList.remove('hidden');b.className='toggle-on';b.textContent='✓ 有加購'}else{p.classList.add('hidden');b.className='toggle-off';b.textContent='無加購';document.getElementById('e-addonf').value='';calcT()}}
+function togEI(){const p=document.getElementById('ei-panel'),b=document.getElementById('ei-btn');if(p.classList.contains('hidden')){p.classList.remove('hidden');b.className='toggle-on';b.textContent='✓ 需要安裝'}else{p.classList.add('hidden');b.className='toggle-off';b.textContent='不需要安裝';
+  // 關掉安裝時清掉相關欄位避免不一致
+  const fee=document.getElementById('e-instf');if(fee)fee.value='';
+  document.querySelectorAll('#ei-panel .sched-btn.picked').forEach(b=>b.classList.remove('picked'));
+  calcT()
+}}
+function togEA(){const p=document.getElementById('ea-panel'),b=document.getElementById('ea-btn');if(p.classList.contains('hidden')){p.classList.remove('hidden');b.className='toggle-on';b.textContent='✓ 有加購'}else{p.classList.add('hidden');b.className='toggle-off';b.textContent='無加購';
+  // 關掉加購時清掉相關欄位
+  const fee=document.getElementById('e-addonf');if(fee)fee.value='';
+  const it=document.getElementById('e-addonitems');if(it)it.value='';
+  calcT()
+}}
 function pickRadio(groupId,value,btn){const grp=document.getElementById(groupId);if(!grp)return;grp.querySelectorAll('.sched-btn').forEach(b=>b.classList.remove('picked'));btn.classList.add('picked');grp.dataset.value=value}
 function pickD(d,btn){const wasPicked=btn.classList.contains('picked');document.querySelectorAll('#ei-panel .sched-btn').forEach(b=>{if(!TIMES.includes(b.textContent))b.classList.remove('picked')});if(!wasPicked)btn.classList.add('picked')}
 function pickT(t,btn){const wasPicked=btn.classList.contains('picked');document.querySelectorAll('#ei-panel .sched-btn').forEach(b=>{if(TIMES.includes(b.textContent))b.classList.remove('picked')});if(!wasPicked)btn.classList.add('picked')}
 function calcT(){const a=parseInt(document.getElementById('e-amt').value)||0;const i=parseInt(document.getElementById('e-instf').value)||0;const d=parseInt(document.getElementById('e-addonf').value)||0;document.getElementById('e-tot').textContent='$'+(a+i+d).toLocaleString()}
 function saveEdit(){const o=findO(editId);if(!o){alert('訂單已不存在（可能被別的裝置刪了）');closeModal();return}o.date=document.getElementById('e-date').value;o.platform=document.getElementById('e-plat').value;o.orderNo=document.getElementById('e-no').value.trim();o.product=document.getElementById('e-prod').value.trim();o.specs=document.getElementById('e-specs').value.trim();o.name=document.getElementById('e-name').value.trim();o.phone=document.getElementById('e-phone').value.trim();o.realPhone=(document.getElementById('e-realPhone')?.value||'').trim();o.address=document.getElementById('e-addr').value.trim();o.addrMgmt=document.getElementById('e-mgmt')?.dataset.value??(o.addrMgmt||'');o.addrElev=document.getElementById('e-elev')?.dataset.value??(o.addrElev||'');o.amount=parseInt(document.getElementById('e-amt').value)||0;o.qty=parseInt(document.getElementById('e-qty').value)||1;
-o.install=document.getElementById('ei-panel').classList.contains('hidden')?'否':'是';o.installFee=parseInt(document.getElementById('e-instf').value)||0;o.installDay='';o.installTime='';
-document.querySelectorAll('#ei-panel .sched-btn.picked').forEach(b=>{const v=b.textContent;if(DAYS.includes(v))o.installDay=v;if(TIMES.includes(v))o.installTime=v});
-o.addon=document.getElementById('ea-panel').classList.contains('hidden')?'否':'是';o.addonFee=parseInt(document.getElementById('e-addonf').value)||0;o.addonItems=(document.getElementById('e-addonitems')?.value||'').trim();o.status=document.getElementById('e-st').value;
+o.install=document.getElementById('ei-panel').classList.contains('hidden')?'否':'是';
+if(o.install==='否'){o.installFee=0;o.installDay='';o.installTime='';o.installPaidAmount=0}
+else{o.installFee=parseInt(document.getElementById('e-instf').value)||0;o.installDay='';o.installTime='';
+  document.querySelectorAll('#ei-panel .sched-btn.picked').forEach(b=>{const v=b.textContent;if(DAYS.includes(v))o.installDay=v;if(TIMES.includes(v))o.installTime=v});
+}
+o.addon=document.getElementById('ea-panel').classList.contains('hidden')?'否':'是';
+if(o.addon==='否'){o.addonFee=0;o.addonItems='';o.addonPaidAmount=0}
+else{o.addonFee=parseInt(document.getElementById('e-addonf').value)||0;o.addonItems=(document.getElementById('e-addonitems')?.value||'').trim()}
+o.status=document.getElementById('e-st').value;
 let note=document.getElementById('e-note').value.trim().replace(/【安裝】[^\n]*/g,'').trim();
 if(o.install==='是'&&(o.installDay||o.installTime)){note='【安裝】'+o.installDay+(o.installTime?' '+o.installTime:'')+(o.installFee?' $'+o.installFee:'')+(note?'\n'+note:'')}
 o.note=note;saveOne(o);pendingRemoteOrders=null;closeModal();renderList()}
