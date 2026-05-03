@@ -190,9 +190,10 @@
     if (!orderNo) continue;
 
     // qty / amount 從 numericCells 推
+    // amount cap: 6 位數 (≤999999)，排除商品ID（PChome 商品ID 都是 7-10 位數，e.g. 30049456）
     let qty = 1, amount = 0;
     const small = numericCells.filter(n => n >= 1 && n <= 99);
-    const big = numericCells.filter(n => n >= 100).sort((a, b) => b - a);
+    const big = numericCells.filter(n => n >= 100 && n <= 999999).sort((a, b) => b - a);
     if (small.length) qty = small[0];
     if (big.length) amount = big[0];
 
