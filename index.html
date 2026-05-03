@@ -851,7 +851,7 @@ fl.sort((a,b)=>{const av=a.date||'',bv=b.date||'';if(av===bv)return 0;return sor
 if(!fl.length){const hasFilter=cFilter!=='all'||cStatus!=='all'||cSpecial||(document.getElementById('q')?.value||'').trim();
   // 初始 Firebase 還沒回應 → 顯示骨架載入而不是「尚無訂單」（避免誤導）
   if(!ordersLoaded&&!hasFilter){document.getElementById('list-area').innerHTML='<div class="card"><div class="card-b" style="text-align:center;padding:40px 20px;color:var(--dm)"><div style="font-size:28px;opacity:.5;margin-bottom:8px">⏳</div><div style="font-size:13px">載入訂單中...</div></div></div>';return}
-  document.getElementById('list-area').innerHTML=`<div class="card"><div class="card-b empty-state"><div class="es-icon">${hasFilter?'🔍':'📦'}</div><div class="es-title">${hasFilter?'沒有符合篩選的訂單':'尚無訂單'}</div><div class="es-hint">${hasFilter?'試試清除篩選 / 改搜尋字':'去匯入分頁貼後台資料 或 按 🔄 自動抓 MOMO'}</div></div></div>`;renderBatchBar([]);return}
+  document.getElementById('list-area').innerHTML=`<div class="card"><div class="card-b empty-state"><div class="es-icon">${hasFilter?'🔍':'📦'}</div><div class="es-title">${hasFilter?'沒有符合篩選的訂單':'尚無訂單'}</div><div class="es-hint">${hasFilter?'試試清除篩選 / 改搜尋字':'去匯入分頁貼後台資料 或 按 🔄 自動抓 MOMO'}</div>${hasFilter?'<button class=\"btn\" style=\"margin-top:14px\" onclick=\"resetAllFilters()\">↻ 清除篩選</button>':'<button class=\"btn btn-g\" style=\"margin-top:14px\" onclick=\"showTab(&quot;import&quot;)\">📋 去匯入</button>'}</div></div>`;renderBatchBar([]);return}
 if(isMobile())return renderListMobile(fl);
 const arrow=sortOrder==='date-desc'?'↓':'↑';
 const allChecked=fl.length>0&&fl.every(o=>selectedIds.has(o.id));
