@@ -155,7 +155,25 @@
 
   console.log(TAG, '抽出', orders.length, '筆');
   if (orders.length === 0) {
-    alert('⚠️ 找到表但 0 筆訂單 — 可能 row 結構不一致。F12 console 看 [PC-SCRAPE] 訊息');
+    // Diagnostic dump — 把前 5 個 data row 的 cell 內容全印出來
+    console.log(TAG, '=== Diagnostic: 前 5 個 data row cells ===');
+    dataRows.slice(0, 5).forEach((tr, i) => {
+      const tds = [...tr.querySelectorAll('td')];
+      const ths = [...tr.querySelectorAll('th')];
+      console.log(TAG, `row[${i}] td數=${tds.length} th數=${ths.length} children=${tr.children.length}`);
+      console.log(TAG, `row[${i}] cells:`, tds.map(c => norm(c.textContent || '')));
+      console.log(TAG, `row[${i}] outerHTML[:300]:`, tr.outerHTML.slice(0, 300));
+    });
+    console.log(TAG, '=== headers found ===', headers);
+    console.log(TAG, '=== idx mapping ===', idx);
+    alert(
+      '⚠️ 找到表但 0 筆訂單 — row 結構跟假設不符。\n\n' +
+      '已在 F12 Console 印出診斷訊息，請：\n' +
+      '1. F12 → Console 分頁\n' +
+      '2. 找 [PC-SCRAPE] 開頭的訊息，從 "Diagnostic: 前 5 個 data row cells" 那段往下\n' +
+      '3. 整段截圖傳給我\n\n' +
+      'headers: ' + headers.join(' | ').slice(0, 200)
+    );
     return;
   }
   console.table(orders.slice(0, 5));
