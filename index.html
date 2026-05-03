@@ -1102,6 +1102,8 @@ document.addEventListener('keydown',e=>{
     if(selectedIds.size>0){selectedIds.clear();renderList();return}
   }
   if(inInput)return;
+  // Modal 開著時不要響應切 tab / 搜尋等快捷鍵（避免切走後 modal 卡在另一頁）
+  if(isModalOpen())return;
   // Ctrl+K / "/" → focus 搜尋（會自動切到列表 tab 如果不在）
   if(((e.ctrlKey||e.metaKey)&&e.key==='k')||e.key==='/'){e.preventDefault();const at=document.querySelector('.tab.active')?.textContent||'';if(at.includes('客戶')){document.getElementById('cq')?.focus()}else{if(!at.includes('列表'))showTab('list');setTimeout(()=>document.getElementById('q')?.focus(),50)}return}
   // 1-6 切 tab
