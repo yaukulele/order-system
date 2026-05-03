@@ -200,19 +200,49 @@
 
   const payload = JSON.stringify({ source: 'pchome-f12', version: 1, ts: Date.now(), orders }, null, 2);
 
+  // 三段式 copy：modern API → execCommand → 直接彈 textarea overlay 讓使用者 Ctrl+C
+  let copyMethod = '';
   try {
     await navigator.clipboard.writeText(payload);
+    copyMethod = 'clipboard API';
+  } catch (e) {
+    console.log(TAG, 'clipboard API 失敗，改試 execCommand：', e.message);
+    const ta = document.createElement('textarea');
+    ta.value = payload;
+    ta.style.cssText = 'position:fixed;top:0;left:0;width:1px;height:1px;opacity:0;pointer-events:none';
+    document.body.appendChild(ta);
+    ta.select();
+    try {
+      if (document.execCommand('copy')) copyMethod = 'execCommand';
+    } catch (e2) {}
+    document.body.removeChild(ta);
+  }
+
+  if (copyMethod) {
     alert(
-      `✅ 已複製 ${orders.length} 筆訂單 JSON 到剪貼簿\n\n` +
+      `✅ 已複製 ${orders.length} 筆訂單 JSON 到剪貼簿（${copyMethod}）\n\n` +
       `下一步：\n` +
       `1. 切到訂單管理系統（yaukulele.github.io/order-system/）\n` +
       `2. 進「📋 匯入」分頁\n` +
       `3. 在大框 Ctrl+V 貼上 → 按「匯入雲端」`
     );
-  } catch (e) {
-    console.log(TAG, '剪貼簿被擋，payload 印在下面：');
+  } else {
+    // 3rd fallback：在 PChome 頁面上彈一個 overlay textarea，強制 user Ctrl+A Ctrl+C
+    console.log(TAG, '兩種 copy 都失敗，把 payload 印出來 + 顯示 overlay：');
     console.log(payload);
-    alert(`⚠️ 找到 ${orders.length} 筆但剪貼簿權限被擋\nF12 → Console 找 [PC-SCRAPE] payload，自己手動 copy`);
+    const ov = document.createElement('div');
+    ov.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,.7);z-index:999999;display:flex;align-items:center;justify-content:center;padding:30px';
+    ov.innerHTML = `
+      <div style="background:#fff;border-radius:12px;padding:20px;max-width:90vw;max-height:90vh;display:flex;flex-direction:column;gap:10px">
+        <div style="font-size:16px;font-weight:700">⚠️ 剪貼簿權限被擋 — 請手動 copy（${orders.length} 筆訂單）</div>
+        <div style="font-size:13px">在下面框內 Ctrl+A 全選 → Ctrl+C 複製，然後關掉這個 overlay。</div>
+        <textarea readonly style="flex:1;width:80vw;height:60vh;font-family:monospace;font-size:11px"></textarea>
+        <button id="__pcs_close" style="padding:8px 16px;font-size:14px;background:#2d7a4f;color:#fff;border:0;border-radius:6px;cursor:pointer">已複製，關閉</button>
+      </div>`;
+    document.body.appendChild(ov);
+    ov.querySelector('textarea').value = payload;
+    ov.querySelector('textarea').select();
+    ov.querySelector('#__pcs_close').onclick = () => ov.remove();
   }
 
   return orders;
