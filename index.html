@@ -180,8 +180,9 @@ body.fullscreen-mode .ord-card-actions{padding-top:6px;margin-top:6px}
 .fs-toggle{position:fixed;bottom:14px;right:14px;width:48px;height:48px;border-radius:50%;background:var(--tx);color:#fff;border:0;font-size:20px;font-weight:700;cursor:pointer;z-index:120;box-shadow:0 4px 16px rgba(0,0,0,.25);display:none;align-items:center;justify-content:center;transition:transform .15s,background .2s}
 .fs-toggle:active{transform:scale(.92)}
 body.fullscreen-mode .fs-toggle{background:var(--grn)}
-@media(max-width:768px){.fs-toggle{display:flex}}
+@media(max-width:768px){.fs-toggle{display:flex}.main{padding-bottom:80px}}
 body.has-batch-bar .fs-toggle{bottom:80px}
+body.has-batch-bar .main{padding-bottom:140px}
 </style>
 </head>
 <body>
@@ -213,7 +214,7 @@ firebase.initializeApp({
   projectId:"order-system-dddca"
 });
 const db=firebase.database();
-let orders=[],cFilter=localStorage.getItem('cFilter')||'all',cStatus=localStorage.getItem('cStatus')||'all',editId=null,shipId=null,sortOrder=localStorage.getItem('sortOrder')||'date-desc',cSpecial=null,statsPeriod=localStorage.getItem('statsPeriod')||'30',customerSort=localStorage.getItem('customerSort')||'lastDate';
+let orders=[],ordersLoaded=false,cFilter=localStorage.getItem('cFilter')||'all',cStatus=localStorage.getItem('cStatus')||'all',editId=null,shipId=null,sortOrder=localStorage.getItem('sortOrder')||'date-desc',cSpecial=null,statsPeriod=localStorage.getItem('statsPeriod')||'30',customerSort=localStorage.getItem('customerSort')||'lastDate';
 function persistFilters(){localStorage.setItem('cFilter',cFilter);localStorage.setItem('cStatus',cStatus);localStorage.setItem('sortOrder',sortOrder)}
 const selectedIds=new Set();
 const ST=['未確認','已確認','未接電','已出貨','已完成','已取消','轉線下'],DAYS=['週一','週二','週三','週四','週五','週六','週日'],TIMES=['早上','下午','晚上'];
@@ -226,7 +227,7 @@ function isModalOpen(){return !document.getElementById('modal-overlay').classLis
 function isInputFocused(){const a=document.activeElement;return a&&['INPUT','TEXTAREA','SELECT'].includes(a.tagName)&&!['q','cq','of-from','of-to','raw-input'].includes(a.id)}
 let _lastSyncAt=null;
 function setSyncOn(){const sb=document.getElementById('sync-badge');if(sb){_lastSyncAt=new Date();const ts=_lastSyncAt.toLocaleTimeString('zh-TW',{hour:'2-digit',minute:'2-digit',hour12:false});sb.className='sync-dot sync-on';sb.title=`最後同步：${ts}`;sb.innerHTML=`<span class="dot dot-on"></span>${ts}`}}
-function applyRemoteOrders(val){const sc=window.scrollY;orders=val?Object.values(val):[];orders.forEach(migrateStatus);updateCnt();
+function applyRemoteOrders(val){const sc=window.scrollY;orders=val?Object.values(val):[];orders.forEach(migrateStatus);ordersLoaded=true;updateCnt();
 const at=document.querySelector('.tab.active')?.textContent||'';
 if(at.includes('列表'))renderList();if(at.includes('輸出'))renderOutput();if(at.includes('統計'))renderStats();if(at.includes('客戶'))renderCustomers();
 setSyncOn();window.scrollTo(0,sc)}
@@ -764,12 +765,15 @@ function restoreFilterUI(){document.querySelectorAll('#tab-list .fbtn[data-fg="p
   // 客戶頁排序
   document.querySelectorAll('.fbtn[data-fg="csort"]').forEach(x=>x.classList.remove('on'));const cs=document.querySelector(`.fbtn[data-fg="csort"][onclick*="setCustomerSort('${customerSort}'"]`);if(cs)cs.classList.add('on')}
 restoreFilterUI();
-function dateBucket(dateStr){if(!dateStr)return'其他';const today=localDateISO();const yest=localDateISO(new Date(Date.now()-86400000));if(dateStr===today)return'🆕 今天';if(dateStr===yest)return'昨天';const now=new Date();const dow=now.getDay()||7;const startOfWeek=localDateISO(new Date(now.getTime()-(dow-1)*86400000));const startOfLastWeek=localDateISO(new Date(now.getTime()-(dow-1+7)*86400000));if(dateStr>=startOfWeek)return'本週';if(dateStr>=startOfLastWeek)return'上週';const cutoff30=localDateISO(new Date(Date.now()-30*86400000));if(dateStr>=cutoff30)return'本月';return'更早'}
+function dateBucket(dateStr){if(!dateStr)return'其他';const today=localDateISO();const yest=localDateISO(new Date(Date.now()-86400000));if(dateStr===today)return'🆕 今天';if(dateStr===yest)return'昨天';const now=new Date();/* 週日起算（台灣慣例，跟輸出頁的本週一致）*/const dow=now.getDay();const startOfWeek=localDateISO(new Date(now.getTime()-dow*86400000));const startOfLastWeek=localDateISO(new Date(now.getTime()-(dow+7)*86400000));if(dateStr>=startOfWeek)return'本週';if(dateStr>=startOfLastWeek)return'上週';const cutoff30=localDateISO(new Date(Date.now()-30*86400000));if(dateStr>=cutoff30)return'本月';return'更早'}
 function isMobile(){return window.matchMedia('(max-width:768px)').matches}
 function filterListOrders(){const q=(document.getElementById('q')?.value||'').toLowerCase();return orders.filter(o=>{if(cFilter!=='all'&&o.platform!==cFilter)return false;if(cStatus!=='all'&&o.status!==cStatus)return false;if(cSpecial==='changeAddr'&&!(o.note||'').includes('改地址'))return false;if(cSpecial==='newToday'&&!isNewOrder(o))return false;if(q){const h=[o.orderNo,o.product,o.name,o.phone,o.realPhone,o.address,o.note,o.specs].join(' ').toLowerCase();if(!h.includes(q))return false}return true})}
 function renderList(){updateFilterIndicator();const fl=filterListOrders();
 fl.sort((a,b)=>{const av=a.date||'',bv=b.date||'';if(av===bv)return 0;return sortOrder==='date-desc'?(av<bv?1:-1):(av>bv?1:-1)});
-if(!fl.length){const hasFilter=cFilter!=='all'||cStatus!=='all'||cSpecial||(document.getElementById('q')?.value||'').trim();document.getElementById('list-area').innerHTML=`<div class="card"><div class="card-b empty-state"><div class="es-icon">${hasFilter?'🔍':'📦'}</div><div class="es-title">${hasFilter?'沒有符合篩選的訂單':'尚無訂單'}</div><div class="es-hint">${hasFilter?'試試清除篩選 / 改搜尋字':'去匯入分頁貼後台資料 或 按 🔄 自動抓 MOMO'}</div></div></div>`;renderBatchBar([]);return}
+if(!fl.length){const hasFilter=cFilter!=='all'||cStatus!=='all'||cSpecial||(document.getElementById('q')?.value||'').trim();
+  // 初始 Firebase 還沒回應 → 顯示骨架載入而不是「尚無訂單」（避免誤導）
+  if(!ordersLoaded&&!hasFilter){document.getElementById('list-area').innerHTML='<div class="card"><div class="card-b" style="text-align:center;padding:40px 20px;color:var(--dm)"><div style="font-size:28px;opacity:.5;margin-bottom:8px">⏳</div><div style="font-size:13px">載入訂單中...</div></div></div>';return}
+  document.getElementById('list-area').innerHTML=`<div class="card"><div class="card-b empty-state"><div class="es-icon">${hasFilter?'🔍':'📦'}</div><div class="es-title">${hasFilter?'沒有符合篩選的訂單':'尚無訂單'}</div><div class="es-hint">${hasFilter?'試試清除篩選 / 改搜尋字':'去匯入分頁貼後台資料 或 按 🔄 自動抓 MOMO'}</div></div></div>`;renderBatchBar([]);return}
 if(isMobile())return renderListMobile(fl);
 const arrow=sortOrder==='date-desc'?'↓':'↑';
 const allChecked=fl.length>0&&fl.every(o=>selectedIds.has(o.id));
@@ -783,7 +787,7 @@ const subSlot=t=>`<div style="font-size:9px;color:var(--dm);margin-top:2px;text-
 const ibInner=o.install==='是'?`<div style="display:flex;flex-direction:column;align-items:center;gap:2px"><button class="toggle-on" onclick="toggleInstall('${oid}')" style="white-space:nowrap">安裝</button><input type="text" inputmode="numeric" value="${o.installFee||''}" placeholder="$" oninput="this.value=cn(this.value);setInstFee('${oid}',this.value)" class="fee-input" style="width:50px"></div>`:`<button class="toggle-off" onclick="toggleInstall('${oid}')" style="white-space:nowrap">不安裝</button>`;
 const ib=ibInner+subSlot(o.installDay?o.installDay+(o.installTime?' '+o.installTime:''):'');
 const abInner=o.addon==='是'?`<div style="display:flex;flex-direction:column;align-items:center;gap:2px"><button class="toggle-on" onclick="toggleAddon('${oid}')" style="white-space:nowrap">加購</button><input type="text" inputmode="numeric" value="${o.addonFee||''}" placeholder="$" oninput="this.value=cn(this.value);setAddonFee('${oid}',this.value)" class="fee-input" style="width:50px"></div>`:`<button class="toggle-off" onclick="toggleAddon('${oid}')" style="white-space:nowrap">無加購</button>`;
-const ab=abInner+subSlot('');
+const ab=abInner+subSlot(o.addon==='是'&&o.addonItems?(o.addonItems.length>10?o.addonItems.slice(0,10)+'…':o.addonItems):'');
 const newBadge=isNewOrder(o)?'<span class="tag" style="background:#dcfce7;color:#166534;margin-left:4px;font-size:9px">NEW</span>':'';
 const addrBadge=(o.note||'').includes('改地址')?'<span class="tag" style="background:#fef9ec;color:#b45309;margin-left:4px;font-size:9px" title="客戶申請改地址">改址</span>':'';
 const shipBtn=(o.platform==='MO'&&isPending(o.status))?`<button class="act" onclick="openShipMomo('${oid}')" title="回填物流單號到 MOMO" style="border-color:var(--mo);color:var(--mo);font-weight:700">📤 出貨</button> `:'';
@@ -816,6 +820,9 @@ const shipBtnHtml=(o.platform==='MO'&&isPending(o.status))?`<button class="prima
 const instPaidHtml=o.install==='是'?(((o.installPaidAmount||0)>0)?`<button class="success" onclick="togInstallPaid('${oid}')">🔧 已收 $${o.installPaidAmount}</button>`:`<button onclick="togInstallPaid('${oid}')" style="color:var(--amb);border-color:#f0d68a">🔧 未收 ⚠</button>`):'';
 const addonPaidHtml=o.addon==='是'?(((o.addonPaidAmount||0)>0)?`<button class="success" onclick="togAddonPaid('${oid}')">🛒 已收 $${o.addonPaidAmount}</button>`:`<button onclick="togAddonPaid('${oid}')" style="color:var(--amb);border-color:#f0d68a">🛒 未收 ⚠</button>`):'';
 const addrAckHtml=(o.platform==='MO'&&(o.note||'').includes('改地址'))?`<button class="success" onclick="changeAddrAck('${oid}',true)">✅ 同意改址</button><button class="danger" onclick="changeAddrAck('${oid}',false)">❌ 拒絕改址</button>`:'';
+const installInfo=o.install==='是'?(o.installDay?`${o.installDay}${o.installTime?' '+o.installTime:''}`:''):'';
+const addonInfo=o.addon==='是'&&o.addonItems?o.addonItems.slice(0,16):'';
+const addrAttrs=[];if(o.addrMgmt)addrAttrs.push((o.addrMgmt==='有'?'有':'無')+'管');if(o.addrElev&&o.addrElev!=='不適用')addrAttrs.push((o.addrElev==='有'?'有':'無')+'梯');
 h+=`<div class="${cardCls}" data-oid="${oid}">
 <div class="ord-card-h">
 <input type="checkbox" data-oid="${oid}" ${checked?'checked':''} onclick="toggleRowSelected('${oid}')" style="width:18px;height:18px;cursor:pointer">
@@ -828,8 +835,9 @@ ${platformPill(o.platform)}${addrBadge}${newBadge}
 <div class="ord-card-meta">
 <button class="${stCls(o.status)}" onclick="toggleStatus('${oid}')" style="min-height:30px">${o.status}</button>
 ${qty===1?`<span class="qty-pill">數量 1</span>`:''}
-${o.install==='是'?'<span class="qty-pill" style="color:var(--blu);border-color:var(--blu)">🔧 安裝 +$'+(o.installFee||0)+'</span>':''}
-${o.addon==='是'?'<span class="qty-pill" style="color:var(--mo);border-color:var(--mo)">🛒 加購 +$'+(o.addonFee||0)+'</span>':''}
+${o.install==='是'?`<span class="qty-pill" style="color:var(--blu);border-color:var(--blu)" title="${installInfo?esc(installInfo):'未排日期'}">🔧 安裝${o.installFee?' +$'+o.installFee:''}${installInfo?' '+esc(installInfo):''}</span>`:''}
+${o.addon==='是'?`<span class="qty-pill" style="color:var(--mo);border-color:var(--mo)" title="${addonInfo?esc(addonInfo):''}">🛒 加購${o.addonFee?' +$'+o.addonFee:''}${addonInfo?' '+esc(addonInfo):''}</span>`:''}
+${addrAttrs.length?`<span class="qty-pill" style="color:var(--dm);font-size:10px">🏠 ${addrAttrs.join('+')}</span>`:''}
 </div>
 ${ph?`<div class="ord-card-phone">📞 ${phoneTel(ph)}${o.realPhone?`<span class="real-ph">📱 ${phoneTel(o.realPhone)}</span>`:''}</div>`:''}
 ${o.address?`<div class="ord-card-addr">📍 ${esc(o.address)}</div>`:''}
@@ -869,7 +877,7 @@ let outputDateMode='today',outputFrom='',outputTo='';
 function filterOutputOrders(){const list=orders.slice();const today=new Date();today.setHours(0,0,0,0);const todayISO=localDateISO(today);if(outputDateMode==='today')return list.filter(o=>o.date===todayISO);if(outputDateMode==='yesterday'){const y=localDateISO(new Date(today.getTime()-86400000));return list.filter(o=>o.date===y)}if(outputDateMode==='week'){/* 本週 = 週日起算到今天（台灣慣例），含跨週自然納入到下一個週日 */const wkStart=new Date(today);wkStart.setDate(today.getDate()-today.getDay());const ws=localDateISO(wkStart);const wkEnd=new Date(wkStart);wkEnd.setDate(wkStart.getDate()+6);const we=localDateISO(wkEnd);return list.filter(o=>o.date&&o.date>=ws&&o.date<=we)}if(outputDateMode==='month'){const ms=todayISO.slice(0,7);return list.filter(o=>o.date&&o.date.startsWith(ms))}if(outputDateMode==='custom')return list.filter(o=>{if(!o.date)return false;if(outputFrom&&o.date<outputFrom)return false;if(outputTo&&o.date>outputTo)return false;return true});return list}
 function setOutputDate(mode,btn){outputDateMode=mode;document.querySelectorAll('#tab-output .filter-row .fbtn').forEach(x=>x.classList.remove('on'));if(btn)btn.classList.add('on');const ff=document.getElementById('of-from'),ft=document.getElementById('of-to');if(ff)ff.value='';if(ft)ft.value='';outputFrom='';outputTo='';renderOutput()}
 function onOutputDateChange(){outputFrom=document.getElementById('of-from').value;outputTo=document.getElementById('of-to').value;outputDateMode='custom';document.querySelectorAll('#tab-output .filter-row .fbtn').forEach(x=>x.classList.remove('on'));renderOutput()}
-function renderOutput(){const list=filterOutputOrders();const cntEl=document.getElementById('ocnt');if(cntEl)cntEl.textContent=list.length;const el=document.getElementById('output-area');if(!orders.length){el.textContent='尚無訂單';return}if(!list.length){el.textContent='⚠️ 此期間沒有訂單，請調整日期範圍';return}el.textContent=list.map(fmtS).join('\n---\n')}
+function renderOutput(){const list=filterOutputOrders();const cntEl=document.getElementById('ocnt');if(cntEl)cntEl.textContent=list.length;const el=document.getElementById('output-area');if(!ordersLoaded){el.textContent='⏳ 載入中...';return}if(!orders.length){el.textContent='尚無訂單';return}if(!list.length){el.textContent='⚠️ 此期間沒有訂單，請調整日期範圍';return}el.textContent=list.map(fmtS).join('\n---\n')}
 function copyOutput(){const list=filterOutputOrders();if(!list.length){alert('沒有訂單可複製');return}navigator.clipboard.writeText(list.map(fmtS).join('\n---\n'));const lbl=outputDateMode==='all'?'全部':outputDateMode==='today'?'今天':outputDateMode==='yesterday'?'昨天':outputDateMode==='week'?'本週':outputDateMode==='month'?'本月':`${outputFrom||'…'} → ${outputTo||'…'}`;alert(`已複製 ${list.length} 筆訂單！（${lbl}）`)}
 function setStatsPeriod(p,btn){statsPeriod=p;localStorage.setItem('statsPeriod',p);document.querySelectorAll('#tab-stats .filter-row .fbtn').forEach(x=>x.classList.remove('on'));if(btn)btn.classList.add('on');else{const auto=document.querySelector(`#tab-stats .fbtn[onclick*="setStatsPeriod('${p}'"]`);if(auto)auto.classList.add('on')}const mInp=document.getElementById('stats-month');if(mInp)mInp.value='';renderStats()}
 function setStatsMonth(ym){if(!ym)return;statsPeriod='month:'+ym;localStorage.setItem('statsPeriod',statsPeriod);document.querySelectorAll('#tab-stats .filter-row .fbtn').forEach(x=>x.classList.remove('on'));renderStats()}
