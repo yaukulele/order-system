@@ -58,7 +58,9 @@ td{padding:7px 10px;border-bottom:1px solid #f0ede6}tr:hover td{background:var(-
 .brand-mo{background:#e60169}.brand-mo .b-dot{color:#e60169}
 .brand-pc{background:#e60012}.brand-pc .b-dot{color:#e60012}
 .mono{font-family:var(--mono);font-size:11px}.trunc{max-width:180px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
-.prod-cell{max-width:280px;min-width:200px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.prod-cell{max-width:240px;min-width:160px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.spec-cell{width:64px;text-align:center;padding:6px 4px;white-space:nowrap}
+.spec-pill{display:inline-block;padding:2px 8px;border-radius:10px;background:var(--sf2);border:1px solid var(--bd);font-size:11px;font-weight:600;color:var(--tx);white-space:nowrap}
 .name-cell{min-width:70px;white-space:nowrap}
 .qty-cell{width:48px;text-align:center;padding:6px 2px}
 .qty-input{width:34px!important;text-align:center;padding:3px 4px}
@@ -330,27 +332,51 @@ function runParse(){const r=document.getElementById('raw-input').value;if(!r.tri
 function doImport(){const r=document.getElementById('raw-input').value;const p=parseAll(r);if(!p.length)return;const ex=new Set(orders.map(o=>o.orderNo));const nw=p.filter(o=>!ex.has(o.orderNo));if(!nw.length){alert('訂單已存在');return}orders.push(...nw);saveAll();alert('匯入 '+nw.length+' 筆！已同步雲端');clearInput()}
 
 // ===== AUTO-FETCH MOMO via momo-integration API =====
-const MOMO_API_KEY='momo_api_url',MOMO_TK_KEY='momo_api_token',DEFAULT_MOMO_API='https://momo-integration-production.up.railway.app';
-// Sync API URL + token via Firebase so任何裝置只要設定一次就好
-function syncMomoConfigToFirebase(){const a=localStorage.getItem(MOMO_API_KEY)||'',t=localStorage.getItem(MOMO_TK_KEY)||'';if(!a&&!t)return;db.ref('momo_config').set({api:a,token:t,updatedAt:new Date().toISOString()}).catch(()=>{})}
+// API URL 寫死 — 任何裝置零設定即可用。只有 Token 需要使用者輸入一次（之後 Firebase 同步給其他裝置）。
+const MOMO_TK_KEY='momo_api_token';
+const MOMO_API='https://momo-integration-production.up.railway.app';
+const looksLikeUrl=s=>typeof s==='string'&&/^https?:\/\//i.test(s.trim());
+function syncMomoTokenToFirebase(){const t=localStorage.getItem(MOMO_TK_KEY)||'';if(!t)return;db.ref('momo_config').set({token:t,updatedAt:new Date().toISOString()}).catch(()=>{})}
 const momoConfigReady=new Promise(resolve=>{
   db.ref('momo_config').once('value').then(snap=>{
     const cfg=snap.val();
-    if(cfg){
-      // Firebase 是 source of truth — 一律覆蓋 localStorage，避免某台電腦 localStorage 有舊/壞值卡住
-      if(cfg.api)localStorage.setItem(MOMO_API_KEY,cfg.api);
-      if(cfg.token)localStorage.setItem(MOMO_TK_KEY,cfg.token);
+    // 只信 Token，且必須不是 URL（防止某次誤貼 URL 進去毒害所有裝置 — 這次 bug 就是這樣發生的）
+    if(cfg&&cfg.token&&!looksLikeUrl(cfg.token)){
+      localStorage.setItem(MOMO_TK_KEY,cfg.token);
       const st=document.getElementById('momo-auto-status');
-      if(st&&cfg.token)st.textContent='✅ 已從雲端載入 API 設定（任一裝置設定後其他裝置免重輸）';
+      if(st)st.textContent='✅ 已從雲端載入 Token（任一裝置設定後其他裝置免重輸）';
     }
-    // 雲端沒值 或 雲端 api 是空 → 自動補預設 URL 上去（讓所有裝置零設定就能用）
-    if(!cfg||!cfg.api){localStorage.setItem(MOMO_API_KEY,DEFAULT_MOMO_API);db.ref('momo_config/api').set(DEFAULT_MOMO_API).catch(()=>{})}
+    // 雲端 Token 看起來像 URL → 自動清掉，免得繼續毒害其他裝置
+    if(cfg&&cfg.token&&looksLikeUrl(cfg.token)){db.ref('momo_config').remove().catch(()=>{})}
     resolve();
   }).catch(()=>resolve());
 });
-function getMomoApi(){let u=localStorage.getItem(MOMO_API_KEY);if(!u||!/^https?:\/\//.test(u)){u=DEFAULT_MOMO_API;localStorage.setItem(MOMO_API_KEY,u);syncMomoConfigToFirebase()}return u}
-function getMomoToken(){let t=localStorage.getItem(MOMO_TK_KEY);if(!t){t=prompt('🔑 第一次使用：請輸入 API Token（之後所有裝置自動共用，不會再問）\n\n值 = Railway Variables 裡的 API_TOKEN');if(!t)return null;localStorage.setItem(MOMO_TK_KEY,t.trim());syncMomoConfigToFirebase()}return t}
-function resetMomoApi(){const u=prompt('改 API 網址（留空保留 / 輸入 X 清除全部設定 / 預設 = 自動填入）：',localStorage.getItem(MOMO_API_KEY)||DEFAULT_MOMO_API);if(u===null)return;if(u.toUpperCase()==='X'){localStorage.removeItem(MOMO_API_KEY);localStorage.removeItem(MOMO_TK_KEY);db.ref('momo_config').remove().catch(()=>{});alert('已清除（含雲端）');return}if(u.trim())localStorage.setItem(MOMO_API_KEY,u.trim().replace(/\/+$/,''));const t=prompt('改 Token（留空保留）：',localStorage.getItem(MOMO_TK_KEY)||'');if(t&&t.trim())localStorage.setItem(MOMO_TK_KEY,t.trim());syncMomoConfigToFirebase();alert('已更新（已同步到雲端，所有裝置共用）')}
+function getMomoApi(){return MOMO_API}
+function getMomoToken(){
+  let t=localStorage.getItem(MOMO_TK_KEY);
+  if(t&&looksLikeUrl(t)){localStorage.removeItem(MOMO_TK_KEY);t=null}
+  if(!t){
+    t=prompt('🔑 請輸入 API Token（之後所有裝置自動共用，不會再問）\n\n值 = Railway momo-integration service Variables 裡的 API_TOKEN\n（不是 URL，是隨機字串）');
+    if(!t)return null;
+    t=t.trim();
+    if(looksLikeUrl(t)){alert('❌ 你輸入的是網址，不是 Token。\n\nToken 是 Railway Variables 裡 API_TOKEN 的值，是一串隨機字元（例如 abc123XYZ...），不是網址。');return null}
+    localStorage.setItem(MOMO_TK_KEY,t);
+    syncMomoTokenToFirebase();
+  }
+  return t;
+}
+function resetMomoApi(){
+  const cur=localStorage.getItem(MOMO_TK_KEY)||'';
+  const t=prompt('改 Token（留空保留 / 輸入 X 清除）：\n\nAPI URL 已寫死為：\n'+MOMO_API+'\n（不需改也不能改）',cur);
+  if(t===null)return;
+  if(t.toUpperCase()==='X'){localStorage.removeItem(MOMO_TK_KEY);db.ref('momo_config').remove().catch(()=>{});alert('✅ 已清除 Token（含雲端）');return}
+  const trimmed=(t||'').trim();
+  if(!trimmed)return;
+  if(looksLikeUrl(trimmed)){alert('❌ 你輸入的是網址，不是 Token。Token 是隨機字串，不是 URL');return}
+  localStorage.setItem(MOMO_TK_KEY,trimmed);
+  syncMomoTokenToFirebase();
+  alert('✅ Token 已更新（已同步到雲端，所有裝置共用）');
+}
 
 function transformMomoOrder(o){let date=localDateISO(),dateFmt='';const dm=(o.lastPricDate||'').match(/(\d{4})\/(\d{1,2})\/(\d{1,2})/);if(dm){date=`${dm[1]}-${String(dm[2]).padStart(2,'0')}-${String(dm[3]).padStart(2,'0')}`;dateFmt=`${parseInt(dm[2])}/${parseInt(dm[3])}`}
 return{id:gid(),date,dateFmt,platform:'MO',orderNo:o.completeOrderNo||'',product:o.goodsName||'',specs:o.goodsDtInfo||'',name:o.receiver||'',phone:o.receiverMobile||o.receiverTel||'',address:o.newReceiverAddr||o.receiverAddr||'',install:'否',installFee:0,installDay:'',installTime:'',addon:'否',addonFee:0,amount:parseInt(o.salePrice)||parseInt(o.buyPrice)||0,qty:parseInt(o.syslast)||1,status:'待出貨',note:o.newReceiverAddr?'⚠ 客戶申請改地址':''}}
@@ -467,6 +493,29 @@ async function fetchMomoAuto(){
   }finally{btn.disabled=false;btn.textContent=oldText}
 }
 
+// ===== 拆品名/規格（一個頁面顯示順眼用） =====
+// 從 MOMO 完整品名（例：「【ROLAND 樂蘭】 FP30X 88鍵電鋼琴 全套組 黑色」）拆出
+//   name = 「FP30X 全套組」 — 砍掉品牌前綴 + 通用敘述
+//   specs = 「黑色」 — 從尾巴抽顏色或既有 specs 欄
+const PRODUCT_NOISE=['88鍵電鋼琴','61鍵電鋼琴','76鍵電鋼琴','數位鋼琴','電子鋼琴','電鋼琴','電子琴'];
+function splitProductSpecs(o){
+  let name=(o&&o.product||'').trim();
+  let specs=(o&&o.specs||'').trim();
+  if(!name)return{name:'',specs};
+  // 1. 去掉【品牌】前綴
+  name=name.replace(/^【[^】]*】\s*/,'').trim();
+  // 2. 砍掉通用敘述
+  PRODUCT_NOISE.forEach(w=>{name=name.split(w).join(' ')});
+  // 3. 從尾巴抽顏色當規格（如有現成 specs 就尊重）
+  if(!specs){
+    const m=name.match(/\s+(\S{1,6}色)\s*$/);
+    if(m){specs=m[1];name=name.slice(0,m.index).trim()}
+  }
+  // 4. 收尾
+  name=name.replace(/\s+/g,' ').trim();
+  return{name,specs};
+}
+
 // ===== LIST =====
 function logActivity(o,action){const d=new Date();const p=n=>String(n).padStart(2,'0');const ts=`${d.getFullYear()}-${p(d.getMonth()+1)}-${p(d.getDate())} ${p(d.getHours())}:${p(d.getMinutes())}`;let note=((o.note||'')+`\n[${ts}] ${action}`).trim();const lines=note.split('\n');if(lines.length>60)note=lines.slice(-60).join('\n');o.note=note}
 function toggleStatus(oid){const o=findO(oid);if(!o)return;const prev=o.status;o.status=ST[(ST.indexOf(o.status)+1)%ST.length];logActivity(o,`狀態：${prev} → ${o.status}`);saveOne(o);renderList()}
@@ -496,11 +545,11 @@ if(!fl.length){const hasFilter=cFilter!=='all'||cStatus!=='all'||cSpecial||(docu
 if(isMobile())return renderListMobile(fl);
 const arrow=sortOrder==='date-desc'?'↓':'↑';
 const allChecked=fl.length>0&&fl.every(o=>selectedIds.has(o.id));
-let h=`<div class="card"><div class="card-h"><h3>${fl.length} 筆</h3><span style="font-size:11px;color:var(--dm);font-family:var(--mono)">合計 ${$(fl.reduce((s,o)=>s+tot(o),0))}</span></div><div style="overflow-x:auto"><table><thead><tr><th class="batch-cell"><input type="checkbox" ${allChecked?'checked':''} onclick="toggleAllSelected(event)" title="全選/全取消"></th><th onclick="toggleSort()" style="cursor:pointer;user-select:none" title="點擊切換排序">日期 ${arrow}</th><th>平台</th><th>品名</th><th class="tab-list-mobile-hide qty-cell">數量</th><th class="name-cell">姓名</th><th class="tab-list-mobile-hide acc-cell">安裝</th><th class="tab-list-mobile-hide acc-cell">加購</th><th>合計</th><th>狀態</th><th>操作</th></tr></thead><tbody>`;
+let h=`<div class="card"><div class="card-h"><h3>${fl.length} 筆</h3><span style="font-size:11px;color:var(--dm);font-family:var(--mono)">合計 ${$(fl.reduce((s,o)=>s+tot(o),0))}</span></div><div style="overflow-x:auto"><table><thead><tr><th class="batch-cell"><input type="checkbox" ${allChecked?'checked':''} onclick="toggleAllSelected(event)" title="全選/全取消"></th><th onclick="toggleSort()" style="cursor:pointer;user-select:none" title="點擊切換排序">日期 ${arrow}</th><th>平台</th><th>品名</th><th class="spec-cell">規格</th><th class="tab-list-mobile-hide qty-cell">數量</th><th class="name-cell">姓名</th><th class="tab-list-mobile-hide acc-cell">安裝</th><th class="tab-list-mobile-hide acc-cell">加購</th><th>合計</th><th>狀態</th><th>操作</th></tr></thead><tbody>`;
 let lastBucket='';
 fl.forEach(o=>{const oid=o.id;
 const bucket=dateBucket(o.date);
-if(bucket!==lastBucket){const cnt=fl.filter(x=>dateBucket(x.date)===bucket).length;h+=`<tr class="row-group-h"><td colspan="11">${bucket} <span style="color:var(--ht);font-weight:400;margin-left:6px">(${cnt} 筆)</span></td></tr>`;lastBucket=bucket}
+if(bucket!==lastBucket){const cnt=fl.filter(x=>dateBucket(x.date)===bucket).length;h+=`<tr class="row-group-h"><td colspan="12">${bucket} <span style="color:var(--ht);font-weight:400;margin-left:6px">(${cnt} 筆)</span></td></tr>`;lastBucket=bucket}
 const ib=o.install==='是'?`<div style="display:flex;align-items:center;gap:4px"><button class="toggle-on" onclick="toggleInstall('${oid}')">安裝</button><input type="text" inputmode="numeric" value="${o.installFee||''}" placeholder="金額" oninput="this.value=cn(this.value);setInstFee('${oid}',this.value)" class="fee-input"></div>${o.installDay?'<div style="font-size:9px;color:var(--dm);margin-top:2px">'+o.installDay+' '+(o.installTime||'')+'</div>':''}`:`<button class="toggle-off" onclick="toggleInstall('${oid}')">不安裝</button>`;
 const ab=o.addon==='是'?`<div style="display:flex;align-items:center;gap:4px"><button class="toggle-on" onclick="toggleAddon('${oid}')">加購</button><input type="text" inputmode="numeric" value="${o.addonFee||''}" placeholder="金額" oninput="this.value=cn(this.value);setAddonFee('${oid}',this.value)" class="fee-input"></div>`:`<button class="toggle-off" onclick="toggleAddon('${oid}')">無加購</button>`;
 const newBadge=isNewOrder(o)?'<span class="tag" style="background:#dcfce7;color:#166534;margin-left:4px;font-size:9px">NEW</span>':'';
@@ -512,7 +561,8 @@ const missingTrack=o.status==='已出貨'&&!o.trackingNo;
 const rowCls=missingTrack?'row-missing-track':'';
 const warnIcon=missingTrack?' <span title="已出貨但沒填物流單號" style="color:#dc2626;font-size:14px">⚠️</span>':'';
 const checked=selectedIds.has(o.id);
-h+=`<tr class="${rowCls}"><td class="batch-cell"><input type="checkbox" data-oid="${o.id}" ${checked?'checked':''} onclick="toggleRowSelected('${o.id}')"></td><td class="mono" style="width:60px">${fmtD(o.date)}${newBadge}</td><td style="width:90px">${platformPill(o.platform)}${addrBadge}</td><td class="prod-cell" title="${esc(o.product)}">${esc(o.product)}</td><td class="tab-list-mobile-hide qty-cell"><input type="text" inputmode="numeric" value="${o.qty||1}" oninput="this.value=cn(this.value);setQty('${oid}',this.value)" class="fee-input qty-input" style="width:36px${(o.qty||1)>1?';border-color:var(--mo);background:var(--mo-bg);color:var(--mo);font-weight:800':''}"></td><td class="name-cell">${esc(o.name)}</td><td class="tab-list-mobile-hide acc-cell">${ib}</td><td class="tab-list-mobile-hide acc-cell">${ab}</td><td class="total-cell" id="tot-${oid}" style="width:90px">${$(tot(o))}${trackInfo}</td><td style="width:84px"><button class="${stCls(o.status)}" onclick="toggleStatus('${oid}')">${o.status}</button>${warnIcon}</td><td style="white-space:nowrap">${addrAckBtn}${shipBtn}<button class="act" onclick="copyShipping('${oid}',this)" title="複製出貨資料（姓名/電話/地址/商品/單號）">📋</button> <button class="act" onclick="quickStatus('${oid}','已轉線下')" title="客戶轉線下／實體店面" style="border-color:#d8b4fe;color:#7e22ce">🏪</button> <button class="act" onclick="quickStatus('${oid}','已取消')" title="標記為已取消" style="border-color:#e8a8a4;color:var(--pc)">❌</button> <button class="act" onclick="openEdit('${oid}')">編輯</button> <button class="act" onclick="delOrder('${oid}')">刪</button></td></tr>`});
+const ps=splitProductSpecs(o);
+h+=`<tr class="${rowCls}"><td class="batch-cell"><input type="checkbox" data-oid="${o.id}" ${checked?'checked':''} onclick="toggleRowSelected('${o.id}')"></td><td class="mono" style="width:60px">${fmtD(o.date)}${newBadge}</td><td style="width:90px">${platformPill(o.platform)}${addrBadge}</td><td class="prod-cell" title="${esc(o.product)}">${esc(ps.name)}</td><td class="spec-cell" title="${esc(ps.specs)}">${ps.specs?`<span class="spec-pill">${esc(ps.specs)}</span>`:'<span style="color:#cbd5e1">—</span>'}</td><td class="tab-list-mobile-hide qty-cell"><input type="text" inputmode="numeric" value="${o.qty||1}" oninput="this.value=cn(this.value);setQty('${oid}',this.value)" class="fee-input qty-input" style="width:36px${(o.qty||1)>1?';border-color:var(--mo);background:var(--mo-bg);color:var(--mo);font-weight:800':''}"></td><td class="name-cell">${esc(o.name)}</td><td class="tab-list-mobile-hide acc-cell">${ib}</td><td class="tab-list-mobile-hide acc-cell">${ab}</td><td class="total-cell" id="tot-${oid}" style="width:90px">${$(tot(o))}${trackInfo}</td><td style="width:84px"><button class="${stCls(o.status)}" onclick="toggleStatus('${oid}')">${o.status}</button>${warnIcon}</td><td style="white-space:nowrap">${addrAckBtn}${shipBtn}<button class="act" onclick="copyShipping('${oid}',this)" title="複製出貨資料（姓名/電話/地址/商品/單號）">📋</button> <button class="act" onclick="quickStatus('${oid}','已轉線下')" title="客戶轉線下／實體店面" style="border-color:#d8b4fe;color:#7e22ce">🏪</button> <button class="act" onclick="quickStatus('${oid}','已取消')" title="標記為已取消" style="border-color:#e8a8a4;color:var(--pc)">❌</button> <button class="act" onclick="openEdit('${oid}')">編輯</button> <button class="act" onclick="delOrder('${oid}')">刪</button></td></tr>`});
 h+='</tbody></table></div></div>';document.getElementById('list-area').innerHTML=h;renderBatchBar(fl)}
 
 function toggleRowSelected(id){if(selectedIds.has(id))selectedIds.delete(id);else selectedIds.add(id);renderList()}
@@ -529,6 +579,7 @@ const checked=selectedIds.has(o.id);
 const qty=o.qty||1;
 const ph=bestPhone(o);
 const noteShort=(o.note||'').replace(/\n/g,' ').slice(0,80);
+const ps=splitProductSpecs(o);
 const shipBtnHtml=(o.platform==='MO'&&o.status==='待出貨')?`<button class="primary" onclick="openShipMomo('${oid}')">📤 出貨</button>`:'';
 const addrAckHtml=(o.platform==='MO'&&(o.note||'').includes('改地址'))?`<button class="success" onclick="changeAddrAck('${oid}',true)">✅ 同意改址</button><button class="danger" onclick="changeAddrAck('${oid}',false)">❌ 拒絕改址</button>`:'';
 h+=`<div class="${cardCls}" data-oid="${oid}">
@@ -539,7 +590,7 @@ ${platformPill(o.platform)}${addrBadge}${newBadge}
 <span class="ord-total">${$(tot(o))}</span>
 </div>
 <div class="ord-card-name">${esc(o.name||'(無姓名)')}${qty>1?` <span class="qty-pill large">× ${qty}</span>`:''}</div>
-<div class="ord-card-prod">${esc(o.product||'')}${o.specs?`（${esc(o.specs)}）`:''}</div>
+<div class="ord-card-prod">${esc(ps.name||o.product||'')}${ps.specs?` <span class="spec-pill">${esc(ps.specs)}</span>`:''}</div>
 <div class="ord-card-meta">
 <button class="${stCls(o.status)}" onclick="toggleStatus('${oid}')" style="min-height:30px">${o.status}</button>
 ${qty===1?`<span class="qty-pill">數量 1</span>`:''}
