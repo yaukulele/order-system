@@ -215,8 +215,8 @@ firebase.initializeApp({
   projectId:"order-system-dddca"
 });
 const db=firebase.database();
-let orders=[],ordersLoaded=false,cFilter=localStorage.getItem('cFilter')||'all',cStatus=localStorage.getItem('cStatus')||'all',editId=null,shipId=null,sortOrder=localStorage.getItem('sortOrder')||'date-desc',cSpecial=null,statsPeriod=localStorage.getItem('statsPeriod')||'30',customerSort=localStorage.getItem('customerSort')||'lastDate';
-function persistFilters(){localStorage.setItem('cFilter',cFilter);localStorage.setItem('cStatus',cStatus);localStorage.setItem('sortOrder',sortOrder)}
+let orders=[],ordersLoaded=false,cFilter=localStorage.getItem('cFilter')||'all',cStatus=localStorage.getItem('cStatus')||'all',editId=null,shipId=null,sortOrder=localStorage.getItem('sortOrder')||'date-desc',cSpecial=localStorage.getItem('cSpecial')||null,statsPeriod=localStorage.getItem('statsPeriod')||'30',customerSort=localStorage.getItem('customerSort')||'lastDate';
+function persistFilters(){localStorage.setItem('cFilter',cFilter);localStorage.setItem('cStatus',cStatus);localStorage.setItem('sortOrder',sortOrder);if(cSpecial)localStorage.setItem('cSpecial',cSpecial);else localStorage.removeItem('cSpecial')}
 const selectedIds=new Set();
 const ST=['未確認','已確認','未接電','已出貨','已完成','已取消','轉線下'],DAYS=['週一','週二','週三','週四','週五','週六','週日'],TIMES=['早上','下午','晚上'];
 function isPending(s){return s==='未確認'||s==='已確認'||s==='未接電'||s==='待出貨'}
@@ -545,7 +545,7 @@ async function deleteUser(u){
 }
 function setF(f,b){cFilter=f;_mobileExpand=false;document.querySelectorAll('.filter-row .fbtn[data-fg="plat"]').forEach(x=>x.classList.remove('on'));if(b)b.classList.add('on');else{const auto=document.querySelector(`.fbtn[data-fg="plat"][onclick*="setF('${f}'"]`);if(auto)auto.classList.add('on')}persistFilters();renderList()}
 function setSF(f,b){cStatus=f;_mobileExpand=false;document.querySelectorAll('.filter-row .fbtn[data-fg="status"]').forEach(x=>x.classList.remove('on'));if(b)b.classList.add('on');else{const auto=document.querySelector(`.fbtn[data-fg="status"][onclick*="setSF('${f}'"]`);if(auto)auto.classList.add('on')}persistFilters();renderList()}
-function toggleSpecial(kind,btn){_mobileExpand=false;if(cSpecial===kind){cSpecial=null;btn.classList.remove('on')}else{document.querySelectorAll('.filter-row .fbtn[data-fg="special"]').forEach(x=>x.classList.remove('on'));cSpecial=kind;btn.classList.add('on')}renderList()}
+function toggleSpecial(kind,btn){_mobileExpand=false;if(cSpecial===kind){cSpecial=null;btn?.classList.remove('on')}else{document.querySelectorAll('.filter-row .fbtn[data-fg="special"]').forEach(x=>x.classList.remove('on'));cSpecial=kind;btn?.classList.add('on')}persistFilters();renderList()}
 
 // ===== IMPORT =====
 function runParse(){const r=document.getElementById('raw-input').value;if(!r.trim())return;const p=parseAll(r);if(!p.length){document.getElementById('preview-area').innerHTML='<div class="card"><div class="card-b" style="color:var(--pc)">⚠ 無法辨識</div></div>';return}const txt=p.map(fmtS).join('\n---\n');const pl=p[0]?.platform||'';document.getElementById('preview-area').innerHTML=`<div class="card"><div class="card-h"><div style="display:flex;align-items:center;gap:8px"><h3>預覽</h3><span class="badge">${p.length} 筆</span>${platformPill(pl)}</div><button class="btn btn-g" onclick="navigator.clipboard.writeText(document.getElementById('pv').textContent);alert('已複製！')">複製</button></div><div class="card-b"><div class="result" id="pv">${esc(txt)}</div></div></div>`}
@@ -753,6 +753,9 @@ function toggleSort(){sortOrder=sortOrder==='date-desc'?'date-asc':'date-desc';p
 function resetAllFilters(){cFilter='all';cStatus='all';cSpecial=null;const q=document.getElementById('q');if(q)q.value='';document.querySelectorAll('#tab-list .fbtn').forEach(b=>b.classList.remove('on'));const fp=document.querySelector('#tab-list .fbtn[data-fg="plat"]');if(fp)fp.classList.add('on');const fs=document.querySelector('#tab-list .fbtn[data-fg="status"]');if(fs)fs.classList.add('on');persistFilters();renderList();showToast('已清除所有篩選')}
 function updateFilterIndicator(){const el=document.getElementById('filter-applied-info');if(!el)return;const count=(cFilter!=='all'?1:0)+(cStatus!=='all'?1:0)+(cSpecial?1:0)+((document.getElementById('q')?.value||'').trim()?1:0);if(count>0){el.style.display='inline-block';el.innerHTML=`<button onclick="resetAllFilters()" style="background:#fef0f5;color:var(--mo);border:1px solid var(--mo);padding:4px 12px;border-radius:14px;font-weight:700;cursor:pointer;font-size:11px;margin-right:6px">${count} 個篩選 ↻ 清除</button>`}else{el.style.display='none'}}
 function restoreFilterUI(){document.querySelectorAll('#tab-list .fbtn[data-fg="plat"]').forEach(x=>x.classList.remove('on'));const fp=document.querySelector(`#tab-list .fbtn[data-fg="plat"][onclick*="'${cFilter}'"]`);if(fp)fp.classList.add('on');else document.querySelector('#tab-list .fbtn[data-fg="plat"]')?.classList.add('on');document.querySelectorAll('#tab-list .fbtn[data-fg="status"]').forEach(x=>x.classList.remove('on'));const fs=document.querySelector(`#tab-list .fbtn[data-fg="status"][onclick*="'${cStatus}'"]`);if(fs)fs.classList.add('on');else document.querySelector('#tab-list .fbtn[data-fg="status"]')?.classList.add('on');
+  // 恢復 special filter (cSpecial)
+  document.querySelectorAll('#tab-list .fbtn[data-fg="special"]').forEach(x=>x.classList.remove('on'));
+  if(cSpecial){const sp=document.querySelector(`#tab-list .fbtn[data-fg="special"][onclick*="'${cSpecial}'"]`);if(sp)sp.classList.add('on')}
   // 統計頁期間
   document.querySelectorAll('#tab-stats .fbtn').forEach(x=>x.classList.remove('on'));const sp=document.querySelector(`#tab-stats .fbtn[onclick*="setStatsPeriod('${statsPeriod}'"]`);if(sp)sp.classList.add('on');else if(typeof statsPeriod==='string'&&statsPeriod.startsWith('month:')){const mInp=document.getElementById('stats-month');if(mInp)mInp.value=statsPeriod.slice(6)}
   // 客戶頁排序
