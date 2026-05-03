@@ -174,7 +174,7 @@ input[type="text"],input[type="number"],input[type="tel"],input[type="email"],in
 <div class="tabs"><button class="tab active" onclick="showTab('import')">📋 匯入</button><button class="tab" onclick="showTab('list')">📦 列表 <span class="badge" id="cnt">0</span></button><button class="tab" onclick="showTab('output')">📤 輸出</button><button class="tab" onclick="showTab('stats')">📊 統計</button><button class="tab" onclick="showTab('customers')">👥 客戶</button></div>
 
 <div class="main" id="tab-import"><div id="today-summary" style="display:none"></div><div class="card" style="background:var(--card-momo-bg);border:1px solid var(--card-momo-bd)"><div class="card-h" style="background:transparent"><h3>🚀 自動抓取 MOMO 訂單（API 直連，無需貼上）</h3><div style="display:flex;gap:6px;flex-wrap:wrap"><button class="btn" onclick="resetMomoApi()" title="重設 API 網址 / Token">⚙️</button><button class="btn" onclick="auditMomoFields()" title="檢查 MOMO API 全部欄位（證明真實電話拿不到）" style="font-size:11px">🔍 欄位稽核</button><button class="btn" onclick="testNotify()" title="送一則測試訊息到 Discord / LINE 確認連線" style="font-size:11px">🔔 測試通知</button><button class="btn" onclick="pollNow()" title="立刻 poll MOMO 一次（會推新訂單到 Discord/LINE）" style="font-size:11px">⚡ 立刻 poll</button><button class="btn btn-g" id="momo-auto-btn" onclick="fetchMomoAuto()" style="background:var(--mo);border-color:var(--mo)">🔄 自動抓 MOMO 未出貨訂單</button></div></div><div class="card-b" style="padding:10px 16px"><div id="momo-auto-status" style="font-size:11px;color:var(--dm);font-family:var(--mono)">第一次只問 Token（API 網址自動填），其他裝置直接共用 ☁️</div><div id="audit-result" style="margin-top:8px;font-size:11px;display:none"></div></div></div>
-<div class="card"><div class="card-h"><h3>貼上後台資料（自動辨識 MO / PC）</h3><div style="display:flex;gap:6px"><button class="btn" onclick="clearInput()">清空</button><button class="btn btn-b" onclick="runParse()">預覽</button><button class="btn btn-g" onclick="doImport()">匯入雲端</button></div></div><div class="card-b"><div class="hint"><b>MOMO：</b>SCM 後台 → Ctrl+A → Ctrl+C → 貼下方<br><b>PChome：</b>供應商後台 → Ctrl+A → Ctrl+C → 貼下方</div><textarea id="raw-input" rows="7" placeholder="把 MOMO 或 PChome 後台訂單資料貼在這裡..."></textarea></div></div><div id="preview-area"></div></div>
+<div class="card"><div class="card-h"><h3>貼上後台資料（自動辨識 MO / PC）</h3><div style="display:flex;gap:6px"><button class="btn" onclick="clearInput()">清空</button><button class="btn btn-b" onclick="runParse()">預覽</button><button class="btn btn-g" onclick="doImport()">匯入雲端</button><button class="btn" onclick="doReimport()" title="同單號自動覆蓋（修舊資料用）" style="border-color:#f59e0b;color:#b45309">🔄 重新匯入覆蓋</button></div></div><div class="card-b"><div class="hint"><b>MOMO：</b>SCM 後台 → Ctrl+A → Ctrl+C → 貼下方<br><b>PChome：</b>供應商後台 → Ctrl+A → Ctrl+C → 貼下方</div><textarea id="raw-input" rows="7" placeholder="把 MOMO 或 PChome 後台訂單資料貼在這裡..."></textarea></div></div><div id="preview-area"></div></div>
 
 <div class="main hidden" id="tab-list"><div class="filter-row"><button class="fbtn on" data-fg="plat" onclick="setF('all',this)">全部</button><button class="fbtn" data-fg="plat" onclick="setF('MO',this)">MOMO</button><button class="fbtn" data-fg="plat" onclick="setF('PC',this)">PChome</button><span class="fb-divider">｜</span><button class="fbtn on" data-fg="status" onclick="setSF('all',this)">全狀態</button><button class="fbtn" data-fg="status" onclick="setSF('待出貨',this)">待出貨</button><button class="fbtn" data-fg="status" onclick="setSF('已出貨',this)">已出貨</button><button class="fbtn" data-fg="status" onclick="setSF('已完成',this)">已完成</button><button class="fbtn" data-fg="status" onclick="setSF('已取消',this)">已取消</button><button class="fbtn" data-fg="status" onclick="setSF('已轉線下',this)">🏪 線下</button><span class="fb-divider">｜</span><button class="fbtn" data-fg="special" onclick="toggleSpecial('changeAddr',this)" title="只看客戶有申請改地址的訂單">⚠️ 改址</button><button class="fbtn" data-fg="special" onclick="toggleSpecial('newToday',this)" title="只看今日新單">🆕 今日</button><span style="flex:1"></span><span id="filter-applied-info" style="display:none"></span><input class="search" id="q" placeholder="搜尋姓名/單號/商品..." oninput="_mobileExpand=false;renderList()" title="按 / 或 Ctrl+K 快速聚焦"></div><div id="list-area"></div></div>
 
@@ -349,6 +349,34 @@ function toggleSpecial(kind,btn){_mobileExpand=false;if(cSpecial===kind){cSpecia
 // ===== IMPORT =====
 function runParse(){const r=document.getElementById('raw-input').value;if(!r.trim())return;const p=parseAll(r);if(!p.length){document.getElementById('preview-area').innerHTML='<div class="card"><div class="card-b" style="color:var(--pc)">⚠ 無法辨識</div></div>';return}const txt=p.map(fmtS).join('\n---\n');const pl=p[0]?.platform||'';document.getElementById('preview-area').innerHTML=`<div class="card"><div class="card-h"><div style="display:flex;align-items:center;gap:8px"><h3>預覽</h3><span class="badge">${p.length} 筆</span>${platformPill(pl)}</div><button class="btn btn-g" onclick="navigator.clipboard.writeText(document.getElementById('pv').textContent);alert('已複製！')">複製</button></div><div class="card-b"><div class="result" id="pv">${esc(txt)}</div></div></div>`}
 function doImport(){const r=document.getElementById('raw-input').value;const p=parseAll(r);if(!p.length)return;const ex=new Set(orders.map(o=>o.orderNo));const nw=p.filter(o=>!ex.has(o.orderNo));if(!nw.length){alert('訂單已存在');return}orders.push(...nw);saveAll();alert('匯入 '+nw.length+' 筆！已同步雲端');clearInput()}
+// 同單號自動覆蓋 — 給修壞舊資料用（保留 status/install/addon/note 等使用者改過的欄位）
+function doReimport(){
+  const r=document.getElementById('raw-input').value;const p=parseAll(r);if(!p.length){alert('沒有解析到訂單');return}
+  if(!confirm(`要用新解析結果覆蓋這 ${p.length} 筆訂單嗎？\n\n• 同單號 → 用新資料覆蓋品名/規格/姓名/電話/地址/金額/數量\n• 保留你改過的：狀態、安裝、加購、物流單號、備註\n• 沒見過的單號 → 直接新增`))return;
+  const byNo=new Map(orders.map(o=>[o.orderNo,o]));
+  let updated=0,added=0;
+  for(const np of p){
+    const old=byNo.get(np.orderNo);
+    if(old){
+      // 覆蓋資料欄位，但保留使用者狀態
+      old.product=np.product||old.product;
+      old.specs=np.specs||old.specs;
+      old.name=np.name||old.name;
+      old.phone=np.phone||old.phone;
+      old.realPhone=np.realPhone||old.realPhone;
+      old.address=np.address||old.address;
+      old.amount=np.amount||old.amount;
+      old.qty=np.qty||old.qty;
+      old.date=np.date||old.date;
+      old.dateFmt=np.dateFmt||old.dateFmt;
+      // 不動：status, install, installFee, installDay, installTime, addon, addonFee, trackingNo, delyGbStr, note
+      updated++;
+    }else{orders.push(np);added++}
+  }
+  saveAll();
+  alert(`✅ 重新匯入完成\n\n覆蓋更新：${updated} 筆\n新增：${added} 筆\n\n（狀態/安裝/加購/物流單號/備註保留）`);
+  clearInput();
+}
 
 // ===== AUTO-FETCH MOMO via momo-integration API =====
 // API URL 寫死 — 任何裝置零設定即可用。只有 Token 需要使用者輸入一次（之後 Firebase 同步給其他裝置）。
