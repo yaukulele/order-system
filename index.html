@@ -16,7 +16,7 @@
 [data-theme="dark"] .row-group-h{background:#1c2128;color:var(--ht)}
 [data-theme="dark"] .hint{background:#332b14;color:#fcd34d;border-color:#5a4818}
 body{font-family:var(--sans);background:var(--bg);color:var(--tx);min-height:100vh}
-.hdr{background:var(--sf);border-bottom:1px solid var(--bd);padding:12px 20px;display:flex;align-items:center;justify-content:space-between;position:sticky;top:0;z-index:100}
+.hdr{background:var(--sf);border-bottom:1px solid var(--bd);padding:12px 20px;padding-top:max(12px,env(safe-area-inset-top));display:flex;align-items:center;justify-content:space-between;position:sticky;top:0;z-index:100}
 .hdr h1{font-size:16px;font-weight:800}.hdr h1 small{font-weight:400;color:var(--dm);font-size:11px;margin-left:6px}
 .sync-dot{display:inline-flex;align-items:center;gap:4px;font-size:9px;font-weight:700;padding:2px 8px;border-radius:10px}
 .sync-on{background:var(--grn-bg);color:var(--grn)}.sync-off{background:#fef9ec;color:var(--amb)}
@@ -26,7 +26,7 @@ body{font-family:var(--sans);background:var(--bg);color:var(--tx);min-height:100
 .row-missing-track{animation:flashRed 1.6s ease-in-out infinite}
 .row-group-h{background:#f8f7f3;font-weight:700;color:var(--dm);font-size:11px}
 .row-group-h td{padding:8px 12px;border-top:2px solid var(--bd);border-bottom:1px solid var(--bd)}
-.batch-bar{position:fixed;bottom:0;left:0;right:0;background:var(--tx);color:#fff;padding:10px 16px;display:flex;align-items:center;gap:10px;z-index:90;box-shadow:0 -4px 12px rgba(0,0,0,.15)}
+.batch-bar{position:fixed;bottom:0;left:0;right:0;background:var(--tx);color:#fff;padding:10px 16px;padding-bottom:max(10px,env(safe-area-inset-bottom));display:flex;align-items:center;gap:10px;z-index:90;box-shadow:0 -4px 12px rgba(0,0,0,.15)}
 .batch-bar.hidden{display:none}
 .batch-bar button{background:var(--sf);color:var(--tx);border:0;padding:6px 12px;border-radius:6px;cursor:pointer;font-size:12px;font-weight:600}
 .batch-bar button:hover{background:#fff}
