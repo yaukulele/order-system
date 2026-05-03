@@ -178,8 +178,8 @@
       }
       // name candidate: 2-5 純中文 + 不在黑名單（出貨狀態/顏色/配送方式/UI 標籤）
       if (NAME_RE.test(c) && !NAME_BLACKLIST.has(c)) { nameCandidates.push(c); continue; }
-      // product: 含中文/英文 + 長度合理 + 不是 UI 黑名單
-      if (!product && c.length >= 3 && c.length < 80 && /[一-龥A-Za-z]/.test(c) && !PRODUCT_BLACKLIST_RE.test(c)) {
+      // product: 含中文/英文 + 長度合理 + 不是 UI 黑名單（120 chars 上限保留長品名）
+      if (!product && c.length >= 3 && c.length < 120 && /[一-龥A-Za-z]/.test(c) && !PRODUCT_BLACKLIST_RE.test(c)) {
         product = c.replace(/\s*DEBJ[A-Z0-9-]+/gi, '').replace(/\s+/g, ' ').trim();
         continue;
       }
