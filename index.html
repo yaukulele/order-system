@@ -503,8 +503,9 @@ function isAdmin(){return currentRole==='admin'}
 
 async function renderAccount(){
   if(!currentUser){document.getElementById('tab-account').innerHTML='<div class="card"><div class="card-b">請先登入</div></div>';return}
-  const snap=await db.ref('users').once('value');
-  const users=snap.val()||{};
+  let users={};
+  try{const snap=await db.ref('users').once('value');users=snap.val()||{}}
+  catch(e){document.getElementById('tab-account').innerHTML='<div class="card"><div class="card-b" style="color:var(--pc)">❌ 載入帳號資料失敗：'+esc(e.message)+'</div></div>';return}
   const me=users[currentUser]||{};
   let html='<div class="card"><div class="card-h"><h3>👤 我的帳號</h3></div><div class="card-b">'+
     '<div style="margin-bottom:6px">使用者：<strong>'+esc(currentUser)+'</strong></div>'+
@@ -526,8 +527,9 @@ async function renderAccount(){
         `<td style="white-space:nowrap"><button class="act" onclick="setUserPassword(${uJS})">改密碼</button>${adminBtns}</td></tr>`;
     }
     html+='</tbody></table></div></div>';
-    const logSnap=await db.ref('activityLog').orderByChild('ts').limitToLast(100).once('value');
-    const logs=[];logSnap.forEach(c=>logs.push(c.val()));logs.reverse();
+    let logs=[];
+    try{const logSnap=await db.ref('activityLog').orderByChild('ts').limitToLast(100).once('value');logSnap.forEach(c=>logs.push(c.val()));logs.reverse()}
+    catch(e){console.error('logs load failed',e)}
     html+='<div class="card"><div class="card-h"><h3>📜 操作紀錄（最近 '+logs.length+' 筆）</h3><button class="btn" onclick="renderAccount()">🔄 重新整理</button></div><div class="card-b" style="overflow-x:auto;max-height:60vh;overflow-y:auto"><table style="width:100%;font-size:11px"><thead><tr><th>時間</th><th>使用者</th><th>動作</th><th>詳情</th></tr></thead><tbody>';
     for(const l of logs){
       html+='<tr><td class="mono" style="font-size:10px;white-space:nowrap">'+esc((l.ts||'').slice(0,19).replace('T',' '))+'</td><td>'+esc(l.user||'')+'</td><td>'+esc(l.action||'')+'</td><td style="color:var(--dm)">'+esc(l.detail||'')+'</td></tr>';
