@@ -953,7 +953,10 @@ function setStatsPeriod(p,btn){statsPeriod=p;localStorage.setItem('statsPeriod',
 function setStatsMonth(ym){if(!ym)return;statsPeriod='month:'+ym;localStorage.setItem('statsPeriod',statsPeriod);document.querySelectorAll('#tab-stats .filter-row .fbtn').forEach(x=>x.classList.remove('on'));renderStats()}
 function ordersInPeriod(period){const today=localDateISO();if(period==='all')return orders.slice();if(period==='today')return orders.filter(o=>o.date===today);if(typeof period==='string'&&period.startsWith('month:')){const ym=period.slice(6);return orders.filter(o=>o.date&&o.date.startsWith(ym))}const days=parseInt(period,10)||30;const cutoff=localDateISO(new Date(Date.now()-days*86400000));return orders.filter(o=>o.date&&o.date>=cutoff)}
 function topN(arr,keyFn,n){const m=new Map();arr.forEach(x=>{const k=keyFn(x);if(!k)return;m.set(k,(m.get(k)||0)+1)});return[...m.entries()].sort((a,b)=>b[1]-a[1]).slice(0,n)}
-function renderStats(){const sub=ordersInPeriod(statsPeriod);const mo=sub.filter(o=>o.platform==='MO'),pc=sub.filter(o=>o.platform==='PC');
+function renderStats(){const sub=ordersInPeriod(statsPeriod);
+if(!ordersLoaded){document.getElementById('stats-area').innerHTML='<div class="card"><div class="card-b" style="text-align:center;padding:40px 20px;color:var(--dm)">⏳ 載入中...</div></div>';return}
+if(!sub.length){document.getElementById('stats-area').innerHTML=`<div class="card"><div class="card-b empty-state"><div class="es-icon">📊</div><div class="es-title">此期間沒有訂單可統計</div><div class="es-hint">換個期間（試試「全部」）</div></div></div>`;return}
+const mo=sub.filter(o=>o.platform==='MO'),pc=sub.filter(o=>o.platform==='PC');
 // 營收排除已取消的訂單（取消單沒進帳）
 const validForRevenue=sub.filter(o=>o.status!=='已取消');
 const sales=validForRevenue.reduce((s,o)=>s+tot(o),0),inst=validForRevenue.reduce((s,o)=>s+(o.installFee||0),0);const wait=sub.filter(o=>isPending(o.status)).length,ship=sub.filter(o=>o.status==='已出貨').length,done=sub.filter(o=>o.status==='已完成').length,cancel=sub.filter(o=>o.status==='已取消').length;
