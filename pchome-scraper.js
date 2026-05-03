@@ -108,13 +108,27 @@
     return -1;
   }
 
-  // 抽資料 row（跳過 header row 之前 + header row 本身）
-  const dataRows = allTr.slice(headerRowIdx + 1);
+  // 找 data row：PChome 後台常常一筆訂單一個 nested <table>，光在 picked table 內找會漏。
+  // 改成全文掃 <tr>，篩出「td 數 ≥ headers.length 一半」且至少一個 cell 命中 orderNo regex 的 row。
+  const ORDER_RE = /^20\d{6,12}-\d{2}$/;
+  const minCells = Math.max(8, Math.floor(headers.length / 2));
+  const allTrDoc = [...document.querySelectorAll('tr')];
+  const dataRows = allTrDoc.filter(tr => {
+    if (tr === allTr[headerRowIdx]) return false;
+    const tds = tr.querySelectorAll('td');
+    if (tds.length < minCells) return false;
+    for (const td of tds) {
+      if (ORDER_RE.test(norm(td.textContent || ''))) return true;
+    }
+    return false;
+  });
+  console.log(TAG, 'data row 候選（全文掃）:', dataRows.length, '個（minCells=' + minCells + '）');
+
   const orders = [];
   let orderNoFallbackIdx = -1, addressFallbackIdx = -1;
   for (const tr of dataRows) {
     const cells = [...tr.querySelectorAll('td')].map(c => norm(c.textContent || ''));
-    if (cells.length < headers.length / 2) continue; // 排除分隔/小計/空 row
+    if (cells.length < minCells) continue; // 雙重防護
 
     // orderNo：先用 header idx，沒命中就 regex 掃整行（鎖定第一個成功的 col index 之後 reuse）
     let orderNo = idx.orderNo >= 0 ? cells[idx.orderNo] : '';
@@ -130,7 +144,9 @@
       if (addressFallbackIdx < 0) addressFallbackIdx = fallbackAddressFrom(cells);
       if (addressFallbackIdx >= 0) address = cells[addressFallbackIdx] || address;
     }
-    address = address.replace(/\s*\([^)]*寄\)\s*/g, '').trim();
+    // PChome 後台常把「收貨人地址 / 訂單編號」併成同一個 cell（多行），norm 後變成
+    // "新北市XXX 20260504024316-01" — 把尾巴的訂單號也砍掉
+    address = address.replace(/\s*20\d{6,12}-\d{2}\s*/g, ' ').replace(/\s*\([^)]*寄\)\s*/g, '').replace(/\s+/g, ' ').trim();
 
     // specs 可能是「白色 002」或「黑色全套 001」— 砍掉尾巴 3 位數編號
     let specs = idx.specs >= 0 ? cells[idx.specs] : '';
@@ -140,9 +156,13 @@
     const qty = idx.qty >= 0 ? (parseInt(cells[idx.qty].replace(/[^\d]/g, '')) || 1) : 1;
     const amount = idx.amount >= 0 ? (parseInt(cells[idx.amount].replace(/[^\d]/g, '')) || 0) : 0;
 
+    // 「商品名稱商品ID」這種 cell 內含 DEBJ 料號，砍掉
+    let product = idx.product >= 0 ? cells[idx.product] : '';
+    product = product.replace(/\s*DEBJ[A-Z0-9-]+/g, '').replace(/\s+/g, ' ').trim();
+
     orders.push({
       orderNo,
-      product: idx.product >= 0 ? cells[idx.product] : '',
+      product,
       specs,
       skuCode: idx.skuCode >= 0 ? cells[idx.skuCode] : '',
       qty,
