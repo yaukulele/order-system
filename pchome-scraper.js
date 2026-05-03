@@ -138,11 +138,8 @@
     '消光','啞光','霧面','亮面','防水','男生','女生','男款','女款','大號','中號','小號','標準','基本','豪華','旗艦',
     '已下單','未下單','備貨中','預購','現貨','缺色','選購','加購區','原廠',
   ]);
-  // 商品 / 規格 黑名單（不能當 product）— 完全等於這些字串就 skip
-  const PRODUCT_BLACKLIST_EXACT = new Set([
-    '同上','全同','看電話','回填','未出貨','已出貨','請選擇','不出貨','清除','已確認','未確認','配送中','已完成','已取消','已撿貨','撿貨中','已揀貨','揀貨中',
-    '宅配','黑貓宅急便','新竹貨運','順豐','店配','超商取貨','郵寄','到付','貨到付款',
-  ]);
+  // product 黑名單 — prefix match（涵蓋 PChome 各種 dropdown placeholder + 出貨狀態文字）
+  const PRODUCT_BLACKLIST_RE = /^(同上|全同|看電話|回填|未出貨|已出貨|請選擇|不出貨|清除|已確認|未確認|配送中|已完成|已取消|已撿貨|撿貨中|已揀貨|揀貨中|宅配|黑貓|新竹|順豐|店配|超商|郵寄|到付|貨到|備貨|預購|現貨|商品自行|自行出貨|預設|保留|敬請|無|尚未|統編|抬頭|請款)/;
   const orders = [];
   for (const tr of dataRows) {
     const cells = [...tr.querySelectorAll('td')].map(c => norm(c.textContent || ''));
@@ -174,12 +171,15 @@
       if (!zip && /^\d{3,5}$/.test(c)) { zip = c; continue; }
       // 純數字 cell → 進 numeric pool（之後挑 qty / amount）
       if (/^[\d,]+$/.test(c)) { const n = parseInt(c.replace(/,/g, '')); if (!isNaN(n)) numericCells.push(n); continue; }
-      // specs: 顏色/款式短字串
-      if (!specs && SPEC_RE.test(c) && c.length <= 12) { specs = c; continue; }
+      // specs: 顏色/款式 (可能尾巴有 3 位數編號 "白色 002")
+      if (!specs) {
+        const stripped = c.replace(/\s+\d{3}\s*$/, '').trim();
+        if (stripped && stripped.length <= 12 && SPEC_RE.test(stripped)) { specs = stripped; continue; }
+      }
       // name candidate: 2-5 純中文 + 不在黑名單（出貨狀態/顏色/配送方式/UI 標籤）
       if (NAME_RE.test(c) && !NAME_BLACKLIST.has(c)) { nameCandidates.push(c); continue; }
       // product: 含中文/英文 + 長度合理 + 不是 UI 黑名單
-      if (!product && c.length >= 3 && c.length < 80 && /[一-龥A-Za-z]/.test(c) && !PRODUCT_BLACKLIST_EXACT.has(c)) {
+      if (!product && c.length >= 3 && c.length < 80 && /[一-龥A-Za-z]/.test(c) && !PRODUCT_BLACKLIST_RE.test(c)) {
         product = c.replace(/\s*DEBJ[A-Z0-9-]+/gi, '').replace(/\s+/g, ' ').trim();
         continue;
       }
