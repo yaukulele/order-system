@@ -1,6 +1,6 @@
 // Order system service worker — minimal "stale-while-revalidate" for shell.
 // Bumps cache version on every release; old caches are cleaned up on activate.
-const CACHE = "order-system-v59";
+const CACHE = "order-system-v60";
 const SHELL = ["./", "./index.html", "./manifest.json", "./icon.svg"];
 
 self.addEventListener("install", (event) => {
