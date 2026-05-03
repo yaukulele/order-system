@@ -603,10 +603,12 @@ const ex=new Set(orders.map(o=>o.orderNo));const nw=dedup.filter(o=>!ex.has(o.or
 // 同單號自動覆蓋 — 給修壞舊資料用（保留 status/install/addon/note 等使用者改過的欄位）
 function doReimport(){
   const r=document.getElementById('raw-input').value;const p=parseAll(r);if(!p.length){alert('沒有解析到訂單');return}
-  if(!confirm(`要用新解析結果覆蓋這 ${p.length} 筆訂單嗎？\n\n• 同單號 → 用新資料覆蓋品名/規格/姓名/電話/地址/金額/數量\n• 保留你改過的：狀態、安裝、加購、物流單號、備註\n• 沒見過的單號 → 直接新增`))return;
+  // 同批 dedup（同 orderNo 只取第一筆）
+  const seen=new Set();const dedup=p.filter(o=>{if(!o.orderNo||seen.has(o.orderNo))return false;seen.add(o.orderNo);return true});
+  if(!confirm(`要用新解析結果覆蓋這 ${dedup.length} 筆訂單嗎？\n\n• 同單號 → 用新資料覆蓋品名/規格/姓名/電話/地址/金額/數量\n• 保留你改過的：狀態、安裝、加購、物流單號、備註\n• 沒見過的單號 → 直接新增`))return;
   const byNo=new Map(orders.map(o=>[o.orderNo,o]));
   let updated=0,added=0;
-  for(const np of p){
+  for(const np of dedup){
     const old=byNo.get(np.orderNo);
     if(old){
       // 覆蓋資料欄位，但保留使用者狀態
@@ -624,7 +626,7 @@ function doReimport(){
       updated++;
     }else{orders.push(np);added++}
   }
-  saveAll();
+  saveAll(true);
   alert(`✅ 重新匯入完成\n\n覆蓋更新：${updated} 筆\n新增：${added} 筆\n\n（狀態/安裝/加購/物流單號/備註保留）`);
   clearInput();
 }
