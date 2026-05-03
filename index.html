@@ -345,7 +345,24 @@ function copyOrderNo(no,btn){if(!no)return;navigator.clipboard.writeText(no).the
 function platformPill(p){if(p==='MO')return '<span class="brand-pill brand-mo" title="momo">M</span>';if(p==='PC')return '<span class="brand-pill brand-pc" title="PChome 24h">P</span>';return `<span class="tag">${esc(p||'')}</span>`}
 function cleanNote(n){return(n||'').split('\n').filter(l=>!/^\[\d{4}-\d{2}-\d{2}\s\d{2}:\d{2}\]/.test(l.trim())).filter(l=>!/^【(?:安裝|加購)】/.test(l.trim())).map(l=>l.trim()).filter(Boolean).join('\n')}
 // 從 install/addon 欄位 + 用戶 note 重建備註行；安裝/加購用 toggle 設好的 fee 即使從沒進過編輯視窗也會出現
-function buildNoteLine(o){const parts=[];/* 地址屬性放最前 */if(o.addrMgmt)parts.push((o.addrMgmt==='有'?'有':'無')+'管理室');if(o.addrElev&&o.addrElev!=='不適用')parts.push((o.addrElev==='有'?'有':'無')+'電梯');if(o.install==='是'){let s='【安裝】';if(o.installDay)s+=o.installDay+(o.installTime?' '+o.installTime:'');if(o.installFee)s+=(s==='【安裝】'?'':' ')+'$'+o.installFee;if(s==='【安裝】')s='【安裝】是';/* 安裝款收款狀態，必出 */s+=' '+(o.installPaidAmount>0?'已收 $'+o.installPaidAmount:'未收');parts.push(s.trim())}if(o.addon==='是'){let s='【加購】';if(o.addonItems&&o.addonItems.trim())s+=o.addonItems.trim();if(o.addonFee)s+=(s==='【加購】'?'':' ')+'$'+o.addonFee;if(s==='【加購】')s='【加購】是';/* 加購款收款狀態，必出 */s+=' '+(o.addonPaidAmount>0?'已收 $'+o.addonPaidAmount:'未收');parts.push(s.trim())}const cn=cleanNote(o.note);if(cn)parts.push(cn.replace(/\n/g,' / '));return parts.length?'備註：'+parts.join(' / '):''}
+function buildNoteLine(o){const parts=[];/* 地址屬性放最前 */if(o.addrMgmt)parts.push((o.addrMgmt==='有'?'有':'無')+'管理室');if(o.addrElev&&o.addrElev!=='不適用')parts.push((o.addrElev==='有'?'有':'無')+'電梯');
+if(o.install==='是'){
+  const segs=[];
+  if(o.installDay)segs.push(o.installDay+(o.installTime?' '+o.installTime:''));
+  if(o.installFee)segs.push('$'+o.installFee);
+  if(!segs.length)segs.push('是');
+  segs.push(o.installPaidAmount>0?'已收 $'+o.installPaidAmount:'未收');
+  parts.push('【安裝】'+segs.join(' '));
+}
+if(o.addon==='是'){
+  const segs=[];
+  if(o.addonItems&&o.addonItems.trim())segs.push(o.addonItems.trim());
+  if(o.addonFee)segs.push('$'+o.addonFee);
+  if(!segs.length)segs.push('是');
+  segs.push(o.addonPaidAmount>0?'已收 $'+o.addonPaidAmount:'未收');
+  parts.push('【加購】'+segs.join(' '));
+}
+const cn=cleanNote(o.note);if(cn)parts.push(cn.replace(/\n/g,' / '));return parts.length?'備註：'+parts.join(' / '):''}
 function fmtS(o){const d=o.dateFmt||fmtD(o.date),q=(o.qty||1)>1?' x '+o.qty:'',pr=(o.product||'')+q,ph=bestPhone(o);const noteLine=buildNoteLine(o);if(o.platform==='PC')return[d+' PC',o.orderNo,pr,o.specs,o.name,ph,o.address,noteLine].filter(Boolean).join('\n');return[d+' MO',o.orderNo,pr,o.specs,o.name,ph,o.address,noteLine].filter(Boolean).join('\n')}
 function fmtShipping(o){const q=(o.qty||1)>1?' × '+o.qty:'',pr=(o.product||'')+(o.specs?'（'+o.specs+'）':'')+q,ph=bestPhone(o);const noteLine=buildNoteLine(o);return[`姓名：${o.name||''}`,ph?`電話：${ph}`:'',`地址：${o.address||''}`,`商品：${pr}`,`單號：${o.orderNo||''}`,noteLine].filter(Boolean).join('\n')}
 function copyShipping(oid,btn){const o=findO(oid);if(!o)return;const txt=fmtShipping(o);navigator.clipboard.writeText(txt).then(()=>{if(!btn)return;const old=btn.textContent;btn.textContent='✓';btn.style.color='var(--grn)';setTimeout(()=>{if(btn){btn.textContent=old;btn.style.color=''}},1300)}).catch(err=>alert('複製失敗：'+err.message))}
