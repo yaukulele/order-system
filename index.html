@@ -324,8 +324,13 @@ function showToast(msg,actionLabel,actionFn,duration){
   if(actionFn)el.querySelector('#_toast-action').onclick=()=>{actionFn();el.remove();if(_toastEl===el)_toastEl=null};
   _toastTimer=setTimeout(()=>{if(el.parentNode){el.style.opacity='0';el.style.transition='opacity .3s';setTimeout(()=>el.remove(),300)}if(_toastEl===el)_toastEl=null},duration||5000);
 }
-// Firebase 連線狀態 — .info/connected 偵測
-db.ref('.info/connected').on('value',snap=>{const ok=!!snap.val();document.body.classList.toggle('offline',!ok);const banner=document.getElementById('offline-banner');if(banner)banner.classList.toggle('hidden',ok)});
+// Firebase 連線狀態 — .info/connected 偵測（給 1 秒寬限期，避免每次載入都閃離線 banner）
+let _offlineDebounce=null;
+db.ref('.info/connected').on('value',snap=>{const ok=!!snap.val();
+  if(_offlineDebounce){clearTimeout(_offlineDebounce);_offlineDebounce=null}
+  if(ok){document.body.classList.remove('offline');document.getElementById('offline-banner')?.classList.add('hidden')}
+  else{_offlineDebounce=setTimeout(()=>{_offlineDebounce=null;document.body.classList.add('offline');document.getElementById('offline-banner')?.classList.remove('hidden')},1000)}
+});
 function bestPhone(o){return o.realPhone||o.phone||''}
 function mapsLink(addr){if(!addr)return'';const url='https://www.google.com/maps/search/?api=1&query='+encodeURIComponent(addr);return `<a href="${url}" target="_blank" rel="noopener" style="color:inherit;text-decoration:none;border-bottom:1px dashed currentColor" title="點擊用 Google Maps 開啟">${esc(addr)}</a>`}
 function copyOrderNo(no,btn){if(!no)return;navigator.clipboard.writeText(no).then(()=>{if(btn){const old=btn.textContent;btn.textContent='✓';btn.style.color='var(--grn)';setTimeout(()=>{btn.textContent=old;btn.style.color=''},1100)}}).catch(()=>{})}
@@ -377,6 +382,11 @@ function showTab(t){const tabs=['import','list','output','stats','customers','ac
 let currentUser=null,currentRole='';
 async function bootAuth(){
   try{
+    // 樂觀路徑：localStorage 有 user + role 快取 → 立刻 onAuthReady() 讓 UI 不卡
+    const saved=localStorage.getItem('orderSysUser');
+    const savedRole=localStorage.getItem('orderSysRole')||'user';
+    if(saved){currentUser=saved;currentRole=savedRole;onAuthReady()}
+    // 背景驗證 — Firebase 真的有這個 user 嗎？
     const usersSnap=await db.ref('users').once('value');
     if(!usersSnap.exists()){
       const ts=new Date().toISOString();
@@ -386,14 +396,21 @@ async function bootAuth(){
         '雨停':{password:'雨停',role:'user',createdAt:ts}
       });
     }
-    const saved=localStorage.getItem('orderSysUser');
     if(saved){
       const snap=await db.ref('users/'+saved).once('value');
-      if(snap.exists()){currentUser=saved;currentRole=snap.val().role||'user';onAuthReady();return}
+      if(snap.exists()){
+        const role=snap.val().role||'user';
+        currentUser=saved;currentRole=role;
+        localStorage.setItem('orderSysRole',role);
+        onAuthReady();return;
+      }
+      // 雲端找不到這個 user → 強制登出
       localStorage.removeItem('orderSysUser');
+      localStorage.removeItem('orderSysRole');
+      currentUser=null;currentRole='';
     }
     showLoginModal();
-  }catch(e){console.error('bootAuth failed',e);showLoginModal()}
+  }catch(e){console.error('bootAuth failed',e);if(!currentUser)showLoginModal()}
 }
 function showLoginModal(){const ov=document.getElementById('login-overlay');if(ov){ov.classList.remove('hidden');setTimeout(()=>document.getElementById('login-user')?.focus(),100)}}
 function hideLoginModal(){document.getElementById('login-overlay')?.classList.add('hidden')}
@@ -408,6 +425,7 @@ async function doLogin(){
     if(!data||data.password!==p){err.textContent='帳號或密碼錯誤';return}
     currentUser=u;currentRole=data.role||'user';
     localStorage.setItem('orderSysUser',u);
+    localStorage.setItem('orderSysRole',currentRole);
     await logUserAction('login','');
     hideLoginModal();
     document.getElementById('login-pass').value='';
@@ -420,6 +438,7 @@ async function doLogout(){
   await logUserAction('logout','');
   currentUser=null;currentRole='';
   localStorage.removeItem('orderSysUser');
+  localStorage.removeItem('orderSysRole');
   showLoginModal();
 }
 async function logUserAction(action,detail){
