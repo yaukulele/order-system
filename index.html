@@ -425,9 +425,9 @@ async function renderAccount(){
     html+='<div class="card"><div class="card-h"><h3>🛡️ 帳號管理</h3><button class="btn btn-g" onclick="addUser()">+ 新增帳號</button></div><div class="card-b" style="overflow-x:auto"><table style="width:100%"><thead><tr><th>使用者</th><th>密碼</th><th>角色</th><th>建立時間</th><th>操作</th></tr></thead><tbody>';
     for(const [u,d] of Object.entries(users)){
       const isMe=u===currentUser;
-      const uJS=JSON.stringify(u);
+      const uJS=JSON.stringify(u).replace(/"/g,'&quot;');
       const otherRole=d.role==='admin'?'user':'admin';
-      const adminBtns=isMe?'':` <button class="act" onclick="setUserRole(${uJS},'${otherRole}')">${d.role==='admin'?'降一般':'升管理'}</button> <button class="act" onclick="deleteUser(${uJS})" style="color:var(--pc);border-color:#e8a8a4">刪</button>`;
+      const adminBtns=isMe?'':` <button class="act" onclick="setUserRole(${uJS},&quot;${otherRole}&quot;)">${d.role==='admin'?'降一般':'升管理'}</button> <button class="act" onclick="deleteUser(${uJS})" style="color:var(--pc);border-color:#e8a8a4">刪</button>`;
       html+=`<tr><td><strong>${esc(u)}${isMe?' (我)':''}</strong></td>`+
         `<td class="mono">${esc(d.password||'')}</td>`+
         `<td>${d.role==='admin'?'🛡️ 管理員':'一般'}</td>`+
