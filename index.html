@@ -326,6 +326,8 @@ function showToast(msg,actionLabel,actionFn,duration){
 // Firebase 連線狀態 — .info/connected 偵測
 db.ref('.info/connected').on('value',snap=>{const ok=!!snap.val();document.body.classList.toggle('offline',!ok);const banner=document.getElementById('offline-banner');if(banner)banner.classList.toggle('hidden',ok)});
 function bestPhone(o){return o.realPhone||o.phone||''}
+function mapsLink(addr){if(!addr)return'';const url='https://www.google.com/maps/search/?api=1&query='+encodeURIComponent(addr);return `<a href="${url}" target="_blank" rel="noopener" style="color:inherit;text-decoration:none;border-bottom:1px dashed currentColor" title="點擊用 Google Maps 開啟">${esc(addr)}</a>`}
+function copyOrderNo(no,btn){if(!no)return;navigator.clipboard.writeText(no).then(()=>{if(btn){const old=btn.textContent;btn.textContent='✓';btn.style.color='var(--grn)';setTimeout(()=>{btn.textContent=old;btn.style.color=''},1100)}}).catch(()=>{})}
 function platformPill(p){if(p==='MO')return '<span class="brand-pill brand-mo" title="momo">M</span>';if(p==='PC')return '<span class="brand-pill brand-pc" title="PChome 24h">P</span>';return `<span class="tag">${esc(p||'')}</span>`}
 function cleanNote(n){return(n||'').split('\n').filter(l=>!/^\[\d{4}-\d{2}-\d{2}\s\d{2}:\d{2}\]/.test(l.trim())).filter(l=>!/^【安裝】/.test(l.trim())).map(l=>l.trim()).filter(Boolean).join('\n')}
 // 從 install/addon 欄位 + 用戶 note 重建備註行；安裝/加購用 toggle 設好的 fee 即使從沒進過編輯視窗也會出現
@@ -853,7 +855,7 @@ ${o.addon==='是'?`<span class="qty-pill" style="color:var(--mo);border-color:va
 ${addrAttrs.length?`<span class="qty-pill" style="color:var(--dm);font-size:10px">🏠 ${addrAttrs.join('+')}</span>`:''}
 </div>
 ${ph?`<div class="ord-card-phone">📞 ${phoneTel(ph)}${o.realPhone?`<span class="real-ph">📱 ${phoneTel(o.realPhone)}</span>`:''}</div>`:''}
-${o.address?`<div class="ord-card-addr">📍 ${esc(o.address)}</div>`:''}
+${o.address?`<div class="ord-card-addr">📍 ${mapsLink(o.address)}</div>`:''}
 ${noteShort?`<div class="ord-card-note">${esc(noteShort)}</div>`:''}
 <div class="ord-card-actions">
 ${addrAckHtml}${shipBtnHtml}${instPaidHtml}${addonPaidHtml}
