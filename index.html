@@ -753,8 +753,8 @@ async function fetchMomoAuto(){
 //   specs = 「黑色」 — 從尾巴抽顏色或既有 specs 欄
 const PRODUCT_NOISE=['88鍵電鋼琴','61鍵電鋼琴','76鍵電鋼琴','數位鋼琴','電子鋼琴','電鋼琴','電子琴'];
 function splitProductSpecs(o){
-  let name=(o&&o.product||'').trim();
-  let specs=(o&&o.specs||'').trim();
+  let name=String((o&&o.product)||'').trim();
+  let specs=String((o&&o.specs)||'').trim();
   if(!name)return{name:'',specs};
   // 1. 去掉【品牌】前綴
   name=name.replace(/^【[^】]*】\s*/,'').trim();
