@@ -990,7 +990,9 @@ function aggregateCustomers(){const m=new Map();orders.forEach(o=>{const key=(o.
 // 已取消單不算總消費
 if(o.status!=='已取消')cur.total+=tot(o);
 cur.platforms.add(o.platform);if(o.address)cur.addresses.add(o.address);if(o.realPhone&&!cur.realPhone)cur.realPhone=o.realPhone;if(o.date>cur.lastDate)cur.lastDate=o.date;m.set(key,cur)});const arr=[...m.values()];const sorters={lastDate:(a,b)=>(b.lastDate||'').localeCompare(a.lastDate||''),total:(a,b)=>b.total-a.total,cnt:(a,b)=>b.orders.length-a.orders.length,name:(a,b)=>a.name.localeCompare(b.name,'zh-TW')};arr.sort(sorters[customerSort]||sorters.lastDate);return arr}
-function renderCustomers(){const q=(document.getElementById('cq')?.value||'').toLowerCase().trim();const all=aggregateCustomers();const fl=q?all.filter(c=>(c.name+c.phone+(c.realPhone||'')+[...c.addresses].join(' ')).toLowerCase().includes(q)):all;document.getElementById('ccnt').textContent=fl.length;
+function renderCustomers(){
+if(!ordersLoaded){document.getElementById('cust-area').innerHTML='<div class="card"><div class="card-b" style="text-align:center;padding:40px 20px;color:var(--dm)">⏳ 載入中...</div></div>';const ccnt=document.getElementById('ccnt');if(ccnt)ccnt.textContent='—';return}
+const q=(document.getElementById('cq')?.value||'').toLowerCase().trim();const all=aggregateCustomers();const fl=q?all.filter(c=>(c.name+c.phone+(c.realPhone||'')+[...c.addresses].join(' ')).toLowerCase().includes(q)):all;document.getElementById('ccnt').textContent=fl.length;
 if(!fl.length){const hasQ=q.trim();document.getElementById('cust-area').innerHTML=`<div class="card"><div class="card-b empty-state"><div class="es-icon">${hasQ?'🔍':'👥'}</div><div class="es-title">${hasQ?'沒有符合搜尋的客戶':'沒有客戶資料'}</div><div class="es-hint">${hasQ?'試試其他關鍵字':'匯入訂單後客戶會自動出現'}</div></div></div>`;return}
 if(isMobile()){
   // 手機 → 卡片版（不橫滑），點姓名跳到列表搜尋此客戶
