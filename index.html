@@ -142,10 +142,13 @@ body.offline{padding-top:30px} /* 騰出空間給 banner，header 不會被蓋 *
 .card-h h3{font-size:13px}
 .card-b{padding:12px}
 .btn{padding:8px 12px;font-size:12px;min-height:40px}
-.fbtn{padding:8px 10px;font-size:11px;min-height:36px}
+.fbtn{padding:8px 10px;font-size:11px;min-height:36px;flex-shrink:0}
 .fb-divider{display:none}
-.filter-row{gap:4px}
-.search{flex:1;width:auto!important;min-width:120px}
+/* 手機：篩選列改成橫向卷軸，避免擠太多顆按鈕變很高 */
+.filter-row{gap:4px;flex-wrap:nowrap;overflow-x:auto;overflow-y:hidden;-webkit-overflow-scrolling:touch;padding-bottom:6px;scrollbar-width:thin}
+.filter-row::-webkit-scrollbar{height:3px}
+.filter-row::-webkit-scrollbar-thumb{background:var(--bd);border-radius:2px}
+.search{flex-shrink:0;width:140px!important;min-width:120px}
 table{font-size:10px}
 th,td{padding:6px 4px}
 .act,.toggle-on,.toggle-off,.st-btn{min-height:36px;padding:6px 8px;font-size:10px}
