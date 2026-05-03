@@ -191,7 +191,7 @@ body.has-batch-bar .main{padding-bottom:140px}
 <div class="hdr"><h1>📦 訂單管理系統<small>MOMO + PChome</small></h1><div style="display:flex;align-items:center;gap:8px"><span id="sync-badge" class="sync-dot sync-off"><span class="dot dot-off"></span>連線中...</span><button class="btn" id="theme-btn" onclick="toggleTheme()" style="font-size:11px" title="切換亮色/暗色">🌙</button><button class="btn" id="notif-btn" onclick="toggleNotifications()" style="font-size:11px" title="桌面通知">🔕</button><button class="btn" onclick="showShortcutsHelp()" style="font-size:11px" title="鍵盤捷徑（按 ? 快速打開）">⌨️</button><button class="btn" onclick="location.reload()" style="font-size:11px">🔄</button><button class="btn" onclick="if(confirm('確定清空？')){orders=[];saveAll()}" style="font-size:11px">清空</button></div></div>
 <div class="tabs"><button class="tab active" onclick="showTab('import')">📋 匯入</button><button class="tab" onclick="showTab('list')">📦 列表 <span class="badge" id="cnt">0</span></button><button class="tab" onclick="showTab('output')">📤 輸出</button><button class="tab" onclick="showTab('stats')">📊 統計</button><button class="tab" onclick="showTab('customers')">👥 客戶</button><button class="tab" onclick="showTab('account')">👤 帳號 <span id="user-badge" style="font-size:10px;color:var(--dm);margin-left:4px"></span></button></div>
 
-<div class="main" id="tab-import"><div id="today-summary" style="display:none"></div><div class="card" style="background:var(--card-momo-bg);border:1px solid var(--card-momo-bd)"><div class="card-h" style="background:transparent"><h3>🚀 自動抓取 MOMO 訂單（API 直連，無需貼上）</h3><div style="display:flex;gap:6px;flex-wrap:wrap"><button class="btn" onclick="resetMomoApi()" title="重設 API 網址 / Token">⚙️</button><button class="btn" onclick="testNotify()" title="送一則測試訊息到 Discord / LINE 確認連線" style="font-size:11px">🔔 測試通知</button><button class="btn btn-g" id="momo-auto-btn" onclick="fetchMomoAuto()" style="background:var(--mo);border-color:var(--mo)">🔄 自動抓 MOMO 未出貨訂單</button></div></div><div class="card-b" style="padding:10px 16px"><div id="momo-auto-status" style="font-size:11px;color:var(--dm);font-family:var(--mono)">第一次只問 Token（API 網址自動填），其他裝置直接共用 ☁️</div><div id="audit-result" style="margin-top:8px;font-size:11px;display:none"></div></div></div>
+<div class="main" id="tab-import"><div id="today-summary" style="display:none"></div><div class="card" style="background:var(--card-momo-bg);border:1px solid var(--card-momo-bd)"><div class="card-h" style="background:transparent"><h3>🚀 自動抓取 MOMO 訂單（API 直連，無需貼上）</h3><div style="display:flex;gap:6px;flex-wrap:wrap"><button class="btn" onclick="resetMomoApi()" title="重設 API 網址 / Token">⚙️</button><button class="btn" onclick="testNotify()" title="送一則測試訊息到 Discord / LINE 確認連線" style="font-size:11px">🔔 測試通知</button><button class="btn btn-g" id="momo-auto-btn" onclick="fetchMomoAuto()" style="background:var(--mo);border-color:var(--mo)">🔄 自動抓 MOMO 未出貨訂單</button></div></div><div class="card-b" style="padding:10px 16px"><div id="momo-auto-status" style="font-size:11px;color:var(--dm);font-family:var(--mono)">第一次只問 Token（API 網址自動填），其他裝置直接共用 ☁️</div></div></div>
 <div class="card"><div class="card-h"><h3>貼上後台資料（自動辨識 MO / PC / F12 JSON）</h3><div style="display:flex;gap:6px;flex-wrap:wrap"><button class="btn" onclick="clearInput()">清空</button><button class="btn btn-b" onclick="runParse()">預覽</button><button class="btn btn-g" onclick="doImport()">匯入雲端</button><button class="btn" onclick="doReimport()" title="同單號自動覆蓋（修舊資料用）" style="border-color:#f59e0b;color:#b45309">🔄 重新匯入覆蓋</button><button class="btn" onclick="copyPCScript()" title="複製 PChome F12 撈單 script" style="border-color:#7c3aed;color:#7c3aed;font-weight:700">📋 複製 PChome F12 script</button></div></div><div class="card-b"><div class="hint"><b>MOMO：</b>SCM 後台 → Ctrl+A → Ctrl+C → 貼下方<br><b>PChome（F12 撈單，新方式）：</b>按上方 <strong>📋 複製 PChome F12 script</strong> → 切到 PChome「印貨資料」view → F12 → Console → Ctrl+V Enter → 跳出 alert 確認 → 回來貼到下方<br><b>PChome（舊方式 / fallback）：</b>供應商後台 → Ctrl+A → Ctrl+C → 貼下方</div><textarea id="raw-input" rows="7" placeholder="把 MOMO 後台、PChome 後台、或 F12 script 抓到的 JSON 貼在這裡..."></textarea></div></div><div id="preview-area"></div></div>
 
 <div class="main hidden" id="tab-list"><div class="filter-row"><button class="fbtn on" data-fg="plat" onclick="setF('all',this)">全部</button><button class="fbtn" data-fg="plat" onclick="setF('MO',this)">MOMO</button><button class="fbtn" data-fg="plat" onclick="setF('PC',this)">PChome</button><span class="fb-divider">｜</span><button class="fbtn on" data-fg="status" onclick="setSF('all',this)">全狀態</button><button class="fbtn" data-fg="status" onclick="setSF('未確認',this)">未確認</button><button class="fbtn" data-fg="status" onclick="setSF('已確認',this)">已確認</button><button class="fbtn" data-fg="status" onclick="setSF('未接電',this)">未接電</button><button class="fbtn" data-fg="status" onclick="setSF('已出貨',this)">已出貨</button><button class="fbtn" data-fg="status" onclick="setSF('已完成',this)">已完成</button><button class="fbtn" data-fg="status" onclick="setSF('已取消',this)">已取消</button><button class="fbtn" data-fg="status" onclick="setSF('轉線下',this)">🏪 轉線下</button><span class="fb-divider">｜</span><button class="fbtn" data-fg="special" onclick="toggleSpecial('changeAddr',this)" title="只看客戶有申請改地址的訂單">⚠️ 改址</button><button class="fbtn" data-fg="special" onclick="toggleSpecial('newToday',this)" title="只看今日新單">🆕 今日</button><span style="flex:1"></span><span id="filter-applied-info" style="display:none"></span><input class="search" id="q" placeholder="搜尋姓名/單號/商品..." oninput="searchListDebounced()" title="按 / 或 Ctrl+K 快速聚焦"></div><div id="list-area"></div></div>
@@ -633,51 +633,6 @@ async function testNotify(){
     else parts.push('⚪ LINE 未設定');
     st.innerHTML=parts.join(' ｜ ');st.style.color='var(--grn)';
   }catch(err){st.textContent=`❌ 網路錯誤：${err.message}`;st.style.color='var(--pc)'}
-}
-async function pollNow(){
-  await momoConfigReady;
-  const api=getMomoApi();if(!api)return;
-  const token=getMomoToken();if(!token)return;
-  if(!confirm('立刻 poll MOMO 未出貨訂單？\n\n• 第一次跑只 seed 不發通知\n• 之後跑遇新訂單會推 Discord / LINE'))return;
-  const st=document.getElementById('momo-auto-status');
-  st.textContent='⚡ poll MOMO 中...';st.style.color='var(--blu)';
-  try{
-    const r=await fetch(`${api}/api/poller/run`,{method:'POST',headers:{'X-API-Token':token}});
-    const d=await r.json();
-    if(!r.ok||!d.ok){st.textContent=`❌ ${d.error||'HTTP '+r.status}`;st.style.color='var(--pc)';return}
-    const res=d.result||{};
-    const lines=[`✅ Poll 完成 (${res.ms||'?'}ms)`,`📦 共 ${res.total||0} 筆未出貨單`,`🆕 新訂單：${res.newCount||0} 筆`];
-    if(res.disappearedCount)lines.push(`🔔 消失訂單：${res.disappearedCount} 筆`);
-    if(res.initialized)lines.push('（首次跑：seed 不發通知）');
-    st.innerHTML=lines.join(' ｜ ');st.style.color='var(--grn)';
-  }catch(err){st.textContent=`❌ 網路錯誤：${err.message}`;st.style.color='var(--pc)'}
-}
-async function auditMomoFields(){
-  await momoConfigReady;
-  const api=getMomoApi();if(!api)return;
-  const token=getMomoToken();if(!token)return;
-  const days=prompt('稽核最近幾天的訂單？（預設 30）','30');if(days===null)return;
-  const url=`${api}/api/orders/momo/_field-audit?days=${parseInt(days)||30}`;
-  const out=document.getElementById('audit-result');out.style.display='block';
-  out.innerHTML=`<div style="color:var(--blu)">🔍 稽核中（最久 30 秒）...</div>`;
-  try{
-    const r=await fetch(url,{headers:{'X-API-Token':token}});
-    const data=await r.json();
-    if(!r.ok||!data.ok){out.innerHTML=`<div style="color:var(--pc)">❌ ${data.error||'HTTP '+r.status}</div>`;return}
-    const phoneFields=data.phoneLikeFields||[];
-    const verdict=data.verdict||'';
-    let html=`<div style="background:var(--sf2);border:1px solid var(--bd);border-radius:8px;padding:12px"><div style="font-size:14px;font-weight:700;margin-bottom:6px">📊 稽核結果（${data.orderCount} 筆訂單，${data.totalFields} 個欄位）</div>`;
-    html+=`<div style="margin-bottom:10px;padding:8px;background:#fff;border-radius:6px;line-height:1.5">${verdict}</div>`;
-    if(phoneFields.length){
-      html+=`<div style="font-weight:700;margin-bottom:4px">📞 含電話樣式的欄位：</div><table style="width:100%;font-size:11px;margin-bottom:10px"><thead><tr><th style="text-align:left">欄位名</th><th style="text-align:right">筆數</th><th style="text-align:left">範例</th></tr></thead><tbody>`;
-      phoneFields.forEach(f=>{html+=`<tr><td><code>${esc(f.field)}</code></td><td style="text-align:right">${f.count}</td><td><code style="font-size:10px">${f.samples.map(esc).join(' / ')}</code></td></tr>`});
-      html+=`</tbody></table>`;
-    }
-    html+=`<details><summary style="cursor:pointer;font-weight:700">📋 看全部 ${data.totalFields} 個欄位</summary><table style="width:100%;font-size:10px;margin-top:6px"><thead><tr><th style="text-align:left">欄位</th><th>有值</th><th>樣本</th></tr></thead><tbody>`;
-    (data.audit||[]).forEach(f=>{const phEm=f.looksLikePhone?'📞':'';html+=`<tr><td><code>${phEm}${esc(f.field)}</code></td><td style="text-align:right">${f.nonEmpty}/${f.present}</td><td><code style="font-size:9px">${f.samples.map(esc).join(' / ')||'(空)'}</code></td></tr>`});
-    html+=`</tbody></table></details></div>`;
-    out.innerHTML=html;
-  }catch(err){out.innerHTML=`<div style="color:var(--pc)">❌ 網路錯誤：${esc(err.message)}</div>`}
 }
 async function fetchMomoAuto(){
   await momoConfigReady;
