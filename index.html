@@ -1048,7 +1048,7 @@ document.getElementById('modal-body').innerHTML=`<h3>編輯訂單${customerHisto
 <div class="fg"><div class="fi"><label>數量</label><input type="text" inputmode="numeric" id="e-qty" value="${o.qty||1}" oninput="this.value=cn(this.value)"></div><div class="fi"><label>商品金額</label><input type="text" inputmode="numeric" id="e-amt" value="${o.amount||''}" oninput="this.value=cn(this.value);calcT()"></div></div>
 <div style="border:1px solid var(--bd);border-radius:8px;padding:12px;margin:8px 0;background:var(--sf2)"><div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px"><span style="font-size:12px;font-weight:700">🔧 安裝服務</span><button class="${o.install==='是'?'toggle-on':'toggle-off'}" onclick="togEI()" id="ei-btn">${o.install==='是'?'✓ 需要安裝':'不需要安裝'}</button></div>
 <div id="ei-panel" class="${o.install==='否'?'hidden':''}"><div class="fi" style="margin-bottom:8px"><label>安裝費用</label><input type="text" inputmode="numeric" id="e-instf" value="${o.installFee||''}" oninput="this.value=cn(this.value);calcT()"></div>
-<div style="margin-bottom:6px"><span style="font-size:10px;font-weight:700;color:var(--dm)">📅 日期</span><div class="sched-row">${DAYS.map(d=>`<button class="sched-btn${['週六','週日'].includes(d)?' weekend':''}${o.installDay===d?' picked':''}" onclick="pickD('${d}',this)">${d}</button>`).join('')}</div></div>
+<div style="margin-bottom:6px"><span style="font-size:10px;font-weight:700;color:var(--dm)">📅 日期 <span style="font-weight:400;color:var(--ht)">（可複選）</span></span><div class="sched-row">${DAYS.map(d=>`<button class="sched-btn${['週六','週日'].includes(d)?' weekend':''}${(o.installDay&&o.installDay.split(/[、,\/]/).map(x=>x.trim()).includes(d))?' picked':''}" onclick="pickD('${d}',this)">${d}</button>`).join('')}</div></div>
 <div><span style="font-size:10px;font-weight:700;color:var(--dm)">🕐 時段</span><div class="sched-row">${TIMES.map(t=>`<button class="sched-btn${o.installTime===t?' picked':''}" onclick="pickT('${t}',this)">${t}</button>`).join('')}</div></div></div></div>
 <div style="border:1px solid var(--bd);border-radius:8px;padding:12px;margin:8px 0;background:var(--sf2)"><div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px"><span style="font-size:12px;font-weight:700">🛒 加購</span><button class="${o.addon==='是'?'toggle-on':'toggle-off'}" onclick="togEA()" id="ea-btn">${o.addon==='是'?'✓ 有加購':'無加購'}</button></div>
 <div id="ea-panel" class="${o.addon==='否'?'hidden':''}"><div class="fi" style="margin-bottom:8px"><label>加購金額</label><input type="text" inputmode="numeric" id="e-addonf" value="${o.addonFee||''}" oninput="this.value=cn(this.value);calcT()"></div><div class="fi"><label>加購內容（例如：琴架、變壓器、調音器…）</label><input type="text" id="e-addonitems" value="${esc(o.addonItems||'')}" placeholder="加購了什麼" list="addon-items-suggestions"></div></div></div>
@@ -1072,7 +1072,7 @@ function togEA(){_modalDirty=true;const p=document.getElementById('ea-panel'),b=
   calcT()
 }}
 function pickRadio(groupId,value,btn){_modalDirty=true;const grp=document.getElementById(groupId);if(!grp)return;grp.querySelectorAll('.sched-btn').forEach(b=>b.classList.remove('picked'));btn.classList.add('picked');grp.dataset.value=value}
-function pickD(d,btn){_modalDirty=true;const wasPicked=btn.classList.contains('picked');document.querySelectorAll('#ei-panel .sched-btn').forEach(b=>{if(!TIMES.includes(b.textContent))b.classList.remove('picked')});if(!wasPicked)btn.classList.add('picked')}
+function pickD(d,btn){_modalDirty=true;btn.classList.toggle('picked')}
 function pickT(t,btn){_modalDirty=true;const wasPicked=btn.classList.contains('picked');document.querySelectorAll('#ei-panel .sched-btn').forEach(b=>{if(TIMES.includes(b.textContent))b.classList.remove('picked')});if(!wasPicked)btn.classList.add('picked')}
 function calcT(){const a=parseInt(document.getElementById('e-amt').value)||0;const i=parseInt(document.getElementById('e-instf').value)||0;const d=parseInt(document.getElementById('e-addonf').value)||0;document.getElementById('e-tot').textContent='$'+(a+i+d).toLocaleString()}
 function saveEdit(){const o=findO(editId);if(!o){alert('訂單已不存在（可能被別的裝置刪了）');closeModal();return}
@@ -1082,7 +1082,9 @@ o.platform=document.getElementById('e-plat').value;o.orderNo=document.getElement
 o.install=document.getElementById('ei-panel').classList.contains('hidden')?'否':'是';
 if(o.install==='否'){o.installFee=0;o.installDay='';o.installTime='';o.installPaidAmount=0}
 else{o.installFee=parseInt(document.getElementById('e-instf').value)||0;o.installDay='';o.installTime='';
-  document.querySelectorAll('#ei-panel .sched-btn.picked').forEach(b=>{const v=b.textContent;if(DAYS.includes(v))o.installDay=v;if(TIMES.includes(v))o.installTime=v});
+  const days=[];
+  document.querySelectorAll('#ei-panel .sched-btn.picked').forEach(b=>{const v=b.textContent;if(DAYS.includes(v))days.push(v);if(TIMES.includes(v))o.installTime=v});
+  if(days.length){days.sort((a,b)=>DAYS.indexOf(a)-DAYS.indexOf(b));o.installDay=days.join('、')}
 }
 o.addon=document.getElementById('ea-panel').classList.contains('hidden')?'否':'是';
 if(o.addon==='否'){o.addonFee=0;o.addonItems='';o.addonPaidAmount=0}
