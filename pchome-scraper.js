@@ -127,6 +127,9 @@
   // ⚠️ 重要：data row 在 nested per-order <table> 內，column 順序跟外層 header 不一致。
   // → 不再吃 idx，純粹用「每個 cell 的內容 pattern」分配欄位
   const SPEC_RE = /^(?:[黑白紅藍綠紫橙黃粉灰金銀棕]|消光|啞光|奶油|原木|霧面|亮面|無|淺|深)[一-龥]{0,8}(色|款|套|組)?$/;
+  // 弦 / 鼓棒 / 線材等規格 keyword：輕中重量、規格詞、gauge 數字 (010-046)
+  const SPEC_KW_RE = /(輕量|中量|重量|極輕|超輕|加重|標準量|單顆|對裝|組裝|套裝|全套|半套|加大|加長|加厚|電吉他用|木吉他用|民謠用|古典用|碳纖|碳鋼|尼龍|羊腸|鋼弦|尼弦|普弦|滾繞|平繞)/;
+  const GAUGE_RE = /^[\d]{2,3}-[\d]{2,3}(?:\s|$)|(?:^|\s)[\d]{2,3}-[\d]{2,3}(?:\s|$)/;
   const NAME_RE = /^[一-龥]{2,5}$/;
   const ADDRESS_PIECE_RE = /\d+號|\d+巷|\d+弄|\d+段|\d+路|\d+街/;
   // 黑名單：2-5 中文但不是客戶名 — 出貨狀態 / UI 標籤 / 配送 / 顏色 / 款式
@@ -172,9 +175,10 @@
       // 純數字 cell → 進 numeric pool（之後挑 qty / amount）
       if (/^[\d,]+$/.test(c)) { const n = parseInt(c.replace(/,/g, '')); if (!isNaN(n)) numericCells.push(n); continue; }
       // specs: 顏色/款式 (可能尾巴有 3 位數編號 "白色 002")
+      // 也認 gauge 數字 (010-046) 跟弦/鼓棒等規格 keyword
       if (!specs) {
         const stripped = c.replace(/\s+\d{3}\s*$/, '').trim();
-        if (stripped && stripped.length <= 12 && SPEC_RE.test(stripped)) { specs = stripped; continue; }
+        if (stripped && stripped.length <= 24 && (SPEC_RE.test(stripped) || GAUGE_RE.test(stripped) || SPEC_KW_RE.test(stripped))) { specs = stripped; continue; }
       }
       // name candidate: 2-5 純中文 + 不在黑名單（出貨狀態/顏色/配送方式/UI 標籤）
       if (NAME_RE.test(c) && !NAME_BLACKLIST.has(c)) { nameCandidates.push(c); continue; }
