@@ -1207,6 +1207,7 @@ o.note=(o.note||'').replace(/⚠ 客戶申請改地址/g,'').trim();logActivity(
 
 // ===== MOMO 出貨確認 =====
 const MOMO_DELY_COMPANIES=['宅配通','新竹貨運','統一速達','大榮貨運','宅配通大電','順豐速運','全球快遞','通盈貨運','新航貨運','郵局','便利袋','其他宅配','其他'];
+const MOMO_SHIP_TYPES=['原箱','momo制式包材-紙箱(袋)','momo制式包材-破壞袋','自有包材','循環箱'];
 function openShipMomo(oid){const o=findO(oid);if(!o)return;if(o.platform!=='MO'){alert('只有 MOMO 訂單可用此功能');return}shipId=oid;editId=null;_modalDirty=false;
 document.getElementById('modal-body').innerHTML=`<h3>📤 MOMO 出貨確認 / 物流單號回填</h3>
 <div style="background:#fef9ec;border:1px solid #f0e4b8;border-radius:8px;padding:10px 14px;font-size:11px;color:#8a6d0b;margin-bottom:12px;line-height:1.6">
@@ -1219,7 +1220,7 @@ document.getElementById('modal-body').innerHTML=`<h3>📤 MOMO 出貨確認 / �
 <div><b>收件：</b>${esc(o.name)} ｜ ${phoneTel(o.phone)}</div>
 <div><b>地址：</b>${esc(o.address)}</div></div>
 <div class="fg"><div class="fi"><label>配送狀態 *</label><select id="s-status" onchange="onShipStatusChange()"><option>已配送</option><option>暫時電聯不上(無須momo協助)</option><option>多次電聯不上(2天3次以上)</option><option>需配送加價協調中</option><option>無貨取消訂單</option><option>收件資料有誤/不配送地區</option><option>無適當選項，momo請協助</option></select></div></div>
-<div id="ship-shipped"><div class="fg"><div class="fi"><label>物流公司 *</label><select id="s-dely">${MOMO_DELY_COMPANIES.map(c=>`<option>${c}</option>`).join('')}</select></div><div class="fi"><label>配送單號 *</label><input id="s-slip" placeholder="物流單號" style="font-family:var(--mono)" value="${esc(o.trackingNo||'')}"></div></div></div>
+<div id="ship-shipped"><div class="fg"><div class="fi"><label>物流公司 *</label><select id="s-dely">${MOMO_DELY_COMPANIES.map(c=>`<option>${c}</option>`).join('')}</select></div><div class="fi"><label>配送單號 *</label><input id="s-slip" placeholder="物流單號" style="font-family:var(--mono)" value="${esc(o.trackingNo||'')}"></div></div><div class="fg"><div class="fi"><label>出貨包材 *</label><select id="s-shipType">${MOMO_SHIP_TYPES.map(t=>`<option ${(o.shipTypeStr||'原箱')===t?'selected':''}>${t}</option>`).join('')}</select></div><div class="fi"><label>包材類型 / 重量 <span style="font-size:10px;color:var(--ht)">（可空）</span></label><div style="display:flex;gap:4px"><input id="s-packType" placeholder="包材類型" value="${esc(o.packTypeStr||'')}" style="flex:1"><input id="s-packUnit" placeholder="重量" value="${esc(o.packUnit||'')}" style="width:60px"></div></div></div></div>
 <div id="ship-other" class="hidden"><div class="fg full"><div class="fi"><label>配送訊息 *（非已配送必填）</label><textarea id="s-msg" placeholder="例：客戶來電要求改配送日，預計 3/15 配送"></textarea></div></div></div>
 <div id="ship-result" style="margin-top:12px"></div>
 <div class="modal-ft">
@@ -1239,6 +1240,10 @@ async function submitShip(force){
     item.delyGbStr=document.getElementById('s-dely').value;
     item.slipNo=(document.getElementById('s-slip').value||'').trim();
     if(!item.slipNo){alert('配送單號必填');return}
+    // V5.6 必填包材欄位（非電子票券供應商）
+    item.shipTypeStr=document.getElementById('s-shipType')?.value||'原箱';
+    item.packTypeStr=(document.getElementById('s-packType')?.value||'').trim();
+    item.packUnit=(document.getElementById('s-packUnit')?.value||'').trim();
   }else{
     item.msgNote=(document.getElementById('s-msg').value||'').trim();
     if(!item.msgNote){alert('配送訊息必填（非已配送）');return}
@@ -1261,7 +1266,7 @@ async function submitShip(force){
     // Real submit succeeded
     result.innerHTML=`<div style="background:var(--grn-bg);border:1px solid var(--grn);color:var(--grn);padding:10px;border-radius:6px;font-size:12px"><b>✅ MOMO 已收到出貨確認</b><br>HTTP ${data.status} ｜ 重試次數 ${data.attempts||1}<br><pre style="white-space:pre-wrap;font-size:10px;margin-top:6px;background:#fff;padding:8px;border-radius:4px;color:#000">${esc(JSON.stringify(data.data,null,2).slice(0,400))}</pre></div>`;
     // Update local order
-    if(status==='已配送'){o.trackingNo=item.slipNo;o.delyGbStr=item.delyGbStr;o.status='已出貨'}
+    if(status==='已配送'){o.trackingNo=item.slipNo;o.delyGbStr=item.delyGbStr;o.shipTypeStr=item.shipTypeStr;o.packTypeStr=item.packTypeStr;o.packUnit=item.packUnit;o.status='已出貨'}
     else if(status==='無貨取消訂單'){o.status='已取消'}
     else if(status==='暫時電聯不上(無須momo協助)'||status==='多次電聯不上(2天3次以上)'){o.status='未接電'}
     // 其他狀態（需配送加價協調中/收件資料有誤/無適當選項，momo請協助）保持原狀，使用者手動再決定
