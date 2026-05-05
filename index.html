@@ -1234,7 +1234,8 @@ document.getElementById('modal-body').innerHTML=`<h3>📤 MOMO 出貨確認 / �
 <div><b>商品：</b>${esc(o.product)}${o.specs?'（'+esc(o.specs)+'）':''} × ${o.qty||1}</div>
 <div><b>收件：</b>${esc(o.name)} ｜ ${phoneTel(o.phone)}</div>
 <div><b>地址：</b>${esc(o.address)}</div></div>
-<div class="fg"><div class="fi"><label>配送狀態 *</label><select id="s-status" onchange="onShipStatusChange()"><option>已配送</option><option>暫時電聯不上(無須momo協助)</option><option>多次電聯不上(2天3次以上)</option><option>需配送加價協調中</option><option>無貨取消訂單</option><option>收件資料有誤/不配送地區</option><option>無適當選項，momo請協助</option></select></div></div>
+<div class="fg"><div class="fi"><label>配送狀態 *</label><select id="s-status" onchange="onShipStatusChange()"><option>已配送</option><option>已確認指定配送日</option><option>已電聯，尚未確認配送日期</option><option>暫時電聯不上(無須momo協助)</option><option>多次電聯不上(2天3次以上)</option><option>需配送加價協調中</option><option>無貨取消訂單</option><option>收件資料有誤/不配送地區</option><option>無適當選項，momo請協助</option></select><div style="font-size:10px;color:var(--dm);margin-top:4px;line-height:1.5">💡 約配訂單需先選「已確認指定配送日」回押配送日，之後再切「已配送」回填單號。</div></div></div>
+<div id="ship-confirmDate" class="hidden"><div class="fg full"><div class="fi"><label>指定配送日 * <span style="font-size:10px;color:var(--mo)">（約配訂單必填，格式 yyyy/MM/dd）</span></label><input id="s-scmDate" type="text" placeholder="2026/05/10" style="font-family:var(--mono)"></div></div></div>
 <div id="ship-shipped"><div class="fg"><div class="fi"><label>物流公司 *</label><select id="s-dely">${MOMO_DELY_COMPANIES.map(c=>`<option>${c}</option>`).join('')}</select></div><div class="fi"><label>配送單號 *</label><input id="s-slip" placeholder="物流單號" style="font-family:var(--mono)" value="${esc(o.trackingNo||'')}"></div></div><div class="fg"><div class="fi"><label>出貨包材 *</label><select id="s-shipType">${MOMO_SHIP_TYPES.map(t=>`<option ${(o.shipTypeStr||'原箱')===t?'selected':''}>${t}</option>`).join('')}</select></div><div class="fi"><label>包材類型 / 重量 <span style="font-size:10px;color:var(--ht)">（可空）</span></label><div style="display:flex;gap:4px"><input id="s-packType" placeholder="包材類型" value="${esc(o.packTypeStr||'')}" style="flex:1"><input id="s-packUnit" placeholder="重量" value="${esc(o.packUnit||'')}" style="width:60px"></div></div></div></div>
 <div id="ship-other" class="hidden"><div class="fg full"><div class="fi"><label>配送訊息 *（非已配送必填）</label><textarea id="s-msg" placeholder="例：客戶來電要求改配送日，預計 3/15 配送"></textarea></div></div></div>
 <div id="ship-result" style="margin-top:12px"></div>
@@ -1244,7 +1245,15 @@ document.getElementById('modal-body').innerHTML=`<h3>📤 MOMO 出貨確認 / �
 <button class="btn" onclick="submitShip(true)" id="ship-real-btn" style="background:var(--pc);color:#fff;border-color:var(--pc);display:none">⚠️ 確認真送 MOMO</button>
 </div>`;
 document.getElementById('modal-overlay').classList.remove('hidden');document.body.style.overflow='hidden'}
-function onShipStatusChange(){const s=document.getElementById('s-status').value;document.getElementById('ship-shipped').classList.toggle('hidden',s!=='已配送');document.getElementById('ship-other').classList.toggle('hidden',s==='已配送');document.getElementById('ship-result').innerHTML='';document.getElementById('ship-real-btn').style.display='none'}
+function onShipStatusChange(){const s=document.getElementById('s-status').value;
+  // 三個輸入區塊互斥：
+  // 已配送 → ship-shipped（物流公司+單號+包材）
+  // 已確認指定配送日 → ship-confirmDate（scmDelyDate input；約配訂單回押用）
+  // 其他 → ship-other（msgNote 必填）
+  document.getElementById('ship-shipped').classList.toggle('hidden',s!=='已配送');
+  document.getElementById('ship-confirmDate').classList.toggle('hidden',s!=='已確認指定配送日');
+  document.getElementById('ship-other').classList.toggle('hidden',s==='已配送'||s==='已確認指定配送日');
+  document.getElementById('ship-result').innerHTML='';document.getElementById('ship-real-btn').style.display='none'}
 
 async function submitShip(force){
   await momoConfigReady;
@@ -1259,6 +1268,12 @@ async function submitShip(force){
     item.shipTypeStr=document.getElementById('s-shipType')?.value||'原箱';
     item.packTypeStr=(document.getElementById('s-packType')?.value||'').trim();
     item.packUnit=(document.getElementById('s-packUnit')?.value||'').trim();
+  }else if(status==='已確認指定配送日'){
+    // 約配訂單先回押配送日（V5.6 spec：scmDelyDate 必填，格式 yyyy/MM/dd）
+    const d=(document.getElementById('s-scmDate')?.value||'').trim();
+    if(!d){alert('指定配送日必填');return}
+    if(!/^\d{4}\/\d{1,2}\/\d{1,2}$/.test(d)){alert('指定配送日格式錯誤，請填 yyyy/MM/dd（例 2026/05/10）');return}
+    item.scmDelyDate=d;
   }else{
     item.msgNote=(document.getElementById('s-msg').value||'').trim();
     if(!item.msgNote){alert('配送訊息必填（非已配送）');return}
@@ -1284,8 +1299,9 @@ async function submitShip(force){
     if(status==='已配送'){o.trackingNo=item.slipNo;o.delyGbStr=item.delyGbStr;o.shipTypeStr=item.shipTypeStr;o.packTypeStr=item.packTypeStr;o.packUnit=item.packUnit;o.status='已出貨'}
     else if(status==='無貨取消訂單'){o.status='已取消'}
     else if(status==='暫時電聯不上(無須momo協助)'||status==='多次電聯不上(2天3次以上)'){o.status='未接電'}
+    else if(status==='已確認指定配送日'){o.scmDelyDate=item.scmDelyDate;/* status 維持，等之後改「已配送」*/}
     // 其他狀態（需配送加價協調中/收件資料有誤/無適當選項，momo請協助）保持原狀，使用者手動再決定
-    logActivity(o,`出貨回報：${status}${item.delyGbStr?' ｜ '+item.delyGbStr:''}${item.slipNo?' ｜ '+item.slipNo:''}${item.msgNote?' ｜ '+item.msgNote:''}`);
+    logActivity(o,`出貨回報：${status}${item.delyGbStr?' ｜ '+item.delyGbStr:''}${item.slipNo?' ｜ '+item.slipNo:''}${item.scmDelyDate?' ｜ 配送日 '+item.scmDelyDate:''}${item.msgNote?' ｜ '+item.msgNote:''}`);
     saveOne(o);renderList();
     _modalDirty=false; // 已成功送出，關閉時不再警告未儲存
     const localMsg=status==='已配送'?'已出貨':status==='無貨取消訂單'?'已取消':(status==='暫時電聯不上(無須momo協助)'||status==='多次電聯不上(2天3次以上)')?'未接電':o.status;
