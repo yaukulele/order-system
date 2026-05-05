@@ -1269,10 +1269,18 @@ async function submitShip(force){
     item.packTypeStr=(document.getElementById('s-packType')?.value||'').trim();
     item.packUnit=(document.getElementById('s-packUnit')?.value||'').trim();
   }else if(status==='已確認指定配送日'){
-    // 約配訂單先回押配送日（V5.6 spec：scmDelyDate 必填，格式 yyyy/MM/dd）
-    const d=(document.getElementById('s-scmDate')?.value||'').trim();
+    // 約配訂單先回押配送日（V5.6 spec：scmDelyDate 必填，格式 yyyy/MM/dd 兩位數）
+    let d=(document.getElementById('s-scmDate')?.value||'').trim();
     if(!d){alert('指定配送日必填');return}
-    if(!/^\d{4}\/\d{1,2}\/\d{1,2}$/.test(d)){alert('指定配送日格式錯誤，請填 yyyy/MM/dd（例 2026/05/10）');return}
+    const m=d.match(/^(\d{4})\/(\d{1,2})\/(\d{1,2})$/);
+    if(!m){alert('指定配送日格式錯誤，請填 yyyy/MM/dd（例 2026/05/10）');return}
+    // Zero-pad 月日 — MOMO 嚴格要求兩位數
+    d=`${m[1]}/${m[2].padStart(2,'0')}/${m[3].padStart(2,'0')}`;
+    // 配送日必須是「未來」 — 至少明天（MOMO 不接受今天/過去）
+    const today=localDateISO();
+    if(d.replace(/\//g,'-') <= today){
+      if(!confirm(`配送日 ${d} 看起來是今天或過去，MOMO 可能會拒絕。\n通常要至少 +1 天。確定要送嗎？`))return;
+    }
     item.scmDelyDate=d;
   }else{
     item.msgNote=(document.getElementById('s-msg').value||'').trim();
