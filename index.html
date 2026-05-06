@@ -18,6 +18,22 @@
 [data-theme="dark"] .hint{background:#332b14;color:#fcd34d;border-color:#5a4818}
 [data-theme="dark"] input,[data-theme="dark"] select,[data-theme="dark"] textarea{background:var(--sf);color:var(--tx)}
 [data-theme="dark"] input::placeholder,[data-theme="dark"] textarea::placeholder{color:var(--ht)}
+/* dark 模式：batch-bar / toast 不能用 var(--tx)（會變淺色） */
+[data-theme="dark"] .batch-bar{background:#0d1117;color:#e6edf3;border-top:1px solid #30363d}
+[data-theme="dark"] .batch-bar button{background:#21262d;color:#e6edf3}
+[data-theme="dark"] .toast{background:#21262d;color:#e6edf3;border:1px solid #30363d}
+[data-theme="dark"] .toast button{background:#30363d;color:#e6edf3}
+[data-theme="dark"] .fs-toggle{background:#21262d;color:#e6edf3;border:1px solid #30363d}
+[data-theme="dark"] .total-box{background:#0e2914;border-color:#1f5f3a}
+[data-theme="dark"] .ord-card-note{background:#332b14;color:#fcd34d}
+[data-theme="dark"] .sync-off{background:#332b14;color:#fcd34d}
+[data-theme="dark"] .st-wait{background:#332b14;color:#fcd34d;border-color:#5a4818}
+[data-theme="dark"] .st-confirmed{background:#0c2247;color:#7aa3e8;border-color:#1c3d6e}
+[data-theme="dark"] .st-noanswer{background:#3a1f10;color:#f0a070;border-color:#5a3018}
+[data-theme="dark"] .st-ship{background:#0c2247;color:#7aa3e8;border-color:#1c3d6e}
+[data-theme="dark"] .st-done{background:#0e2914;color:#3fb950;border-color:#1f5f3a}
+[data-theme="dark"] .st-cancel{background:#21262d;color:#8b949e;border-color:#30363d}
+[data-theme="dark"] .st-offline{background:#2a1240;color:#c084fc;border-color:#46196e}
 body{font-family:var(--sans);background:var(--bg);color:var(--tx);min-height:100vh;transition:background .2s,color .2s}
 .hdr{background:var(--sf);border-bottom:1px solid var(--bd);padding:12px 20px;padding-top:max(12px,env(safe-area-inset-top));display:flex;align-items:center;justify-content:space-between;position:sticky;top:0;z-index:100}
 .hdr h1{font-size:16px;font-weight:800}.hdr h1 small{font-weight:400;color:var(--dm);font-size:11px;margin-left:6px}
@@ -894,8 +910,31 @@ function toggleStatus(oid){
   renderList();
 }
 function stCls(s){return s==='已確認'?'st-btn st-confirmed':s==='未接電'?'st-btn st-noanswer':(s==='未確認'||s==='待出貨')?'st-btn st-wait':s==='已出貨'?'st-btn st-ship':s==='已完成'?'st-btn st-done':(s==='轉線下'||s==='已轉線下')?'st-btn st-offline':'st-btn st-cancel'}
-function toggleInstall(oid){const o=findO(oid);if(!o)return;o.install=o.install==='是'?'否':'是';if(o.install==='否'){o.installFee=0;o.installDay='';o.installTime='';o.installPaidAmount=0}saveOne(o);renderList()}
-function toggleAddon(oid){const o=findO(oid);if(!o)return;o.addon=o.addon==='是'?'否':'是';if(o.addon==='否'){o.addonFee=0;o.addonPaidAmount=0;o.addonItems=''}saveOne(o);renderList()}
+function toggleInstall(oid){const o=findO(oid);if(!o)return;
+  // 是→否 會 wipe installFee/Day/Time/PaidAmount — 有已收或排程才提醒，否則太煩
+  if(o.install==='是'){
+    const hasData=(o.installFee||0)>0||(o.installPaidAmount||0)>0||o.installDay||o.installTime;
+    if(hasData){
+      const summary=[`費用 $${o.installFee||0}`,o.installPaidAmount?`已收 $${o.installPaidAmount}`:'',o.installDay||'',o.installTime||''].filter(Boolean).join(' / ');
+      if(!confirm(`關掉安裝服務會清掉這些資訊：\n${summary}\n\n確定？`))return;
+    }
+  }
+  o.install=o.install==='是'?'否':'是';
+  if(o.install==='否'){o.installFee=0;o.installDay='';o.installTime='';o.installPaidAmount=0}
+  saveOne(o);renderList()
+}
+function toggleAddon(oid){const o=findO(oid);if(!o)return;
+  if(o.addon==='是'){
+    const hasData=(o.addonFee||0)>0||(o.addonPaidAmount||0)>0||(o.addonItems||'').trim();
+    if(hasData){
+      const summary=[`費用 $${o.addonFee||0}`,o.addonPaidAmount?`已收 $${o.addonPaidAmount}`:'',o.addonItems||''].filter(Boolean).join(' / ');
+      if(!confirm(`關掉加購會清掉：\n${summary}\n\n確定？`))return;
+    }
+  }
+  o.addon=o.addon==='是'?'否':'是';
+  if(o.addon==='否'){o.addonFee=0;o.addonPaidAmount=0;o.addonItems=''}
+  saveOne(o);renderList()
+}
 function togInstallPaid(oid){const o=findO(oid);if(!o||o.install!=='是')return;if((o.installPaidAmount||0)>0){if(!confirm(`改回「未收」？目前已收 $${o.installPaidAmount}`))return;const prev=o.installPaidAmount;o.installPaidAmount=0;logActivity(o,`安裝款 已收 $${prev} → 未收`);saveOne(o);renderList()}else{const v=prompt('💰 已收金額（直接輸入數字）：',o.installFee||'');if(v===null)return;const n=parseInt(String(v).replace(/[^\d]/g,''));if(!n||n<0){alert('金額無效');return}o.installPaidAmount=n;logActivity(o,`安裝款已收 $${n}`);saveOne(o);renderList()}}
 function togAddonPaid(oid){const o=findO(oid);if(!o||o.addon!=='是')return;if((o.addonPaidAmount||0)>0){if(!confirm(`改回「未收」？目前已收 $${o.addonPaidAmount}`))return;const prev=o.addonPaidAmount;o.addonPaidAmount=0;logActivity(o,`加購款 已收 $${prev} → 未收`);saveOne(o);renderList()}else{const v=prompt('💰 已收金額（直接輸入數字）：',o.addonFee||'');if(v===null)return;const n=parseInt(String(v).replace(/[^\d]/g,''));if(!n||n<0){alert('金額無效');return}o.addonPaidAmount=n;logActivity(o,`加購款已收 $${n}`);saveOne(o);renderList()}}
 function setInstFee(oid,v){const o=findO(oid);if(!o)return;o.installFee=parseInt(v)||0;saveOne(o);const el=document.getElementById('tot-'+oid);if(el)el.textContent=$(tot(o))}
