@@ -2,7 +2,7 @@
 // HTML / root: network-first (fall back to cache offline) — user 第一次 reload 就拿到最新版
 // 其他 shell asset: stale-while-revalidate
 // Bumps cache version on every release; old caches cleaned up on activate.
-const CACHE = "order-system-v84";
+const CACHE = "order-system-v85";
 const SHELL = ["./", "./index.html", "./manifest.json", "./icon.svg"];
 
 self.addEventListener("install", (event) => {
