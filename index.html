@@ -1326,8 +1326,12 @@ const blob=new Blob([csv],{type:'text/csv;charset=utf-8'});const url=URL.createO
 
 // ===== 同意/拒絕 改址 =====
 async function changeAddrAck(oid,agree){const o=findO(oid);if(!o||o.platform!=='MO'){alert('只有 MOMO 訂單可用');return}if(!(o.note||'').includes('改地址')){if(!confirm('這筆訂單看起來沒有改址申請，仍要送出 同意/拒絕？'))return}await momoConfigReady;const api=getMomoApi();const token=getMomoToken();if(!api||!token){alert('需先設定 API URL + Token');return}const word=agree?'同意改地址':'拒絕改地址';if(!confirm(`確定對訂單 ${o.orderNo} 送出「${word}」？\n\n（這會立即更新到 MOMO，無法復原）`))return;
-try{const r=await fetch(`${api}/api/orders/momo/change-addr-ack`,{method:'POST',headers:{'Content-Type':'application/json','X-API-Token':token},body:JSON.stringify({orderNo:o.orderNo,agree})});const data=await r.json();if(!r.ok||!data.ok){alert(`❌ 失敗：${data.error||'HTTP '+r.status}\n\n${JSON.stringify(data.data||{},null,2).slice(0,400)}`);return}
-o.note=(o.note||'').replace(/⚠ 客戶申請改地址/g,'').trim();logActivity(o,`${word}（已送 MOMO）`);saveOne(o);renderList();alert(`✅ ${word} 已送 MOMO\nHTTP ${data.status}\n${data.data?.successCnt?`成功 ${data.data.successCnt}/${data.data.totalCnt} 筆`:''}`)}catch(err){alert('網路錯誤：'+err.message)}}
+try{const r=await fetch(`${api}/api/orders/momo/change-addr-ack`,{method:'POST',headers:{'Content-Type':'application/json','X-API-Token':token},body:JSON.stringify({orderNo:o.orderNo,agree})});const data=await r.json();
+// 後端現在會帶 ok=businessOk + successCnt/failCnt/basicCheckMsgList
+if(!r.ok||!data.ok){alert(`❌ 失敗：${data.error||'HTTP '+r.status}\n\n${data.basicCheckMsgList?.length?'MOMO 訊息：'+data.basicCheckMsgList.join('; ')+'\n\n':''}${JSON.stringify(data.data||{},null,2).slice(0,300)}`);return}
+o.note=(o.note||'').replace(/⚠ 客戶申請改地址/g,'').trim();logActivity(o,`${word}（已送 MOMO）`);saveOne(o);renderList();
+alert(`✅ ${word} 已送 MOMO${data.successCnt?`\n成功 ${data.successCnt}/${data.totalCnt} 筆`:''}`)
+}catch(err){alert('網路錯誤：'+err.message)}}
 
 // ===== MOMO 出貨確認 =====
 const MOMO_DELY_COMPANIES=['宅配通','新竹貨運','統一速達','大榮貨運','宅配通大電','順豐速運','全球快遞','通盈貨運','新航貨運','郵局','便利袋','其他宅配','其他'];
