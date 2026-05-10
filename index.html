@@ -404,7 +404,10 @@ function bestPhone(o){return o.realPhone||o.phone||''}
 // 複製文字到剪貼簿，成功 toast、失敗 alert
 function copyText(txt,okMsg){return navigator.clipboard.writeText(txt).then(()=>{if(okMsg)showToast(okMsg,null,null,2000)}).catch(err=>alert('複製失敗：'+(err.message||err)))}
 // 搜尋字標亮 — 把文字中跟當前 search query 相符的部分包 <mark> （已 esc 過的字串才能用）
-function escWithHL(s){const safe=esc(s||'');const q=(document.getElementById('q')?.value||'').trim();if(!q)return safe;const safeQ=esc(q).replace(/[.*+?^${}()|[\]\\]/g,'\\$&');try{return safe.replace(new RegExp(safeQ,'gi'),m=>'<mark style="background:#fef9ec;padding:0 2px;border-radius:2px;color:inherit">'+m+'</mark>')}catch(e){return safe}}
+// escWithHL：把搜尋字 highlight。regex 依當前 q 值快取 — 之前每筆訂單欄位都重編 regex，
+// 500 筆 × 3 欄 = 1500 次 new RegExp 每次 render，現在只算一次。
+let _hlCache={q:null,re:null};
+function escWithHL(s){const safe=esc(s||'');const q=(document.getElementById('q')?.value||'').trim();if(!q)return safe;if(_hlCache.q!==q){const safeQ=esc(q).replace(/[.*+?^${}()|[\]\\]/g,'\\$&');try{_hlCache={q,re:new RegExp(safeQ,'gi')}}catch(e){_hlCache={q,re:null}}}if(!_hlCache.re)return safe;return safe.replace(_hlCache.re,m=>'<mark style="background:#fef9ec;padding:0 2px;border-radius:2px;color:inherit">'+m+'</mark>')}
 function mapsLink(addr){if(!addr)return'';const url='https://www.google.com/maps/search/?api=1&query='+encodeURIComponent(addr);return `<a href="${url}" target="_blank" rel="noopener" style="color:inherit;text-decoration:none;border-bottom:1px dashed currentColor" title="點擊用 Google Maps 開啟">${esc(addr)}</a>`}
 function copyOrderNo(no,btn){if(!no)return;navigator.clipboard.writeText(no).then(()=>{if(btn){const old=btn.textContent;btn.textContent='✓';btn.style.color='var(--grn)';setTimeout(()=>{btn.textContent=old;btn.style.color=''},1100)}}).catch(()=>{})}
 function platformPill(p){if(p==='MO')return '<span class="brand-pill brand-mo" title="momo">M</span>';if(p==='PC')return '<span class="brand-pill brand-pc" title="PChome 24h">P</span>';return `<span class="tag">${esc(p||'')}</span>`}
