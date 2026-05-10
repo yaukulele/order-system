@@ -278,7 +278,7 @@ function applyRemoteOrders(val){const sc=window.scrollY;const wasLoaded=ordersLo
 // 清掉 selectedIds 裡已不存在的 ids（其他裝置刪掉的）— 避免 batch bar 顯示假筆數
 if(selectedIds.size){const valid=new Set(orders.map(o=>o.id));for(const id of [...selectedIds])if(!valid.has(id))selectedIds.delete(id)}
 // 偵測其他裝置剛加進來的新訂單 — toast 提示（自己 import 的不會觸發，因為 self-echo 在 line 287 已 skip）
-if(wasLoaded){const newOnes=orders.filter(o=>!prevIds.has(o.id));if(newOnes.length){if(newOnes.length<=3){const titles=newOnes.map(o=>(o.name||'?')+' '+(o.product||'').slice(0,12)).join('、');showToast(`📦 收到 ${newOnes.length} 筆新訂單：${titles}`,null,null,5000)}else{showToast(`📦 收到 ${newOnes.length} 筆新訂單（其他裝置匯入）`,null,null,4000)}}}
+if(wasLoaded){const newOnes=orders.filter(o=>!prevIds.has(o.id));if(newOnes.length){const titles=newOnes.slice(0,3).map(o=>(o.name||'?')+' '+(o.product||'').slice(0,12)).join('、');const toastMsg=newOnes.length<=3?`📦 收到 ${newOnes.length} 筆新訂單：${titles}`:`📦 收到 ${newOnes.length} 筆新訂單（其他裝置匯入）`;showToast(toastMsg,null,null,newOnes.length<=3?5000:4000);if(typeof notifyDesktop==='function')notifyDesktop(`📦 ${newOnes.length} 筆新訂單`,newOnes.length<=3?titles:`${titles}（共 ${newOnes.length} 筆）`)}}
 // 第一次載入檢測同 orderNo 多筆 — 顯示警告但不自動刪除（用戶判斷）
 if(!window._dupChecked){window._dupChecked=true;const dupGroups=new Map();orders.forEach(o=>{if(!o.orderNo)return;if(!dupGroups.has(o.orderNo))dupGroups.set(o.orderNo,[]);dupGroups.get(o.orderNo).push(o)});const dupSets=[...dupGroups.values()].filter(arr=>arr.length>1);if(dupSets.length){console.warn('Duplicate orderNos detected:',dupSets);if(typeof showToast==='function')showToast(`⚠️ 偵測到 ${dupSets.length} 組重複單號（${dupSets.reduce((s,a)=>s+a.length,0)} 筆），到帳號頁開 console 看詳情`,null,null,8000)}}
 ordersLoaded=true;updateCnt();
@@ -476,25 +476,28 @@ function renderTodaySummary(){
   const box=document.getElementById('today-summary');if(!box)return;
   const today=localDateISO();
   const yesterday=localDateISO(new Date(Date.now()-86400000));
-  const todayOrders=orders.filter(o=>o.date===today);
-  if(!todayOrders.length){box.style.display='none';return}
-  // 排除已取消單算營收
-  const validToday=todayOrders.filter(o=>o.status!=='已取消');
-  const revenue=validToday.reduce((s,o)=>s+tot(o),0);
-  // 昨天同期比較（截至此刻的日子當下時段沒法精確比，用整天比簡單）
-  const yest=orders.filter(o=>o.date===yesterday&&o.status!=='已取消');
-  const yestRev=yest.reduce((s,o)=>s+tot(o),0);
+  // 單次 pass — 一次掃完 orders 累加今日/昨日 6 種計數，省 6 個 .filter() 全掃描
+  let todayCnt=0,revenue=0,yestRev=0,waiting=0,mo=0,pc=0;
+  for(const o of orders){
+    if(o.date===today){
+      todayCnt++;
+      if(o.status!=='已取消')revenue+=tot(o);
+      if(isPending(o.status))waiting++;
+      if(o.platform==='MO')mo++;
+      else if(o.platform==='PC')pc++;
+    }else if(o.date===yesterday){
+      if(o.status!=='已取消')yestRev+=tot(o);
+    }
+  }
+  if(!todayCnt){box.style.display='none';return}
   let cmp='';
   if(yestRev>0){
     const diff=revenue-yestRev;
     const pct=Math.round((diff/yestRev)*100);
     cmp=` <span style="font-size:11px;color:${diff>=0?'var(--grn)':'var(--pc)'};font-weight:600">${diff>=0?'▲':'▼'} ${Math.abs(pct)}%</span>`;
   }
-  const waiting=todayOrders.filter(o=>isPending(o.status)).length;
-  const mo=todayOrders.filter(o=>o.platform==='MO').length;
-  const pc=todayOrders.filter(o=>o.platform==='PC').length;
   box.style.display='block';
-  box.innerHTML=`<div class="card" style="background:var(--card-today-bg);border:1px solid var(--card-today-bd);margin-bottom:14px"><div class="card-b" style="padding:14px 18px"><div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:10px"><div><div style="font-size:11px;color:var(--dm);font-weight:700">📅 今日 ${today}${cmp}</div><div style="font-size:22px;font-weight:900;color:var(--grn);font-family:var(--mono);margin-top:2px">$${revenue.toLocaleString()} <span style="font-size:13px;color:var(--dm);font-weight:600">／ ${todayOrders.length} 筆</span></div></div><div style="display:flex;gap:6px;flex-wrap:wrap;font-size:11px"><span class="qty-pill" style="padding:4px 10px;border-radius:20px;background:var(--mo-bg);color:var(--mo);border:1px solid var(--mo);font-weight:700">momo ${mo}</span><span class="qty-pill" style="padding:4px 10px;border-radius:20px;background:var(--pc-bg);color:var(--pc);border:1px solid var(--pc);font-weight:700">PChome ${pc}</span>${waiting>0?`<span class="qty-pill" style="padding:4px 10px;border-radius:20px;background:#fef9ec;color:#b45309;border:1px solid #f0d68a;font-weight:700;cursor:pointer" onclick="cStatus='未確認';persistFilters();restoreFilterUI();showTab('list')">⏳ 待處理 ${waiting}</span>`:''}</div></div></div></div>`;
+  box.innerHTML=`<div class="card" style="background:var(--card-today-bg);border:1px solid var(--card-today-bd);margin-bottom:14px"><div class="card-b" style="padding:14px 18px"><div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:10px"><div><div style="font-size:11px;color:var(--dm);font-weight:700">📅 今日 ${today}${cmp}</div><div style="font-size:22px;font-weight:900;color:var(--grn);font-family:var(--mono);margin-top:2px">$${revenue.toLocaleString()} <span style="font-size:13px;color:var(--dm);font-weight:600">／ ${todayCnt} 筆</span></div></div><div style="display:flex;gap:6px;flex-wrap:wrap;font-size:11px"><span class="qty-pill" style="padding:4px 10px;border-radius:20px;background:var(--mo-bg);color:var(--mo);border:1px solid var(--mo);font-weight:700">momo ${mo}</span><span class="qty-pill" style="padding:4px 10px;border-radius:20px;background:var(--pc-bg);color:var(--pc);border:1px solid var(--pc);font-weight:700">PChome ${pc}</span>${waiting>0?`<span class="qty-pill" style="padding:4px 10px;border-radius:20px;background:#fef9ec;color:#b45309;border:1px solid #f0d68a;font-weight:700;cursor:pointer" onclick="cStatus='未確認';persistFilters();restoreFilterUI();showTab('list')">⏳ 待處理 ${waiting}</span>`:''}</div></div></div></div>`;
 }
 function clearInput(){document.getElementById('raw-input').value='';document.getElementById('preview-area').innerHTML=''}
 async function copyPCScript(){try{const r=await fetch('pchome-scraper.js?_='+Date.now());if(!r.ok)throw new Error('HTTP '+r.status);const code=await r.text();await navigator.clipboard.writeText(code);alert('✅ PChome F12 撈單 script 已複製到剪貼簿！\n\n下一步：\n1. 切到 PChome 廠商後台「印貨資料 / 商品明細」view（看得到 商品名稱、收貨人、訂單編號 那個 view）\n2. F12 → Console → Ctrl+V → Enter\n3. 跳出 alert 顯示抓到 N 筆 → 訂單 JSON 已自動複製\n4. 回來這頁 → 在下方大框 Ctrl+V → 按「匯入雲端」')}catch(e){alert('複製失敗：'+e.message+'\n\n你可以直接打開 yaukulele.github.io/order-system/pchome-scraper.js 手動 copy')}}
