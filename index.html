@@ -1048,9 +1048,9 @@ h+='</tbody></table></div></div>';document.getElementById('list-area').innerHTML
 
 // 勾單一行：不重 render 整個列表（避免幾百筆訂單時點 checkbox 卡頓）
 // checkbox 本身瀏覽器已 toggle state，我們只更新 batch bar + 全選 checkbox
-function toggleRowSelected(id){if(selectedIds.has(id))selectedIds.delete(id);else selectedIds.add(id);_syncSelectAllCb();renderBatchBar(filterListOrders())}
-function toggleAllSelected(e){const checked=e.target.checked;const fl=filterListOrders();if(checked)fl.forEach(o=>selectedIds.add(o.id));else fl.forEach(o=>selectedIds.delete(o.id));document.querySelectorAll('input[type=checkbox][data-oid]').forEach(cb=>{cb.checked=selectedIds.has(cb.dataset.oid)});_syncSelectAllCb();renderBatchBar(fl)}
-function _syncSelectAllCb(){const cb=document.querySelector('.select-all-cb');if(!cb)return;const fl=filterListOrders();cb.checked=fl.length>0&&fl.every(o=>selectedIds.has(o.id))}
+function toggleRowSelected(id){if(selectedIds.has(id))selectedIds.delete(id);else selectedIds.add(id);const fl=filterListOrders();_syncSelectAllCb(fl);renderBatchBar(fl)}
+function toggleAllSelected(e){const checked=e.target.checked;const fl=filterListOrders();if(checked)fl.forEach(o=>selectedIds.add(o.id));else fl.forEach(o=>selectedIds.delete(o.id));document.querySelectorAll('input[type=checkbox][data-oid]').forEach(cb=>{cb.checked=selectedIds.has(cb.dataset.oid)});_syncSelectAllCb(fl);renderBatchBar(fl)}
+function _syncSelectAllCb(fl){const cb=document.querySelector('.select-all-cb');if(!cb)return;const list=fl||filterListOrders();cb.checked=list.length>0&&list.every(o=>selectedIds.has(o.id))}
 let _mobileExpand=false;
 function renderListMobile(fl){const LIMIT=60;const truncated=!_mobileExpand&&fl.length>LIMIT;const list=truncated?fl.slice(0,LIMIT):fl;
 const arrow=sortOrder==='date-desc'?'新→舊':'舊→新';
