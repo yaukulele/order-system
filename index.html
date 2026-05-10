@@ -1391,7 +1391,9 @@ async function changeAddrAck(oid,agree){const o=findO(oid);if(!o||o.platform!=='
 try{const r=await fetch(`${api}/api/orders/momo/change-addr-ack`,{method:'POST',headers:{'Content-Type':'application/json','X-API-Token':token},body:JSON.stringify({orderNo:o.orderNo,agree})});const data=await r.json();
 // 後端現在會帶 ok=businessOk + successCnt/failCnt/basicCheckMsgList
 if(!r.ok||!data.ok){alert(`❌ 失敗：${data.error||'HTTP '+r.status}\n\n${data.basicCheckMsgList?.length?'MOMO 訊息：'+data.basicCheckMsgList.join('; ')+'\n\n':''}${JSON.stringify(data.data||{},null,2).slice(0,300)}`);return}
-o.note=(o.note||'').replace(/⚠ 客戶申請改地址/g,'').trim();logActivity(o,`${word}（已送 MOMO）`);saveOne(o);renderList();
+// await 期間 orders 可能被 applyRemoteOrders 替換掉，原本的 o 變孤兒參考。重新解析。
+const oNow=findO(oid);if(!oNow){alert('訂單已不存在（可能被其他裝置刪掉）— 但 MOMO 已收到 ack');return}
+oNow.note=(oNow.note||'').replace(/⚠ 客戶申請改地址/g,'').trim();logActivity(oNow,`${word}（已送 MOMO）`);saveOne(oNow);renderList();
 alert(`✅ ${word} 已送 MOMO${data.successCnt?`\n成功 ${data.successCnt}/${data.totalCnt} 筆`:''}`)
 }catch(err){alert('網路錯誤：'+err.message)}}
 
