@@ -274,9 +274,11 @@ function isModalOpen(){return !document.getElementById('modal-overlay').classLis
 function isInputFocused(){const a=document.activeElement;return a&&['INPUT','TEXTAREA','SELECT'].includes(a.tagName)&&!['q','cq','of-from','of-to','raw-input'].includes(a.id)}
 let _lastSyncAt=null;
 function setSyncOn(){const sb=document.getElementById('sync-badge');if(sb){_lastSyncAt=new Date();const ts=_lastSyncAt.toLocaleTimeString('zh-TW',{hour:'2-digit',minute:'2-digit',hour12:false});sb.className='sync-dot sync-on';sb.title=`最後同步：${ts}`;sb.innerHTML=`<span class="dot dot-on"></span>${ts}`}}
-function applyRemoteOrders(val){const sc=window.scrollY;orders=val?Object.values(val):[];orders.forEach(migrateStatus);
+function applyRemoteOrders(val){const sc=window.scrollY;const wasLoaded=ordersLoaded;const prevIds=new Set(orders.map(o=>o.id));orders=val?Object.values(val):[];orders.forEach(migrateStatus);
 // 清掉 selectedIds 裡已不存在的 ids（其他裝置刪掉的）— 避免 batch bar 顯示假筆數
 if(selectedIds.size){const valid=new Set(orders.map(o=>o.id));for(const id of [...selectedIds])if(!valid.has(id))selectedIds.delete(id)}
+// 偵測其他裝置剛加進來的新訂單 — toast 提示（自己 import 的不會觸發，因為 self-echo 在 line 287 已 skip）
+if(wasLoaded){const newOnes=orders.filter(o=>!prevIds.has(o.id));if(newOnes.length){if(newOnes.length<=3){const titles=newOnes.map(o=>(o.name||'?')+' '+(o.product||'').slice(0,12)).join('、');showToast(`📦 收到 ${newOnes.length} 筆新訂單：${titles}`,null,null,5000)}else{showToast(`📦 收到 ${newOnes.length} 筆新訂單（其他裝置匯入）`,null,null,4000)}}}
 // 第一次載入檢測同 orderNo 多筆 — 顯示警告但不自動刪除（用戶判斷）
 if(!window._dupChecked){window._dupChecked=true;const dupGroups=new Map();orders.forEach(o=>{if(!o.orderNo)return;if(!dupGroups.has(o.orderNo))dupGroups.set(o.orderNo,[]);dupGroups.get(o.orderNo).push(o)});const dupSets=[...dupGroups.values()].filter(arr=>arr.length>1);if(dupSets.length){console.warn('Duplicate orderNos detected:',dupSets);if(typeof showToast==='function')showToast(`⚠️ 偵測到 ${dupSets.length} 組重複單號（${dupSets.reduce((s,a)=>s+a.length,0)} 筆），到帳號頁開 console 看詳情`,null,null,8000)}}
 ordersLoaded=true;updateCnt();
