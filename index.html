@@ -691,7 +691,11 @@ function runParse(){const r=document.getElementById('raw-input').value;if(!r.tri
 function doImport(){const r=document.getElementById('raw-input').value;const p=parseAll(r);if(!p.length){alert('沒有解析到任何訂單');return}
 // 解析結果內部 dedup（同 orderNo 只取第一筆，避免某些 parser bug 重複）
 const seenInBatch=new Set();const dedup=p.filter(o=>{if(!o.orderNo||seenInBatch.has(o.orderNo))return false;seenInBatch.add(o.orderNo);return true});
-const ex=new Set(orders.map(o=>o.orderNo));const nw=dedup.filter(o=>!ex.has(o.orderNo));const dupExisting=dedup.length-nw.length;const dupInBatch=p.length-dedup.length;if(!nw.length){alert(`訂單都已存在（${dupExisting} 筆已在系統${dupInBatch?'，'+dupInBatch+' 筆解析重複':''}）`);return}orders.push(...nw);saveAll(true);showToast(`✅ 匯入 ${nw.length} 筆${dupExisting?`（${dupExisting} 筆已存在略過）`:''}${dupInBatch?`（解析中 ${dupInBatch} 筆重複合併）`:''}`,null,null,3500);clearInput()}
+const ex=new Set(orders.map(o=>o.orderNo));const nw=dedup.filter(o=>!ex.has(o.orderNo));const dupExisting=dedup.length-nw.length;const dupInBatch=p.length-dedup.length;if(!nw.length){alert(`訂單都已存在（${dupExisting} 筆已在系統${dupInBatch?'，'+dupInBatch+' 筆解析重複':''}）`);return}
+// 只寫入新筆 — 不要 saveAll 整包（500 訂單 ×50 byte = 25KB 不必要的網路流量）
+// 也避免 saveAll 把其他人正在編輯但還沒 sync 的東西沖掉
+orders.push(...nw);const updates={};for(const o of nw)updates[o.id]=o;_setSavingBadge();db.ref('orders').update(updates).catch(_saveError);
+showToast(`✅ 匯入 ${nw.length} 筆${dupExisting?`（${dupExisting} 筆已存在略過）`:''}${dupInBatch?`（解析中 ${dupInBatch} 筆重複合併）`:''}`,null,null,3500);clearInput()}
 // 同單號自動覆蓋 — 給修壞舊資料用（保留 status/install/addon/note 等使用者改過的欄位）
 function doReimport(){
   const r=document.getElementById('raw-input').value;const p=parseAll(r);if(!p.length){alert('沒有解析到訂單');return}
@@ -699,11 +703,12 @@ function doReimport(){
   const seen=new Set();const dedup=p.filter(o=>{if(!o.orderNo||seen.has(o.orderNo))return false;seen.add(o.orderNo);return true});
   if(!confirm(`要用新解析結果覆蓋這 ${dedup.length} 筆訂單嗎？\n\n• 同單號 → 用新資料覆蓋品名/規格/姓名/電話/地址/金額/數量\n• 保留你改過的：狀態、安裝、加購、物流單號、備註\n• 沒見過的單號 → 直接新增`))return;
   const byNo=new Map(orders.map(o=>[o.orderNo,o]));
-  let updated=0,added=0;
+  let updated=0,added=0;const affected=[];
   for(const np of dedup){
     const old=byNo.get(np.orderNo);
     if(old){
       // 覆蓋資料欄位，但保留使用者狀態
+      affected.push(old);
       old.product=np.product||old.product;
       old.specs=np.specs||old.specs;
       old.name=np.name||old.name;
@@ -716,9 +721,10 @@ function doReimport(){
       old.dateFmt=np.dateFmt||old.dateFmt;
       // 不動：status, install, installFee, installDay, installTime, addon, addonFee, trackingNo, delyGbStr, note
       updated++;
-    }else{orders.push(np);added++}
+    }else{orders.push(np);affected.push(np);added++}
   }
-  saveAll(true);
+  // 只寫入影響到的訂單，不寫整包（節流網路 + 避免覆蓋他人正編輯）
+  const upd={};for(const o of affected)upd[o.id]=o;_setSavingBadge();db.ref('orders').update(upd).catch(_saveError);
   alert(`✅ 重新匯入完成\n\n覆蓋更新：${updated} 筆\n新增：${added} 筆\n\n（狀態/安裝/加購/物流單號/備註保留）`);
   clearInput();
 }
@@ -835,7 +841,7 @@ async function fetchMomoAuto(){
     const nw=transformed.filter(o=>o.orderNo&&!ex.has(o.orderNo));
     const dup=transformed.length-nw.length;
     if(!nw.length){st.textContent=`✅ 抓到 ${fetched.length} 筆，全部已存在（${dup} 筆重複）`;st.style.color='var(--grn)';alert(`區間內 ${fetched.length} 筆訂單，全部已在系統內`);return}
-    orders.push(...nw);saveAll();
+    orders.push(...nw);const upd={};for(const o of nw)upd[o.id]=o;_setSavingBadge();db.ref('orders').update(upd).catch(_saveError);
     st.textContent=`✅ 新增 ${nw.length} 筆${dup?`（${dup} 筆已存在已跳過）`:''}，最後同步 ${new Date().toLocaleTimeString('zh-TW',{hour:'2-digit',minute:'2-digit',hour12:false})}`;st.style.color='var(--grn)';
     if(nw.length>0){const titles=nw.slice(0,3).map(o=>`${o.name||'?'} ${o.product||''}`).join(' / ');notifyDesktop(`📦 ${nw.length} 筆新 MOMO 訂單`,nw.length<=3?titles:`${titles}（共 ${nw.length} 筆）`)}
     alert(`🎉 自動抓取成功！\n\n新增訂單：${nw.length} 筆${dup?`\n已存在略過：${dup} 筆`:''}\n區間：${data.window?.from} ~ ${data.window?.to}`);
@@ -1101,7 +1107,7 @@ ${a.del}
 </div></div>`});
 h+='</div>';if(truncated){h+=`<div class="card" style="margin-top:8px"><div class="card-b" style="text-align:center;padding:14px"><div style="color:var(--dm);font-size:12px;margin-bottom:8px">顯示 ${LIMIT} / ${fl.length} 筆 — 用搜尋或篩選找特定訂單較快</div><button class="btn" onclick="_mobileExpand=true;renderList()">📋 載入全部 ${fl.length} 筆</button></div></div>`}document.getElementById('list-area').innerHTML=h;renderBatchBar(fl)}
 function renderBatchBar(fl){let bar=document.getElementById('batch-bar');const selOrders=orders.filter(o=>selectedIds.has(o.id));if(selOrders.length===0){if(bar)bar.classList.add('hidden');document.body.classList.remove('has-batch-bar');return}if(!bar){bar=document.createElement('div');bar.id='batch-bar';bar.className='batch-bar';document.body.appendChild(bar)}bar.classList.remove('hidden');document.body.classList.add('has-batch-bar');const total=selOrders.reduce((s,o)=>s+tot(o),0);bar.innerHTML=`<span style="font-size:13px;font-weight:700">已選 ${selOrders.length} 筆 ｜ 合計 $${total.toLocaleString()}</span><span style="flex:1"></span><button onclick="batchSetStatus('已確認')">已確認</button><button onclick="batchSetStatus('已出貨')">已出貨</button><button onclick="batchSetStatus('已完成')">已完成</button><button onclick="batchCopyShipping()">📋 複製</button><button onclick="batchPrintShipping()" title="A4 紙張">🖨 A4</button><button onclick="batchPrintShipping4x6()" title="4×6 熱感應標籤">🏷 4×6</button><button onclick="batchPickingList()" title="按商品分組產生揀貨清單">🛒 揀貨</button><button class="danger" onclick="batchDelete()">🗑 刪</button><button onclick="selectedIds.clear();renderList()">取消</button>`}
-function batchSetStatus(s){const sel=orders.filter(o=>selectedIds.has(o.id));if(!sel.length)return;if(!confirm(`把選取的 ${sel.length} 筆訂單標記為「${s}」？`))return;sel.forEach(o=>{const prev=o.status;o.status=s;logActivity(o,`批次狀態：${prev} → ${s}`)});saveAll();renderList();showToast(`✅ 已更新 ${sel.length} 筆訂單為「${s}」`)}
+function batchSetStatus(s){const sel=orders.filter(o=>selectedIds.has(o.id));if(!sel.length)return;if(!confirm(`把選取的 ${sel.length} 筆訂單標記為「${s}」？`))return;sel.forEach(o=>{const prev=o.status;o.status=s;logActivity(o,`批次狀態：${prev} → ${s}`)});const upd={};for(const o of sel)upd[o.id]=o;_setSavingBadge();db.ref('orders').update(upd).catch(_saveError);renderList();showToast(`✅ 已更新 ${sel.length} 筆訂單為「${s}」`)}
 function batchCopyShipping(){const sel=orders.filter(o=>selectedIds.has(o.id));if(!sel.length)return;copyText(sel.map(o=>fmtShipping(o)).join('\n\n========\n\n'),`✅ 已複製 ${sel.length} 筆出貨資料`)}
 function batchDelete(){const sel=orders.filter(o=>selectedIds.has(o.id));if(!sel.length)return;if(!confirm(`刪除選取的 ${sel.length} 筆訂單？\n\n（可按 Undo 還原）`))return;pushUndo({kind:'delete-batch',orders:sel.map(o=>JSON.parse(JSON.stringify(o)))});const ids=sel.map(o=>o.id);orders=orders.filter(o=>!selectedIds.has(o.id));selectedIds.clear();deleteOrderIds(ids);renderList();showToast(`已刪除 ${sel.length} 筆訂單`,'↩️ 還原',undoLast,8000)}
 function batchPrintShipping(){const sel=orders.filter(o=>selectedIds.has(o.id));if(!sel.length)return;openPrintWindow(sel,'a4')}
