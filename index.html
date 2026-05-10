@@ -274,7 +274,7 @@ function isModalOpen(){return !document.getElementById('modal-overlay').classLis
 function isInputFocused(){const a=document.activeElement;return a&&['INPUT','TEXTAREA','SELECT'].includes(a.tagName)&&!['q','cq','of-from','of-to','raw-input'].includes(a.id)}
 let _lastSyncAt=null;
 function setSyncOn(){const sb=document.getElementById('sync-badge');if(sb){_lastSyncAt=new Date();const ts=_lastSyncAt.toLocaleTimeString('zh-TW',{hour:'2-digit',minute:'2-digit',hour12:false});sb.className='sync-dot sync-on';sb.title=`最後同步：${ts}`;sb.innerHTML=`<span class="dot dot-on"></span>${ts}`}}
-function applyRemoteOrders(val){const sc=window.scrollY;const wasLoaded=ordersLoaded;const prevIds=new Set(orders.map(o=>o.id));orders=val?Object.values(val):[];orders.forEach(migrateStatus);
+function applyRemoteOrders(val){const sc=window.scrollY;const wasLoaded=ordersLoaded;const prevIds=new Set(orders.map(o=>o.id));pendingRemoteOrders=null;orders=val?Object.values(val):[];orders.forEach(migrateStatus);
 // 清掉 selectedIds 裡已不存在的 ids（其他裝置刪掉的）— 避免 batch bar 顯示假筆數
 if(selectedIds.size){const valid=new Set(orders.map(o=>o.id));for(const id of [...selectedIds])if(!valid.has(id))selectedIds.delete(id)}
 // 偵測其他裝置剛加進來的新訂單 — toast 提示（自己 import 的不會觸發，因為 self-echo 在 line 287 已 skip）
@@ -291,7 +291,10 @@ db.ref('orders').on('value',snap=>{
     // Skip echo of own write — 比對 local state，相同就不 re-render（避免 spam UI）
     const json=val?JSON.stringify(val):'';
     if(json===_snapshotJson()){pendingRemoteOrders=null;ordersLoaded=true;updateCnt();setSyncOn();return}
-    if(isModalOpen()||isInputFocused()){pendingRemoteOrders=val;setSyncOn();return}
+    // 還有 pending 本地 save → 不能直接 applyRemoteOrders 否則會把本地未送出的 edit 沖掉
+    // （之前 race：toggleStatus → saveOne 300ms 排隊中 → 別人寫 Y → value 來 → applyRemoteOrders →
+    //  本地 status edit 沒進 cloud 就被遠端蓋掉，saveOne 拿到的是被覆蓋後的值，寫回去也沒救）
+    if(isModalOpen()||isInputFocused()||_saveOneTimer||_saveAllTimer){pendingRemoteOrders=val;setSyncOn();return}
     applyRemoteOrders(val)
   }catch(e){
     // listener body 出例外會讓整個 realtime sync 死掉 — 至少 log + 提示用戶
@@ -1495,7 +1498,7 @@ bootAuth();
 // Re-render on viewport breakpoint cross (mobile ↔ desktop) — 列表/客戶都要切版
 let _wasMobile=isMobile();window.addEventListener('resize',()=>{const now=isMobile();if(now!==_wasMobile){_wasMobile=now;updateCnt();const at=document.querySelector('.tab.active')?.textContent||'';if(at.includes('列表'))renderList();if(at.includes('客戶'))renderCustomers()}});
 // 定期檢查並套用 pending 遠端更新（modal 關 + 沒輸入框聚焦 時）
-setInterval(()=>{if(pendingRemoteOrders!==null&&!isModalOpen()&&!isInputFocused()){const v=pendingRemoteOrders;pendingRemoteOrders=null;applyRemoteOrders(v)}},2000);
+setInterval(()=>{if(pendingRemoteOrders!==null&&!isModalOpen()&&!isInputFocused()&&!_saveOneTimer&&!_saveAllTimer){const v=pendingRemoteOrders;applyRemoteOrders(v)}},2000);
 // Register service worker (PWA support)
 if('serviceWorker' in navigator){window.addEventListener('load',()=>{navigator.serviceWorker.register('sw.js').catch(()=>{})})}
 // Global error handler — 未捕獲的錯誤會顯示 toast 通知用戶有東西壞了，不靜默死
