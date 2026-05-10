@@ -285,12 +285,19 @@ ordersLoaded=true;updateCnt();
 const at=document.querySelector('.tab.active')?.textContent||'';
 if(at.includes('列表'))renderList();if(at.includes('輸出'))renderOutput();if(at.includes('統計'))renderStats();if(at.includes('客戶'))renderCustomers();
 setSyncOn();window.scrollTo(0,sc)}
-db.ref('orders').on('value',snap=>{const val=snap.val();
-  // Skip echo of own write — 比對 local state，相同就不 re-render（避免 spam UI）
-  const json=val?JSON.stringify(val):'';
-  if(json===_snapshotJson()){pendingRemoteOrders=null;ordersLoaded=true;updateCnt();setSyncOn();return}
-  if(isModalOpen()||isInputFocused()){pendingRemoteOrders=val;setSyncOn();return}
-  applyRemoteOrders(val)
+db.ref('orders').on('value',snap=>{
+  try{
+    const val=snap.val();
+    // Skip echo of own write — 比對 local state，相同就不 re-render（避免 spam UI）
+    const json=val?JSON.stringify(val):'';
+    if(json===_snapshotJson()){pendingRemoteOrders=null;ordersLoaded=true;updateCnt();setSyncOn();return}
+    if(isModalOpen()||isInputFocused()){pendingRemoteOrders=val;setSyncOn();return}
+    applyRemoteOrders(val)
+  }catch(e){
+    // listener body 出例外會讓整個 realtime sync 死掉 — 至少 log + 提示用戶
+    console.error('orders listener failed:',e);
+    if(typeof showToast==='function')showToast('⚠️ 同步出錯：'+(e.message||'未知'),null,null,6000);
+  }
 });
 
 // Debounced save (300ms) — 避免快速打字 fee/qty 時 spam Firebase + 引發 echo re-render
