@@ -493,14 +493,8 @@ function capturePhoto(oid,btn){
   input.addEventListener('cancel',()=>{_photoBusy=false;input.remove()});
   input.onchange=async()=>{
     const file=input.files?.[0];input.remove();if(!file){_photoBusy=false;return}
-    // ⚠️ 順序很重要：share 必須在「相機 click 用戶手勢」5 秒內呼叫，否則 iOS 會擋 (NotAllowedError)。
-    // 所以 share 先 fire，不 await；壓縮+上傳在背景並行。share resolve 時再回頭看上傳狀態。
-    let sharePromise=null;
-    if(navigator.share&&navigator.canShare&&navigator.canShare({files:[file]})){
-      sharePromise=navigator.share({files:[file],text:fmtShipping(o),title:`📦 ${o.name||''} ${o.orderNo||''}`}).then(()=>({ok:true})).catch(e=>({ok:false,err:e}));
-    }
-    showToast('📤 上傳雲端 + 等你選分享...',null,null,3000);
-    // 壓縮 + 上傳 並行
+    showToast('📤 上傳雲端中...',null,null,3000);
+    // 壓縮 + 上傳
     let blob=file;try{const c=await _compressImage(file,1280,0.78);if(c&&c.size>0)blob=c}catch(e){console.warn('compress failed',e)}
     let url=null,uploadErr=null;
     try{url=await _uploadPhotoToStorage(oid,blob)}catch(e){uploadErr=e;console.error('upload failed:',e)}
@@ -510,25 +504,23 @@ function capturePhoto(oid,btn){
       logActivity(oNow,`📷 出貨拍照（${(blob.size/1024).toFixed(0)}KB → ☁️ 已存）`);
       saveOne(oNow);renderList();
     }
-    // 等 share 結果（用戶可能還在挑 app）
-    const shareRes=sharePromise?await sharePromise:null;
-    // 組合 toast 訊息
-    let msg=[];
-    if(url)msg.push('✅ 雲端已存');
-    else if(uploadErr)msg.push('⚠️ 雲端失敗：'+(uploadErr.message||uploadErr.code||'未知'));
-    if(shareRes){
-      if(shareRes.ok)msg.push('已分享');
-      else if(shareRes.err?.name==='AbortError')msg.push('已取消分享');
-      else if(shareRes.err?.name==='InvalidStateError'||(shareRes.err?.message||'').includes('already in progress'))msg.push('上一個分享還沒收');
-      else if(shareRes.err?.name==='NotAllowedError')msg.push('分享被擋（iOS gesture timeout，雲端已存可以從訂單看）');
-      else msg.push('分享失敗：'+(shareRes.err?.message||shareRes.err?.name||'未知'));
-    }
-    // 沒 Web Share API 的桌面：自動下載 fallback
-    if(!sharePromise){
+    // 用 toast action button 觸發 share — 用戶點按鈕 = 全新 gesture，iOS 一定放行
+    // （之前直接從 input.onchange 呼 share，iOS 不認 onchange 是 user activation 就擋）
+    const baseMsg=url?'✅ 雲端已存':('⚠️ 雲端失敗：'+(uploadErr?.message||'未知'));
+    if(navigator.share&&navigator.canShare&&navigator.canShare({files:[file]})){
+      showToast(baseMsg+' — 點右邊分享給 LINE','📤 分享',()=>{
+        navigator.share({files:[file],text:fmtShipping(o),title:`📦 ${o.name||''} ${o.orderNo||''}`})
+          .then(()=>showToast('✅ 已分享'))
+          .catch(e=>{
+            if(e.name==='AbortError'){showToast('已取消');return}
+            showToast('分享失敗：'+(e.message||e.name),null,null,5000);
+          });
+      },15000);
+    }else{
+      // 桌面 fallback：直接下載
       const dl=URL.createObjectURL(file);const a=document.createElement('a');a.href=dl;a.download=`${(o.orderNo||o.id).replace(/[^\w-]/g,'_')}_${localDateISO()}.jpg`;a.click();setTimeout(()=>URL.revokeObjectURL(dl),1000);
-      msg.push('已下載');
+      showToast(baseMsg+' + 已下載照片',null,null,5000);
     }
-    showToast(msg.join(' ｜ ')||'完成',null,null,5000);
     _photoBusy=false;
   };
   document.body.appendChild(input);input.click();
