@@ -493,38 +493,42 @@ function capturePhoto(oid,btn){
   input.addEventListener('cancel',()=>{_photoBusy=false;input.remove()});
   input.onchange=async()=>{
     const file=input.files?.[0];input.remove();if(!file){_photoBusy=false;return}
-    showToast('📤 壓縮+上傳中...',null,null,2000);
-    let blob=file;try{const c=await _compressImage(file,1280,0.78);if(c&&c.size>0)blob=c}catch(e){console.warn('compress failed, use original',e)}
-    // 上傳 Storage 歸檔
+    // ⚠️ 順序很重要：share 必須在「相機 click 用戶手勢」5 秒內呼叫，否則 iOS 會擋 (NotAllowedError)。
+    // 所以 share 先 fire，不 await；壓縮+上傳在背景並行。share resolve 時再回頭看上傳狀態。
+    let sharePromise=null;
+    if(navigator.share&&navigator.canShare&&navigator.canShare({files:[file]})){
+      sharePromise=navigator.share({files:[file],text:fmtShipping(o),title:`📦 ${o.name||''} ${o.orderNo||''}`}).then(()=>({ok:true})).catch(e=>({ok:false,err:e}));
+    }
+    showToast('📤 上傳雲端 + 等你選分享...',null,null,3000);
+    // 壓縮 + 上傳 並行
+    let blob=file;try{const c=await _compressImage(file,1280,0.78);if(c&&c.size>0)blob=c}catch(e){console.warn('compress failed',e)}
     let url=null,uploadErr=null;
-    try{url=await _uploadPhotoToStorage(oid,blob)}
-    catch(e){uploadErr=e;console.error('upload failed:',e)}
+    try{url=await _uploadPhotoToStorage(oid,blob)}catch(e){uploadErr=e;console.error('upload failed:',e)}
     if(url){
       const oNow=findO(oid)||o;
       oNow.photos=[...(oNow.photos||[]),{url,ts:Date.now(),size:blob.size}];
       logActivity(oNow,`📷 出貨拍照（${(blob.size/1024).toFixed(0)}KB → ☁️ 已存）`);
-      saveOne(oNow);
-      renderList();
-    }else{
-      showToast('⚠️ 雲端上傳失敗：'+(uploadErr?.message||'未知')+' — 照片只用於這次分享',null,null,5000);
+      saveOne(oNow);renderList();
     }
-    // Web Share API（給 LINE 等）— 用未壓縮的原圖分享，畫質最佳
-    if(navigator.share&&navigator.canShare&&navigator.canShare({files:[file]})){
-      try{
-        await navigator.share({files:[file],text:fmtShipping(o),title:`📦 ${o.name||''} ${o.orderNo||''}`});
-        showToast(url?'✅ 已分享 + 雲端已存':'✅ 已分享');
-        _photoBusy=false;return;
-      }catch(e){
-        if(e.name==='AbortError'){showToast(url?'✅ 雲端已存（已取消分享）':'已取消分享');_photoBusy=false;return}
-        // InvalidStateError 'share already in progress' — 上一個 share 還沒收，靜默處理
-        if(e.name==='InvalidStateError'||(e.message||'').includes('already in progress')){showToast(url?'✅ 雲端已存｜分享被擋（上一個對話框還在）':'分享被擋（上一個對話框還在）',null,null,4000);_photoBusy=false;return}
-        showToast((url?'✅ 雲端已存｜':'')+'分享失敗：'+(e.message||e.name),null,null,5000);
-        _photoBusy=false;return;
-      }
+    // 等 share 結果（用戶可能還在挑 app）
+    const shareRes=sharePromise?await sharePromise:null;
+    // 組合 toast 訊息
+    let msg=[];
+    if(url)msg.push('✅ 雲端已存');
+    else if(uploadErr)msg.push('⚠️ 雲端失敗：'+(uploadErr.message||uploadErr.code||'未知'));
+    if(shareRes){
+      if(shareRes.ok)msg.push('已分享');
+      else if(shareRes.err?.name==='AbortError')msg.push('已取消分享');
+      else if(shareRes.err?.name==='InvalidStateError'||(shareRes.err?.message||'').includes('already in progress'))msg.push('上一個分享還沒收');
+      else if(shareRes.err?.name==='NotAllowedError')msg.push('分享被擋（iOS gesture timeout，雲端已存可以從訂單看）');
+      else msg.push('分享失敗：'+(shareRes.err?.message||shareRes.err?.name||'未知'));
     }
-    // Fallback (沒 Web Share API 的桌面瀏覽器)：下載照片
-    const dl=URL.createObjectURL(file);const a=document.createElement('a');a.href=dl;a.download=`${(o.orderNo||o.id).replace(/[^\w-]/g,'_')}_${localDateISO()}.jpg`;a.click();setTimeout(()=>URL.revokeObjectURL(dl),1000);
-    showToast(url?'✅ 照片已存雲端 + 已下載':'✅ 照片已下載');
+    // 沒 Web Share API 的桌面：自動下載 fallback
+    if(!sharePromise){
+      const dl=URL.createObjectURL(file);const a=document.createElement('a');a.href=dl;a.download=`${(o.orderNo||o.id).replace(/[^\w-]/g,'_')}_${localDateISO()}.jpg`;a.click();setTimeout(()=>URL.revokeObjectURL(dl),1000);
+      msg.push('已下載');
+    }
+    showToast(msg.join(' ｜ ')||'完成',null,null,5000);
     _photoBusy=false;
   };
   document.body.appendChild(input);input.click();
