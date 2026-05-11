@@ -455,6 +455,26 @@ const cn=cleanNote(o.note);if(cn)parts.push(cn.replace(/\n/g,' / '));return part
 function fmtS(o){const d=o.dateFmt||fmtD(o.date),q=(o.qty||1)>1?' x '+o.qty:'',pr=(o.product||'')+q,ph=bestPhone(o);const noteLine=buildNoteLine(o);return[d+' '+(o.platform==='PC'?'PC':'MO'),o.orderNo,pr,o.specs,o.name,ph,o.address,noteLine].filter(Boolean).join('\n')}
 function fmtShipping(o){const q=(o.qty||1)>1?' × '+o.qty:'',pr=(o.product||'')+(o.specs?'（'+o.specs+'）':'')+q,ph=bestPhone(o);const noteLine=buildNoteLine(o);return[`姓名：${o.name||''}`,ph?`電話：${ph}`:'',`地址：${o.address||''}`,`商品：${pr}`,`單號：${o.orderNo||''}`,noteLine].filter(Boolean).join('\n')}
 function copyShipping(oid,btn){const o=findO(oid);if(!o)return;const txt=fmtShipping(o);navigator.clipboard.writeText(txt).then(()=>{if(!btn)return;const old=btn.textContent;btn.textContent='✓';btn.style.color='var(--grn)';setTimeout(()=>{if(btn){btn.textContent=old;btn.style.color=''}},1300)}).catch(err=>alert('複製失敗：'+err.message))}
+// 出貨拍照：開後鏡頭 → 拍完直接 share 到 LINE 等（含照片+單號資料 fmtShipping）
+// 桌面沒相機就退回 file picker；瀏覽器不支援 Web Share with files 就退回下載 + 複製單號
+function capturePhoto(oid,btn){
+  const o=findO(oid);if(!o){alert('訂單已不存在');return}
+  const input=document.createElement('input');input.type='file';input.accept='image/*';input.capture='environment';input.style.display='none';
+  input.onchange=async()=>{
+    const file=input.files?.[0];input.remove();if(!file)return;
+    const text=fmtShipping(o);
+    logActivity(o,`📷 出貨拍照（${(file.size/1024).toFixed(0)}KB）`);saveOne(o);
+    // Web Share API（含 file）— iOS/Android 主流瀏覽器支援，直接出現 LINE 等選單
+    if(navigator.share&&navigator.canShare&&navigator.canShare({files:[file]})){
+      try{await navigator.share({files:[file],text,title:`📦 ${o.name||''} ${o.orderNo||''}`});showToast('✅ 已開啟分享，選 LINE 即可');return}
+      catch(e){if(e.name==='AbortError'){showToast('已取消分享');return}}
+    }
+    // Fallback：下載照片 + 複製單號資料到剪貼簿
+    const url=URL.createObjectURL(file);const a=document.createElement('a');a.href=url;a.download=`${(o.orderNo||o.id).replace(/[^\w-]/g,'_')}_${localDateISO()}.jpg`;a.click();setTimeout(()=>URL.revokeObjectURL(url),1000);
+    copyText(text,'✅ 照片已下載 + 單號資料已複製到剪貼簿');
+  };
+  document.body.appendChild(input);input.click();
+}
 function localDateISO(d){d=d||new Date();const p=n=>String(n).padStart(2,'0');return `${d.getFullYear()}-${p(d.getMonth()+1)}-${p(d.getDate())}`}
 function isNewOrder(o){if(!o.date)return false;return o.date===localDateISO()}
 function fmtD(d){if(!d)return'';const p=d.split('-');return parseInt(p[1])+'/'+parseInt(p[2])}
@@ -967,11 +987,13 @@ function buildOrderActions(o,variant){
   // 加 install / addon（mobile 行內快速開啟，desktop 已有 toggle 不重複）
   const quickAddInstall=(isMob&&o.install==='否')?`<button onclick="toggleInstall('${oid}')" style="color:var(--blu);border-color:#a8c4f0" title="開啟安裝服務">+🔧</button>`:'';
   const quickAddAddon=(isMob&&o.addon==='否')?`<button onclick="toggleAddon('${oid}')" style="color:var(--mo);border-color:#f0c4d8" title="開啟加購">+🛒</button>`:'';
-  // 編輯 / 複製 / 刪
+  // 編輯 / 複製 / 拍照 / 刪
   const edit=isMob?`<button onclick="openEdit('${oid}')">✏️ 編輯</button>`:`<button class="act" onclick="openEdit('${oid}')">編輯</button>`;
   const copy=isMob?`<button onclick="copyShipping('${oid}',this)">📋 複製</button>`:`<button class="act" onclick="copyShipping('${oid}',this)" title="複製出貨資料（姓名/電話/地址/商品/單號）">📋</button>`;
+  // 出貨拍照：手機點下去開相機 → 拍完直接 share 到 LINE 等 app（含照片+單號資料）
+  const cam=isMob?`<button onclick="capturePhoto('${oid}',this)" title="開相機拍照分享到 LINE" style="background:#fff7ed;color:#c2410c;border-color:#fed7aa">📷 拍照</button>`:`<button class="act" onclick="capturePhoto('${oid}',this)" title="開相機拍出貨照（手機）→ 分享到 LINE" style="border-color:#fb923c;color:#c2410c">📷</button>`;
   const del=isMob?`<button class="danger" onclick="delOrder('${oid}')">🗑 刪除</button>`:`<button class="act" onclick="delOrder('${oid}')">刪</button>`;
-  return{addrAck,ship,instPaid,addonPaid,quickAddInstall,quickAddAddon,edit,copy,del};
+  return{addrAck,ship,instPaid,addonPaid,quickAddInstall,quickAddAddon,edit,copy,cam,del};
 }
 
 function logActivity(o,action){const d=new Date();const p=n=>String(n).padStart(2,'0');const ts=`${d.getFullYear()}-${p(d.getMonth()+1)}-${p(d.getDate())} ${p(d.getHours())}:${p(d.getMinutes())}`;const who=currentUser?` @${currentUser}`:'';let note=((o.note||'')+`\n[${ts}${who}] ${action}`).trim();const lines=note.split('\n');if(lines.length>60)note=lines.slice(-60).join('\n');o.note=note}
@@ -1094,7 +1116,7 @@ const ib=ibInner+subSlot(r.installInfo);
 const abInner=o.addon==='是'?`<div style="display:flex;flex-direction:column;align-items:center;gap:2px"><button class="toggle-on" onclick="toggleAddon('${oid}')" style="white-space:nowrap">加購</button><input type="text" inputmode="numeric" value="${o.addonFee||''}" placeholder="$" oninput="this.value=cn(this.value);setAddonFee('${oid}',this.value)" class="fee-input" style="width:50px"></div>`:`<button class="toggle-off" onclick="toggleAddon('${oid}')" style="white-space:nowrap">無加購</button>`;
 const ab=abInner+subSlot(o.addon==='是'&&o.addonItems?(o.addonItems.length>10?o.addonItems.slice(0,10)+'…':o.addonItems):'');
 const checked=selectedIds.has(o.id);
-h+=`<tr><td class="batch-cell"><input type="checkbox" data-oid="${o.id}" ${checked?'checked':''} onclick="toggleRowSelected('${o.id}')"></td><td class="mono" style="width:60px">${fmtD(o.date)}${r.newBadge?' '+r.newBadge:''}</td><td style="width:50px;text-align:center">${platformPill(o.platform)}${r.addrBadge?' '+r.addrBadge:''}</td><td class="prod-cell" onclick="openEdit('${oid}')" style="cursor:pointer" title="點擊編輯：${esc(o.product)}">${escWithHL(r.ps.name)}</td><td class="spec-cell" title="${esc(r.ps.specs)}">${r.ps.specs?`<span class="spec-pill">${esc(r.ps.specs)}</span>`:'<span style="color:#cbd5e1">—</span>'}</td><td class="tab-list-mobile-hide qty-cell"><input type="text" inputmode="numeric" value="${r.qty}" oninput="this.value=cn(this.value);setQty('${oid}',this.value)" class="fee-input qty-input" style="width:36px${r.qty>1?';border-color:var(--mo);background:var(--mo-bg);color:var(--mo);font-weight:800':''}"></td><td class="name-cell" title="${r.ph?'📞 '+esc(r.ph):''}${o.address?'\n📍 '+esc(o.address):''}">${escWithHL(o.name)}${r.ph?`<div style="font-size:9px;color:var(--dm);font-family:var(--mono);margin-top:1px;max-width:130px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${phoneTel(r.ph)}</div>`:''}</td><td class="tab-list-mobile-hide acc-cell">${ib}</td><td class="tab-list-mobile-hide acc-cell">${ab}</td><td class="total-cell" id="tot-${oid}" style="width:90px">${$(tot(o))}${r.trackInfo}</td><td style="width:84px"><button class="${stCls(o.status)}" onclick="toggleStatus('${oid}')">${o.status}</button></td><td style="white-space:nowrap">${a.addrAck}${a.ship}${a.instPaid}${a.addonPaid}${a.edit} ${a.copy} ${a.del}</td></tr>`});
+h+=`<tr><td class="batch-cell"><input type="checkbox" data-oid="${o.id}" ${checked?'checked':''} onclick="toggleRowSelected('${o.id}')"></td><td class="mono" style="width:60px">${fmtD(o.date)}${r.newBadge?' '+r.newBadge:''}</td><td style="width:50px;text-align:center">${platformPill(o.platform)}${r.addrBadge?' '+r.addrBadge:''}</td><td class="prod-cell" onclick="openEdit('${oid}')" style="cursor:pointer" title="點擊編輯：${esc(o.product)}">${escWithHL(r.ps.name)}</td><td class="spec-cell" title="${esc(r.ps.specs)}">${r.ps.specs?`<span class="spec-pill">${esc(r.ps.specs)}</span>`:'<span style="color:#cbd5e1">—</span>'}</td><td class="tab-list-mobile-hide qty-cell"><input type="text" inputmode="numeric" value="${r.qty}" oninput="this.value=cn(this.value);setQty('${oid}',this.value)" class="fee-input qty-input" style="width:36px${r.qty>1?';border-color:var(--mo);background:var(--mo-bg);color:var(--mo);font-weight:800':''}"></td><td class="name-cell" title="${r.ph?'📞 '+esc(r.ph):''}${o.address?'\n📍 '+esc(o.address):''}">${escWithHL(o.name)}${r.ph?`<div style="font-size:9px;color:var(--dm);font-family:var(--mono);margin-top:1px;max-width:130px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${phoneTel(r.ph)}</div>`:''}</td><td class="tab-list-mobile-hide acc-cell">${ib}</td><td class="tab-list-mobile-hide acc-cell">${ab}</td><td class="total-cell" id="tot-${oid}" style="width:90px">${$(tot(o))}${r.trackInfo}</td><td style="width:84px"><button class="${stCls(o.status)}" onclick="toggleStatus('${oid}')">${o.status}</button></td><td style="white-space:nowrap">${a.addrAck}${a.ship}${a.instPaid}${a.addonPaid}${a.edit} ${a.copy} ${a.cam} ${a.del}</td></tr>`});
 h+='</tbody></table></div></div>';document.getElementById('list-area').innerHTML=h;renderBatchBar(fl)}
 
 // 勾單一行：不重 render 整個列表（避免幾百筆訂單時點 checkbox 卡頓）
@@ -1139,6 +1161,7 @@ ${r.noteShort?`<div class="ord-card-note">${esc(r.noteShort)}</div>`:''}
 ${a.addrAck}${a.ship}${a.instPaid}${a.addonPaid}${a.quickAddInstall}${a.quickAddAddon}
 ${a.edit}
 ${a.copy}
+${a.cam}
 ${a.del}
 </div></div>`});
 h+='</div>';if(truncated){h+=`<div class="card" style="margin-top:8px"><div class="card-b" style="text-align:center;padding:14px"><div style="color:var(--dm);font-size:12px;margin-bottom:8px">顯示 ${LIMIT} / ${fl.length} 筆 — 用搜尋或篩選找特定訂單較快</div><button class="btn" onclick="_mobileExpand=true;renderList()">📋 載入全部 ${fl.length} 筆</button></div></div>`}document.getElementById('list-area').innerHTML=h;renderBatchBar(fl)}
