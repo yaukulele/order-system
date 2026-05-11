@@ -254,14 +254,21 @@ body.has-batch-bar .main{padding-bottom:140px}
 
 <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-database-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-auth-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-storage-compat.js"></script>
 <script>
 // ===== FIREBASE CONFIG (你的專案設定) =====
 firebase.initializeApp({
   apiKey:"AIzaSyBFIekk-vqXwYlnwBSRqJ6LtIq1vgInOaI",
   authDomain:"order-system-dddca.firebaseapp.com",
   databaseURL:"https://order-system-dddca-default-rtdb.firebaseio.com",
-  projectId:"order-system-dddca"
+  projectId:"order-system-dddca",
+  storageBucket:"order-system-dddca.appspot.com"
 });
+// 匿名 auth：給 Storage 一個 session 用。出貨拍照需要它。
+// 失敗就靜默 — Storage 上傳會回頭給用戶看錯誤
+firebase.auth().signInAnonymously().catch(e=>console.warn('storage anon auth failed:',e?.message));
+const storage=firebase.storage();
 const db=firebase.database();
 let orders=[],ordersLoaded=false,cFilter=localStorage.getItem('cFilter')||'all',editId=null,shipId=null,sortOrder=localStorage.getItem('sortOrder')||'date-desc',cSpecial=localStorage.getItem('cSpecial')||null,statsPeriod=localStorage.getItem('statsPeriod')||'30',customerSort=localStorage.getItem('customerSort')||'lastDate',customerPlatform=localStorage.getItem('customerPlatform')||'all',outputPlatform=localStorage.getItem('outputPlatform')||'all';
 // cStatus 改為陣列：[] = 全狀態；多元素 = 多選（desktop only）；單元素 = 對應狀態
@@ -455,25 +462,81 @@ const cn=cleanNote(o.note);if(cn)parts.push(cn.replace(/\n/g,' / '));return part
 function fmtS(o){const d=o.dateFmt||fmtD(o.date),q=(o.qty||1)>1?' x '+o.qty:'',pr=(o.product||'')+q,ph=bestPhone(o);const noteLine=buildNoteLine(o);return[d+' '+(o.platform==='PC'?'PC':'MO'),o.orderNo,pr,o.specs,o.name,ph,o.address,noteLine].filter(Boolean).join('\n')}
 function fmtShipping(o){const q=(o.qty||1)>1?' × '+o.qty:'',pr=(o.product||'')+(o.specs?'（'+o.specs+'）':'')+q,ph=bestPhone(o);const noteLine=buildNoteLine(o);return[`姓名：${o.name||''}`,ph?`電話：${ph}`:'',`地址：${o.address||''}`,`商品：${pr}`,`單號：${o.orderNo||''}`,noteLine].filter(Boolean).join('\n')}
 function copyShipping(oid,btn){const o=findO(oid);if(!o)return;const txt=fmtShipping(o);navigator.clipboard.writeText(txt).then(()=>{if(!btn)return;const old=btn.textContent;btn.textContent='✓';btn.style.color='var(--grn)';setTimeout(()=>{if(btn){btn.textContent=old;btn.style.color=''}},1300)}).catch(err=>alert('複製失敗：'+err.message))}
-// 出貨拍照：開後鏡頭 → 拍完直接 share 到 LINE 等（含照片+單號資料 fmtShipping）
-// 桌面沒相機就退回 file picker；瀏覽器不支援 Web Share with files 就退回下載 + 複製單號
+// 出貨拍照：
+// 1. 開後鏡頭拍照
+// 2. 壓縮到 ~1280px 邊長（省流量）
+// 3. 上傳 Firebase Storage（orders/{oid}/{ts}.jpg）→ 寫入 o.photos[] 永久歸檔
+// 4. Web Share API 拋給 LINE 等 app（含照片 + fmtShipping 文字）
+// 5. 之後在編輯 modal 看得到所有照片
+async function _compressImage(file,maxDim,quality){
+  const img=await new Promise((res,rej)=>{const i=new Image();i.onload=()=>res(i);i.onerror=rej;i.src=URL.createObjectURL(file)});
+  const ratio=Math.min(maxDim/img.width,maxDim/img.height,1);
+  const w=Math.max(1,Math.round(img.width*ratio));const h=Math.max(1,Math.round(img.height*ratio));
+  const cv=document.createElement('canvas');cv.width=w;cv.height=h;
+  cv.getContext('2d').drawImage(img,0,0,w,h);
+  URL.revokeObjectURL(img.src);
+  return await new Promise(res=>cv.toBlob(res,'image/jpeg',quality));
+}
+async function _uploadPhotoToStorage(oid,blob){
+  const path=`orders/${oid}/${Date.now()}.jpg`;
+  const ref=storage.ref(path);
+  await ref.put(blob,{contentType:'image/jpeg'});
+  return await ref.getDownloadURL();
+}
 function capturePhoto(oid,btn){
   const o=findO(oid);if(!o){alert('訂單已不存在');return}
   const input=document.createElement('input');input.type='file';input.accept='image/*';input.capture='environment';input.style.display='none';
   input.onchange=async()=>{
     const file=input.files?.[0];input.remove();if(!file)return;
-    const text=fmtShipping(o);
-    logActivity(o,`📷 出貨拍照（${(file.size/1024).toFixed(0)}KB）`);saveOne(o);
-    // Web Share API（含 file）— iOS/Android 主流瀏覽器支援，直接出現 LINE 等選單
-    if(navigator.share&&navigator.canShare&&navigator.canShare({files:[file]})){
-      try{await navigator.share({files:[file],text,title:`📦 ${o.name||''} ${o.orderNo||''}`});showToast('✅ 已開啟分享，選 LINE 即可');return}
-      catch(e){if(e.name==='AbortError'){showToast('已取消分享');return}}
+    showToast('📤 壓縮+上傳中...',null,null,2000);
+    let blob=file;try{const c=await _compressImage(file,1280,0.78);if(c&&c.size>0)blob=c}catch(e){console.warn('compress failed, use original',e)}
+    // 上傳 Storage 歸檔
+    let url=null,uploadErr=null;
+    try{url=await _uploadPhotoToStorage(oid,blob)}
+    catch(e){uploadErr=e;console.error('upload failed:',e)}
+    if(url){
+      const oNow=findO(oid)||o;
+      oNow.photos=[...(oNow.photos||[]),{url,ts:Date.now(),size:blob.size}];
+      logActivity(oNow,`📷 出貨拍照（${(blob.size/1024).toFixed(0)}KB → ☁️ 已存）`);
+      saveOne(oNow);
+      renderList();
+    }else{
+      showToast('⚠️ 雲端上傳失敗：'+(uploadErr?.message||'未知')+' — 照片只用於這次分享',null,null,5000);
     }
-    // Fallback：下載照片 + 複製單號資料到剪貼簿
-    const url=URL.createObjectURL(file);const a=document.createElement('a');a.href=url;a.download=`${(o.orderNo||o.id).replace(/[^\w-]/g,'_')}_${localDateISO()}.jpg`;a.click();setTimeout(()=>URL.revokeObjectURL(url),1000);
-    copyText(text,'✅ 照片已下載 + 單號資料已複製到剪貼簿');
+    // Web Share API（給 LINE 等）— 用未壓縮的原圖分享，畫質最佳
+    if(navigator.share&&navigator.canShare&&navigator.canShare({files:[file]})){
+      try{
+        await navigator.share({files:[file],text:fmtShipping(o),title:`📦 ${o.name||''} ${o.orderNo||''}`});
+        showToast(url?'✅ 已分享 + 雲端已存':'✅ 已分享');
+        return;
+      }catch(e){
+        if(e.name==='AbortError'){showToast(url?'✅ 雲端已存（已取消分享）':'已取消分享');return}
+        // 其他 share 錯誤：別 fall through 到 clipboard（會被 iOS 擋）— 直接告知
+        showToast((url?'✅ 雲端已存｜':'')+'分享失敗：'+(e.message||e.name),null,null,5000);
+        return;
+      }
+    }
+    // Fallback (沒 Web Share API 的桌面瀏覽器)：下載照片
+    const dl=URL.createObjectURL(file);const a=document.createElement('a');a.href=dl;a.download=`${(o.orderNo||o.id).replace(/[^\w-]/g,'_')}_${localDateISO()}.jpg`;a.click();setTimeout(()=>URL.revokeObjectURL(dl),1000);
+    showToast(url?'✅ 照片已存雲端 + 已下載':'✅ 照片已下載');
   };
   document.body.appendChild(input);input.click();
+}
+function removeOrderPhoto(oid,idx){
+  const o=findO(oid);if(!o||!o.photos||!o.photos[idx])return;
+  if(!confirm('刪除這張照片？\n（雲端檔案也會刪掉，無法復原）'))return;
+  const p=o.photos[idx];
+  // 從陣列移除 + 立刻 save，再嘗試刪 Storage（失敗不擋）
+  o.photos.splice(idx,1);if(!o.photos.length)delete o.photos;
+  saveOne(o);
+  try{
+    // 從 URL 解 storage path
+    const m=p.url&&p.url.match(/\/o\/([^?]+)/);
+    if(m){const path=decodeURIComponent(m[1]);storage.ref(path).delete().catch(e=>console.warn('storage delete failed:',e?.message))}
+  }catch(e){}
+  // 重 render edit modal 以更新照片區
+  if(editId===oid){const cur=findO(oid);if(cur){closeModal();setTimeout(()=>openEdit(oid),50)}}
+  showToast('🗑 已刪除照片');
 }
 function localDateISO(d){d=d||new Date();const p=n=>String(n).padStart(2,'0');return `${d.getFullYear()}-${p(d.getMonth()+1)}-${p(d.getDate())}`}
 function isNewOrder(o){if(!o.date)return false;return o.date===localDateISO()}
@@ -991,7 +1054,11 @@ function buildOrderActions(o,variant){
   const edit=isMob?`<button onclick="openEdit('${oid}')">✏️ 編輯</button>`:`<button class="act" onclick="openEdit('${oid}')">編輯</button>`;
   const copy=isMob?`<button onclick="copyShipping('${oid}',this)">📋 複製</button>`:`<button class="act" onclick="copyShipping('${oid}',this)" title="複製出貨資料（姓名/電話/地址/商品/單號）">📋</button>`;
   // 出貨拍照：手機點下去開相機 → 拍完直接 share 到 LINE 等 app（含照片+單號資料）
-  const cam=isMob?`<button onclick="capturePhoto('${oid}',this)" title="開相機拍照分享到 LINE" style="background:#fff7ed;color:#c2410c;border-color:#fed7aa">📷 拍照</button>`:`<button class="act" onclick="capturePhoto('${oid}',this)" title="開相機拍出貨照（手機）→ 分享到 LINE" style="border-color:#fb923c;color:#c2410c">📷</button>`;
+  // 有照片時顯示張數，提示用戶可以從編輯 modal 看
+  const photoCnt=(o.photos||[]).length;
+  const camLabel=photoCnt>0?`📷 ${photoCnt}`:'📷';
+  const camMobLabel=photoCnt>0?`📷 拍照 (${photoCnt})`:'📷 拍照';
+  const cam=isMob?`<button onclick="capturePhoto('${oid}',this)" title="${photoCnt>0?'已有 '+photoCnt+' 張，點此再拍一張；點編輯看完整':'開相機拍照分享到 LINE'}" style="background:#fff7ed;color:#c2410c;border-color:#fed7aa">${camMobLabel}</button>`:`<button class="act" onclick="capturePhoto('${oid}',this)" title="${photoCnt>0?'已有 '+photoCnt+' 張，再拍一張':'開相機拍出貨照（手機）→ 分享到 LINE'}" style="border-color:#fb923c;color:#c2410c">${camLabel}</button>`;
   const del=isMob?`<button class="danger" onclick="delOrder('${oid}')">🗑 刪除</button>`:`<button class="act" onclick="delOrder('${oid}')">刪</button>`;
   return{addrAck,ship,instPaid,addonPaid,quickAddInstall,quickAddAddon,edit,copy,cam,del};
 }
@@ -1353,6 +1420,7 @@ document.getElementById('modal-body').innerHTML=`<h3>編輯訂單${customerHisto
 <div class="total-box"><div class="t-label">合計金額</div><div class="t-val" id="e-tot">$${tot(o).toLocaleString()}</div></div>
 <div style="border:1px solid var(--bd);border-radius:8px;padding:12px;margin:8px 0;background:var(--sf2)"><div style="font-size:12px;font-weight:700;margin-bottom:8px">📦 物流</div><div class="fg"><div class="fi"><label>物流公司</label><select id="e-dely"><option value="">— 未填 —</option>${MOMO_DELY_COMPANIES.map(c=>`<option ${o.delyGbStr===c?'selected':''}>${c}</option>`).join('')}</select></div><div class="fi"><label>物流單號</label><input id="e-tracking" value="${esc(o.trackingNo||'')}" placeholder="物流單號" style="font-family:var(--mono)"></div></div>${o.platform==='MO'?`<div style="margin-top:8px;display:flex;gap:8px;align-items:center;flex-wrap:wrap"><button type="button" class="btn" onclick="syncShipFromEdit()" style="background:var(--mo);color:#fff;border-color:var(--mo);font-size:11px;font-weight:700">📤 同步到 MOMO 後台</button><span style="font-size:10px;color:var(--dm)">用上面的單號開「出貨確認」回填到 MOMO（會跳 DRY RUN 預覽）</span></div>`:`<div style="margin-top:6px;font-size:10px;color:var(--dm)">PChome 訂單只記錄在本地，沒有 API 回填管道</div>`}</div>
 <div class="fg" style="margin-top:10px"><div class="fi"><label>狀態</label><select id="e-st">${ST.map(s=>`<option ${o.status===s?'selected':''}>${s}</option>`).join('')}</select></div></div>
+${(o.photos&&o.photos.length)?`<div class="fg full"><div class="fi"><label>📷 出貨照片（${o.photos.length} 張，點圖放大）</label><div style="display:flex;gap:6px;flex-wrap:wrap;padding:8px;background:var(--sf2);border:1px solid var(--bd);border-radius:8px">${o.photos.map((p,i)=>`<div style="position:relative"><a href="${esc(p.url)}" target="_blank" rel="noopener" style="display:block;width:88px;height:88px;border-radius:6px;overflow:hidden;border:1px solid var(--bd);background:#fff"><img src="${esc(p.url)}" style="width:100%;height:100%;object-fit:cover;display:block" loading="lazy"></a><button onclick="removeOrderPhoto('${o.id}',${i})" style="position:absolute;top:-6px;right:-6px;width:22px;height:22px;border-radius:50%;background:var(--pc);color:#fff;border:0;font-size:12px;cursor:pointer;font-weight:700;line-height:1" title="刪除此照片">×</button><div style="font-size:9px;color:var(--dm);text-align:center;margin-top:2px;font-family:var(--mono)">${new Date(p.ts).toLocaleString('zh-TW',{month:'2-digit',day:'2-digit',hour:'2-digit',minute:'2-digit'})}</div></div>`).join('')}</div></div></div>`:''}
 ${activityTimelineHTML(o.note)}<div class="fg full"><div class="fi"><label>備註（含活動紀錄）</label><textarea id="e-note">${esc(o.note)}</textarea></div></div>
 <div class="modal-ft"><button class="btn" onclick="closeModal()">取消</button><button class="btn btn-g" onclick="saveEdit()">儲存</button></div>`;
 document.getElementById('modal-overlay').classList.remove('hidden');document.body.style.overflow='hidden'}
