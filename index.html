@@ -460,7 +460,9 @@ if(o.addon==='是'){
 }
 const cn=cleanNote(o.note);if(cn)parts.push(cn.replace(/\n/g,' / '));return parts.length?'備註：'+parts.join(' / '):''}
 function fmtS(o){const d=o.dateFmt||fmtD(o.date),q=(o.qty||1)>1?' x '+o.qty:'',pr=(o.product||'')+q,ph=bestPhone(o);const noteLine=buildNoteLine(o);return[d+' '+(o.platform==='PC'?'PC':'MO'),o.orderNo,pr,o.specs,o.name,ph,o.address,noteLine].filter(Boolean).join('\n')}
-function fmtShipping(o){const q=(o.qty||1)>1?' × '+o.qty:'',pr=(o.product||'')+(o.specs?'（'+o.specs+'）':'')+q,ph=bestPhone(o);const noteLine=buildNoteLine(o);return[`姓名：${o.name||''}`,ph?`電話：${ph}`:'',`地址：${o.address||''}`,`商品：${pr}`,`單號：${o.orderNo||''}`,noteLine].filter(Boolean).join('\n')}
+// fmtShipping：複製到 LINE 用的格式。依用戶偏好不帶「姓名：」「電話：」這類標題前綴 — context 看得出來什麼是什麼
+// 順序：單號 / 商品 / 姓名 / 電話 / 地址 / 備註（空欄自動省略）
+function fmtShipping(o){const q=(o.qty||1)>1?' × '+o.qty:'',pr=(o.product||'')+(o.specs?'（'+o.specs+'）':'')+q,ph=bestPhone(o);const noteLine=buildNoteLine(o);return[o.orderNo||'',pr,o.name||'',ph||'',o.address||'',noteLine].filter(Boolean).join('\n')}
 function copyShipping(oid,btn){const o=findO(oid);if(!o)return;const txt=fmtShipping(o);navigator.clipboard.writeText(txt).then(()=>{if(!btn)return;const old=btn.textContent;btn.textContent='✓';btn.style.color='var(--grn)';setTimeout(()=>{if(btn){btn.textContent=old;btn.style.color=''}},1300)}).catch(err=>alert('複製失敗：'+err.message))}
 // 出貨拍照：
 // 1. 開後鏡頭拍照
