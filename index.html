@@ -483,11 +483,16 @@ async function _uploadPhotoToStorage(oid,blob){
   await ref.put(blob,{contentType:'image/jpeg'});
   return await ref.getDownloadURL();
 }
+let _photoBusy=false;
 function capturePhoto(oid,btn){
+  if(_photoBusy){showToast('⏳ 上一張處理中，請稍等再按');return}
   const o=findO(oid);if(!o){alert('訂單已不存在');return}
+  _photoBusy=true;
   const input=document.createElement('input');input.type='file';input.accept='image/*';input.capture='environment';input.style.display='none';
+  // 用戶按取消（沒選檔案）也要釋放 busy flag
+  input.addEventListener('cancel',()=>{_photoBusy=false;input.remove()});
   input.onchange=async()=>{
-    const file=input.files?.[0];input.remove();if(!file)return;
+    const file=input.files?.[0];input.remove();if(!file){_photoBusy=false;return}
     showToast('📤 壓縮+上傳中...',null,null,2000);
     let blob=file;try{const c=await _compressImage(file,1280,0.78);if(c&&c.size>0)blob=c}catch(e){console.warn('compress failed, use original',e)}
     // 上傳 Storage 歸檔
@@ -508,17 +513,19 @@ function capturePhoto(oid,btn){
       try{
         await navigator.share({files:[file],text:fmtShipping(o),title:`📦 ${o.name||''} ${o.orderNo||''}`});
         showToast(url?'✅ 已分享 + 雲端已存':'✅ 已分享');
-        return;
+        _photoBusy=false;return;
       }catch(e){
-        if(e.name==='AbortError'){showToast(url?'✅ 雲端已存（已取消分享）':'已取消分享');return}
-        // 其他 share 錯誤：別 fall through 到 clipboard（會被 iOS 擋）— 直接告知
+        if(e.name==='AbortError'){showToast(url?'✅ 雲端已存（已取消分享）':'已取消分享');_photoBusy=false;return}
+        // InvalidStateError 'share already in progress' — 上一個 share 還沒收，靜默處理
+        if(e.name==='InvalidStateError'||(e.message||'').includes('already in progress')){showToast(url?'✅ 雲端已存｜分享被擋（上一個對話框還在）':'分享被擋（上一個對話框還在）',null,null,4000);_photoBusy=false;return}
         showToast((url?'✅ 雲端已存｜':'')+'分享失敗：'+(e.message||e.name),null,null,5000);
-        return;
+        _photoBusy=false;return;
       }
     }
     // Fallback (沒 Web Share API 的桌面瀏覽器)：下載照片
     const dl=URL.createObjectURL(file);const a=document.createElement('a');a.href=dl;a.download=`${(o.orderNo||o.id).replace(/[^\w-]/g,'_')}_${localDateISO()}.jpg`;a.click();setTimeout(()=>URL.revokeObjectURL(dl),1000);
     showToast(url?'✅ 照片已存雲端 + 已下載':'✅ 照片已下載');
+    _photoBusy=false;
   };
   document.body.appendChild(input);input.click();
 }
