@@ -509,7 +509,8 @@ function capturePhoto(oid,btn){
   input.addEventListener('cancel',()=>{_photoBusy=false;input.remove()});
   input.onchange=async()=>{
     const file=input.files?.[0];input.remove();if(!file){_photoBusy=false;return}
-    showToast('📤 上傳雲端中...',null,null,3000);
+    // 30 秒 toast 涵蓋慢網路上傳；上傳完會被後面的「✅ 雲端已存」toast 取代
+    showToast('📤 上傳雲端中...',null,null,30000);
     // 壓縮 + 上傳
     let blob=file;try{const c=await _compressImage(file,1280,0.78);if(c&&c.size>0)blob=c}catch(e){console.warn('compress failed',e)}
     let url=null,uploadErr=null;
