@@ -254,8 +254,8 @@ body.has-batch-bar .main{padding-bottom:140px}
 
 <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-database-compat.js"></script>
-<script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-auth-compat.js"></script>
-<script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-storage-compat.js"></script>
+<!-- firebase-auth + firebase-storage 改 lazy load — 只在按 📷 拍照時才載入，
+     避免每次開頁都拖 ~150KB JS 的初始載入時間 -->
 <script>
 // ===== FIREBASE CONFIG (你的專案設定) =====
 firebase.initializeApp({
@@ -265,10 +265,22 @@ firebase.initializeApp({
   projectId:"order-system-dddca",
   storageBucket:"order-system-dddca.firebasestorage.app"
 });
-// 匿名 auth：給 Storage 一個 session 用。出貨拍照需要它。
-// 失敗就靜默 — Storage 上傳會回頭給用戶看錯誤
-firebase.auth().signInAnonymously().catch(e=>console.warn('storage anon auth failed:',e?.message));
-const storage=firebase.storage();
+// Storage / Auth SDK 改 lazy load — 第一次按 📷 拍照才動態載入，省下首次開頁 ~150KB
+// 載入 → signInAnonymously → 取得 storage ref，整個流程包成 ensureStorage() 一次性 cached
+let _storageReadyPromise=null;
+function _loadFbScript(src){return new Promise((res,rej)=>{const s=document.createElement('script');s.src=src;s.async=false;s.onload=res;s.onerror=()=>rej(new Error('load failed: '+src));document.head.appendChild(s)})}
+async function ensureStorage(){
+  if(_storageReadyPromise)return _storageReadyPromise;
+  _storageReadyPromise=(async()=>{
+    await Promise.all([
+      _loadFbScript('https://www.gstatic.com/firebasejs/10.12.0/firebase-auth-compat.js'),
+      _loadFbScript('https://www.gstatic.com/firebasejs/10.12.0/firebase-storage-compat.js'),
+    ]);
+    try{await firebase.auth().signInAnonymously()}catch(e){console.warn('storage anon auth failed:',e?.message)}
+    return firebase.storage();
+  })();
+  return _storageReadyPromise;
+}
 const db=firebase.database();
 let orders=[],ordersLoaded=false,cFilter=localStorage.getItem('cFilter')||'all',editId=null,shipId=null,sortOrder=localStorage.getItem('sortOrder')||'date-desc',cSpecial=localStorage.getItem('cSpecial')||null,statsPeriod=localStorage.getItem('statsPeriod')||'30',customerSort=localStorage.getItem('customerSort')||'lastDate',customerPlatform=localStorage.getItem('customerPlatform')||'all',outputPlatform=localStorage.getItem('outputPlatform')||'all';
 // cStatus 改為陣列：[] = 全狀態；多元素 = 多選（desktop only）；單元素 = 對應狀態
@@ -480,6 +492,7 @@ async function _compressImage(file,maxDim,quality){
   return await new Promise(res=>cv.toBlob(res,'image/jpeg',quality));
 }
 async function _uploadPhotoToStorage(oid,blob){
+  const storage=await ensureStorage();
   const path=`orders/${oid}/${Date.now()}.jpg`;
   const ref=storage.ref(path);
   await ref.put(blob,{contentType:'image/jpeg'});
@@ -537,7 +550,7 @@ function removeOrderPhoto(oid,idx){
   try{
     // 從 URL 解 storage path
     const m=p.url&&p.url.match(/\/o\/([^?]+)/);
-    if(m){const path=decodeURIComponent(m[1]);storage.ref(path).delete().catch(e=>console.warn('storage delete failed:',e?.message))}
+    if(m){const path=decodeURIComponent(m[1]);ensureStorage().then(s=>s.ref(path).delete()).catch(e=>console.warn('storage delete failed:',e?.message))}
   }catch(e){}
   // 重 render edit modal 以更新照片區
   if(editId===oid){const cur=findO(oid);if(cur){closeModal();setTimeout(()=>openEdit(oid),50)}}
