@@ -1183,13 +1183,23 @@ function updateFilterCounts(){
   const matchQ=q?(o=>[o.orderNo,o.product,o.name,o.phone,o.realPhone,o.address,o.note,o.specs].join(' ').toLowerCase().includes(q)):()=>true;
   const platCnt={all:0,MO:0,PC:0,ST:0};
   const statCnt={all:0};
+  // special button 也算 count（改址 / 今日新單）— 用「當前 plat+status+q」當前提
+  let changeAddrCnt=0,newTodayCnt=0;
   for(const o of orders){
-    if(!matchSpecial(o)||!matchQ(o))continue;
+    if(!matchQ(o))continue;
+    const passPlatStat=(!cStatus.length||cStatus.includes(o.status))&&(cFilter==='all'||o.platform===cFilter);
+    // special button 不受 cSpecial 自身影響，但受其他 filter 影響（避免自相關循環）
+    if(passPlatStat){
+      if(hasPendingAddrChange(o))changeAddrCnt++;
+      if(isNewOrder(o))newTodayCnt++;
+    }
+    if(!matchSpecial(o))continue;
     if(!cStatus.length||cStatus.includes(o.status)){platCnt.all++;if(o.platform==='MO')platCnt.MO++;else if(o.platform==='PC')platCnt.PC++;else if(o.platform==='ST')platCnt.ST++}
     if(cFilter==='all'||o.platform===cFilter){statCnt.all++;statCnt[o.status]=(statCnt[o.status]||0)+1}
   }
   document.querySelectorAll('#tab-list .fbtn[data-fg="plat"]').forEach(btn=>{setBtnCount(btn,platCnt[btn.dataset.stat]||0)});
   document.querySelectorAll('#tab-list .fbtn[data-fg="status"]').forEach(btn=>{const v=(btn.dataset.stat||'').replace('status:','');setBtnCount(btn,statCnt[v]||0)});
+  document.querySelectorAll('#tab-list .fbtn[data-fg="special"]').forEach(btn=>{const oc=btn.getAttribute('onclick')||'';if(oc.includes('changeAddr'))setBtnCount(btn,changeAddrCnt);else if(oc.includes('newToday'))setBtnCount(btn,newTodayCnt)});
 }
 function setBtnCount(btn,cnt){
   let pill=btn.querySelector('.cnt-pill');
