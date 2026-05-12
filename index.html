@@ -1643,7 +1643,7 @@ if(window.matchMedia('(max-width:768px)').matches&&localStorage.getItem('fullscr
 
 function refreshNotifBtn(){const btn=document.getElementById('notif-btn');if(!('Notification' in window)){btn.style.display='none';return}const enabled=localStorage.getItem('notif-enabled')==='1'&&Notification.permission==='granted';btn.textContent=enabled?'🔔':'🔕';btn.title=enabled?'桌面通知已開啟':'桌面通知已關閉'}
 async function toggleNotifications(){if(!('Notification' in window)){alert('你的瀏覽器不支援桌面通知');return}let perm=Notification.permission;if(perm!=='granted')perm=await Notification.requestPermission();if(perm!=='granted'){alert('權限被拒，請到瀏覽器設定開啟通知權限');refreshNotifBtn();return}const cur=localStorage.getItem('notif-enabled')==='1';localStorage.setItem('notif-enabled',cur?'0':'1');refreshNotifBtn();if(!cur)new Notification('🔔 桌面通知已啟用',{body:'之後 自動抓 MOMO 抓到新訂單會在這裡跳出'})}
-function notifyDesktop(title,body){if(localStorage.getItem('notif-enabled')!=='1')return;if(Notification.permission!=='granted')return;try{new Notification(title,{body,icon:'data:image/svg+xml,%3Csvg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100"%3E%3Ctext y="78" font-size="80"%3E📦%3C/text%3E%3C/svg%3E'})}catch(e){}}
+function notifyDesktop(title,body){if(localStorage.getItem('notif-enabled')!=='1')return;if(Notification.permission!=='granted')return;try{const n=new Notification(title,{body,icon:'data:image/svg+xml,%3Csvg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100"%3E%3Ctext y="78" font-size="80"%3E📦%3C/text%3E%3C/svg%3E'});n.onclick=()=>{window.focus();showTab('list');n.close()}}catch(e){}}
 refreshNotifBtn();
 
 // ===== CSV 匯出 =====
