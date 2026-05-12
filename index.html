@@ -514,10 +514,20 @@ function capturePhoto(oid,btn){
     let url=null,uploadErr=null;
     try{url=await _uploadPhotoToStorage(oid,blob)}catch(e){uploadErr=e;console.error('upload failed:',e)}
     if(url){
-      const oNow=findO(oid)||o;
-      oNow.photos=[...(oNow.photos||[]),{url,ts:Date.now(),size:blob.size}];
-      logActivity(oNow,`📷 出貨拍照（${(blob.size/1024).toFixed(0)}KB → ☁️ 已存）`);
-      saveOne(oNow);renderList();
+      // 重新解析 o — await 期間 orders 可能被 applyRemoteOrders 換掉（e.g., 訂單被別裝置刪了）
+      // 不要 fallback 到原本的 stale o，否則 saveOne 找不到對應 id，照片就變孤兒（Storage 有，本地無連結）
+      const oNow=findO(oid);
+      if(oNow){
+        oNow.photos=[...(oNow.photos||[]),{url,ts:Date.now(),size:blob.size}];
+        logActivity(oNow,`📷 出貨拍照（${(blob.size/1024).toFixed(0)}KB → ☁️ 已存）`);
+        saveOne(oNow);renderList();
+      }else{
+        // 訂單已被刪 — 清掉剛上傳的孤兒，避免 Storage 累積垃圾
+        console.warn(`[capturePhoto] order ${oid} disappeared during upload, removing orphan photo`);
+        ensureStorage().then(s=>{const m=url.match(/\/o\/([^?]+)/);if(m)return s.ref(decodeURIComponent(m[1])).delete()}).catch(()=>{});
+        showToast('⚠️ 訂單在上傳途中被刪除，照片未連結',null,null,4000);
+        return;
+      }
     }
     // 用 toast action button 觸發 share — 用戶點按鈕 = 全新 gesture，iOS 一定放行
     // （之前直接從 input.onchange 呼 share，iOS 不認 onchange 是 user activation 就擋）
@@ -551,7 +561,8 @@ function removeOrderPhoto(oid,idx){
     // 從 URL 解 storage path
     const m=p.url&&p.url.match(/\/o\/([^?]+)/);
     if(m){const path=decodeURIComponent(m[1]);ensureStorage().then(s=>s.ref(path).delete()).catch(e=>console.warn('storage delete failed:',e?.message))}
-  }catch(e){}
+    else if(p.url)console.warn('removeOrderPhoto: storage path 解不出來 url=',p.url); // 罕見：URL 格式變了，雲端會殘留
+  }catch(e){console.warn('removeOrderPhoto cleanup failed:',e?.message)}
   // 重 render edit modal 以更新照片區
   if(editId===oid){const cur=findO(oid);if(cur){closeModal();setTimeout(()=>openEdit(oid),50)}}
   showToast('🗑 已刪除照片');
