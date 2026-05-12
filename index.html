@@ -447,7 +447,6 @@ function copyText(txt,okMsg){return navigator.clipboard.writeText(txt).then(()=>
 let _hlCache={q:null,re:null};
 function escWithHL(s){const safe=esc(s||'');const q=(document.getElementById('q')?.value||'').trim();if(!q)return safe;if(_hlCache.q!==q){const safeQ=esc(q).replace(/[.*+?^${}()|[\]\\]/g,'\\$&');try{_hlCache={q,re:new RegExp(safeQ,'gi')}}catch(e){_hlCache={q,re:null}}}if(!_hlCache.re)return safe;return safe.replace(_hlCache.re,m=>'<mark style="background:#fef9ec;padding:0 2px;border-radius:2px;color:inherit">'+m+'</mark>')}
 function mapsLink(addr){if(!addr)return'';const url='https://www.google.com/maps/search/?api=1&query='+encodeURIComponent(addr);return `<a href="${url}" target="_blank" rel="noopener" style="color:inherit;text-decoration:none;border-bottom:1px dashed currentColor" title="點擊用 Google Maps 開啟">${esc(addr)}</a>`}
-function copyOrderNo(no,btn){if(!no)return;navigator.clipboard.writeText(no).then(()=>{if(btn){const old=btn.textContent;btn.textContent='✓';btn.style.color='var(--grn)';setTimeout(()=>{btn.textContent=old;btn.style.color=''},1100)}}).catch(()=>{})}
 function platformPill(p){if(p==='MO')return '<span class="brand-pill brand-mo" title="momo">M</span>';if(p==='PC')return '<span class="brand-pill brand-pc" title="PChome 24h">P</span>';if(p==='ST')return '<span class="brand-pill brand-store" title="店內銷售">店</span>';return `<span class="tag">${esc(p||'')}</span>`}
 // cleanNote：濾掉 activity log + 安裝/加購 meta 行。單次 pass + regex 預編譯，
 // 比原本的 3 次 .filter() chain 快約 2-3 倍（長備註訂單在 list render 上有感）
@@ -1169,7 +1168,6 @@ restoreFilterUI();
 // makeDateBucketer：一次算好今天/昨天/週/30 天邊界，回傳的函式每筆訂單呼叫只是字串比較
 // renderList/renderListMobile 都用這個避免 O(n*5 Date 物件) 的成本
 function makeDateBucketer(){const today=localDateISO();const yest=localDateISO(new Date(Date.now()-86400000));const now=new Date();const dow=now.getDay();const startOfWeek=localDateISO(new Date(now.getTime()-dow*86400000));const startOfLastWeek=localDateISO(new Date(now.getTime()-(dow+7)*86400000));const cutoff30=localDateISO(new Date(Date.now()-30*86400000));return function(d){if(!d)return'其他';if(d===today)return'🆕 今天';if(d===yest)return'昨天';if(d>=startOfWeek)return'本週';if(d>=startOfLastWeek)return'上週';if(d>=cutoff30)return'近 30 天';return'更早'}}
-function dateBucket(dateStr){return makeDateBucketer()(dateStr)}
 function isMobile(){return window.matchMedia('(max-width:768px)').matches}
 // 改址狀態判定：只看 `⚠ 客戶申請改地址` 這個 marker，不含 activity log
 // （之前 `.includes('改地址')` 會在用戶按下「同意/拒絕」之後仍然 true，因為 log 寫了「同意改地址」）
@@ -1353,7 +1351,6 @@ async function shareOutput(){const list=filterOutputOrders();if(!list.length){al
 function setStatsPeriod(p,btn){statsPeriod=p;localStorage.setItem('statsPeriod',p);document.querySelectorAll('#tab-stats .filter-row .fbtn').forEach(x=>x.classList.remove('on'));if(btn)btn.classList.add('on');else{const auto=document.querySelector(`#tab-stats .fbtn[onclick*="setStatsPeriod('${p}'"]`);if(auto)auto.classList.add('on')}const mInp=document.getElementById('stats-month');if(mInp)mInp.value='';renderStats()}
 function setStatsMonth(ym){if(!ym)return;statsPeriod='month:'+ym;localStorage.setItem('statsPeriod',statsPeriod);document.querySelectorAll('#tab-stats .filter-row .fbtn').forEach(x=>x.classList.remove('on'));renderStats()}
 function ordersInPeriod(period){const today=localDateISO();if(period==='all')return orders.slice();if(period==='today')return orders.filter(o=>o.date===today);if(typeof period==='string'&&period.startsWith('month:')){const ym=period.slice(6);return orders.filter(o=>o.date&&o.date.startsWith(ym))}const days=parseInt(period,10)||30;const cutoff=localDateISO(new Date(Date.now()-days*86400000));return orders.filter(o=>o.date&&o.date>=cutoff)}
-function topN(arr,keyFn,n){const m=new Map();arr.forEach(x=>{const k=keyFn(x);if(!k)return;m.set(k,(m.get(k)||0)+1)});return[...m.entries()].sort((a,b)=>b[1]-a[1]).slice(0,n)}
 function renderStats(){const sub=ordersInPeriod(statsPeriod);
 if(!ordersLoaded){document.getElementById('stats-area').innerHTML='<div class="card"><div class="card-b" style="text-align:center;padding:40px 20px;color:var(--dm)">⏳ 載入中...</div></div>';return}
 if(!sub.length){document.getElementById('stats-area').innerHTML=`<div class="card"><div class="card-b empty-state"><div class="es-icon">📊</div><div class="es-title">此期間沒有訂單可統計</div><div class="es-hint">換個期間（試試「全部」）</div></div></div>`;return}
