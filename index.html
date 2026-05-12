@@ -381,7 +381,9 @@ let amt=0,qty=1;const ii=c.indexOf(id);if(ii>=0){const q=parseInt(c[ii+1]);if(/^
 if(id&&(name||prod)){let iso=localDateISO();if(date){const[mm,dd]=date.split('/');const yr=id.slice(0,4);iso=`${yr}-${String(mm).padStart(2,'0')}-${String(dd).padStart(2,'0')}`}
 // 嘗試從同一段 context 找客戶手機（如果用戶有先在 PC 後台點「看電話」展開）
 let phPC='';const phM=bk.match(/\b(09\d{8})\b/);if(phM)phPC=phM[1];
-res.push({id:gid(),date:iso,dateFmt:date,platform:'PC',orderNo:id,product:prod,specs,name,phone:phPC,realPhone:phPC,address:addr,install:'否',installFee:0,installDay:'',installTime:'',addon:'否',addonFee:0,amount:amt,qty,status:'未確認',note:''})}}return res}
+// realPhone 留空 — 從 PC 後台抓的 phPC 其實是代撥號（0928000899），不是客戶真實手機。
+// 用戶手動填客戶真實手機（從 LINE / 來電留下的）才寫進 realPhone。bestPhone(o) 會優先用 realPhone。
+res.push({id:gid(),date:iso,dateFmt:date,platform:'PC',orderNo:id,product:prod,specs,name,phone:phPC,realPhone:'',address:addr,install:'否',installFee:0,installDay:'',installTime:'',addon:'否',addonFee:0,amount:amt,qty,status:'未確認',note:''})}}return res}
 
 function parseMO(raw){const hs=/\d+\(•\)/.test(raw);if(hs){const b=raw.split(/\d+\(•\)/).filter(x=>x.trim().length>30);const r=b.map(parseMOB).filter(Boolean);if(r.length)return r}const re=/(\d{14,}-\d{3}-\d{3}-\d{3})/g,sn=new Set(),h=[];let m;while((m=re.exec(raw))!==null){if(!sn.has(m[1])){sn.add(m[1]);h.push({id:m[1],pos:m.index})}}if(h.length){const r=[];for(let i=0;i<h.length;i++){const o=parseMOB(raw.substring(h[i].pos,i+1<h.length?h[i+1].pos:raw.length));if(o)r.push(o)}if(r.length)return r}const s=parseMOB(raw);return s?[s]:[]}
 function parseMOB(bk){let t=bk.replace(/請回覆/g,' ').replace(/請選取[^\n]*/g,' ').replace(/已配送|已確認[^\n]*|已確定[^\n]*|已電聯[^\n]*|多次電聯[^\n]*|暫時電聯[^\n]*/g,' ').replace(/需配送[^\n]*|無貨取消[^\n]*|收件資料[^\n]*|無適當[^\n]*/g,' ').replace(/宅配通|新竹貨運|統一速達|大榮貨運|順豐速運|全球快遞|通盈貨運|新航貨運|郵局|便利袋|富昇物流|其他宅配|宅配-宅配通大電/g,' ').replace(/原箱|momo制式包材-紙箱\(袋\)|momo制式包材-破壞袋|自有包材|循環箱/g,' ').replace(/其他/g,' ').replace(/\n/g,' ').replace(/\s{2,}/g,' ').trim();
