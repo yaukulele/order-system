@@ -600,10 +600,11 @@ function phoneTel(p){if(!p)return'';const s=String(p).trim();if(!s)return'';cons
 // PC 後台「看電話」貼上格式 0928000899,576-0647 → 0928000899#5760647#1（代撥 + 分機 + 自動選 1）
 // 只在 paste 觸發、不在每個 keystroke：避免用戶逐字打字時被中段格式化（例如先打 0928000899,57 就被吃掉）
 function formatDispatchPhone(el){const s=(el.value||'').trim();const m=s.match(/^(\d+)\s*[,，]\s*(\d[\d-]*\d)\s*$/);if(m)el.value=m[1]+'#'+m[2].replace(/-/g,'')+'#1'}
-// cn = clean numeric input: 剝所有非數字（含 $/, /空白/全形）+ 剝 leading zeros
-// 之前只剝 leading zeros → 用戶輸「28,000」「$28000」 oninput 顯示原樣但 parseInt 吃成 28 / NaN
-// 收緊到剝所有 \D，TWD 整數元場景下安全（小數點本來就被 parseInt 截斷，乾脆全剝）
-function cn(v){return(v+'').replace(/\D/g,'').replace(/^0+(?=\d)/,'')}
+// cn = clean numeric input: 剝非數字（保留小數點）+ 剝 leading zeros
+// 原版只剝 leading zeros → 「28,000」被 parseInt 吃成 28
+// 第一次激進版 \D 把「28000.00」併成「2800000」(×100 膨脹) — 也壞
+// 折衷版：剝 $/, /空白/全形/字母但保留 . — parseInt 遇 . 自然停，TWD 整數安全
+function cn(v){return(v+'').replace(/[^\d.]/g,'').replace(/^0+(?=\d)/,'')}
 function updateCnt(){
   const el=document.getElementById('cnt');if(!el)return;
   const waiting=orders.filter(o=>isPending(o.status)).length;
