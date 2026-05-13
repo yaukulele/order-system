@@ -700,6 +700,12 @@ async function doLogout(){
   localStorage.removeItem('orderSysRole');
   // 清掉 UI 狀態避免下個登入者看到上個 session 殘留
   selectedIds.clear();editId=null;shipId=null;
+  // 關掉任何開著的 modal — 否則登入 overlay 會疊在 edit/ship modal 上面視覺混亂
+  _modalDirty=false; // 跳過未儲存警告，登出本來就棄改
+  if(!document.getElementById('modal-overlay').classList.contains('hidden')){
+    document.getElementById('modal-overlay').classList.add('hidden');
+    document.body.style.overflow='';
+  }
   const sb=document.getElementById('user-badge');if(sb)sb.textContent='';
   showLoginModal();
 }
@@ -1752,15 +1758,15 @@ document.addEventListener('keydown',e=>{
   if(isModalOpen())return;
   // Ctrl+K / "/" → focus 搜尋（會自動切到列表 tab 如果不在）
   if(((e.ctrlKey||e.metaKey)&&e.key==='k')||e.key==='/'){e.preventDefault();const at=document.querySelector('.tab.active')?.textContent||'';if(at.includes('客戶')){document.getElementById('cq')?.focus()}else if(at.includes('輸出')){document.getElementById('oq')?.focus()}else{if(!at.includes('列表'))showTab('list');setTimeout(()=>document.getElementById('q')?.focus(),50)}return}
-  // 1-6 切 tab
-  const tabs=['import','list','output','stats','customers','account'];
-  if(/^[1-6]$/.test(e.key)){const idx=parseInt(e.key)-1;showTab(tabs[idx]);return}
+  // 1-7 切 tab — bf3c525 加成交 tab 後變 7 個（之前只有 6 個 → 鍵 3 會跑去輸出而非成交）
+  const tabs=['import','list','deals','output','stats','customers','account'];
+  if(/^[1-7]$/.test(e.key)){const idx=parseInt(e.key)-1;showTab(tabs[idx]);return}
   // ? 顯示快捷鍵說明
   if(e.key==='?'){showShortcutsHelp();return}
   // Ctrl+Z 還原刪除
   if((e.ctrlKey||e.metaKey)&&e.key==='z'){e.preventDefault();undoLast();return}
 });
-function showShortcutsHelp(){const lines=['🎹 鍵盤捷徑','','/ 或 Ctrl+K — 聚焦搜尋','Esc — 關 modal / 清搜尋 / 取消批次','Ctrl+Z — 還原刪除（最近 10 次）','1 — 匯入分頁','2 — 列表','3 — 輸出','4 — 統計','5 — 客戶','6 — 帳號','? — 顯示這個說明'];alert(lines.join('\n'))}
+function showShortcutsHelp(){const lines=['🎹 鍵盤捷徑','','/ 或 Ctrl+K — 聚焦搜尋','Esc — 關 modal / 清搜尋 / 取消批次','Ctrl+Z — 還原刪除（最近 10 次）','1 — 匯入分頁','2 — 列表','3 — 成交','4 — 輸出','5 — 統計','6 — 客戶','7 — 帳號','? — 顯示這個說明'];alert(lines.join('\n'))}
 function confirmWipeAll(){
   if(!isAdmin()){alert('只有管理員可清空');return}
   const cnt=orders.length;
