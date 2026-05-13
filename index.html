@@ -1165,8 +1165,11 @@ function toggleAddon(oid){const o=findO(oid);if(!o)return;
   if(o.addon==='否'){o.addonFee=0;o.addonPaidAmount=0;o.addonItems=''}
   saveOne(o);renderList()
 }
-function togInstallPaid(oid){const o=findO(oid);if(!o||o.install!=='是')return;if((o.installPaidAmount||0)>0){if(!confirm(`改回「未收」？目前已收 $${o.installPaidAmount}`))return;const prev=o.installPaidAmount;o.installPaidAmount=0;logActivity(o,`安裝款 已收 $${prev} → 未收`);saveOne(o);renderList()}else{const v=prompt('💰 已收金額（直接輸入數字）：',o.installFee||'');if(v===null)return;const n=parseInt(String(v).replace(/[^\d]/g,''));if(!n||n<0){alert('金額無效');return}o.installPaidAmount=n;logActivity(o,`安裝款已收 $${n}`);saveOne(o);renderList()}}
-function togAddonPaid(oid){const o=findO(oid);if(!o||o.addon!=='是')return;if((o.addonPaidAmount||0)>0){if(!confirm(`改回「未收」？目前已收 $${o.addonPaidAmount}`))return;const prev=o.addonPaidAmount;o.addonPaidAmount=0;logActivity(o,`加購款 已收 $${prev} → 未收`);saveOne(o);renderList()}else{const v=prompt('💰 已收金額（直接輸入數字）：',o.addonFee||'');if(v===null)return;const n=parseInt(String(v).replace(/[^\d]/g,''));if(!n||n<0){alert('金額無效');return}o.addonPaidAmount=n;logActivity(o,`加購款已收 $${n}`);saveOne(o);renderList()}}
+// 解析金額輸入 — 容忍 $、,、空白、單位字（元 NT）、小數點；遇 . 截斷（TWD 整數元）
+// 之前 .replace(/[^\d]/g,'') 把「500.50」併成「50050」放大 100 倍 — 直接 OOPS
+function parseAmt(v){if(v==null)return NaN;const m=String(v).replace(/[^\d.]/g,'').match(/^(\d+)/);return m?parseInt(m[1]):NaN}
+function togInstallPaid(oid){const o=findO(oid);if(!o||o.install!=='是')return;if((o.installPaidAmount||0)>0){if(!confirm(`改回「未收」？目前已收 $${o.installPaidAmount}`))return;const prev=o.installPaidAmount;o.installPaidAmount=0;logActivity(o,`安裝款 已收 $${prev} → 未收`);saveOne(o);renderList()}else{const v=prompt('💰 已收金額（直接輸入數字）：',o.installFee||'');if(v===null)return;const n=parseAmt(v);if(!n||n<0){alert('金額無效');return}o.installPaidAmount=n;logActivity(o,`安裝款已收 $${n}`);saveOne(o);renderList()}}
+function togAddonPaid(oid){const o=findO(oid);if(!o||o.addon!=='是')return;if((o.addonPaidAmount||0)>0){if(!confirm(`改回「未收」？目前已收 $${o.addonPaidAmount}`))return;const prev=o.addonPaidAmount;o.addonPaidAmount=0;logActivity(o,`加購款 已收 $${prev} → 未收`);saveOne(o);renderList()}else{const v=prompt('💰 已收金額（直接輸入數字）：',o.addonFee||'');if(v===null)return;const n=parseAmt(v);if(!n||n<0){alert('金額無效');return}o.addonPaidAmount=n;logActivity(o,`加購款已收 $${n}`);saveOne(o);renderList()}}
 function setInstFee(oid,v){const o=findO(oid);if(!o)return;o.installFee=parseInt(v)||0;saveOne(o);const el=document.getElementById('tot-'+oid);if(el)el.textContent=$(tot(o))}
 function setAddonFee(oid,v){const o=findO(oid);if(!o)return;o.addonFee=parseInt(v)||0;saveOne(o);const el=document.getElementById('tot-'+oid);if(el)el.textContent=$(tot(o))}
 function setQty(oid,v){const o=findO(oid);if(!o)return;const n=parseInt(v);o.qty=n>=1?n:1;saveOne(o)}
@@ -1216,10 +1219,18 @@ function statusMatchList(o){
   if(cStatus.includes('待收費')&&(o.status==='待收費'||isPendingPayment(o)))return true;
   return cStatus.includes(o.status);
 }
+// unpaidFee 模式下的 status 篩選 — 沒選 cStatus 就全顯（含已完成）；有選就尊重
+function statusMatchListUnpaidMode(o){
+  if(!cStatus.length)return true; // 不過濾 — 含已完成
+  if(cStatus.includes('待收費')&&(o.status==='待收費'||isPendingPayment(o)))return true;
+  return cStatus.includes(o.status);
+}
 function filterListOrders(){const q=(document.getElementById('q')?.value||'').toLowerCase();return orders.filter(o=>{if(cFilter!=='all'&&o.platform!==cFilter)return false;
-  // 未收款 special filter 跨狀態 — 跳過 statusMatchList（用戶說「先不管狀態」）+ 套未收款檢查
-  if(cSpecial==='unpaidFee'){if(!hasAnyUnpaidFee(o))return false}
-  else{
+  // 未收款 special filter — 跨狀態（含已完成）；cStatus 仍可進一步縮範圍
+  if(cSpecial==='unpaidFee'){
+    if(!hasAnyUnpaidFee(o))return false;
+    if(!statusMatchListUnpaidMode(o))return false;
+  }else{
     if(!statusMatchList(o))return false;
     if(cSpecial==='changeAddr'&&!hasPendingAddrChange(o))return false;
     if(cSpecial==='newToday'&&!isNewOrder(o))return false;
@@ -1236,17 +1247,20 @@ function updateFilterCounts(){
   // special button 也算 count（改址 / 今日新單 / 未收款）— 用「當前 plat+status+q」當前提
   // unpaidFee 例外：跨狀態（含已完成），count 用「plat+q」不過 status filter
   let changeAddrCnt=0,newTodayCnt=0,unpaidFeeCnt=0;
+  const isUnpaidMode=cSpecial==='unpaidFee';
   for(const o of orders){
     if(!matchQ(o))continue;
-    // 已完成移到成交 tab — 列表的 count 排除（除非用戶明確 filter）
+    // 已完成移到成交 tab — 列表的 count 排除（除非用戶明確 filter，或在 unpaidFee 模式下）
     const isDone=o.status==='已完成';
-    const passStatusFilter=cStatus.length?statusMatchList(o):!isDone;
+    // unpaid 模式：status filter 用 statusMatchListUnpaidMode（沒選 cStatus → 含已完成）
+    // 正常模式：沒選 cStatus 預設排除已完成
+    const passStatusFilter=isUnpaidMode?statusMatchListUnpaidMode(o):(cStatus.length?statusMatchList(o):!isDone);
     const passPlatStat=passStatusFilter&&(cFilter==='all'||o.platform===cFilter);
     if(passPlatStat){
       if(hasPendingAddrChange(o))changeAddrCnt++;
       if(isNewOrder(o))newTodayCnt++;
     }
-    // 未收款 count — 不過 statusMatchList（用戶要「先不管狀態」）
+    // 未收款 count — 不過 status filter（含 cStatus + 自動排已完成），純粹「平台+搜尋+未收款」
     if((cFilter==='all'||o.platform===cFilter)&&hasAnyUnpaidFee(o))unpaidFeeCnt++;
     if(!matchSpecial(o))continue;
     if(passStatusFilter){platCnt.all++;if(o.platform==='MO')platCnt.MO++;else if(o.platform==='PC')platCnt.PC++;else if(o.platform==='ST')platCnt.ST++}
