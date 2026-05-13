@@ -427,15 +427,16 @@ function undoLast(){const u=undoStack.pop();if(!u){showToast('沒有可還原的
     showToast(`✅ 已還原 ${u.orders.length} 筆訂單`)
   }
   else if(u.kind==='bulk-restore-status'){
-    // bulkUncompleteAll undo — 把 status 都回到 snapshot 狀態（通常是 已完成）
-    const updates={};let n=0;
+    // bulkUncompleteAll / batchSetStatus undo — 把每筆 status 回到 snapshot 紀錄的 prevStatus
+    const updates={};let n=0;const restored=new Map();
     for(const s of u.snapshot){
       const o=findO(s.id);
-      if(o){o.status=s.prevStatus;logActivity(o,`狀態：已出貨 → ${s.prevStatus}（撤回拉回）`);updates[s.id]=o;n++}
+      if(o){const curStatus=o.status;o.status=s.prevStatus;logActivity(o,`狀態：${curStatus} → ${s.prevStatus}（撤回批次）`);updates[s.id]=o;n++;restored.set(s.prevStatus,(restored.get(s.prevStatus)||0)+1)}
     }
     _setSavingBadge();db.ref('orders').update(updates).catch(_saveError);
     renderDeals();renderList();updateCnt();
-    showToast(`✅ 已撤回拉回，${n} 筆回到「已完成」`)
+    const summary=[...restored.entries()].map(([k,v])=>`${k}×${v}`).join('、');
+    showToast(`✅ 已撤回批次：${n} 筆（${summary}）`)
   }
 }
 // Toast 系統
@@ -1406,12 +1407,15 @@ function batchSetStatus(s){
     }
   }
   if(!confirm(`把選取的 ${sel.length} 筆訂單標記為「${s}」？`))return;
+  // 紀錄每筆原 status 給 undo 用
+  const snapshot=sel.map(o=>({id:o.id,prevStatus:o.status}));
   sel.forEach(o=>{const prev=o.status;o.status=s;logActivity(o,`批次狀態：${prev} → ${s}`)});
+  pushUndo({kind:'bulk-restore-status',snapshot});
   const upd={};for(const o of sel)upd[o.id]=o;
   _setSavingBadge();db.ref('orders').update(upd).catch(_saveError);
   renderList();updateCnt();
   const toDeals=s==='已完成'?'（已移到「🎯 成交」tab）':'';
-  showToast(`✅ 已更新 ${sel.length} 筆訂單為「${s}」${toDeals}`)
+  showToast(`✅ 已更新 ${sel.length} 筆訂單為「${s}」${toDeals}`,'↩️ 還原',undoLast,8000)
 }
 function batchCopyShipping(){const sel=orders.filter(o=>selectedIds.has(o.id));if(!sel.length)return;copyText(sel.map(o=>fmtShipping(o)).join('\n\n========\n\n'),`✅ 已複製 ${sel.length} 筆出貨資料`)}
 function batchDelete(){const sel=orders.filter(o=>selectedIds.has(o.id));if(!sel.length)return;if(!confirm(`刪除選取的 ${sel.length} 筆訂單？\n\n（可按 Undo 還原）`))return;pushUndo({kind:'delete-batch',orders:sel.map(o=>JSON.parse(JSON.stringify(o)))});const ids=sel.map(o=>o.id);orders=orders.filter(o=>!selectedIds.has(o.id));selectedIds.clear();deleteOrderIds(ids);renderList();showToast(`已刪除 ${sel.length} 筆訂單`,'↩️ 還原',undoLast,8000)}
