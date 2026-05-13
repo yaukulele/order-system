@@ -859,7 +859,9 @@ function updateStatCycleBtn(){const btn=document.getElementById('mob-stat-cycle'
   // 多選時顯示第一個狀態 + 「+N」標示；單選或全狀態維持原顯示
   const all=!cStatus.length;
   let label;if(all)label='全狀態';else if(cStatus.length===1)label=cStatus[0].replace('轉線下','🏪 轉線下');else label=cStatus[0]+`+${cStatus.length-1}`;
-  const cnt=orders.filter(o=>{if(cFilter!=='all'&&o.platform!==cFilter)return false;if(!statusMatchList(o))return false;return true}).length;
+  // unpaid mode 用 statusMatchListUnpaidMode 跟 filterListOrders 一致；不然 cycle 按鈕數字會跟實際列表筆數不符
+  const _statMatch=cSpecial==='unpaidFee'?statusMatchListUnpaidMode:statusMatchList;
+  const cnt=orders.filter(o=>{if(cFilter!=='all'&&o.platform!==cFilter)return false;if(!_statMatch(o))return false;if(cSpecial==='unpaidFee'&&!hasAnyUnpaidFee(o))return false;return true}).length;
   btn.innerHTML=`${esc(label)} <span style="opacity:.75;font-weight:600;margin-left:4px">${cnt}</span>`;
   const tail=(all||cStatus.length>1)?'':` ${stCls(cStatus[0]).replace('st-btn ','')}`;
   btn.className='fbtn st-cycle'+(all?' on':'')+tail;
