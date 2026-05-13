@@ -1184,6 +1184,10 @@ function restoreFilterUI(){document.querySelectorAll('#tab-list .fbtn[data-fg="p
   document.querySelectorAll('.fbtn[data-fg="oplat"]').forEach(x=>x.classList.remove('on'));const op=document.querySelector(`.fbtn[data-fg="oplat"][onclick*="setOutputPlatform('${outputPlatform}'"]`);if(op)op.classList.add('on');else document.querySelector('.fbtn[data-fg="oplat"]')?.classList.add('on');
   // 成交頁期間（從 localStorage 還原）
   document.querySelectorAll('.fbtn[data-fg="dperiod"]').forEach(x=>x.classList.remove('on'));const dp=document.querySelector(`.fbtn[data-fg="dperiod"][onclick*="setDealsPeriod('${dealsPeriod}'"]`);if(dp)dp.classList.add('on');else document.querySelector('.fbtn[data-fg="dperiod"]')?.classList.add('on')}
+// deals tab 全域變數 — 必須在 restoreFilterUI() 之前宣告（restoreFilterUI 會讀 dealsPeriod）
+// 之前 bf3c525 放在 line ~1346，被頂層的 restoreFilterUI() call 撞到 TDZ ReferenceError
+// → 整個 script 拋錯停止 → line 1187 後的所有 function（renderDeals/renderOutput/openEdit…）全部沒定義
+let dealsPeriod=localStorage.getItem('dealsPeriod')||'30',dealsPlatform='all',dealsQ='';
 restoreFilterUI();
 // makeDateBucketer：一次算好今天/昨天/週/30 天邊界，回傳的函式每筆訂單呼叫只是字串比較
 // renderList/renderListMobile 都用這個避免 O(n*5 Date 物件) 的成本
@@ -1343,7 +1347,6 @@ const html=`<!doctype html><html><head><meta charset="utf-8"><title>出貨單 ${
 function delOrder(oid){const i=findIdx(oid);if(i<0)return;const o=orders[i];if(!confirm(`確定刪除？\n\n${o.name||''} ｜ ${o.product||''}\n\n（8 秒內可按 Undo 還原）`))return;pushUndo({kind:'delete-one',order:JSON.parse(JSON.stringify(o))});orders.splice(i,1);selectedIds.delete(oid);deleteOrderId(oid);renderList();showToast(`已刪除「${o.name||o.product||'訂單'}」`,'↩️ 還原',undoLast,8000)}
 
 // ===== DEALS（成交）TAB =====
-let dealsPeriod=localStorage.getItem('dealsPeriod')||'30',dealsPlatform='all',dealsQ='';
 function setDealsPeriod(p,btn){dealsPeriod=p;localStorage.setItem('dealsPeriod',p);document.querySelectorAll('#tab-deals .fbtn[data-fg="dperiod"]').forEach(x=>x.classList.remove('on'));if(btn)btn.classList.add('on');renderDeals()}
 function setDealsPlatform(p,btn){dealsPlatform=p;document.querySelectorAll('#tab-deals .fbtn[data-fg="dplat"]').forEach(x=>x.classList.remove('on'));if(btn)btn.classList.add('on');renderDeals()}
 let _searchDealsTm=null;
