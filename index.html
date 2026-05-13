@@ -316,7 +316,7 @@ if(wasLoaded){const newOnes=orders.filter(o=>!prevIds.has(o.id));if(newOnes.leng
 if(!window._dupChecked){window._dupChecked=true;const dupGroups=new Map();orders.forEach(o=>{if(!o.orderNo)return;if(!dupGroups.has(o.orderNo))dupGroups.set(o.orderNo,[]);dupGroups.get(o.orderNo).push(o)});const dupSets=[...dupGroups.values()].filter(arr=>arr.length>1);if(dupSets.length){console.warn('Duplicate orderNos detected:',dupSets);if(typeof showToast==='function')showToast(`⚠️ 偵測到 ${dupSets.length} 組重複單號（${dupSets.reduce((s,a)=>s+a.length,0)} 筆），到帳號頁開 console 看詳情`,null,null,8000)}}
 ordersLoaded=true;updateCnt();
 const at=document.querySelector('.tab.active')?.textContent||'';
-if(at.includes('列表'))renderList();if(at.includes('輸出'))renderOutput();if(at.includes('統計'))renderStats();if(at.includes('客戶'))renderCustomers();
+if(at.includes('列表'))renderList();if(at.includes('成交'))renderDeals();if(at.includes('輸出'))renderOutput();if(at.includes('統計'))renderStats();if(at.includes('客戶'))renderCustomers();
 setSyncOn();window.scrollTo(0,sc)}
 db.ref('orders').on('value',snap=>{
   try{
@@ -1272,7 +1272,9 @@ function updateFilterCounts(){
         if(o.status!=='待收費'&&isPendingPayment(o))statCnt['待收費']++;
       }else{
         // 已完成不算進「全部」count，但 已完成 按鈕本身顯示真實 count
+        // 在 unpaid mode 下：已完成 也算進「全狀態」，跟 statusMatchListUnpaidMode 行為對齊
         statCnt['已完成']=(statCnt['已完成']||0)+1;
+        if(isUnpaidMode)statCnt.all++;
       }
     }
   }
@@ -1954,7 +1956,7 @@ async function submitShip(force){
 document.getElementById('raw-input')?.addEventListener('paste',()=>setTimeout(runParse,200));
 bootAuth();
 // Re-render on viewport breakpoint cross (mobile ↔ desktop) — 列表/客戶都要切版
-let _wasMobile=isMobile();window.addEventListener('resize',()=>{const now=isMobile();if(now!==_wasMobile){_wasMobile=now;updateCnt();const at=document.querySelector('.tab.active')?.textContent||'';if(at.includes('列表'))renderList();if(at.includes('客戶'))renderCustomers()}});
+let _wasMobile=isMobile();window.addEventListener('resize',()=>{const now=isMobile();if(now!==_wasMobile){_wasMobile=now;updateCnt();const at=document.querySelector('.tab.active')?.textContent||'';if(at.includes('列表'))renderList();if(at.includes('客戶'))renderCustomers();if(at.includes('成交'))renderDeals()}});
 // 定期檢查並套用 pending 遠端更新（modal 關 + 沒輸入框聚焦 時）
 setInterval(()=>{if(pendingRemoteOrders!==null&&!isModalOpen()&&!isInputFocused()&&!_saveOneTimer&&!_saveAllTimer){const v=pendingRemoteOrders;applyRemoteOrders(v)}},2000);
 // Register service worker (PWA support)
