@@ -1715,6 +1715,9 @@ function syncShipFromEdit(){
   if(o.platform!=='MO'){alert('只有 MOMO 訂單可同步');return}
   const oid=editId;
   saveEdit();
+  // saveEdit 防呆 cancel 不會 closeModal → editId 仍非 null → 跳過開 ship modal
+  // 否則用戶按取消後仍然會被丟去 ship 視窗，造成「edit 沒存又跳 ship」的混淆
+  if(editId!==null)return;
   setTimeout(()=>openShipMomo(oid),120);
 }
 let _modalDirty=false;
