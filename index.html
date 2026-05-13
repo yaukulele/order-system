@@ -426,6 +426,17 @@ function undoLast(){const u=undoStack.pop();if(!u){showToast('沒有可還原的
     renderList();
     showToast(`✅ 已還原 ${u.orders.length} 筆訂單`)
   }
+  else if(u.kind==='bulk-restore-status'){
+    // bulkUncompleteAll undo — 把 status 都回到 snapshot 狀態（通常是 已完成）
+    const updates={};let n=0;
+    for(const s of u.snapshot){
+      const o=findO(s.id);
+      if(o){o.status=s.prevStatus;logActivity(o,`狀態：已出貨 → ${s.prevStatus}（撤回拉回）`);updates[s.id]=o;n++}
+    }
+    _setSavingBadge();db.ref('orders').update(updates).catch(_saveError);
+    renderDeals();renderList();updateCnt();
+    showToast(`✅ 已撤回拉回，${n} 筆回到「已完成」`)
+  }
 }
 // Toast 系統
 let _toastEl=null,_toastTimer=null;
@@ -1443,12 +1454,15 @@ function uncompleteToShipped(oid){
 function bulkUncompleteAll(){
   const list=filterDealsOrders();
   if(!list.length){alert('當前篩選沒有可拉回的成交訂單');return}
-  if(!confirm(`⚠ 確定要把目前可見的 ${list.length} 筆「已完成」訂單全部拉回（改成「已出貨」）嗎？\n\n它們會從 🎯 成交 tab 移回 📦 列表 tab，未收款的單也會自動顯示 💰 待收費。\n\n（此動作無 Undo — 但你可以再個別點「已出貨 → 已完成」標回去）`))return;
+  if(!confirm(`⚠ 確定要把目前可見的 ${list.length} 筆「已完成」訂單全部拉回（改成「已出貨」）嗎？\n\n它們會從 🎯 成交 tab 移回 📦 列表 tab，未收款的單也會自動顯示 💰 待收費。\n\n（可按 Ctrl+Z 或還原按鈕取消）`))return;
+  // 紀錄每筆原 status（一定是已完成，但寫個保險的）支援 undo
+  const snapshot=list.map(o=>({id:o.id,prevStatus:o.status}));
   const upd={};
   list.forEach(o=>{const prev=o.status;o.status='已出貨';logActivity(o,`狀態：${prev} → 已出貨（批次拉回）`);upd[o.id]=o});
+  pushUndo({kind:'bulk-restore-status',snapshot});
   _setSavingBadge();db.ref('orders').update(upd).catch(_saveError);
   renderDeals();updateCnt();
-  showToast(`↩️ 已拉回 ${list.length} 筆訂單回列表`);
+  showToast(`↩️ 已拉回 ${list.length} 筆訂單回列表`,'↩️ 還原',undoLast,8000);
 }
 function renderDeals(){
   const fl=filterDealsOrders();
