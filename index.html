@@ -188,9 +188,9 @@ body.fullscreen-mode .filter-row{top:32px}
 .filter-row::-webkit-scrollbar-thumb{background:var(--bd);border-radius:2px}
 .search{flex-shrink:0;width:140px!important;min-width:120px}
 /* 客戶頁/輸出頁 filter-row 在手機上分行排版（每組各佔一行，不黏頂） */
-#tab-customers .filter-row,#tab-output .card-b .filter-row,#tab-deals .filter-row{flex-direction:column!important;align-items:stretch!important;flex-wrap:wrap!important;overflow:visible!important;position:static!important;background:transparent!important;padding:6px 0!important;gap:8px!important;top:auto!important}
-#tab-customers .filter-row .search,#tab-output .card-b .filter-row .search,#tab-deals .filter-row .search{width:100%!important;min-width:0!important;flex:1 1 auto}
-#tab-customers .filter-row .fg-grp,#tab-output .card-b .filter-row .fg-grp,#tab-deals .filter-row .fg-grp{display:flex!important;flex-wrap:wrap;align-items:center;gap:6px;width:100%}
+#tab-customers .filter-row,#tab-output .card-b .filter-row{flex-direction:column!important;align-items:stretch!important;flex-wrap:wrap!important;overflow:visible!important;position:static!important;background:transparent!important;padding:6px 0!important;gap:8px!important;top:auto!important}
+#tab-customers .filter-row .search,#tab-output .card-b .filter-row .search{width:100%!important;min-width:0!important;flex:1 1 auto}
+#tab-customers .filter-row .fg-grp,#tab-output .card-b .filter-row .fg-grp{display:flex!important;flex-wrap:wrap;align-items:center;gap:6px;width:100%}
 /* 列表頁 mobile：filter-row 不橫捲，平台 / 特殊 各佔一行；狀態收成單顆循環按鈕貼在平台後面 */
 #tab-list .filter-row{flex-wrap:wrap!important;overflow-x:visible!important;align-items:flex-start;row-gap:6px}
 #tab-list .filter-row .fg-grp{display:flex!important;flex:1 1 100%;flex-wrap:wrap;align-items:center;gap:4px}
@@ -242,15 +242,13 @@ body.has-batch-bar .main{padding-bottom:140px}
 <body>
 <div class="offline-banner hidden" id="offline-banner">⚠️ 已離線 — 你的修改會在連線恢復後同步</div>
 <div class="hdr"><h1>📦 訂單管理系統<small>MOMO + PChome</small></h1><div style="display:flex;align-items:center;gap:8px"><span id="sync-badge" class="sync-dot sync-off"><span class="dot dot-off"></span>連線中...</span><button class="btn" id="theme-btn" onclick="toggleTheme()" style="font-size:11px" title="切換亮色/暗色">🌙</button><button class="btn" id="notif-btn" onclick="toggleNotifications()" style="font-size:11px" title="桌面通知">🔕</button><button class="btn" onclick="showShortcutsHelp()" style="font-size:11px" title="鍵盤捷徑（按 ? 快速打開）">⌨️</button><button class="btn" onclick="location.reload()" style="font-size:11px">🔄</button><button class="btn" onclick="confirmWipeAll()" style="font-size:11px;color:var(--pc);border-color:#e8a8a4" title="清空所有訂單（危險動作 — 需打字確認）">清空</button></div></div>
-<div class="tabs"><button class="tab active" onclick="showTab('import')">📋 匯入</button><button class="tab" onclick="showTab('list')">📦 列表 <span class="badge" id="cnt">0</span></button><button class="tab" onclick="showTab('deals')">🎯 成交 <span class="badge" id="dcnt">0</span></button><button class="tab" onclick="showTab('output')">📤 輸出</button><button class="tab" onclick="showTab('stats')">📊 統計</button><button class="tab" onclick="showTab('customers')">👥 客戶</button><button class="tab" onclick="showTab('account')">👤 帳號 <span id="user-badge" style="font-size:10px;color:var(--dm);margin-left:4px"></span></button></div>
+<div class="tabs"><button class="tab active" onclick="showTab('import')">📋 匯入</button><button class="tab" onclick="showTab('list')">📦 列表 <span class="badge" id="cnt">0</span></button><button class="tab" onclick="showTab('output')">📤 輸出</button><button class="tab" onclick="showTab('stats')">📊 統計</button><button class="tab" onclick="showTab('customers')">👥 客戶</button><button class="tab" onclick="showTab('account')">👤 帳號 <span id="user-badge" style="font-size:10px;color:var(--dm);margin-left:4px"></span></button></div>
 
 <div class="main" id="tab-import"><div id="today-summary" style="display:none"></div><div class="card" style="background:linear-gradient(135deg,#f3e8ff,#fff);border:1px solid #d8b4fe"><div class="card-h" style="background:transparent"><h3>🏪 店內銷售</h3><div style="display:flex;gap:6px;flex-wrap:wrap"><button class="btn" onclick="openStoreSaleModal()" style="background:#7e22ce;border-color:#7e22ce;color:#fff;font-weight:700" title="櫃台現金/刷卡直購用">+ 新增訂單</button></div></div></div>
 <div class="card" style="background:var(--card-momo-bg);border:1px solid var(--card-momo-bd)"><div class="card-h" style="background:transparent"><h3>🚀 自動抓 MOMO</h3><div style="display:flex;gap:6px;flex-wrap:wrap"><button class="btn" onclick="resetMomoApi()" title="重設 API Token">⚙️</button><button class="btn" onclick="testNotify()" title="測試 Discord / LINE 連線" style="font-size:11px">🔔 測試</button><button class="btn btn-g" id="momo-auto-btn" onclick="fetchMomoAuto()" style="background:var(--mo);border-color:var(--mo)" title="自動抓 MOMO 未出貨訂單">🔄 抓取</button></div></div><div class="card-b" style="padding:10px 16px"><div id="momo-auto-status" style="font-size:11px;color:var(--dm);font-family:var(--mono)">第一次只問 Token，其他裝置自動共用 ☁️</div></div></div>
 <div class="card"><div class="card-h"><h3>貼上後台資料</h3><div style="display:flex;gap:6px;flex-wrap:wrap"><button class="btn" onclick="clearInput()">清空</button><button class="btn btn-b" onclick="runParse()">預覽</button><button class="btn btn-g" onclick="doImport()" title="匯入到 Firebase">匯入</button><button class="btn" onclick="doReimport()" title="同單號覆蓋（修舊資料用）" style="border-color:#f59e0b;color:#b45309">🔄 覆蓋</button><button class="btn" onclick="copyPCScript()" title="複製 PChome F12 撈單 script" style="border-color:#7c3aed;color:#7c3aed;font-weight:700">📋 F12 腳本</button></div></div><div class="card-b"><details class="hint" style="cursor:pointer"><summary style="font-weight:600;cursor:pointer">📖 操作說明（點開看）</summary><div style="margin-top:8px"><b>MOMO：</b>SCM 後台 → Ctrl+A → Ctrl+C → 貼下方<br><b>PChome（F12 新法）：</b>按 <strong>📋 F12 腳本</strong> → PChome「印貨資料」view → F12 → Console → Ctrl+V Enter → alert 確認 → 回來貼下方<br><b>PChome（舊法）：</b>供應商後台 → Ctrl+A → Ctrl+C → 貼下方</div></details><textarea id="raw-input" rows="7" placeholder="把 MOMO 後台 / PChome 後台 / F12 JSON 貼在這裡..."></textarea></div></div><div id="preview-area"></div></div>
 
-<div class="main hidden" id="tab-list"><div class="filter-row"><span class="fg-grp" data-grp="plat"><button class="fbtn on" data-fg="plat" data-stat="all" onclick="setF('all',this)">全部</button><button class="fbtn" data-fg="plat" data-stat="MO" onclick="setF('MO',this)">Mo</button><button class="fbtn" data-fg="plat" data-stat="PC" onclick="setF('PC',this)">Pc</button><button class="fbtn" data-fg="plat" data-stat="ST" onclick="setF('ST',this)">店內</button><button id="mob-stat-cycle" class="fbtn st-cycle" onclick="cycleStatus()" title="點擊循環切換狀態篩選">全狀態</button></span><span class="fb-divider">｜</span><span class="fg-grp" data-grp="status" title="Ctrl/Cmd + 點擊可多選"><button class="fbtn on" data-fg="status" data-stat="status:all" onclick="setSF('all',this,event)">全狀態</button><button class="fbtn" data-fg="status" data-stat="status:未確認" onclick="setSF('未確認',this,event)">未確認</button><button class="fbtn" data-fg="status" data-stat="status:已確認" onclick="setSF('已確認',this,event)">已確認</button><button class="fbtn" data-fg="status" data-stat="status:交涉中" onclick="setSF('交涉中',this,event)">交涉中</button><button class="fbtn" data-fg="status" data-stat="status:未接電" onclick="setSF('未接電',this,event)">未接電</button><button class="fbtn" data-fg="status" data-stat="status:已出貨" onclick="setSF('已出貨',this,event)">已出貨</button><button class="fbtn" data-fg="status" data-stat="status:待收費" onclick="setSF('待收費',this,event)" title="安裝/加購款還沒收 — 自動連動偵測" style="color:#dc2626;border-color:#dc2626;font-weight:700">💰 待收費</button><button class="fbtn" data-fg="status" data-stat="status:補貨中" onclick="setSF('補貨中',this,event)">補貨中</button><button class="fbtn" data-fg="status" data-stat="status:已完成" onclick="setSF('已完成',this,event)" title="預設藏起來在 🎯 成交 tab，這顆按下去可在列表單獨看已完成單" style="color:var(--grn);border-color:#8cc4a0;font-weight:700">✅ 已完成</button><button class="fbtn" data-fg="status" data-stat="status:已取消" onclick="setSF('已取消',this,event)">已取消</button><button class="fbtn" data-fg="status" data-stat="status:轉線下" onclick="setSF('轉線下',this,event)">🏪 轉線下</button></span><span class="fb-divider">｜</span><span class="fg-grp" data-grp="special"><button class="fbtn" data-fg="special" onclick="toggleSpecial('changeAddr',this)" title="只看客戶有申請改地址的訂單">⚠️ 改址</button><button class="fbtn" data-fg="special" onclick="toggleSpecial('newToday',this)" title="只看今日新單">🆕 今日</button><button class="fbtn" data-fg="special" onclick="toggleSpecial('unpaidFee',this)" title="只看有未收款的訂單（安裝/加購費>0 但未收）— 含已完成的單，跨所有狀態篩" style="color:#dc2626;border-color:#dc2626;font-weight:700">💰 未收款</button></span><span style="flex:1"></span><span id="filter-applied-info" style="display:none"></span><input class="search" id="q" placeholder="搜尋姓名/單號/商品..." oninput="searchListDebounced()" title="按 / 或 Ctrl+K 快速聚焦"></div><div id="list-area"></div></div>
-
-<div class="main hidden" id="tab-deals"><div class="filter-row" style="flex-wrap:wrap;gap:6px"><span class="fg-grp"><span style="font-size:11px;color:var(--dm)">📅 期間：</span><button class="fbtn on" data-fg="dperiod" onclick="setDealsPeriod('30',this)">30 天</button><button class="fbtn" data-fg="dperiod" onclick="setDealsPeriod('7',this)">7 天</button><button class="fbtn" data-fg="dperiod" onclick="setDealsPeriod('90',this)">3 個月</button><button class="fbtn" data-fg="dperiod" onclick="setDealsPeriod('all',this)">全部</button></span><span class="fb-divider">｜</span><span class="fg-grp"><span style="font-size:11px;color:var(--dm)">🛒 平台：</span><button class="fbtn on" data-fg="dplat" onclick="setDealsPlatform('all',this)">全部</button><button class="fbtn" data-fg="dplat" onclick="setDealsPlatform('MO',this)">Mo</button><button class="fbtn" data-fg="dplat" onclick="setDealsPlatform('PC',this)">Pc</button><button class="fbtn" data-fg="dplat" onclick="setDealsPlatform('ST',this)">店內</button></span><span style="flex:1"></span><input class="search" id="dq" placeholder="搜尋姓名/單號/商品..." oninput="searchDealsDebounced()" style="min-width:180px"><button class="btn" onclick="bulkUncompleteAll()" style="background:var(--blu);color:#fff;border-color:var(--blu);font-size:11px;font-weight:700" title="把目前篩選下的所有已完成訂單一鍵改成「已出貨」拉回列表（用來修正誤把待收費的單標已完成）">↩️ 全部拉回</button></div><div id="deals-area"></div></div>
+<div class="main hidden" id="tab-list"><div class="filter-row"><span class="fg-grp" data-grp="plat"><button class="fbtn on" data-fg="plat" data-stat="all" onclick="setF('all',this)">全部</button><button class="fbtn" data-fg="plat" data-stat="MO" onclick="setF('MO',this)">Mo</button><button class="fbtn" data-fg="plat" data-stat="PC" onclick="setF('PC',this)">Pc</button><button class="fbtn" data-fg="plat" data-stat="ST" onclick="setF('ST',this)">店內</button><button id="mob-stat-cycle" class="fbtn st-cycle" onclick="cycleStatus()" title="點擊循環切換狀態篩選">全狀態</button></span><span class="fb-divider">｜</span><span class="fg-grp" data-grp="status" title="Ctrl/Cmd + 點擊可多選"><button class="fbtn on" data-fg="status" data-stat="status:all" onclick="setSF('all',this,event)">全狀態</button><button class="fbtn" data-fg="status" data-stat="status:未確認" onclick="setSF('未確認',this,event)">未確認</button><button class="fbtn" data-fg="status" data-stat="status:已確認" onclick="setSF('已確認',this,event)">已確認</button><button class="fbtn" data-fg="status" data-stat="status:交涉中" onclick="setSF('交涉中',this,event)">交涉中</button><button class="fbtn" data-fg="status" data-stat="status:未接電" onclick="setSF('未接電',this,event)">未接電</button><button class="fbtn" data-fg="status" data-stat="status:已出貨" onclick="setSF('已出貨',this,event)">已出貨</button><button class="fbtn" data-fg="status" data-stat="status:待收費" onclick="setSF('待收費',this,event)" title="安裝/加購款還沒收 — 自動連動偵測" style="color:#dc2626;border-color:#dc2626;font-weight:700">💰 待收費</button><button class="fbtn" data-fg="status" data-stat="status:補貨中" onclick="setSF('補貨中',this,event)">補貨中</button><button class="fbtn" data-fg="status" data-stat="status:已完成" onclick="setSF('已完成',this,event)" title="只看已完成單" style="color:var(--grn);border-color:#8cc4a0;font-weight:700">✅ 已完成</button><button class="fbtn" data-fg="status" data-stat="status:已取消" onclick="setSF('已取消',this,event)">已取消</button><button class="fbtn" data-fg="status" data-stat="status:轉線下" onclick="setSF('轉線下',this,event)">🏪 轉線下</button></span><span class="fb-divider">｜</span><span class="fg-grp" data-grp="special"><button class="fbtn" data-fg="special" onclick="toggleSpecial('changeAddr',this)" title="只看客戶有申請改地址的訂單">⚠️ 改址</button><button class="fbtn" data-fg="special" onclick="toggleSpecial('newToday',this)" title="只看今日新單">🆕 今日</button><button class="fbtn" data-fg="special" onclick="toggleSpecial('unpaidFee',this)" title="只看有未收款的訂單（安裝/加購費>0 但未收）— 含已完成的單，跨所有狀態篩" style="color:#dc2626;border-color:#dc2626;font-weight:700">💰 未收款</button></span><span style="flex:1"></span><span id="filter-applied-info" style="display:none"></span><input class="search" id="q" placeholder="搜尋姓名/單號/商品..." oninput="searchListDebounced()" title="按 / 或 Ctrl+K 快速聚焦"></div><div id="list-area"></div></div>
 
 <div class="main hidden" id="tab-output"><div class="card"><div class="card-h"><h3>整理格式</h3><div style="display:flex;gap:6px;flex-wrap:wrap"><button class="btn btn-g" onclick="copyOutput()">📋 複製</button><button class="btn" onclick="shareOutput()" title="手機原生分享（傳到 LINE/Telegram 等）">📤 分享</button><button class="btn" onclick="exportCSV('output')" title="此區間 CSV">🔍 區間 csv</button><button class="btn" onclick="exportCSV('all')" title="全部 CSV">📊 全 csv</button></div></div><div class="card-b"><div class="filter-row" style="margin-bottom:8px;align-items:center;flex-wrap:wrap;gap:6px"><span class="fg-grp"><span style="font-size:11px;color:var(--dm)">🛒 平台：</span><button class="fbtn on" data-fg="oplat" onclick="setOutputPlatform('all',this)">全部</button><button class="fbtn" data-fg="oplat" onclick="setOutputPlatform('MO',this)">Mo</button><button class="fbtn" data-fg="oplat" onclick="setOutputPlatform('PC',this)">Pc</button><button class="fbtn" data-fg="oplat" onclick="setOutputPlatform('ST',this)">店內</button></span></div><div class="filter-row" style="margin-bottom:8px;align-items:center;flex-wrap:wrap;gap:6px" title="Ctrl/Cmd + 點擊可多選"><span class="fg-grp"><span style="font-size:11px;color:var(--dm)">🏷️ 狀態：</span><button class="fbtn on" data-fg="ostatus" data-stat="all" onclick="setOutputStatus('all',this,event)">全部</button><button class="fbtn" data-fg="ostatus" data-stat="未確認" onclick="setOutputStatus('未確認',this,event)">未確認</button><button class="fbtn" data-fg="ostatus" data-stat="已確認" onclick="setOutputStatus('已確認',this,event)">已確認</button><button class="fbtn" data-fg="ostatus" data-stat="交涉中" onclick="setOutputStatus('交涉中',this,event)">交涉中</button><button class="fbtn" data-fg="ostatus" data-stat="未接電" onclick="setOutputStatus('未接電',this,event)">未接電</button><button class="fbtn" data-fg="ostatus" data-stat="已出貨" onclick="setOutputStatus('已出貨',this,event)">已出貨</button><button class="fbtn" data-fg="ostatus" data-stat="待收費" onclick="setOutputStatus('待收費',this,event)" style="color:#dc2626;border-color:#dc2626;font-weight:700">💰 待收費</button><button class="fbtn" data-fg="ostatus" data-stat="補貨中" onclick="setOutputStatus('補貨中',this,event)">補貨中</button><button class="fbtn" data-fg="ostatus" data-stat="已完成" onclick="setOutputStatus('已完成',this,event)">已完成</button></span></div><div class="filter-row" style="margin-bottom:10px;align-items:center;flex-wrap:wrap;gap:6px"><span class="fg-grp"><span style="font-size:11px;color:var(--dm)">📅 日期：</span><button class="fbtn on" data-fg="odate" onclick="setOutputDate('today',this)">今天</button><button class="fbtn" data-fg="odate" onclick="setOutputDate('yesterday',this)">昨天</button><button class="fbtn" data-fg="odate" onclick="setOutputDate('week',this)">本週</button><button class="fbtn" data-fg="odate" onclick="setOutputDate('month',this)">本月</button><button class="fbtn" data-fg="odate" onclick="setOutputDate('all',this)">全部</button></span><span class="fg-grp"><span style="font-size:11px;color:var(--dm)">自訂區間：</span><input type="date" id="of-from" onchange="onOutputDateChange()" style="font-size:11px;padding:2px 6px"><span style="font-size:11px;color:var(--dm)">→</span><input type="date" id="of-to" onchange="onOutputDateChange()" style="font-size:11px;padding:2px 6px"></span><span style="flex:1"></span><span style="font-size:11px;color:var(--dm)">顯示 <strong id="ocnt">0</strong> 筆</span></div><div class="filter-row" style="margin-bottom:10px;align-items:center;flex-wrap:wrap;gap:8px"><input class="search" id="oq" placeholder="搜尋姓名/單號/商品/地址..." oninput="searchOutputDebounced()" style="flex:1;min-width:200px"><label style="font-size:11px;color:var(--dm);display:flex;align-items:center;gap:4px;cursor:pointer"><input type="checkbox" id="oinc-skip" onchange="toggleOutputIncSkip(this.checked)"> 顯示 已取消 / 轉線下</label></div><div class="hint">CSV 用 UTF-8 BOM 編碼，Excel 開啟中文不會亂碼。預設不顯示已取消 / 轉線下訂單（勾選右邊 checkbox 可看）。</div><div id="output-area">尚無訂單</div></div></div></div>
 <div class="main hidden" id="tab-stats"><div class="filter-row" style="margin-bottom:14px;flex-wrap:wrap;gap:6px"><span style="font-size:12px;color:var(--dm);font-weight:600">📅 期間：</span><button class="fbtn" onclick="setStatsPeriod('today',this)">今日</button><button class="fbtn" onclick="setStatsPeriod('7',this)">7 天</button><button class="fbtn on" onclick="setStatsPeriod('30',this)">30 天</button><button class="fbtn" onclick="setStatsPeriod('90',this)">3 個月</button><button class="fbtn" onclick="setStatsPeriod('all',this)">全部</button><span style="margin-left:8px;color:var(--ht)">｜</span><span style="font-size:11px;color:var(--dm)">指定月份：</span><input type="month" id="stats-month" onchange="setStatsMonth(this.value)" style="font-size:12px;padding:4px 8px;border:1px solid var(--bd);border-radius:6px;background:var(--sf)"></div><div id="stats-area"></div></div>
@@ -304,7 +302,7 @@ function migrateStatus(o){if(!o)return;if(o.status==='待出貨')o.status='未�
 // Realtime listener — 模態視窗開著時暫存遠端更新，關閉再套用，避免覆蓋本地編輯
 let pendingRemoteOrders=null;
 function isModalOpen(){return !document.getElementById('modal-overlay').classList.contains('hidden')}
-function isInputFocused(){const a=document.activeElement;return a&&['INPUT','TEXTAREA','SELECT'].includes(a.tagName)&&!['q','cq','oq','dq','of-from','of-to','raw-input'].includes(a.id)}
+function isInputFocused(){const a=document.activeElement;return a&&['INPUT','TEXTAREA','SELECT'].includes(a.tagName)&&!['q','cq','oq','of-from','of-to','raw-input'].includes(a.id)}
 let _lastSyncAt=null;
 function setSyncOn(){const sb=document.getElementById('sync-badge');if(sb){_lastSyncAt=new Date();const ts=_lastSyncAt.toLocaleTimeString('zh-TW',{hour:'2-digit',minute:'2-digit',hour12:false});sb.className='sync-dot sync-on';sb.title=`最後同步：${ts}`;sb.innerHTML=`<span class="dot dot-on"></span>${ts}`}}
 function applyRemoteOrders(val){const sc=window.scrollY;const wasLoaded=ordersLoaded;const prevIds=new Set(orders.map(o=>o.id));pendingRemoteOrders=null;orders=val?Object.values(val):[];orders.forEach(migrateStatus);
@@ -316,7 +314,7 @@ if(wasLoaded){const newOnes=orders.filter(o=>!prevIds.has(o.id));if(newOnes.leng
 if(!window._dupChecked){window._dupChecked=true;const dupGroups=new Map();orders.forEach(o=>{if(!o.orderNo)return;if(!dupGroups.has(o.orderNo))dupGroups.set(o.orderNo,[]);dupGroups.get(o.orderNo).push(o)});const dupSets=[...dupGroups.values()].filter(arr=>arr.length>1);if(dupSets.length){console.warn('Duplicate orderNos detected:',dupSets);if(typeof showToast==='function')showToast(`⚠️ 偵測到 ${dupSets.length} 組重複單號（${dupSets.reduce((s,a)=>s+a.length,0)} 筆），到帳號頁開 console 看詳情`,null,null,8000)}}
 ordersLoaded=true;updateCnt();
 const at=document.querySelector('.tab.active')?.textContent||'';
-if(at.includes('列表'))renderList();if(at.includes('成交'))renderDeals();if(at.includes('輸出'))renderOutput();if(at.includes('統計'))renderStats();if(at.includes('客戶'))renderCustomers();
+if(at.includes('列表'))renderList();if(at.includes('輸出'))renderOutput();if(at.includes('統計'))renderStats();if(at.includes('客戶'))renderCustomers();
 setSyncOn();window.scrollTo(0,sc)}
 db.ref('orders').on('value',snap=>{
   try{
@@ -427,14 +425,14 @@ function undoLast(){const u=undoStack.pop();if(!u){showToast('沒有可還原的
     showToast(`✅ 已還原 ${u.orders.length} 筆訂單`)
   }
   else if(u.kind==='bulk-restore-status'){
-    // bulkUncompleteAll / batchSetStatus undo — 把每筆 status 回到 snapshot 紀錄的 prevStatus
+    // batchSetStatus undo — 把每筆 status 回到 snapshot 紀錄的 prevStatus
     const updates={};let n=0;const restored=new Map();
     for(const s of u.snapshot){
       const o=findO(s.id);
       if(o){const curStatus=o.status;o.status=s.prevStatus;logActivity(o,`狀態：${curStatus} → ${s.prevStatus}（撤回批次）`);updates[s.id]=o;n++;restored.set(s.prevStatus,(restored.get(s.prevStatus)||0)+1)}
     }
     _setSavingBadge();db.ref('orders').update(updates).catch(_saveError);
-    renderDeals();renderList();updateCnt();
+    renderList();updateCnt();
     const summary=[...restored.entries()].map(([k,v])=>`${k}×${v}`).join('、');
     showToast(`✅ 已撤回批次：${n} 筆（${summary}）`)
   }
@@ -614,8 +612,6 @@ function updateCnt(){
   else{el.textContent=waiting>0?`${orders.length} ｜ 待處理 ${waiting}`:String(orders.length)}
   el.style.background=waiting>0?'#fef9ec':'';
   el.style.color=waiting>0?'#b45309':'';
-  // 成交 tab 徽章 = 已完成總數
-  const dEl=document.getElementById('dcnt');if(dEl){const dn=orders.filter(o=>o.status==='已完成').length;dEl.textContent=String(dn)}
   renderTodaySummary();
   if(typeof updateStatCycleBtn==='function')updateStatCycleBtn();
 }
@@ -651,7 +647,7 @@ function clearInput(){document.getElementById('raw-input').value='';document.get
 async function copyPCScript(){try{const r=await fetch('pchome-scraper.js?_='+Date.now());if(!r.ok)throw new Error('HTTP '+r.status);const code=await r.text();await navigator.clipboard.writeText(code);alert('✅ PChome F12 撈單 script 已複製到剪貼簿！\n\n下一步：\n1. 切到 PChome 廠商後台「印貨資料 / 商品明細」view（看得到 商品名稱、收貨人、訂單編號 那個 view）\n2. F12 → Console → Ctrl+V → Enter\n3. 跳出 alert 顯示抓到 N 筆 → 訂單 JSON 已自動複製\n4. 回來這頁 → 在下方大框 Ctrl+V → 按「匯入雲端」')}catch(e){alert('複製失敗：'+e.message+'\n\n你可以直接打開 yaukulele.github.io/order-system/pchome-scraper.js 手動 copy')}}
 
 // ===== TABS =====
-function showTab(t){const tabs=['import','list','deals','output','stats','customers','account'];tabs.forEach(id=>document.getElementById('tab-'+id).classList.toggle('hidden',id!==t));document.querySelectorAll('.tabs .tab').forEach((b,i)=>b.classList.toggle('active',tabs[i]===t));window.scrollTo({top:0,behavior:'instant'});if(t==='list')renderList();if(t==='deals')renderDeals();if(t==='output')renderOutput();if(t==='stats')renderStats();if(t==='customers')renderCustomers();if(t==='account')renderAccount()}
+function showTab(t){const tabs=['import','list','output','stats','customers','account'];tabs.forEach(id=>document.getElementById('tab-'+id).classList.toggle('hidden',id!==t));document.querySelectorAll('.tabs .tab').forEach((b,i)=>b.classList.toggle('active',tabs[i]===t));window.scrollTo({top:0,behavior:'instant'});if(t==='list')renderList();if(t==='output')renderOutput();if(t==='stats')renderStats();if(t==='customers')renderCustomers();if(t==='account')renderAccount()}
 
 // ===== AUTH / 使用者帳號系統 =====
 let currentUser=null,currentRole='';
@@ -661,15 +657,17 @@ async function bootAuth(){
     const saved=localStorage.getItem('orderSysUser');
     const savedRole=localStorage.getItem('orderSysRole')||'user';
     if(saved){currentUser=saved;currentRole=savedRole;onAuthReady()}
+    else{showLoginModal()} // 沒登入過：立刻顯示登入框，不等 Firebase
     // 背景驗證 — Firebase 真的有這個 user 嗎？
     const usersSnap=await db.ref('users').once('value');
     if(!usersSnap.exists()){
       const ts=new Date().toISOString();
-      await db.ref('users').set({
+      // 不 await — 種子寫入完成才繼續會延 100-300ms，登入框已顯示，背景跑就好
+      db.ref('users').set({
         'Allie':{password:'Allie',role:'admin',createdAt:ts},
         '阿淵':{password:'阿淵',role:'admin',createdAt:ts},
         '雨停':{password:'雨停',role:'user',createdAt:ts}
-      });
+      }).catch(()=>{});
     }
     if(saved){
       const snap=await db.ref('users/'+saved).once('value');
@@ -683,11 +681,11 @@ async function bootAuth(){
       localStorage.removeItem('orderSysUser');
       localStorage.removeItem('orderSysRole');
       currentUser=null;currentRole='';
+      showLoginModal();
     }
-    showLoginModal();
   }catch(e){console.error('bootAuth failed',e);if(!currentUser)showLoginModal()}
 }
-function showLoginModal(){const ov=document.getElementById('login-overlay');if(ov){ov.classList.remove('hidden');document.body.style.overflow='hidden';setTimeout(()=>document.getElementById('login-user')?.focus(),100)}}
+function showLoginModal(){const ov=document.getElementById('login-overlay');if(ov){ov.classList.remove('hidden');document.body.style.overflow='hidden';setTimeout(()=>document.getElementById('login-user')?.focus(),30)}}
 function hideLoginModal(){document.getElementById('login-overlay')?.classList.add('hidden');document.body.style.overflow=''}
 async function doLogin(){
   const u=document.getElementById('login-user').value.trim();
@@ -701,7 +699,8 @@ async function doLogin(){
     currentUser=u;currentRole=data.role||'user';
     localStorage.setItem('orderSysUser',u);
     localStorage.setItem('orderSysRole',currentRole);
-    await logUserAction('login','');
+    // logUserAction fire-and-forget — 不要 await 卡住 UI（之前要等 Firebase 寫完 activityLog 才關 modal）
+    logUserAction('login','').catch(()=>{});
     hideLoginModal();
     document.getElementById('login-pass').value='';
     err.textContent='';
@@ -861,9 +860,7 @@ function updateStatCycleBtn(){const btn=document.getElementById('mob-stat-cycle'
   // 多選時顯示第一個狀態 + 「+N」標示；單選或全狀態維持原顯示
   const all=!cStatus.length;
   let label;if(all)label='全狀態';else if(cStatus.length===1)label=cStatus[0].replace('轉線下','🏪 轉線下');else label=cStatus[0]+`+${cStatus.length-1}`;
-  // unpaid mode 用 statusMatchListUnpaidMode 跟 filterListOrders 一致；不然 cycle 按鈕數字會跟實際列表筆數不符
-  const _statMatch=cSpecial==='unpaidFee'?statusMatchListUnpaidMode:statusMatchList;
-  const cnt=orders.filter(o=>{if(cFilter!=='all'&&o.platform!==cFilter)return false;if(!_statMatch(o))return false;if(cSpecial==='unpaidFee'&&!hasAnyUnpaidFee(o))return false;return true}).length;
+  const cnt=orders.filter(o=>{if(cFilter!=='all'&&o.platform!==cFilter)return false;if(!statusMatchList(o))return false;if(cSpecial==='unpaidFee'&&!hasAnyUnpaidFee(o))return false;return true}).length;
   btn.innerHTML=`${esc(label)} <span style="opacity:.75;font-weight:600;margin-left:4px">${cnt}</span>`;
   const tail=(all||cStatus.length>1)?'':` ${stCls(cStatus[0]).replace('st-btn ','')}`;
   btn.className='fbtn st-cycle'+(all?' on':'')+tail;
@@ -1145,18 +1142,14 @@ function toggleStatus(oid){
   // 防呆：要標記「已完成」但還有未收款 → confirm
   if(next==='已完成'){
     const warn=buildPendingPaymentWarn(o);
-    if(warn&&!confirm(`⚠ 這筆訂單還有款項沒收：\n\n${warn}\n\n確定要標記「已完成」並移到 🎯 成交 tab？\n（建議先按 🔧✓ / 🛒✓ 確認已收）`))return;
+    if(warn&&!confirm(`⚠ 這筆訂單還有款項沒收：\n\n${warn}\n\n確定要標記「已完成」？\n（建議先按 🔧✓ / 🛒✓ 確認已收）`))return;
   }
   o.status=next;
   logActivity(o,`狀態：${prev} → ${o.status}`);
   saveOne(o);
-  updateCnt(); // 同步更新 list + deals tab 徽章
-  // 如果在 deals tab 且這筆變動會影響「已完成」集合 → 重 render deals
-  const onDeals=!document.getElementById('tab-deals')?.classList.contains('hidden');
-  if(onDeals&&(prev==='已完成'||o.status==='已完成')){renderDeals();return}
+  updateCnt();
   // 如果有篩選狀態，狀態變了可能會讓這筆消失或進入 → 還是要 full render
-  // 已完成預設從列表排除 → 進/出已完成也要 full render
-  if(cStatus.length||prev==='已完成'||o.status==='已完成'){renderList();return}
+  if(cStatus.length){renderList();return}
   // 快速路徑：只更新這顆按鈕，不重建整個列表（避免 200+ 筆訂單卡頓）
   const btns=document.querySelectorAll(`button.st-btn[onclick*="toggleStatus('${oid}')"]`);
   if(btns.length){btns.forEach(btn=>{btn.className=stCls(o.status);btn.textContent=o.status});updateFilterCounts();return}
@@ -1215,12 +1208,7 @@ function restoreFilterUI(){document.querySelectorAll('#tab-list .fbtn[data-fg="p
   document.querySelectorAll('.fbtn[data-fg="cplat"]').forEach(x=>x.classList.remove('on'));const cp=document.querySelector(`.fbtn[data-fg="cplat"][onclick*="setCustomerPlatform('${customerPlatform}'"]`);if(cp)cp.classList.add('on');else document.querySelector('.fbtn[data-fg="cplat"]')?.classList.add('on');
   // 輸出頁平台
   document.querySelectorAll('.fbtn[data-fg="oplat"]').forEach(x=>x.classList.remove('on'));const op=document.querySelector(`.fbtn[data-fg="oplat"][onclick*="setOutputPlatform('${outputPlatform}'"]`);if(op)op.classList.add('on');else document.querySelector('.fbtn[data-fg="oplat"]')?.classList.add('on');
-  // 成交頁期間（從 localStorage 還原）
-  document.querySelectorAll('.fbtn[data-fg="dperiod"]').forEach(x=>x.classList.remove('on'));const dp=document.querySelector(`.fbtn[data-fg="dperiod"][onclick*="setDealsPeriod('${dealsPeriod}'"]`);if(dp)dp.classList.add('on');else document.querySelector('.fbtn[data-fg="dperiod"]')?.classList.add('on')}
-// deals tab 全域變數 — 必須在 restoreFilterUI() 之前宣告（restoreFilterUI 會讀 dealsPeriod）
-// 之前 bf3c525 放在 line ~1346，被頂層的 restoreFilterUI() call 撞到 TDZ ReferenceError
-// → 整個 script 拋錯停止 → line 1187 後的所有 function（renderDeals/renderOutput/openEdit…）全部沒定義
-let dealsPeriod=localStorage.getItem('dealsPeriod')||'30',dealsPlatform='all',dealsQ='';
+}
 restoreFilterUI();
 // makeDateBucketer：一次算好今天/昨天/週/30 天邊界，回傳的函式每筆訂單呼叫只是字串比較
 // renderList/renderListMobile 都用這個避免 O(n*5 Date 物件) 的成本
@@ -1237,28 +1225,18 @@ function buildPendingPaymentWarn(o){if(!isPendingPayment(o))return null;const pa
 // 任何未收款（special filter「💰 未收款」用）— 跟 isPendingPayment 差別：含「已完成」訂單
 // 用途：客戶收到貨後安裝師傅還沒回來收尾款，這種單會被標已完成卻仍有未收 → 用這個 filter 抓出來
 function hasAnyUnpaidFee(o){if(!o)return false;if(o.status==='已取消'||o.status==='轉線下')return false;if(o.install==='是'&&Number(o.installFee)>0&&!(Number(o.installPaidAmount)>0))return true;if(o.addon==='是'&&Number(o.addonFee)>0&&!(Number(o.addonPaidAmount)>0))return true;return false}
-// statusMatchList: cStatus 篩選邏輯抽出來 — 待收費 連動偵測 + 已完成預設隱藏（移到成交 tab）
+// statusMatchList: cStatus 篩選邏輯 — 待收費 連動偵測；無 cStatus = 顯示全部
+// 之前預設排除已完成（搭配成交 tab）— 移除成交 tab 後改成全顯，用戶用 ✅ 已完成 button 篩選
 function statusMatchList(o){
-  if(!cStatus.length){return o.status!=='已完成'} // 預設排除已完成
-  if(cStatus.includes('待收費')&&(o.status==='待收費'||isPendingPayment(o)))return true;
-  return cStatus.includes(o.status);
-}
-// unpaidFee 模式下的 status 篩選 — 沒選 cStatus 就全顯（含已完成）；有選就尊重
-function statusMatchListUnpaidMode(o){
-  if(!cStatus.length)return true; // 不過濾 — 含已完成
+  if(!cStatus.length)return true;
   if(cStatus.includes('待收費')&&(o.status==='待收費'||isPendingPayment(o)))return true;
   return cStatus.includes(o.status);
 }
 function filterListOrders(){const q=(document.getElementById('q')?.value||'').toLowerCase();return orders.filter(o=>{if(cFilter!=='all'&&o.platform!==cFilter)return false;
-  // 未收款 special filter — 跨狀態（含已完成）；cStatus 仍可進一步縮範圍
-  if(cSpecial==='unpaidFee'){
-    if(!hasAnyUnpaidFee(o))return false;
-    if(!statusMatchListUnpaidMode(o))return false;
-  }else{
-    if(!statusMatchList(o))return false;
-    if(cSpecial==='changeAddr'&&!hasPendingAddrChange(o))return false;
-    if(cSpecial==='newToday'&&!isNewOrder(o))return false;
-  }
+  if(!statusMatchList(o))return false;
+  if(cSpecial==='unpaidFee'&&!hasAnyUnpaidFee(o))return false;
+  if(cSpecial==='changeAddr'&&!hasPendingAddrChange(o))return false;
+  if(cSpecial==='newToday'&&!isNewOrder(o))return false;
   if(q){const h=[o.orderNo,o.product,o.name,o.phone,o.realPhone,o.address,o.note,o.specs].join(' ').toLowerCase();if(!h.includes(q))return false}return true})}
 function updateFilterCounts(){
   // 每個篩選按鈕後面的數字（小灰色 pill）— 之前每組各跑一次 orders.filter，現在合併為單次 pass
@@ -1271,35 +1249,24 @@ function updateFilterCounts(){
   // special button 也算 count（改址 / 今日新單 / 未收款）— 用「當前 plat+status+q」當前提
   // unpaidFee 例外：跨狀態（含已完成），count 用「plat+q」不過 status filter
   let changeAddrCnt=0,newTodayCnt=0,unpaidFeeCnt=0;
-  const isUnpaidMode=cSpecial==='unpaidFee';
   for(const o of orders){
     if(!matchQ(o))continue;
-    // 已完成移到成交 tab — 列表的 count 排除（除非用戶明確 filter，或在 unpaidFee 模式下）
-    const isDone=o.status==='已完成';
-    // unpaid 模式：status filter 用 statusMatchListUnpaidMode（沒選 cStatus → 含已完成）
-    // 正常模式：沒選 cStatus 預設排除已完成
-    const passStatusFilter=isUnpaidMode?statusMatchListUnpaidMode(o):(cStatus.length?statusMatchList(o):!isDone);
+    // 已完成現在跟其他狀態一樣顯示，不再特殊處理（成交 tab 移除後行為對齊）
+    const passStatusFilter=statusMatchList(o);
     const passPlatStat=passStatusFilter&&(cFilter==='all'||o.platform===cFilter);
     if(passPlatStat){
       if(hasPendingAddrChange(o))changeAddrCnt++;
       if(isNewOrder(o))newTodayCnt++;
     }
-    // 未收款 count — 不過 status filter（含 cStatus + 自動排已完成），純粹「平台+搜尋+未收款」
+    // 未收款 count — 純粹「平台 + 搜尋 + 未收款」，不過 cStatus filter
     if((cFilter==='all'||o.platform===cFilter)&&hasAnyUnpaidFee(o))unpaidFeeCnt++;
     if(!matchSpecial(o))continue;
     if(passStatusFilter){platCnt.all++;if(o.platform==='MO')platCnt.MO++;else if(o.platform==='PC')platCnt.PC++;else if(o.platform==='ST')platCnt.ST++}
     if((cFilter==='all'||o.platform===cFilter)){
-      if(!isDone){
-        statCnt.all++;
-        statCnt[o.status]=(statCnt[o.status]||0)+1;
-        // 待收費 count = 此狀態 + 自動偵測未收費（不重複計實際 status='待收費' 的）
-        if(o.status!=='待收費'&&isPendingPayment(o))statCnt['待收費']++;
-      }else{
-        // 已完成不算進「全部」count，但 已完成 按鈕本身顯示真實 count
-        // 在 unpaid mode 下：已完成 也算進「全狀態」，跟 statusMatchListUnpaidMode 行為對齊
-        statCnt['已完成']=(statCnt['已完成']||0)+1;
-        if(isUnpaidMode)statCnt.all++;
-      }
+      statCnt.all++;
+      statCnt[o.status]=(statCnt[o.status]||0)+1;
+      // 待收費 count = 此狀態 + 自動偵測未收費（不重複計實際 status='待收費' 的）
+      if(o.status!=='待收費'&&isPendingPayment(o))statCnt['待收費']++;
     }
   }
   document.querySelectorAll('#tab-list .fbtn[data-fg="plat"]').forEach(btn=>{setBtnCount(btn,platCnt[btn.dataset.stat]||0)});
@@ -1317,9 +1284,6 @@ fl.sort((a,b)=>{const av=a.date||'',bv=b.date||'';if(av===bv)return 0;return sor
 if(!fl.length){const hasFilter=cFilter!=='all'||cStatus.length||cSpecial||(document.getElementById('q')?.value||'').trim();
   // 初始 Firebase 還沒回應 → 顯示骨架載入而不是「尚無訂單」（避免誤導）
   if(!ordersLoaded){document.getElementById('list-area').innerHTML='<div class="card"><div class="card-b" style="text-align:center;padding:40px 20px;color:var(--dm)"><div style="font-size:28px;opacity:.5;margin-bottom:8px">⏳</div><div style="font-size:13px">載入訂單中...</div></div></div>';return}
-  // 有訂單但全是已完成（移到成交 tab）— 給明確提示而不是「尚無訂單」誤導
-  const allDoneCnt=!hasFilter?orders.filter(o=>o.status==='已完成').length:0;
-  if(allDoneCnt>0&&!hasFilter){document.getElementById('list-area').innerHTML=`<div class="card"><div class="card-b empty-state"><div class="es-icon">🎯</div><div class="es-title">列表沒有待處理訂單</div><div class="es-hint">${allDoneCnt} 筆已完成訂單都在「🎯 成交」tab</div><button class="btn btn-g" style="margin-top:14px" onclick="showTab('deals')">🎯 去成交</button></div></div>`;renderBatchBar([]);return}
   document.getElementById('list-area').innerHTML=`<div class="card"><div class="card-b empty-state"><div class="es-icon">${hasFilter?'🔍':'📦'}</div><div class="es-title">${hasFilter?'沒有符合篩選的訂單':'尚無訂單'}</div><div class="es-hint">${hasFilter?'試試清除篩選 / 改搜尋字':'去匯入分頁貼後台資料 或 按 🔄 自動抓 MOMO'}</div>${hasFilter?'<button class=\"btn\" style=\"margin-top:14px\" onclick=\"resetAllFilters()\">↻ 清除篩選</button>':'<button class=\"btn btn-g\" style=\"margin-top:14px\" onclick=\"showTab(&quot;import&quot;)\">📋 去匯入</button>'}</div></div>`;renderBatchBar([]);return}
 if(isMobile())return renderListMobile(fl);
 const arrow=sortOrder==='date-desc'?'↓':'↑';
@@ -1404,7 +1368,7 @@ function batchSetStatus(s){
         return `• ${o.name||'(無名)'} - ${bits.join(' ')} 未收`;
       }).join('\n');
       const more=pending.length>5?`\n…還有 ${pending.length-5} 筆`:'';
-      if(!confirm(`⚠ 選取 ${sel.length} 筆中，有 ${pending.length} 筆還有款項未收：\n\n${lines}${more}\n\n仍要全部標記「已完成」並移到 🎯 成交 tab？`))return;
+      if(!confirm(`⚠ 選取 ${sel.length} 筆中，有 ${pending.length} 筆還有款項未收：\n\n${lines}${more}\n\n仍要全部標記「已完成」？`))return;
     }
   }
   if(!confirm(`把選取的 ${sel.length} 筆訂單標記為「${s}」？`))return;
@@ -1415,8 +1379,7 @@ function batchSetStatus(s){
   const upd={};for(const o of sel)upd[o.id]=o;
   _setSavingBadge();db.ref('orders').update(upd).catch(_saveError);
   renderList();updateCnt();
-  const toDeals=s==='已完成'?'（已移到「🎯 成交」tab）':'';
-  showToast(`✅ 已更新 ${sel.length} 筆訂單為「${s}」${toDeals}`,'↩️ 還原',undoLast,8000)
+  showToast(`✅ 已更新 ${sel.length} 筆訂單為「${s}」`,'↩️ 還原',undoLast,8000)
 }
 function batchCopyShipping(){const sel=orders.filter(o=>selectedIds.has(o.id));if(!sel.length)return;copyText(sel.map(o=>fmtShipping(o)).join('\n\n========\n\n'),`✅ 已複製 ${sel.length} 筆出貨資料`)}
 function batchDelete(){const sel=orders.filter(o=>selectedIds.has(o.id));if(!sel.length)return;if(!confirm(`刪除選取的 ${sel.length} 筆訂單？\n\n（可按 Undo 還原）`))return;pushUndo({kind:'delete-batch',orders:sel.map(o=>JSON.parse(JSON.stringify(o)))});const ids=sel.map(o=>o.id);orders=orders.filter(o=>!selectedIds.has(o.id));selectedIds.clear();deleteOrderIds(ids);renderList();showToast(`已刪除 ${sel.length} 筆訂單`,'↩️ 還原',undoLast,8000)}
@@ -1440,62 +1403,6 @@ const labelStyle=is4x6?'.label{page-break-inside:avoid;page-break-after:always;p
 const html=`<!doctype html><html><head><meta charset="utf-8"><title>出貨單 ${today} ${is4x6?'4×6':'A4'}</title><style>${pageRule}body{font-family:-apple-system,'Microsoft JhengHei',sans-serif;color:#111;margin:0;padding:0}${labelStyle}.no-print{padding:14px;background:#f0f0f0;text-align:center}</style></head><body><div class="no-print"><h3>共 ${orders.length} 筆出貨單（${is4x6?'4×6 標籤':'A4'}）</h3><button onclick="window.print()" style="padding:10px 20px;font-size:14px;cursor:pointer">🖨 列印</button> <button onclick="window.close()" style="padding:10px 20px;font-size:14px;cursor:pointer">關閉</button></div>${orders.map(o=>{const q=(o.qty||1)>1?' × '+o.qty:'';const pr=(o.product||'')+(o.specs?'（'+o.specs+'）':'')+q;return`<div class="label"><h2>📦 出貨單</h2><div class="row"><span class="lbl">姓名</span><span class="val" style="font-size:${is4x6?'13px':'18px'}">${esc(o.name||'')}</span></div><div class="row"><span class="lbl">電話</span><span class="val" style="font-size:${is4x6?'12px':'16px'}">${phoneTel(bestPhone(o))}</span></div><div class="row"><span class="lbl">地址</span><span class="val" style="font-size:${is4x6?'10px':'14px'}">${esc(o.address||'')}</span></div><div class="row"><span class="lbl">商品</span><span class="val">${esc(pr)}</span></div><div class="row"><span class="lbl">單號</span><span class="val" style="font-family:'Menlo',monospace;font-size:${is4x6?'9px':'11px'}">${esc(o.orderNo||'')}</span></div>${(()=>{const cn=cleanNote(o.note);const noteParts=[];if(o.addrMgmt||o.addrElev){noteParts.push([o.addrMgmt?(o.addrMgmt==='有'?'有':'無')+'管':'',(o.addrElev&&o.addrElev!=='不適用')?(o.addrElev==='有'?'有':'無')+'梯':''].filter(Boolean).join('+'))}if(o.install==='是'){noteParts.push('🔧 安裝'+(o.installDay?' '+o.installDay+(o.installTime?' '+o.installTime:''):'')+(o.installFee?' $'+o.installFee:'')+(o.installPaidAmount>0?' 已收':' 未收'))}if(o.addon==='是'){noteParts.push('🛒 加購'+(o.addonItems?' '+o.addonItems:'')+(o.addonFee?' $'+o.addonFee:'')+(o.addonPaidAmount>0?' 已收':' 未收'))}if(cn)noteParts.push(cn);const noteText=noteParts.join(' ｜ ');return noteText?`<div class="row"><span class="lbl">備註</span><span class="val" style="font-size:${is4x6?'9px':'12px'}">${esc(noteText).slice(0,is4x6?160:9999)}</span></div>`:''})()}<div class="footer">${o.platform==='MO'?'MOMO':o.platform==='PC'?'PChome':o.platform==='ST'?'店內銷售':o.platform||'?'} ｜ 印於 ${new Date().toLocaleString('zh-TW')}</div></div>`}).join('')}</body></html>`;w.document.write(html);w.document.close()}
 function delOrder(oid){const i=findIdx(oid);if(i<0)return;const o=orders[i];if(!confirm(`確定刪除？\n\n${o.name||''} ｜ ${o.product||''}\n\n（8 秒內可按 Undo 還原）`))return;pushUndo({kind:'delete-one',order:JSON.parse(JSON.stringify(o))});orders.splice(i,1);selectedIds.delete(oid);deleteOrderId(oid);renderList();showToast(`已刪除「${o.name||o.product||'訂單'}」`,'↩️ 還原',undoLast,8000)}
 
-// ===== DEALS（成交）TAB =====
-function setDealsPeriod(p,btn){dealsPeriod=p;localStorage.setItem('dealsPeriod',p);document.querySelectorAll('#tab-deals .fbtn[data-fg="dperiod"]').forEach(x=>x.classList.remove('on'));if(btn)btn.classList.add('on');renderDeals()}
-function setDealsPlatform(p,btn){dealsPlatform=p;document.querySelectorAll('#tab-deals .fbtn[data-fg="dplat"]').forEach(x=>x.classList.remove('on'));if(btn)btn.classList.add('on');renderDeals()}
-let _searchDealsTm=null;
-function searchDealsDebounced(){if(_searchDealsTm)clearTimeout(_searchDealsTm);_searchDealsTm=setTimeout(()=>{_searchDealsTm=null;dealsQ=(document.getElementById('dq')?.value||'').trim().toLowerCase();renderDeals();const el=document.getElementById('dq');if(el)el.focus()},120)}
-function filterDealsOrders(){
-  let list=orders.filter(o=>o.status==='已完成');
-  if(dealsPlatform!=='all')list=list.filter(o=>o.platform===dealsPlatform);
-  if(dealsPeriod!=='all'){const days=parseInt(dealsPeriod,10);if(days>0){const cutoff=localDateISO(new Date(Date.now()-days*86400000));list=list.filter(o=>o.date&&o.date>=cutoff)}}
-  if(dealsQ){list=list.filter(o=>[o.orderNo,o.product,o.name,o.phone,o.realPhone,o.address,o.note,o.specs].join(' ').toLowerCase().includes(dealsQ))}
-  return list;
-}
-function uncompleteToShipped(oid){
-  const o=findO(oid);if(!o)return;
-  const prev=o.status;o.status='已出貨';
-  logActivity(o,`狀態：${prev} → 已出貨（從成交拉回）`);
-  saveOne(o);updateCnt();renderDeals();
-  showToast(`↩️ 已拉回：${o.name||o.product||'訂單'}`);
-}
-// 批次拉回：把當前篩選下的所有已完成訂單一次全部設回「已出貨」
-// 用途：之前誤把待收費的單標已完成 → 一鍵全部回復，搭配新加的防呆確保以後不再誤觸
-function bulkUncompleteAll(){
-  const list=filterDealsOrders();
-  if(!list.length){alert('當前篩選沒有可拉回的成交訂單');return}
-  if(!confirm(`⚠ 確定要把目前可見的 ${list.length} 筆「已完成」訂單全部拉回（改成「已出貨」）嗎？\n\n它們會從 🎯 成交 tab 移回 📦 列表 tab，未收款的單也會自動顯示 💰 待收費。\n\n（可按 Ctrl+Z 或還原按鈕取消）`))return;
-  // 紀錄每筆原 status（一定是已完成，但寫個保險的）支援 undo
-  const snapshot=list.map(o=>({id:o.id,prevStatus:o.status}));
-  const upd={};
-  list.forEach(o=>{const prev=o.status;o.status='已出貨';logActivity(o,`狀態：${prev} → 已出貨（批次拉回）`);upd[o.id]=o});
-  pushUndo({kind:'bulk-restore-status',snapshot});
-  _setSavingBadge();db.ref('orders').update(upd).catch(_saveError);
-  renderDeals();updateCnt();
-  showToast(`↩️ 已拉回 ${list.length} 筆訂單回列表`,'↩️ 還原',undoLast,8000);
-}
-function renderDeals(){
-  const fl=filterDealsOrders();
-  fl.sort((a,b)=>{const av=a.date||'',bv=b.date||'';if(av===bv)return 0;return av<bv?1:-1});
-  const el=document.getElementById('deals-area');if(!el)return;
-  if(!ordersLoaded){el.innerHTML='<div class="card"><div class="card-b" style="text-align:center;padding:40px;color:var(--dm)">⏳ 載入中...</div></div>';return}
-  if(!fl.length){el.innerHTML=`<div class="card"><div class="card-b empty-state"><div class="es-icon">🎯</div><div class="es-title">此期間沒有成交記錄</div><div class="es-hint">「成交」是狀態為「已完成」的訂單。換期間或平台再看看。</div></div></div>`;return}
-  const total=fl.reduce((s,o)=>s+tot(o),0);
-  const cnt={MO:0,PC:0,ST:0};fl.forEach(o=>{if(cnt[o.platform]!==undefined)cnt[o.platform]++});
-  const mob=isMobile();
-  if(mob){
-    // 手機版卡片
-    let h=`<div style="display:flex;align-items:center;justify-content:space-between;padding:0 4px 8px;font-size:12px;color:var(--dm)"><span><strong style="color:var(--tx)">${fl.length}</strong> 筆成交</span><span style="color:var(--grn);font-family:var(--mono);font-weight:800">${$(total)}</span></div><div class="ord-cards">`;
-    fl.forEach(o=>{const r=prepareOrderRow(o);
-      h+=`<div class="ord-card" onclick="openEdit('${o.id}')" style="cursor:pointer"><div class="ord-card-h"><span class="ord-date">${fmtD(o.date)}</span>${platformPill(o.platform)}<span style="flex:1"></span><span class="total-cell" style="font-size:13px">${$(tot(o))}</span></div><div style="padding:6px 10px;font-size:12px"><div><strong>${esc(o.name||'(無)')}</strong>${r.ps.specs?' <span class="spec-pill">'+esc(r.ps.specs)+'</span>':''}</div><div style="color:var(--dm);font-size:11px;margin-top:2px">${esc(r.ps.name)}</div><div class="mono" style="color:var(--ht);font-size:10px;margin-top:2px">${esc(o.orderNo||'')}</div></div></div>`});
-    h+='</div>';el.innerHTML=h;return;
-  }
-  let h=`<div class="card"><div class="card-h"><h3>${fl.length} 筆成交 <small style="font-weight:400;color:var(--dm)">Mo ${cnt.MO} ｜ Pc ${cnt.PC} ｜ 店內 ${cnt.ST}</small></h3><span style="font-size:13px;color:var(--grn);font-family:var(--mono);font-weight:800">總成交額 ${$(total)}</span></div><div style="overflow-x:auto"><table><thead><tr><th>日期</th><th>平台</th><th>品名 / 規格</th><th>姓名</th><th>合計</th><th>單號</th><th>操作</th></tr></thead><tbody>`;
-  fl.forEach(o=>{const r=prepareOrderRow(o,{skipNote:true});
-    h+=`<tr><td class="mono" style="width:60px">${fmtD(o.date)}</td><td style="width:50px;text-align:center">${platformPill(o.platform)}</td><td class="prod-cell" onclick="openEdit('${o.id}')" style="cursor:pointer">${esc(r.ps.name)}${r.ps.specs?' <span class="spec-pill">'+esc(r.ps.specs)+'</span>':''}</td><td class="name-cell">${esc(o.name||'')}${r.ph?`<div style="font-size:9px;color:var(--dm);font-family:var(--mono);margin-top:1px">${phoneTel(r.ph)}</div>`:''}</td><td class="total-cell">${$(tot(o))}</td><td class="mono" style="font-size:10px;color:var(--dm)">${esc(o.orderNo||'')}</td><td style="white-space:nowrap"><button class="act" onclick="openEdit('${o.id}')">編輯</button> <button class="act" onclick="uncompleteToShipped('${o.id}')" title="從成交拉回列表（設為已出貨）" style="border-color:var(--blu);color:var(--blu);font-weight:700">↩️ 拉回</button></td></tr>`});
-  h+='</tbody></table></div></div>';
-  el.innerHTML=h;
-}
 
 let outputDateMode='today',outputFrom='',outputTo='',outputQ='',_outputIncSkip=false,outputStatus=[];
 function setOutputStatus(s,btn,event){
@@ -1722,7 +1629,7 @@ if(prevStatus!=='已完成'&&o.status==='已完成'){
   const warn=[];
   if(o.install==='是'&&Number(o.installFee)>0&&!(Number(o.installPaidAmount)>0))warn.push(`🔧 安裝費 $${o.installFee} 還沒收`);
   if(o.addon==='是'&&Number(o.addonFee)>0&&!(Number(o.addonPaidAmount)>0))warn.push(`🛒 加購費 $${o.addonFee} 還沒收`);
-  if(warn.length&&!confirm(`⚠ 這筆訂單還有款項沒收：\n\n${warn.join('\n')}\n\n仍要把狀態存成「已完成」並移到 🎯 成交 tab？\n（按取消可改回原狀態或先收費）`)){
+  if(warn.length&&!confirm(`⚠ 這筆訂單還有款項沒收：\n\n${warn.join('\n')}\n\n仍要把狀態存成「已完成」？\n（按取消可改回原狀態或先收費）`)){
     // 回滾所有 in-memory mutation 回到開啟 modal 時的狀態
     for(const k of Object.keys(o))if(!(k in _snap))delete o[k];
     Object.assign(o,_snap);
@@ -1775,7 +1682,7 @@ document.addEventListener('keydown',e=>{
   if(e.key==='Escape'){
     if(isModalOpen()){closeModal();return}
     // 清除搜尋（列表 q / 客戶 cq / 輸出 oq 都吃）
-    const searchInputs=['q','cq','oq','dq'].map(id=>document.getElementById(id)).filter(Boolean);
+    const searchInputs=['q','cq','oq'].map(id=>document.getElementById(id)).filter(Boolean);
     if(searchInputs.includes(document.activeElement)){document.activeElement.value='';document.activeElement.dispatchEvent(new Event('input'));document.activeElement.blur();return}
     // 取消批次選取
     if(selectedIds.size>0){selectedIds.clear();renderList();return}
@@ -1784,16 +1691,16 @@ document.addEventListener('keydown',e=>{
   // Modal 開著時不要響應切 tab / 搜尋等快捷鍵（避免切走後 modal 卡在另一頁）
   if(isModalOpen())return;
   // Ctrl+K / "/" → focus 搜尋（會自動切到列表 tab 如果不在）
-  if(((e.ctrlKey||e.metaKey)&&e.key==='k')||e.key==='/'){e.preventDefault();const at=document.querySelector('.tab.active')?.textContent||'';if(at.includes('客戶')){document.getElementById('cq')?.focus()}else if(at.includes('輸出')){document.getElementById('oq')?.focus()}else if(at.includes('成交')){document.getElementById('dq')?.focus()}else{if(!at.includes('列表'))showTab('list');setTimeout(()=>document.getElementById('q')?.focus(),50)}return}
-  // 1-7 切 tab — bf3c525 加成交 tab 後變 7 個（之前只有 6 個 → 鍵 3 會跑去輸出而非成交）
-  const tabs=['import','list','deals','output','stats','customers','account'];
-  if(/^[1-7]$/.test(e.key)){const idx=parseInt(e.key)-1;showTab(tabs[idx]);return}
+  if(((e.ctrlKey||e.metaKey)&&e.key==='k')||e.key==='/'){e.preventDefault();const at=document.querySelector('.tab.active')?.textContent||'';if(at.includes('客戶')){document.getElementById('cq')?.focus()}else if(at.includes('輸出')){document.getElementById('oq')?.focus()}else{if(!at.includes('列表'))showTab('list');setTimeout(()=>document.getElementById('q')?.focus(),50)}return}
+  // 1-6 切 tab
+  const tabs=['import','list','output','stats','customers','account'];
+  if(/^[1-6]$/.test(e.key)){const idx=parseInt(e.key)-1;showTab(tabs[idx]);return}
   // ? 顯示快捷鍵說明
   if(e.key==='?'){showShortcutsHelp();return}
   // Ctrl+Z 還原刪除
   if((e.ctrlKey||e.metaKey)&&e.key==='z'){e.preventDefault();undoLast();return}
 });
-function showShortcutsHelp(){const lines=['🎹 鍵盤捷徑','','/ 或 Ctrl+K — 聚焦搜尋','Esc — 關 modal / 清搜尋 / 取消批次','Ctrl+Z — 還原刪除（最近 10 次）','1 — 匯入分頁','2 — 列表','3 — 成交','4 — 輸出','5 — 統計','6 — 客戶','7 — 帳號','? — 顯示這個說明'];alert(lines.join('\n'))}
+function showShortcutsHelp(){const lines=['🎹 鍵盤捷徑','','/ 或 Ctrl+K — 聚焦搜尋','Esc — 關 modal / 清搜尋 / 取消批次','Ctrl+Z — 還原刪除（最近 10 次）','1 — 匯入分頁','2 — 列表','3 — 輸出','4 — 統計','5 — 客戶','6 — 帳號','? — 顯示這個說明'];alert(lines.join('\n'))}
 function confirmWipeAll(){
   if(!isAdmin()){alert('只有管理員可清空');return}
   const cnt=orders.length;
@@ -2000,7 +1907,7 @@ async function submitShip(force){
 document.getElementById('raw-input')?.addEventListener('paste',()=>setTimeout(runParse,200));
 bootAuth();
 // Re-render on viewport breakpoint cross (mobile ↔ desktop) — 列表/客戶都要切版
-let _wasMobile=isMobile();window.addEventListener('resize',()=>{const now=isMobile();if(now!==_wasMobile){_wasMobile=now;updateCnt();const at=document.querySelector('.tab.active')?.textContent||'';if(at.includes('列表'))renderList();if(at.includes('客戶'))renderCustomers();if(at.includes('成交'))renderDeals()}});
+let _wasMobile=isMobile();window.addEventListener('resize',()=>{const now=isMobile();if(now!==_wasMobile){_wasMobile=now;updateCnt();const at=document.querySelector('.tab.active')?.textContent||'';if(at.includes('列表'))renderList();if(at.includes('客戶'))renderCustomers()}});
 // 定期檢查並套用 pending 遠端更新（modal 關 + 沒輸入框聚焦 時）
 setInterval(()=>{if(pendingRemoteOrders!==null&&!isModalOpen()&&!isInputFocused()&&!_saveOneTimer&&!_saveAllTimer){const v=pendingRemoteOrders;applyRemoteOrders(v)}},2000);
 // Register service worker (PWA support)
