@@ -12,8 +12,8 @@
 <title>📦 訂單管理系統 — MOMO / PChome</title>
 <style>
 *{margin:0;padding:0;box-sizing:border-box}
-:root{--bg:#f4f3ee;--sf:#fff;--sf2:#faf9f5;--bd:#ddd9cf;--tx:#1c1b18;--dm:#807b6f;--ht:#b0aa9c;--mo:#d6336c;--mo-bg:#fdf0f5;--pc:#c0392b;--pc-bg:#fef0ee;--grn:#2d7a4f;--grn-bg:#eef7f1;--amb:#b8860b;--blu:#2563eb;--mono:'Menlo','Consolas','Courier New',monospace;--sans:-apple-system,BlinkMacSystemFont,'Noto Sans TC','Segoe UI',sans-serif;--card-momo-bg:linear-gradient(135deg,#fef0f5,#fff);--card-momo-bd:#f0c4d8;--card-today-bg:linear-gradient(135deg,#eef7f1,#fff);--card-today-bd:#8cc4a0}
-[data-theme="dark"]{--bg:#0d1117;--sf:#161b22;--sf2:#0d1117;--bd:#30363d;--tx:#e6edf3;--dm:#8b949e;--ht:#6e7681;--mo:#ff6b9a;--mo-bg:#3a1626;--pc:#ff8a7a;--pc-bg:#3a1a16;--grn:#3fb950;--grn-bg:#0e2914;--amb:#d29922;--blu:#60a5fa;--card-momo-bg:linear-gradient(135deg,#3a1626,#161b22);--card-momo-bd:#5a2438;--card-today-bg:linear-gradient(135deg,#0e2914,#161b22);--card-today-bd:#1f5f3a}
+:root{--bg:#f4f3ee;--sf:#fff;--sf2:#faf9f5;--bd:#ddd9cf;--tx:#1c1b18;--dm:#807b6f;--ht:#b0aa9c;--mo:#d6336c;--mo-bg:#fdf0f5;--pc:#c0392b;--pc-bg:#fef0ee;--grn:#2d7a4f;--grn-bg:#eef7f1;--amb:#b8860b;--blu:#2563eb;--mono:'Menlo','Consolas','Courier New',monospace;--sans:-apple-system,BlinkMacSystemFont,'Noto Sans TC','Segoe UI',sans-serif;--card-momo-bg:linear-gradient(135deg,#fef0f5,#fff);--card-momo-bd:#f0c4d8;--card-pc-bg:linear-gradient(135deg,#fef0ee,#fff);--card-pc-bd:#f0c4b8;--card-today-bg:linear-gradient(135deg,#eef7f1,#fff);--card-today-bd:#8cc4a0}
+[data-theme="dark"]{--bg:#0d1117;--sf:#161b22;--sf2:#0d1117;--bd:#30363d;--tx:#e6edf3;--dm:#8b949e;--ht:#6e7681;--mo:#ff6b9a;--mo-bg:#3a1626;--pc:#ff8a7a;--pc-bg:#3a1a16;--grn:#3fb950;--grn-bg:#0e2914;--amb:#d29922;--blu:#60a5fa;--card-momo-bg:linear-gradient(135deg,#3a1626,#161b22);--card-momo-bd:#5a2438;--card-pc-bg:linear-gradient(135deg,#3a1a16,#161b22);--card-pc-bd:#5a2c24;--card-today-bg:linear-gradient(135deg,#0e2914,#161b22);--card-today-bd:#1f5f3a}
 [data-theme="dark"] .row-group-h{background:#1c2128;color:var(--ht)}
 [data-theme="dark"] .hint{background:#332b14;color:#fcd34d;border-color:#5a4818}
 [data-theme="dark"] input,[data-theme="dark"] select,[data-theme="dark"] textarea{background:var(--sf);color:var(--tx)}
@@ -246,6 +246,7 @@ body.has-batch-bar .main{padding-bottom:140px}
 
 <div class="main" id="tab-import"><div id="today-summary" style="display:none"></div><div class="card" style="background:linear-gradient(135deg,#f3e8ff,#fff);border:1px solid #d8b4fe"><div class="card-h" style="background:transparent"><h3>🏪 店內銷售</h3><div style="display:flex;gap:6px;flex-wrap:wrap"><button class="btn" onclick="openStoreSaleModal()" style="background:#7e22ce;border-color:#7e22ce;color:#fff;font-weight:700" title="櫃台現金/刷卡直購用">+ 新增訂單</button></div></div></div>
 <div class="card" style="background:var(--card-momo-bg);border:1px solid var(--card-momo-bd)"><div class="card-h" style="background:transparent"><h3>🚀 自動抓 MOMO</h3><div style="display:flex;gap:6px;flex-wrap:wrap"><button class="btn" onclick="resetMomoApi()" title="重設 API Token">⚙️</button><button class="btn" onclick="testNotify()" title="測試 Discord / LINE 連線" style="font-size:11px">🔔 測試</button><button class="btn btn-g" id="momo-auto-btn" onclick="fetchMomoAuto()" style="background:var(--mo);border-color:var(--mo)" title="自動抓 MOMO 未出貨訂單">🔄 抓取</button></div></div><div class="card-b" style="padding:10px 16px"><div id="momo-auto-status" style="font-size:11px;color:var(--dm);font-family:var(--mono)">第一次只問 Token，其他裝置自動共用 ☁️</div></div></div>
+<div class="card" style="background:var(--card-pc-bg);border:1px solid var(--card-pc-bd)"><div class="card-h" style="background:transparent"><h3>🛒 自動抓 PChome</h3><div style="display:flex;gap:6px;flex-wrap:wrap"><button class="btn btn-g" id="pchome-auto-btn" onclick="fetchPchomeAuto()" style="background:var(--pc);border-color:var(--pc)" title="自動抓 PChome 未出貨訂單（共用 MOMO API Token）">🔄 抓取</button></div></div><div class="card-b" style="padding:10px 16px"><div id="pchome-auto-status" style="font-size:11px;color:var(--dm);font-family:var(--mono)">共用 MOMO Token / IP，PChome 後台 → API 自動帶個資 ☁️</div></div></div>
 <div class="card"><div class="card-h"><h3>貼上後台資料</h3><div style="display:flex;gap:6px;flex-wrap:wrap"><button class="btn" onclick="clearInput()">清空</button><button class="btn btn-b" onclick="runParse()">預覽</button><button class="btn btn-g" onclick="doImport()" title="匯入到 Firebase">匯入</button><button class="btn" onclick="doReimport()" title="同單號覆蓋（修舊資料用）" style="border-color:#f59e0b;color:#b45309">🔄 覆蓋</button><button class="btn" onclick="copyPCScript()" title="複製 PChome F12 撈單 script" style="border-color:#7c3aed;color:#7c3aed;font-weight:700">📋 F12 腳本</button></div></div><div class="card-b"><details class="hint" style="cursor:pointer"><summary style="font-weight:600;cursor:pointer">📖 操作說明（點開看）</summary><div style="margin-top:8px"><b>MOMO：</b>SCM 後台 → Ctrl+A → Ctrl+C → 貼下方<br><b>PChome（F12 新法）：</b>按 <strong>📋 F12 腳本</strong> → PChome「印貨資料」view → F12 → Console → Ctrl+V Enter → alert 確認 → 回來貼下方<br><b>PChome（舊法）：</b>供應商後台 → Ctrl+A → Ctrl+C → 貼下方</div></details><textarea id="raw-input" rows="7" placeholder="把 MOMO 後台 / PChome 後台 / F12 JSON 貼在這裡..."></textarea></div></div><div id="preview-area"></div></div>
 
 <div class="main hidden" id="tab-list"><div class="filter-row"><span class="fg-grp" data-grp="plat"><button class="fbtn on" data-fg="plat" data-stat="all" onclick="setF('all',this)">全部</button><button class="fbtn" data-fg="plat" data-stat="MO" onclick="setF('MO',this)">Mo</button><button class="fbtn" data-fg="plat" data-stat="PC" onclick="setF('PC',this)">Pc</button><button class="fbtn" data-fg="plat" data-stat="ST" onclick="setF('ST',this)">店內</button><button id="mob-stat-cycle" class="fbtn st-cycle" onclick="cycleStatus()" title="點擊循環切換狀態篩選">狀態</button></span><span class="fb-divider">｜</span><span class="fg-grp" data-grp="status" title="Ctrl/Cmd + 點擊可多選"><button class="fbtn on" data-fg="status" data-stat="status:all" onclick="setSF('all',this,event)">狀態</button><button class="fbtn" data-fg="status" data-stat="status:未確認" onclick="setSF('未確認',this,event)">未確認</button><button class="fbtn" data-fg="status" data-stat="status:已確認" onclick="setSF('已確認',this,event)">已確認</button><button class="fbtn" data-fg="status" data-stat="status:交涉中" onclick="setSF('交涉中',this,event)">交涉中</button><button class="fbtn" data-fg="status" data-stat="status:未接電" onclick="setSF('未接電',this,event)">未接電</button><button class="fbtn" data-fg="status" data-stat="status:已出貨" onclick="setSF('已出貨',this,event)">已出貨</button><button class="fbtn" data-fg="status" data-stat="status:待收費" onclick="setSF('待收費',this,event)" title="安裝/加購款還沒收 — 自動連動偵測" style="color:#dc2626;border-color:#dc2626;font-weight:700">💰 待收費</button><button class="fbtn" data-fg="status" data-stat="status:補貨中" onclick="setSF('補貨中',this,event)">補貨中</button><button class="fbtn" data-fg="status" data-stat="status:已完成" onclick="setSF('已完成',this,event)" title="只看已完成單" style="color:var(--grn);border-color:#8cc4a0;font-weight:700">✅ 已完成</button><button class="fbtn" data-fg="status" data-stat="status:已取消" onclick="setSF('已取消',this,event)">已取消</button><button class="fbtn" data-fg="status" data-stat="status:轉線下" onclick="setSF('轉線下',this,event)">🏪 轉線下</button></span><span class="fb-divider">｜</span><span class="fg-grp" data-grp="special"><button class="fbtn" data-fg="special" onclick="toggleSpecial('changeAddr',this)" title="只看客戶有申請改地址的訂單">⚠️ 改址</button><button class="fbtn" data-fg="special" onclick="toggleSpecial('newToday',this)" title="只看今日新單">🆕 今日</button><button class="fbtn" data-fg="special" onclick="toggleSpecial('unpaidFee',this)" title="只看有未收款的訂單（安裝/加購費>0 但未收）— 含已完成的單，跨所有狀態篩" style="color:#dc2626;border-color:#dc2626;font-weight:700">💰 未收款</button></span><span style="flex:1"></span><span id="filter-applied-info" style="display:none"></span><input class="search" id="q" placeholder="搜尋姓名/單號/商品..." oninput="searchListDebounced()" title="按 / 或 Ctrl+K 快速聚焦"></div><div id="list-area"></div></div>
@@ -1039,6 +1040,59 @@ async function fetchMomoAuto(){
   }catch(err){
     st.textContent=`❌ 網路錯誤：${err.message}`;st.style.color='var(--pc)';
     alert(`網路錯誤：${err.message}\n\n檢查：\n1. API 網址是否正確（按 ⚙️ 重設）\n2. 網路是否正常\n3. Railway service 是否運行中`);
+  }finally{btn.disabled=false;btn.textContent=oldText}
+}
+
+async function fetchPchomeAuto(){
+  await momoConfigReady;
+  const api=getMomoApi();if(!api)return;
+  const token=getMomoToken();if(!token)return;
+  const help='抓哪段日期？以下任一格式：\n\n• 30  → 最近 30 天\n• today  → 只抓今天\n• 2026/4/20  → 從該日到今天\n• 2026/4/20-2026/4/29  → 指定區間\n• (留空 = 最近 30 天)';
+  const inp=prompt(help,'30');if(inp===null)return;
+  const range=parseDateRangeInput(inp);if(!range){alert('格式不對！請看提示說明');return}
+  const btn=document.getElementById('pchome-auto-btn'),st=document.getElementById('pchome-auto-status');
+  const oldText=btn.textContent;btn.disabled=true;btn.textContent='⏳ 抓取中...';st.textContent='📡 從 PChome API 抓取資料中（含解密個資，最久 60 秒）...';st.style.color='var(--blu)';
+  // PChome server 端用 YYYY/MM/DD 區間格式；days 走另一條 fast path
+  let qs;
+  if(range.days)qs=`days=${range.days}`;
+  else{const slash=s=>s.replace(/-/g,'/');qs=`from=${slash(range.from)}&to=${slash(range.to)}`}
+  const fullUrl=`${api}/api/orders/pchome/unsent?${qs}`;
+  try{
+    const r=await fetch(fullUrl,{headers:{'X-API-Token':token}});
+    const ct=r.headers.get('content-type')||'';
+    const raw=await r.text();
+    if(!ct.includes('application/json')){
+      st.textContent=`❌ API 回應不是 JSON（很可能 URL 錯或 service 掛了）`;st.style.color='var(--pc)';
+      const preview=raw.slice(0,200).replace(/\s+/g,' ');
+      alert(`❌ PChome API 回應不是 JSON\n\n打了：${fullUrl}\nHTTP ${r.status}, Content-Type: ${ct||'(空)'}\n\n回應前 200 字：\n${preview}`);
+      return;
+    }
+    let data;try{data=JSON.parse(raw)}catch(e){alert(`❌ JSON 解析失敗：${e.message}\n\nresponse: ${raw.slice(0,300)}`);return}
+    if(!r.ok||!data.ok){
+      const msg=data.error||`HTTP ${r.status}`;
+      st.textContent=`❌ 抓取失敗：${msg}`;st.style.color='var(--pc)';
+      if(r.status===401){alert(`❌ Token 錯誤\n\n${msg}\n\n按 ⚙️ 重設 Token（共用 MOMO 那個按鈕）`);}
+      else if(r.status===502){const det=typeof data.detail==='string'?data.detail:JSON.stringify(data.detail||{}).slice(0,300);alert(`❌ PChome API 回應錯誤（${msg}）\n\n細節：${det}\n\n常見原因：\n1. 白名單還沒生效（等 1-3 天）\n2. ENCRYPT_KEY / IV 不對\n3. PCHOME_ENV 還是 fake（測試）但去打了正式 endpoint`);}
+      else{alert(`❌ 抓取失敗\n\nHTTP ${r.status}\n${msg}\n\n打了：${fullUrl}`);}
+      return;
+    }
+    const fetched=Array.isArray(data.orders)?data.orders:[];
+    const winInfo=data.window?`${data.window.from} ~ ${data.window.to}`:'';
+    const auxInfo=`（全部 ${data.totalRows||0} 筆 / 未出貨 ${data.unsentCount||fetched.length} 筆${data.filteredOut?` / 已過濾 ${data.filteredOut} 筆`:''}）`;
+    if(!fetched.length){st.textContent=`📭 區間 ${winInfo} ${auxInfo}`;st.style.color='var(--dm)';alert(`PChome 區間 ${winInfo} 沒有未出貨訂單\n\n${auxInfo}`);return}
+    const ex=new Set(orders.map(o=>o.orderNo));
+    // server 已 normalize 成 order-system 格式，client 只需換 gid() 避免重抓時 ID 撞
+    const transformed=fetched.map(o=>Object.assign({},o,{id:gid()}));
+    const nw=transformed.filter(o=>o.orderNo&&!ex.has(o.orderNo));
+    const dup=transformed.length-nw.length;
+    if(!nw.length){st.textContent=`✅ 抓到 ${fetched.length} 筆，全部已存在（${dup} 筆重複）`;st.style.color='var(--grn)';alert(`區間內 ${fetched.length} 筆 PChome 訂單，全部已在系統內`);return}
+    orders.push(...nw);const upd={};for(const o of nw)upd[o.id]=o;_setSavingBadge();db.ref('orders').update(upd).catch(_saveError);
+    st.textContent=`✅ 新增 ${nw.length} 筆 PChome${dup?`（${dup} 筆已存在已跳過）`:''}，最後同步 ${new Date().toLocaleTimeString('zh-TW',{hour:'2-digit',minute:'2-digit',hour12:false})}`;st.style.color='var(--grn)';
+    if(nw.length>0){const titles=nw.slice(0,3).map(o=>`${o.name||'?'} ${o.product||''}`).join(' / ');notifyDesktop(`🛒 ${nw.length} 筆新 PChome 訂單`,nw.length<=3?titles:`${titles}（共 ${nw.length} 筆）`)}
+    alert(`🎉 PChome 自動抓取成功！\n\n新增訂單：${nw.length} 筆${dup?`\n已存在略過：${dup} 筆`:''}\n區間：${winInfo}`);
+  }catch(err){
+    st.textContent=`❌ 網路錯誤：${err.message}`;st.style.color='var(--pc)';
+    alert(`網路錯誤：${err.message}\n\n檢查：\n1. Railway service 是否運行中\n2. 網路是否正常`);
   }finally{btn.disabled=false;btn.textContent=oldText}
 }
 
