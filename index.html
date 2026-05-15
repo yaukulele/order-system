@@ -1078,7 +1078,9 @@ async function fetchPchomeAuto(){
     }
     const fetched=Array.isArray(data.orders)?data.orders:[];
     const winInfo=data.window?`${data.window.from} ~ ${data.window.to}`:'';
-    const auxInfo=`（全部 ${data.totalRows||0} 筆 / 未出貨 ${data.unsentCount||fetched.length} 筆${data.filteredOut?` / 已過濾 ${data.filteredOut} 筆`:''}）`;
+    const bd=data.breakdown||{};
+    const breakdownTxt=data.filteredOut?` / 已過濾 ${data.filteredOut} 筆（取消 ${bd.cancelled||0} / 已處理 ${bd.handled||0} / 標不出貨 ${bd.notShip||0}）`:'';
+    const auxInfo=`（全部 ${data.totalRows||0} 筆 / 未出貨 ${data.unsentCount||fetched.length} 筆${breakdownTxt}）`;
     if(!fetched.length){st.textContent=`📭 區間 ${winInfo} ${auxInfo}`;st.style.color='var(--dm)';alert(`PChome 區間 ${winInfo} 沒有未出貨訂單\n\n${auxInfo}`);return}
     const ex=new Set(orders.map(o=>o.orderNo));
     // server 已 normalize 成 order-system 格式，client 只需換 gid() 避免重抓時 ID 撞
