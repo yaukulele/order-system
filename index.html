@@ -260,8 +260,9 @@ body.has-batch-bar .main{padding-bottom:140px}
 
 <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-database-compat.js"></script>
-<!-- firebase-auth + firebase-storage 改 lazy load — 只在按 📷 拍照時才載入，
-     避免每次開頁都拖 ~150KB JS 的初始載入時間 -->
+<script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-auth-compat.js"></script>
+<!-- firebase-storage 仍 lazy load — 只在按 📷 拍照時才載入。
+     firebase-auth 改 eager — 為了讓 Firebase rules 能設 `.write: auth != null`，必須開頁就 signInAnonymously -->
 <script>
 // ===== FIREBASE CONFIG (你的專案設定) =====
 firebase.initializeApp({
@@ -271,18 +272,27 @@ firebase.initializeApp({
   projectId:"order-system-dddca",
   storageBucket:"order-system-dddca.firebasestorage.app"
 });
-// Storage / Auth SDK 改 lazy load — 第一次按 📷 拍照才動態載入，省下首次開頁 ~150KB
-// 載入 → signInAnonymously → 取得 storage ref，整個流程包成 ensureStorage() 一次性 cached
+// Eager anon auth so Firebase rules can require `auth != null` for writes.
+// Reads stay public (`.read: true`) so backup tooling keeps working. By the time the user
+// triggers any write (300ms+ debounce on saves, longer on clicks), auth has resolved.
+// On failure (Anonymous provider not yet enabled in Console), show a non-blocking banner —
+// rules are still public during rollout so app stays usable.
+const authReady=firebase.auth().signInAnonymously().then(()=>true).catch(err=>{
+  console.warn("anon auth failed:",err);
+  const b=document.createElement("div");
+  b.style.cssText="position:fixed;bottom:0;left:0;right:0;background:#fef3c7;border-top:1px solid #f59e0b;padding:8px 12px;font-size:12px;text-align:center;z-index:9999;color:#78350f";
+  b.innerHTML='⚠ Firebase 匿名登入失敗：'+(err&&err.message||err)+' — <a href="https://console.firebase.google.com/project/order-system-dddca/authentication/providers" target="_blank" style="color:#1d4ed8;font-weight:600">啟用 Anonymous Auth</a> 後重新整理';
+  document.body.appendChild(b);
+  return false;
+});
+// Storage SDK still lazy load — 只在按 📷 拍照才動態載入，省下首次開頁 ~100KB
 let _storageReadyPromise=null;
 function _loadFbScript(src){return new Promise((res,rej)=>{const s=document.createElement('script');s.src=src;s.async=false;s.onload=res;s.onerror=()=>rej(new Error('load failed: '+src));document.head.appendChild(s)})}
 async function ensureStorage(){
   if(_storageReadyPromise)return _storageReadyPromise;
   _storageReadyPromise=(async()=>{
-    await Promise.all([
-      _loadFbScript('https://www.gstatic.com/firebasejs/10.12.0/firebase-auth-compat.js'),
-      _loadFbScript('https://www.gstatic.com/firebasejs/10.12.0/firebase-storage-compat.js'),
-    ]);
-    try{await firebase.auth().signInAnonymously()}catch(e){console.warn('storage anon auth failed:',e?.message)}
+    await _loadFbScript('https://www.gstatic.com/firebasejs/10.12.0/firebase-storage-compat.js');
+    await authReady;  // reuse top-level anon auth — don't double sign-in
     return firebase.storage();
   })();
   return _storageReadyPromise;
