@@ -109,7 +109,7 @@ td{padding:7px 10px;border-bottom:1px solid #f0ede6}tr:hover td{background:var(-
 .sched-unschedule-drop.drop-target-active{background:var(--mo-bg)!important;outline:2px dashed var(--mo);outline-offset:-3px}
 .week-grid-tbl .grid-cell-card,.sched-row-card.draggable{cursor:grab}
 .week-grid-tbl .grid-cell-card:active,.sched-row-card.draggable:active{cursor:grabbing}
-.week-grid-tbl .grid-cell-card[draggable=true]{user-select:none;-webkit-user-drag:element}
+.week-grid-tbl .grid-cell-card[draggable=true],.sched-row-card.draggable[draggable=true]{user-select:none;-webkit-user-drag:element;touch-action:none}
 .grid-card-dragging{opacity:.4}
 .sched-drag-hint{font-size:10px;color:var(--dm);margin:6px 0;padding:4px 8px;background:var(--blu-bg,#eff6ff);border-left:3px solid var(--blu);border-radius:3px}
 /* 安裝/加購 inline 選單（點未確認跳出） */
@@ -1315,18 +1315,20 @@ function addonCellClick(oid,ev){
 // inline 小選單 — 不用 modal，按鈕就地展開讓用戶選
 function openInstallMenu(oid,ev){
   const o=findO(oid);if(!o)return;
-  const r=window.confirm('🔧 要安裝服務？\n\n確定 = 要安裝（下一步輸入費用 + 日期）\n取消 = 不安裝');
+  const r=window.confirm('要安裝服務？\n\n確定 = 要安裝（下一步輸入費用 + 日期）\n取消 = 不安裝');
   if(r){
     const v=prompt('安裝費用（直接輸入數字，0 也可以）：',o.installFee||'0');
     if(v===null)return;
     const n=parseAmt(v);if(isNaN(n)||n<0){alert('金額無效');return}
-    const dateDefault=o.installDate||'';
-    const d=prompt('安裝日期（YYYY-MM-DD，留空 = 尚未排日）：',dateDefault);
+    const dateDefault=o.installDate||localDateISO();
+    const d=prompt('安裝日期（格式 YYYY-MM-DD，例：2026-05-20，留空 = 尚未排日）：',dateDefault);
     if(d===null)return;
+    const dTrim=(d||'').trim();
+    if(dTrim&&!/^\d{4}-\d{2}-\d{2}$/.test(dTrim)){alert('日期格式錯誤！需要 YYYY-MM-DD（例：2026-05-20）');return}
     const inst=(installers[0]||'阿淵');
-    o.install='是';o.installFee=n;o.installDate=(d||'').trim();
+    o.install='是';o.installFee=n;o.installDate=dTrim;
     if(!o.installer)o.installer=inst;
-    logActivity(o,`安裝服務 ✓ 要安裝 $${n}${o.installDate?` ${o.installDate}`:''} 師傅:${o.installer}`);
+    logActivity(o,`安裝服務 要安裝 $${n}${o.installDate?` ${o.installDate}`:''} 師傅:${o.installer}`);
     saveOne(o);renderList();
   }else{
     o.install='否';o.installFee=0;o.installDay='';o.installTime='';o.installPaidAmount=0;o.installDate='';o.installSlot='';o.installer='';
@@ -1771,8 +1773,8 @@ document.getElementById('modal-body').innerHTML=`<h3>編輯訂單${customerHisto
 <div class="fg" style="margin-bottom:8px"><div class="fi"><label>🏢 管理室</label><div class="sched-row" id="e-mgmt"><button class="sched-btn ${o.addrMgmt==='有'?'picked':''}" onclick="pickRadio('e-mgmt','有',this)">有</button><button class="sched-btn ${o.addrMgmt==='無'?'picked':''}" onclick="pickRadio('e-mgmt','無',this)">無</button><button class="sched-btn ${(!o.addrMgmt||o.addrMgmt==='')?'picked':''}" onclick="pickRadio('e-mgmt','',this)">未填</button></div></div><div class="fi"><label>🛗 電梯（2 樓以上）</label><div class="sched-row" id="e-elev"><button class="sched-btn ${o.addrElev==='有'?'picked':''}" onclick="pickRadio('e-elev','有',this)">有</button><button class="sched-btn ${o.addrElev==='無'?'picked':''}" onclick="pickRadio('e-elev','無',this)">無</button><button class="sched-btn ${o.addrElev==='不適用'?'picked':''}" onclick="pickRadio('e-elev','不適用',this)">不適用</button><button class="sched-btn ${(!o.addrElev||o.addrElev==='')?'picked':''}" onclick="pickRadio('e-elev','',this)">未填</button></div></div></div>
 <div class="fg"><div class="fi"><label>數量</label><input type="text" inputmode="numeric" id="e-qty" value="${o.qty||1}" oninput="this.value=cn(this.value)"></div><div class="fi"><label>商品金額</label><input type="text" inputmode="numeric" id="e-amt" value="${o.amount||''}" oninput="this.value=cn(this.value);calcT()"></div></div>
 <div style="border:1px solid var(--bd);border-radius:8px;padding:12px;margin:8px 0;background:var(--sf2)"><div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px"><span style="font-size:12px;font-weight:700">安裝服務</span><button class="${o.install==='是'?'toggle-on':(o.install==='否'?'toggle-off':'toggle-unknown')}" onclick="togEI()" id="ei-btn" title="點擊循環：未確認 → 要安裝 → 不安裝">${o.install==='是'?'要安裝':(o.install==='否'?'不安裝':'待確認')}</button></div>
-<div id="ei-panel" class="${o.install==='是'?'':'hidden'}"><div class="fg"><div class="fi"><label>安裝費用</label><input type="text" inputmode="numeric" id="e-instf" value="${o.installFee||''}" oninput="this.value=cn(this.value);calcT()"></div><div class="fi"><label>📅 安裝日期</label><input type="date" id="e-installDate" value="${o.installDate||''}"></div></div>
-<div class="fg full" style="margin-top:6px"><div class="fi"><label>🔧 安裝師傅</label><select id="e-installer">${installers.map(n=>`<option ${(o.installer||installers[0])===n?'selected':''}>${esc(n)}</option>`).join('')}</select></div></div>
+<div id="ei-panel" class="${o.install==='是'?'':'hidden'}"><div class="fg"><div class="fi"><label>安裝費用</label><input type="text" inputmode="numeric" id="e-instf" value="${o.installFee||''}" oninput="this.value=cn(this.value);calcT()"></div><div class="fi"><label>安裝日期</label><input type="date" id="e-installDate" value="${o.installDate||''}"></div></div>
+<div class="fg" style="margin-top:6px"><div class="fi"><label>安裝師傅</label><select id="e-installer">${(o.installer&&!installers.includes(o.installer)?`<option value="${esc(o.installer)}" selected>${esc(o.installer)}（已移除）</option>`:'')}${installers.map(n=>`<option ${((o.installer&&installers.includes(o.installer)?o.installer:installers[0])===n)?'selected':''}>${esc(n)}</option>`).join('')}</select></div><div class="fi"><label>安裝時段 <span style="font-weight:400;color:var(--ht);font-size:10px">（在週表 grid 上的擺放位置）</span></label><select id="e-installSlot"><option value="" ${!o.installSlot?'selected':''}>— 未排時段 —</option>${TIMES.map(t=>`<option value="${esc(t)}" ${o.installSlot===t?'selected':''}>${esc(t)}</option>`).join('')}</select></div></div>
 <div style="margin:8px 0 6px"><span style="font-size:10px;font-weight:700;color:var(--dm)">📆 週幾 <span style="font-weight:400;color:var(--ht)">（提示用，可複選）</span></span><div class="sched-row">${DAYS.map(d=>`<button class="sched-btn${['週六','週日'].includes(d)?' weekend':''}${(o.installDay&&o.installDay.split(/[、,\/]/).map(x=>x.trim()).includes(d))?' picked':''}" onclick="pickD('${d}',this)">${d}</button>`).join('')}</div></div>
 <div><span style="font-size:10px;font-weight:700;color:var(--dm)">時段 <span style="font-weight:400;color:var(--ht)">（可複選）</span></span><div class="sched-row">${TIMES.map(t=>`<button class="sched-btn${((o.installTime||'').split(/[、,\/]/).map(x=>x.trim()).includes(t))?' picked':''}" onclick="pickT('${t}',this)">${t}</button>`).join('')}</div></div></div></div>
 <div style="border:1px solid var(--bd);border-radius:8px;padding:12px;margin:8px 0;background:var(--sf2)"><div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px"><span style="font-size:12px;font-weight:700">加購</span><button class="${o.addon==='是'?'toggle-on':(o.addon==='否'?'toggle-off':'toggle-unknown')}" onclick="togEA()" id="ea-btn" title="點擊循環：未確認 → 要加購 → 不加購">${o.addon==='是'?'要加購':(o.addon==='否'?'不加購':'待確認')}</button></div>
@@ -1836,6 +1838,7 @@ o.install=_ibtn.classList.contains('toggle-on')?'是':(_ibtn.classList.contains(
 if(o.install==='否'||o.install==='未確認'){o.installFee=0;o.installDay='';o.installTime='';o.installPaidAmount=0;o.installDate='';o.installSlot='';o.installer=''}
 else{o.installFee=parseInt(document.getElementById('e-instf').value)||0;o.installDay='';o.installTime='';
   o.installDate=document.getElementById('e-installDate')?.value||'';
+  o.installSlot=document.getElementById('e-installSlot')?.value||'';
   const newInstaller=document.getElementById('e-installer')?.value||installers[0]||'阿淵';
   if((o.installer||'')!==newInstaller){if(o.installer)logActivity(o,`安裝師傅 ${o.installer} → ${newInstaller}`);else logActivity(o,`指派安裝師傅：${newInstaller}`);o.installer=newInstaller}
   const days=[],times=[];
@@ -2283,7 +2286,8 @@ function renderSchedule(){
   else if(schedView==='weekgrid'){fromIso=today;const d=new Date(tdate);d.setDate(d.getDate()+6);toIso=localDateISO(d)}
   else if(schedView==='date'){fromIso=toIso=(schedDate||today)}
   // all → no date filter
-  const candidates=orders.filter(o=>o.install==='是');
+  // 排除終態（已完成 / 已取消 / 轉線下）— 這些單已經結案，不算「待安裝」工作量
+  const candidates=orders.filter(o=>o.install==='是'&&o.status!=='已完成'&&o.status!=='已取消'&&o.status!=='轉線下');
   // 全部所有需安裝（tab badge 用）
   const tabBadge=document.getElementById('sched-cnt');if(tabBadge)tabBadge.textContent=candidates.length;
   let filtered=candidates;
@@ -2324,7 +2328,8 @@ function renderSchedule(){
   document.getElementById('schedule-area').innerHTML=html;
 }
 // 列表上的安裝/加購狀態變動時 + applyRemoteOrders 後，badge 數量要更新
-function _updateSchedBadge(){const c=orders.filter(o=>o.install==='是').length;const el=document.getElementById('sched-cnt');if(el)el.textContent=c}
+// 同 renderSchedule 的 candidates filter — 排除已完成 / 已取消 / 轉線下
+function _updateSchedBadge(){const c=orders.filter(o=>o.install==='是'&&o.status!=='已完成'&&o.status!=='已取消'&&o.status!=='轉線下').length;const el=document.getElementById('sched-cnt');if(el)el.textContent=c}
 
 // ===== 週表 grid 視圖 =====
 function formatGridHeader(d){
@@ -2335,11 +2340,12 @@ function formatGridHeader(d){
   return `<div style="font-size:13px;font-weight:700">${d.slice(5).replace('-','/')}</div><div style="font-size:10px;color:var(--dm)">週${wd}${mark?' · '+mark:''}</div>`;
 }
 // 推斷一筆訂單目前該排在哪個 slot row（向下相容無 installSlot 的舊單）
+// 沒明確排程時，用客戶希望的「第一個時段」當預設位置（少用「未排時段」整個 row 塞東西）
 function effectiveSlot(o){
   if(o.installSlot&&TIMES.includes(o.installSlot))return o.installSlot;
   const arr=(o.installTime||'').split(/[、,\/]/).map(x=>x.trim()).filter(Boolean);
-  if(arr.length===1&&TIMES.includes(arr[0]))return arr[0];
-  return ''; // 未排時段
+  for(const t of arr)if(TIMES.includes(t))return t;
+  return ''; // 真的沒任何時段才丟「未排時段」row
 }
 function renderWeekGrid(filtered,noDate){
   const days=[];for(let i=0;i<7;i++)days.push(_schedAdvIso(i));
@@ -2418,13 +2424,14 @@ let _schedDragOid=null;
 function schedDragStart(e,oid){
   _schedDragOid=oid;
   try{e.dataTransfer.setData('text/plain',oid);e.dataTransfer.effectAllowed='move'}catch(_){}
-  // 卡片透明化 — 拖曳中視覺提示
-  setTimeout(()=>{e.target&&e.target.classList&&e.target.classList.add('grid-card-dragging')},0);
+  // 拖曳中卡片透明化 — currentTarget 是 onClick 綁的卡片本身（不是用戶按到的子 div）
+  const ct=e.currentTarget;
+  setTimeout(()=>{ct&&ct.classList&&ct.classList.add('grid-card-dragging')},0);
 }
 function schedDragEnd(e){
-  e.target&&e.target.classList&&e.target.classList.remove('grid-card-dragging');
+  // 清掉所有可能掛上的 dragging 樣式（不止 currentTarget — 防 e.target 是子 div 沒清到）
+  document.querySelectorAll('.grid-card-dragging').forEach(el=>el.classList.remove('grid-card-dragging'));
   _schedDragOid=null;
-  // 清掉殘留的 hover 樣式（dragleave 偶爾沒觸發）
   document.querySelectorAll('.drop-target-active').forEach(el=>el.classList.remove('drop-target-active'));
 }
 function schedDragOver(e){
