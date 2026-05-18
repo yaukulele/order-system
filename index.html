@@ -2220,7 +2220,8 @@ function _renderSchedBatchBar(){
   if(_schedBatch.size===0){if(bar)bar.remove();return}
   if(!bar){
     bar=document.createElement('div');bar.id='sched-batch-bar';
-    bar.style.cssText='position:sticky;top:0;z-index:80;background:var(--blu);color:#fff;padding:8px 14px;display:flex;align-items:center;gap:8px;flex-wrap:wrap;border-radius:6px;margin-bottom:8px;box-shadow:0 2px 8px rgba(0,0,0,.12)';
+    // 不用 sticky — header + tabs 在頂端會跟它疊，乾脆 inline 隨 schedule-area 一起捲。
+    bar.style.cssText='background:var(--blu);color:#fff;padding:8px 14px;display:flex;align-items:center;gap:8px;flex-wrap:wrap;border-radius:6px;margin-bottom:8px;box-shadow:0 2px 8px rgba(0,0,0,.12)';
     const area=document.getElementById('schedule-area');
     area.parentNode.insertBefore(bar,area);
   }
