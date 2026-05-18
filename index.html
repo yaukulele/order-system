@@ -964,7 +964,7 @@ function doReimport(){
       old.qty=np.qty||old.qty;
       old.date=np.date||old.date;
       old.dateFmt=np.dateFmt||old.dateFmt;
-      // 不動：status, install, installFee, installDay, installTime, addon, addonFee, trackingNo, delyGbStr, note
+      // 不動：status / install* / installer / installDate / installSlot / addon* / trackingNo / delyGbStr / note / photos
       updated++;
     }else{orders.push(np);affected.push(np);added++}
   }
