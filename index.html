@@ -2369,11 +2369,23 @@ function renderSchedRow(o,opts){
 function syncSchedInstallerRow(){
   const row=document.getElementById('sched-installer-row');
   if(!row)return;
+  // 每位師傅各自當前視圖內的單數（給 chip 加 badge）
+  // 用 candidates（已過濾終態）算數量。視圖區間外的不計
+  const candidates=orders.filter(o=>o.install==='是'&&o.status!=='已完成'&&o.status!=='已取消'&&o.status!=='轉線下');
+  let countByInstaller={};let totalInst=0;let unassigned=0;
+  for(const o of candidates){
+    if(o.installer){countByInstaller[o.installer]=(countByInstaller[o.installer]||0)+1;totalInst++}
+    else unassigned++;
+  }
   let html='<span style="font-size:11px;color:var(--dm)">師傅</span>';
-  html+=`<button class="fbtn ${schedInstaller==='all'?'on':''}" onclick="setSchedInstaller('all',this)">全部</button>`;
+  html+=`<button class="fbtn ${schedInstaller==='all'?'on':''}" onclick="setSchedInstaller('all',this)">全部 <span style="opacity:.7;font-size:10px">${totalInst+unassigned}</span></button>`;
   for(const name of installers){
     const safe=esc(name);const jsName=name.replace(/\\/g,'\\\\').replace(/'/g,"\\'");
-    html+=`<button class="fbtn ${schedInstaller===name?'on':''}" onclick="setSchedInstaller('${jsName}',this)">${safe}</button>`;
+    const cnt=countByInstaller[name]||0;
+    html+=`<button class="fbtn ${schedInstaller===name?'on':''}" onclick="setSchedInstaller('${jsName}',this)">${safe} <span style="opacity:.7;font-size:10px">${cnt}</span></button>`;
+  }
+  if(unassigned>0){
+    html+=`<span style="font-size:11px;color:#dc2626;font-weight:600;margin-left:8px">未指派 ${unassigned} 單</span>`;
   }
   row.innerHTML=html;
 }
