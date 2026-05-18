@@ -1303,7 +1303,7 @@ function installCellClick(oid,ev){
     }
     o.install='未確認';o.installFee=0;o.installDay='';o.installTime='';o.installPaidAmount=0;o.installDate='';o.installSlot='';o.installer='';
   }else{o.install='未確認';o.installDate='';o.installSlot='';o.installer=''}
-  logActivity(o,`安裝服務 → 未確認`);saveOne(o);renderList();
+  logActivity(o,`安裝服務 → 未確認`);saveOne(o);renderList();updateCnt();
 }
 function addonCellClick(oid,ev){
   const o=findO(oid);if(!o)return;
@@ -1335,15 +1335,15 @@ function openInstallMenu(oid,ev){
     o.install='是';o.installFee=n;o.installDate=dTrim;
     if(!o.installer)o.installer=inst;
     logActivity(o,`安裝服務 要安裝 $${n}${o.installDate?` ${o.installDate}`:''} 師傅:${o.installer}`);
-    saveOne(o);renderList();
+    saveOne(o);renderList();updateCnt();
   }else{
     o.install='否';o.installFee=0;o.installDay='';o.installTime='';o.installPaidAmount=0;o.installDate='';o.installSlot='';o.installer='';
-    logActivity(o,`安裝服務 不安裝`);saveOne(o);renderList();
+    logActivity(o,`安裝服務 不安裝`);saveOne(o);renderList();updateCnt();
   }
 }
 function openAddonMenu(oid,ev){
   const o=findO(oid);if(!o)return;
-  const r=window.confirm('🛒 有加購商品？\n\n確定 = 要加購（下一步輸入金額 + 備註）\n取消 = 不加購');
+  const r=window.confirm('有加購商品？\n\n確定 = 要加購（下一步輸入金額 + 備註）\n取消 = 不加購');
   if(r){
     const v=prompt('加購金額（直接輸入數字）：',o.addonFee||'0');
     if(v===null)return;
