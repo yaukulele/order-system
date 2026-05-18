@@ -2434,8 +2434,24 @@ function renderSchedule(){
   const sortedDates=Object.keys(groups).sort();
   let html='';
   if(!filtered.length&&!(schedView==='all'&&noDate.length)){
-    const tip=schedView==='all'?'目前沒有任何「要安裝」的訂單。':`此區間（${fromIso}${toIso!==fromIso?' ~ '+toIso:''}）沒有安裝行程。`;
-    html=`<div class="card"><div class="card-b" style="color:var(--dm);text-align:center;padding:30px">${esc(tip)}<br><span style="font-size:11px">提示：把訂單的安裝設為「要安裝」並填日期 → 會自動出現在這裡</span></div></div>`;
+    let tip,extra='';
+    if(schedView==='all'){tip='目前沒有任何「要安裝」的訂單。'}
+    else{
+      tip=`此區間（${fromIso}${toIso!==fromIso?' ~ '+toIso:''}）沒有安裝行程。`;
+      // 「友善導引」：當前 view 沒單但其他 view 有，提示用戶切換
+      const totalActiveInst=candidates.length;
+      const otherInWeek=candidates.filter(o=>{
+        if(!o.installDate)return false;
+        const t=localDateISO();const w=new Date(t+'T00:00:00');w.setDate(w.getDate()+6);const wIso=localDateISO(w);
+        return o.installDate>=t&&o.installDate<=wIso;
+      }).length;
+      if(otherInWeek>0&&schedView!=='week'&&schedView!=='weekgrid'){
+        extra=`<br><button class="btn" onclick="setSchedView('week',document.querySelector('#tab-schedule .fbtn[onclick*=&quot;setSchedView(\\'week\\'&quot;]'))" style="margin-top:10px;font-size:11px">看本週 ${otherInWeek} 單</button>`;
+      }else if(totalActiveInst>0&&schedView!=='all'){
+        extra=`<br><button class="btn" onclick="setSchedView('all',document.querySelector('#tab-schedule .fbtn[onclick*=&quot;setSchedView(\\'all\\'&quot;]'))" style="margin-top:10px;font-size:11px">看全部 ${totalActiveInst} 單</button>`;
+      }
+    }
+    html=`<div class="card"><div class="card-b" style="color:var(--dm);text-align:center;padding:30px">${esc(tip)}${extra}<br><span style="font-size:11px;color:var(--ht)">提示：把訂單的安裝設為「要安裝」並填日期 → 會自動出現在這裡</span></div></div>`;
   }
   for(const dt of sortedDates){
     const routeBtn=(dt!=='未排日'&&groups[dt].length>0)?`<button class="btn" onclick="event.stopPropagation();openSchedRouteForDate('${dt}')" style="font-size:11px;margin-left:auto">規劃路線</button>`:'';
