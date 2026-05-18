@@ -2232,6 +2232,88 @@ async function renameInstaller(oldName){
 let schedView=localStorage.getItem('schedView')||'today';
 let schedDate=localStorage.getItem('schedDate')||null;
 let schedInstaller=localStorage.getItem('schedInstaller')||'all';
+const _schedBatch=new Set();
+function toggleSchedBatch(oid,checked){
+  if(checked)_schedBatch.add(oid);else _schedBatch.delete(oid);
+  _renderSchedBatchBar();
+}
+function _renderSchedBatchBar(){
+  let bar=document.getElementById('sched-batch-bar');
+  if(_schedBatch.size===0){if(bar)bar.remove();return}
+  if(!bar){
+    bar=document.createElement('div');bar.id='sched-batch-bar';
+    bar.style.cssText='position:sticky;top:0;z-index:80;background:var(--blu);color:#fff;padding:8px 14px;display:flex;align-items:center;gap:8px;flex-wrap:wrap;border-radius:6px;margin-bottom:8px;box-shadow:0 2px 8px rgba(0,0,0,.12)';
+    const area=document.getElementById('schedule-area');
+    area.parentNode.insertBefore(bar,area);
+  }
+  bar.innerHTML=`<strong style="font-size:13px">已選 ${_schedBatch.size} 筆</strong>
+    <button class="btn" onclick="schedBatchAssignInstaller()" style="background:#fff;color:var(--blu);border-color:#fff;font-weight:700;font-size:11px">指派師傅</button>
+    <button class="btn" onclick="schedBatchSchedule()" style="background:#fff;color:var(--blu);border-color:#fff;font-weight:700;font-size:11px">排日期+時段</button>
+    <button class="btn" onclick="schedBatchUnschedule()" style="background:transparent;color:#fff;border-color:#fff;font-size:11px">取消排程</button>
+    <button class="btn" onclick="schedBatchClear()" style="background:transparent;color:#fff;border-color:#fff;font-size:11px;margin-left:auto">清除選取</button>`;
+}
+function schedBatchClear(){_schedBatch.clear();renderSchedule();_renderSchedBatchBar()}
+function schedBatchAssignInstaller(){
+  if(_schedBatch.size===0)return;
+  const list=installers.join('\n  ');
+  const name=prompt(`要把 ${_schedBatch.size} 筆指派給哪位師傅？\n\n目前師傅清單：\n  ${list}`,installers[0]||'阿淵');
+  if(!name||!name.trim())return;
+  const n=name.trim();
+  if(!installers.includes(n)){if(!confirm(`「${n}」不在師傅清單，仍要指派嗎？\n（建議先到帳號頁新增）`))return}
+  const upd={};let count=0;
+  for(const oid of _schedBatch){
+    const o=findO(oid);if(!o)continue;
+    if(o.install!=='是'){o.install='是'}
+    o.installer=n;
+    logActivity(o,`批次指派師傅 → ${n}`);
+    upd[oid]=o;count++;
+  }
+  if(!count){alert('沒有單可更新');return}
+  _setSavingBadge();db.ref('orders').update(upd).catch(_saveError);
+  _schedBatch.clear();renderSchedule();_renderSchedBatchBar();
+  showToast(`已指派 ${count} 筆給「${n}」`,null,null,4000);
+}
+function schedBatchSchedule(){
+  if(_schedBatch.size===0)return;
+  const dateDef=localDateISO();
+  const date=prompt(`要把 ${_schedBatch.size} 筆排到哪一天？\n（YYYY-MM-DD 格式，留空 = 取消）`,dateDef);
+  if(date===null||!date.trim())return;
+  const dTrim=date.trim();
+  if(!/^\d{4}-\d{2}-\d{2}$/.test(dTrim)){alert('日期格式錯誤！要 YYYY-MM-DD');return}
+  const slot=prompt('時段（早上 / 下午 / 晚上，留空 = 未排時段）：','早上');
+  if(slot===null)return;
+  const sTrim=(slot||'').trim();
+  if(sTrim&&!TIMES.includes(sTrim)){alert('時段必須是 早上 / 下午 / 晚上 或留空');return}
+  const upd={};let count=0;
+  for(const oid of _schedBatch){
+    const o=findO(oid);if(!o)continue;
+    if(o.install!=='是'){o.install='是';if(!o.installer)o.installer=installers[0]||'阿淵'}
+    o.installDate=dTrim;
+    o.installSlot=sTrim;
+    logActivity(o,`批次排程 → ${dTrim} ${sTrim||'未排時段'}`);
+    upd[oid]=o;count++;
+  }
+  if(!count){alert('沒有單可更新');return}
+  _setSavingBadge();db.ref('orders').update(upd).catch(_saveError);
+  _schedBatch.clear();renderSchedule();_renderSchedBatchBar();
+  showToast(`已排程 ${count} 筆到 ${dTrim} ${sTrim||'未排時段'}`,null,null,4000);
+}
+function schedBatchUnschedule(){
+  if(_schedBatch.size===0)return;
+  if(!confirm(`要取消 ${_schedBatch.size} 筆的排程嗎？\n（清掉日期 + 時段，移回未排日）`))return;
+  const upd={};let count=0;
+  for(const oid of _schedBatch){
+    const o=findO(oid);if(!o)continue;
+    if(!o.installDate&&!o.installSlot)continue;
+    o.installDate='';o.installSlot='';
+    logActivity(o,`批次取消排程 → 未排日`);
+    upd[oid]=o;count++;
+  }
+  if(!count){alert('沒有單需要取消（都已未排）');return}
+  _setSavingBadge();db.ref('orders').update(upd).catch(_saveError);
+  _schedBatch.clear();renderSchedule();_renderSchedBatchBar();
+  showToast(`已取消 ${count} 筆排程`,null,null,4000);
+}
 function setSchedView(v,btn){
   schedView=v;localStorage.setItem('schedView',v);
   document.querySelectorAll('#tab-schedule .fbtn[data-fg="schview"]').forEach(b=>b.classList.remove('on'));
@@ -2280,10 +2362,12 @@ function renderSchedRow(o,opts){
   const feeChip=`安裝費 $${(o.installFee||0).toLocaleString()} ${paid?'<span style="color:var(--grn);font-weight:700">已收</span>':'<span style="color:#dc2626;font-weight:700">未收</span>'}`;
   const dragAttrs=draggable?` draggable="true" ondragstart="schedDragStart(event,'${o.id}')" ondragend="schedDragEnd(event)"`:'';
   const dragClass=draggable?' draggable':'';
-  const dragHint=draggable?'<span style="font-size:9px;color:var(--dm);margin-right:6px">⠿</span>':'';
+  const dragHint=draggable?'<span style="font-size:11px;color:var(--ht);margin-right:4px;cursor:grab" title="拖曳排程">⠿</span>':'';
+  // 批次選取 checkbox（draggable 模式才有 — 通常是未排日 section）
+  const checkbox=draggable?`<input type="checkbox" onclick="event.stopPropagation()" onchange="toggleSchedBatch('${o.id}',this.checked)" ${_schedBatch.has(o.id)?'checked':''} style="margin-right:4px;transform:scale(1.15);accent-color:var(--blu);cursor:pointer">`:'';
   return `<div class="sched-row-card${dragClass}"${dragAttrs} onclick="openEdit('${o.id}')" style="padding:10px 14px;border-top:1px solid var(--bd);cursor:${draggable?'grab':'pointer'}">
     <div style="display:flex;align-items:center;gap:8px;margin-bottom:4px;flex-wrap:wrap">
-      ${dragHint}<span class="brand-pill ${_platCls(o.platform)}" style="font-size:9px;padding:1px 5px">${_platShort(o.platform)}</span>
+      ${checkbox}${dragHint}<span class="brand-pill ${_platCls(o.platform)}" style="font-size:9px;padding:1px 5px">${_platShort(o.platform)}</span>
       <strong style="font-size:13px">${esc(o.name||'?')}</strong>
       <span style="font-size:11px;color:var(--dm);font-family:var(--mono)">${ph?phoneTel(ph):'—'}</span>
       <span style="margin-left:auto;font-size:11px;color:var(--blu);font-weight:700">${esc(inst||'未指派')}${time}${day}</span>
@@ -2305,6 +2389,8 @@ function syncSchedInstallerRow(){
 }
 function renderSchedule(){
   if(!document.getElementById('tab-schedule'))return;
+  // 清掉 batch 選取中已不存在的 ids（例如別裝置刪了）
+  if(_schedBatch.size){const ids=new Set(orders.map(o=>o.id));for(const id of [..._schedBatch])if(!ids.has(id))_schedBatch.delete(id)}
   syncSchedInstallerRow();
   // 同步 view buttons on 狀態
   document.querySelectorAll('#tab-schedule .fbtn[data-fg="schview"]').forEach(b=>{
@@ -2335,6 +2421,7 @@ function renderSchedule(){
   if(schedView==='weekgrid'){
     const globalRouteBtn=document.getElementById('sched-route-btn');if(globalRouteBtn)globalRouteBtn.style.display='none';
     document.getElementById('schedule-area').innerHTML=renderWeekGrid(filtered,noDate);
+    _renderSchedBatchBar();
     return;
   }
   // 分組 by installDate
@@ -2362,6 +2449,7 @@ function renderSchedule(){
   const globalRouteBtn=document.getElementById('sched-route-btn');
   if(globalRouteBtn){globalRouteBtn.style.display=((schedView==='today'||schedView==='date')&&filtered.length>0)?'':'none'}
   document.getElementById('schedule-area').innerHTML=html;
+  _renderSchedBatchBar();
 }
 // 列表上的安裝/加購狀態變動時 + applyRemoteOrders 後，badge 數量要更新
 // 同 renderSchedule 的 candidates filter — 排除已完成 / 已取消 / 轉線下
