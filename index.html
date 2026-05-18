@@ -356,7 +356,8 @@ db.ref('orders').on('value',snap=>{
     // 還有 pending 本地 save → 不能直接 applyRemoteOrders 否則會把本地未送出的 edit 沖掉
     // （之前 race：toggleStatus → saveOne 300ms 排隊中 → 別人寫 Y → value 來 → applyRemoteOrders →
     //  本地 status edit 沒進 cloud 就被遠端蓋掉，saveOne 拿到的是被覆蓋後的值，寫回去也沒救）
-    if(isModalOpen()||isInputFocused()||_saveOneTimer||_saveAllTimer){pendingRemoteOrders=val;setSyncOn();return}
+    // 拖曳中也要 defer — 拖曳卡片時 re-render 會把 DOM 砍掉，原本 drag 中斷
+    if(isModalOpen()||isInputFocused()||_saveOneTimer||_saveAllTimer||(typeof _schedDragOid!=='undefined'&&_schedDragOid)){pendingRemoteOrders=val;setSyncOn();return}
     applyRemoteOrders(val)
   }catch(e){
     // listener body 出例外會讓整個 realtime sync 死掉 — 至少 log + 提示用戶
@@ -2155,19 +2156,19 @@ db.ref('installers').once('value').then(snap=>{if(!snap.exists())db.ref('install
 
 async function addInstaller(){
   if(!isAdmin()){alert('只有管理員能新增師傅');return}
-  const name=prompt('🔧 新增安裝師傅姓名：');
+  const name=prompt('新增安裝師傅姓名：');
   if(!name||!name.trim())return;
   const n=name.trim();
   if(installers.includes(n)){alert(`「${n}」已存在`);return}
   const next=[...installers,n];
-  try{await db.ref('installers').set(next);await logUserAction('add-installer',n);showToast(`✅ 已新增師傅：${n}`)}
+  try{await db.ref('installers').set(next);await logUserAction('add-installer',n);showToast(`已新增師傅：${n}`)}
   catch(e){alert('新增失敗：'+e.message)}
 }
 async function removeInstaller(name){
   if(!isAdmin()){alert('只有管理員能移除師傅');return}
   const using=orders.filter(o=>o.installer===name&&o.install==='是').length;
   const msg=using>0
-    ? `⚠️ 已有 ${using} 筆訂單指派給「${name}」。\n移除後這些訂單仍會顯示，但下拉選不到他了（可以重新指派給別人）。\n\n確定移除？`
+    ? `注意：已有 ${using} 筆訂單指派給「${name}」。\n移除後這些訂單仍會顯示，但下拉選不到他了（可以重新指派給別人）。\n\n確定移除？`
     : `移除師傅「${name}」？`;
   if(!confirm(msg))return;
   const next=installers.filter(x=>x!==name);
@@ -2177,18 +2178,18 @@ async function removeInstaller(name){
 }
 async function renameInstaller(oldName){
   if(!isAdmin()){alert('只有管理員能改師傅名');return}
-  const newName=prompt(`✏️ 把「${oldName}」改名為：`,oldName);
+  const newName=prompt(`把「${oldName}」改名為：`,oldName);
   if(!newName||!newName.trim()||newName.trim()===oldName)return;
   const n=newName.trim();
   if(installers.includes(n)){alert(`「${n}」已存在`);return}
-  // 連動更新所有用此師傅的訂單
+  // 連動更新所有用此師傅的訂單（不分 install 狀態，都改）
   const affected=orders.filter(o=>o.installer===oldName);
   const next=installers.map(x=>x===oldName?n:x);
   try{
     await db.ref('installers').set(next);
     if(affected.length){const upd={};for(const o of affected){o.installer=n;upd[o.id+'/installer']=n}await db.ref('orders').update(upd);for(const o of affected)logActivity(o,`安裝師傅 ${oldName} → ${n}`)}
     await logUserAction('rename-installer',`${oldName} → ${n}（連動 ${affected.length} 筆訂單）`);
-    showToast(`✅ 已改名 ${oldName} → ${n}`);
+    showToast(`已改名 ${oldName} → ${n}（連動 ${affected.length} 單）`);
   }catch(e){alert('改名失敗：'+e.message)}
 }
 
@@ -2322,9 +2323,9 @@ function renderSchedule(){
     for(const o of noDate.slice(0,200))html+=renderSchedRow(o,{draggable:true});
     html+=`</div></div>`;
   }
-  // 「規劃路線」全域按鈕：today 視圖時顯示
+  // 「規劃路線」全域按鈕：today / 指定日 視圖時顯示
   const globalRouteBtn=document.getElementById('sched-route-btn');
-  if(globalRouteBtn){globalRouteBtn.style.display=(schedView==='today'&&filtered.length>0)?'':'none'}
+  if(globalRouteBtn){globalRouteBtn.style.display=((schedView==='today'||schedView==='date')&&filtered.length>0)?'':'none'}
   document.getElementById('schedule-area').innerHTML=html;
 }
 // 列表上的安裝/加購狀態變動時 + applyRemoteOrders 後，badge 數量要更新
@@ -2358,6 +2359,23 @@ function renderWeekGrid(filtered,noDate){
     const k=o.installDate+'|'+slotKey;
     (cellOrders[k]=cellOrders[k]||[]).push(o);
   }
+  // 衝突偵測：同師傅同日同時段排了 2+ 單 → 該 cell + 相關卡片標紅
+  const conflictKeys=new Set(); // key=date|slot|installer
+  const conflictedOrderIds=new Set();
+  for(const k in cellOrders){
+    const list=cellOrders[k];
+    if(list.length<2)continue;
+    const byInst={};
+    for(const o of list){
+      const inst=o.installer||'(未指派)';
+      (byInst[inst]=byInst[inst]||[]).push(o);
+    }
+    for(const inst in byInst){
+      if(byInst[inst].length<2)continue;
+      conflictKeys.add(k+'|'+inst);
+      byInst[inst].forEach(o=>conflictedOrderIds.add(o.id));
+    }
+  }
   const today=localDateISO();
   let html='<div class="sched-drag-hint">提示：拖曳訂單卡到時段格 → 自動排程；客戶希望的時間如不符會跳提醒</div>';
   html+='<div style="overflow-x:auto;-webkit-overflow-scrolling:touch"><table class="week-grid-tbl" style="width:100%;border-collapse:collapse;font-size:11px;table-layout:fixed;min-width:760px"><thead><tr><th style="width:54px;background:var(--sf2);border:1px solid var(--bd);padding:6px"></th>';
@@ -2383,12 +2401,18 @@ function renderWeekGrid(filtered,noDate){
           const prefTimes=(o.installTime||'').split(/[、,\/]/).map(x=>x.trim()).filter(Boolean);
           const dayMismatch=prefDays.length&&!prefDays.includes(targetWd);
           const timeMismatch=slot!=='未排時段'&&prefTimes.length&&!prefTimes.includes(slot);
-          const borderColor=(dayMismatch||timeMismatch)?'#f59e0b':'var(--blu)';
-          const bgColor=(dayMismatch||timeMismatch)?'#fef9ec':'#eaf3fd';
-          const mismatchTip=(dayMismatch||timeMismatch)?`title="客戶希望${prefDays.join('、')||'(未填)'} ${prefTimes.join('、')||'(未填)'}，目前排程與其不符"`:'';
+          const isConflict=conflictedOrderIds.has(o.id);
+          // 衝突 > 不符 > 正常 — 紅 > 橘 > 藍
+          let borderColor='var(--blu)',bgColor='#eaf3fd',badge='';
+          if(isConflict){borderColor='#dc2626';bgColor='#fee2e2';badge=' <span style="color:#dc2626;font-size:9px;font-weight:700">衝突</span>'}
+          else if(dayMismatch||timeMismatch){borderColor='#f59e0b';bgColor='#fef9ec';badge=' <span style="color:#b45309;font-size:9px;font-weight:700">不符</span>'}
+          const tips=[];
+          if(isConflict)tips.push(`同師傅同日同時段多單衝突`);
+          if(dayMismatch||timeMismatch)tips.push(`客戶希望 ${prefDays.join('、')||'(未填)'} ${prefTimes.join('、')||'(未填)'}，目前排程不符`);
+          const tipAttr=tips.length?`title="${esc(tips.join(' / '))}"`:'';
           const ph=bestPhone(o);
-          html+=`<div class="grid-cell-card" draggable="true" ondragstart="schedDragStart(event,'${o.id}')" ondragend="schedDragEnd(event)" onclick="openEdit('${o.id}')" ${mismatchTip} style="background:${bgColor};border-left:3px solid ${borderColor};border-radius:4px;padding:5px 7px;margin-bottom:3px">
-            <div style="font-weight:700;font-size:12px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap" title="${esc(o.name||'')}">${esc(o.name||'?')}${(dayMismatch||timeMismatch)?' <span style="color:#b45309;font-size:9px">⚠</span>':''}</div>
+          html+=`<div class="grid-cell-card" draggable="true" ondragstart="schedDragStart(event,'${o.id}')" ondragend="schedDragEnd(event)" onclick="openEdit('${o.id}')" ${tipAttr} style="background:${bgColor};border-left:3px solid ${borderColor};border-radius:4px;padding:5px 7px;margin-bottom:3px">
+            <div style="font-weight:700;font-size:12px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap" title="${esc(o.name||'')}">${esc(o.name||'?')}${badge}</div>
             ${ph?`<div style="font-size:10px;color:var(--dm);font-family:var(--mono);overflow:hidden;text-overflow:ellipsis;white-space:nowrap" title="${esc(ph)}">${esc(ph)}</div>`:''}
             ${o.address?`<div style="font-size:10px;color:var(--tx);line-height:1.25;overflow:hidden;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical" title="${esc(o.address)}">${esc(o.address)}</div>`:''}
           </div>`;
@@ -2515,24 +2539,53 @@ async function setWarehouseAddress(){
   try{await db.ref('config/warehouseAddress').set(v.trim());await logUserAction('set-warehouse',v.trim());showToast(`已設定倉庫地址：${v.trim()}`)}
   catch(e){alert('設定失敗：'+e.message)}
 }
-function openSchedRoute(){openSchedRouteForDate(localDateISO())}
-function openSchedRouteForDate(dateIso){
-  const target=orders.filter(o=>o.install==='是'&&o.installDate===dateIso&&(schedInstaller==='all'||o.installer===schedInstaller));
+function openSchedRoute(){
+  // 預設用當前 view 的日期：today / date 模式各自帶
+  const dateIso=schedView==='date'?(schedDate||localDateISO()):localDateISO();
+  openSchedRouteForDate(dateIso);
+}
+function openSchedRouteForDate(dateIso,opts){
+  opts=opts||{};
+  const target=orders.filter(o=>o.install==='是'&&o.installDate===dateIso&&(schedInstaller==='all'||o.installer===schedInstaller)&&o.status!=='已完成'&&o.status!=='已取消'&&o.status!=='轉線下');
   if(!target.length){alert(`${dateIso} 沒有安裝行程可以規劃`);return}
-  const stops=target.map(o=>(o.address||'').trim()).filter(Boolean);
+  let stops=target.map(o=>(o.address||'').trim()).filter(Boolean);
   if(!stops.length){alert('這些訂單都沒填地址，沒辦法規劃路線');return}
-  // 自由排序：按 zip 字串排序當啟發式（同郵遞區號的單通常地理相近）
-  // 用戶在 Google Maps 內可以手動拖曳重排
-  stops.sort((a,b)=>{const za=(a.match(/^\d{3,5}/)||[''])[0];const zb=(b.match(/^\d{3,5}/)||[''])[0];return za.localeCompare(zb)});
+  // 啟發式排序：按 ZIP 字串排（同郵遞區號通常地理相近）+ 同 ZIP 內按時段先後（早上→下午→晚上）
+  const slotOrder={'早上':0,'下午':1,'晚上':2,'':3};
+  const orderMap=new Map(target.map(o=>[(o.address||'').trim(),o]));
+  stops.sort((a,b)=>{
+    const za=(a.match(/^\d{3,5}/)||[''])[0],zb=(b.match(/^\d{3,5}/)||[''])[0];
+    if(za!==zb)return za.localeCompare(zb);
+    const sa=slotOrder[effectiveSlot(orderMap.get(a)||{})]??3;
+    const sb=slotOrder[effectiveSlot(orderMap.get(b)||{})]??3;
+    return sa-sb;
+  });
+  // Round-trip 選項：用戶要不要回倉庫？
+  if(!('roundTrip' in opts)){
+    const ans=confirm(`要規劃 ${dateIso} 的路線（${stops.length} 站）嗎？\n\n確定 = 單程（從倉庫出發到最後一單）\n取消 = 圓形路線（最後回倉庫）`);
+    opts.roundTrip=!ans;
+    // confirm 按取消 = round-trip；按確定 = 單程
+  }
+  // 太多站數警告（Google Maps URL 上限 ~2000 chars）
+  if(stops.length>10){
+    if(!confirm(`${stops.length} 個地點可能超過 Google Maps 單次規劃上限。\n建議拆成 2-3 個批次跑。仍要繼續嗎？`))return;
+  }
   const origin=encodeURIComponent(warehouseAddress);
-  const destination=encodeURIComponent(stops[stops.length-1]);
-  const wp=stops.slice(0,-1).map(encodeURIComponent).join('|');
-  // 回倉庫做 round-trip 的話 dest=倉庫，waypoints 含全部 stops
-  // 預設 single-way：dest=最後一單，waypoints=中間單
+  let destination,waypointStops;
+  if(opts.roundTrip){
+    destination=origin; // 回倉庫
+    waypointStops=stops;
+  }else{
+    destination=encodeURIComponent(stops[stops.length-1]);
+    waypointStops=stops.slice(0,-1);
+  }
+  const wp=waypointStops.map(encodeURIComponent).join('|');
   let url=`https://www.google.com/maps/dir/?api=1&origin=${origin}&destination=${destination}&travelmode=driving`;
   if(wp)url+=`&waypoints=${wp}`;
+  if(url.length>2000){
+    if(!confirm(`URL 長度 ${url.length} 字元，超過建議上限 2000。可能 Google Maps 會載不完整。\n仍要繼續嗎？`))return;
+  }
   window.open(url,'_blank','noopener');
-  // 也提供 round-trip 選項（下次優化）
 }
 
 bootAuth();
