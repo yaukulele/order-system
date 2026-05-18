@@ -2424,8 +2424,10 @@ function renderSchedule(){
   // 未排日清單 — 按訂單日期 ASC 排（最舊在最上，老單先處理）
   const noDate=candidates.filter(o=>!o.installDate&&(schedInstaller==='all'||o.installer===schedInstaller))
     .sort((a,b)=>(a.date||'').localeCompare(b.date||''));
-  // 'all' 視圖時 sched-show-cnt 包含 noDate（未排日也算在「全部」內）
-  document.getElementById('sched-show-cnt').textContent=(schedView==='all')?(filtered.length+noDate.length):filtered.length;
+  // 'all' / 'weekgrid' 視圖會顯示 noDate section → 計入 sched-show-cnt
+  // 其他視圖 (today/week/biweek/date) noDate 不顯示，只算 filtered
+  const includeNoDate=(schedView==='all'||schedView==='weekgrid');
+  document.getElementById('sched-show-cnt').textContent=includeNoDate?(filtered.length+noDate.length):filtered.length;
   // 週表 grid 視圖：3 行（早午晚 + 未排）× 7 天
   if(schedView==='weekgrid'){
     const globalRouteBtn=document.getElementById('sched-route-btn');if(globalRouteBtn)globalRouteBtn.style.display='none';
