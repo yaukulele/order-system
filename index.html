@@ -2341,6 +2341,15 @@ function renderSchedRow(o,opts){
   const day=o.installDay?`（${o.installDay}）`:'';
   const paid=(o.installPaidAmount||0)>0;
   const feeChip=`安裝費 $${(o.installFee||0).toLocaleString()} ${paid?'<span style="color:var(--grn);font-weight:700">已收</span>':'<span style="color:#dc2626;font-weight:700">未收</span>'}`;
+  // 老單提示：未排日 N 天（>3 天提醒）
+  let staleBadge='';
+  if(draggable&&!o.installDate&&o.date){
+    const ageDays=Math.floor((new Date(localDateISO()+'T00:00:00').getTime()-new Date(o.date+'T00:00:00').getTime())/86400000);
+    if(ageDays>=3){
+      const color=ageDays>=7?'#dc2626':'#b45309';
+      staleBadge=`<span style="background:#fef0ee;color:${color};font-size:10px;font-weight:700;padding:1px 6px;border-radius:6px" title="訂單已 ${ageDays} 天未排">${ageDays} 天</span>`;
+    }
+  }
   const dragAttrs=draggable?` draggable="true" ondragstart="schedDragStart(event,'${o.id}')" ondragend="schedDragEnd(event)"`:'';
   const dragClass=draggable?' draggable':'';
   const dragHint=draggable?'<span style="font-size:11px;color:var(--ht);margin-right:4px;cursor:grab" title="拖曳排程">⠿</span>':'';
@@ -2349,7 +2358,7 @@ function renderSchedRow(o,opts){
   return `<div class="sched-row-card${dragClass}"${dragAttrs} onclick="openEdit('${o.id}')" style="padding:10px 14px;border-top:1px solid var(--bd);cursor:${draggable?'grab':'pointer'}">
     <div style="display:flex;align-items:center;gap:8px;margin-bottom:4px;flex-wrap:wrap">
       ${checkbox}${dragHint}<span class="brand-pill ${_platCls(o.platform)}" style="font-size:9px;padding:1px 5px">${_platShort(o.platform)}</span>
-      <strong style="font-size:13px">${esc(o.name||'?')}</strong>
+      <strong style="font-size:13px">${esc(o.name||'?')}</strong>${staleBadge}
       <span style="font-size:11px;color:var(--dm);font-family:var(--mono)">${ph?phoneTel(ph):'—'}</span>
       <span style="margin-left:auto;font-size:11px;color:var(--blu);font-weight:700">${esc(inst||'未指派')}${time}${day}</span>
     </div>
@@ -2396,7 +2405,9 @@ function renderSchedule(){
   let filtered=candidates;
   if(fromIso){filtered=filtered.filter(o=>{const d=o.installDate||'';return d&&d>=fromIso&&d<=toIso})}
   if(schedInstaller!=='all'){filtered=filtered.filter(o=>(o.installer||'')===schedInstaller)}
-  const noDate=candidates.filter(o=>!o.installDate&&(schedInstaller==='all'||o.installer===schedInstaller));
+  // 未排日清單 — 按訂單日期 ASC 排（最舊在最上，老單先處理）
+  const noDate=candidates.filter(o=>!o.installDate&&(schedInstaller==='all'||o.installer===schedInstaller))
+    .sort((a,b)=>(a.date||'').localeCompare(b.date||''));
   document.getElementById('sched-show-cnt').textContent=filtered.length;
   // 週表 grid 視圖：3 行（早午晚 + 未排）× 7 天
   if(schedView==='weekgrid'){
