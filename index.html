@@ -249,7 +249,7 @@ body.has-batch-bar .main{padding-bottom:140px}
 <body>
 <div class="offline-banner hidden" id="offline-banner">⚠️ 已離線 — 你的修改會在連線恢復後同步</div>
 <div class="hdr"><h1>📦 訂單管理系統<small>MOMO + PChome</small></h1><div style="display:flex;align-items:center;gap:8px"><span id="sync-badge" class="sync-dot sync-off"><span class="dot dot-off"></span>連線中...</span><button class="btn" id="theme-btn" onclick="toggleTheme()" style="font-size:11px" title="切換亮色/暗色">🌙</button><button class="btn" id="notif-btn" onclick="toggleNotifications()" style="font-size:11px" title="桌面通知">🔕</button><button class="btn" onclick="showShortcutsHelp()" style="font-size:11px" title="鍵盤捷徑（按 ? 快速打開）">⌨️</button><button class="btn" onclick="location.reload()" style="font-size:11px">🔄</button><button class="btn" onclick="confirmWipeAll()" style="font-size:11px;color:var(--pc);border-color:#e8a8a4" title="清空所有訂單（危險動作 — 需打字確認）">清空</button></div></div>
-<div class="tabs"><button class="tab active" onclick="showTab('import')">📋 匯入</button><button class="tab" onclick="showTab('list')">📦 列表 <span class="badge" id="cnt">0</span></button><button class="tab" onclick="showTab('output')">📤 輸出</button><button class="tab" onclick="showTab('stats')">📊 統計</button><button class="tab" onclick="showTab('customers')">👥 客戶</button><button class="tab" onclick="showTab('account')">👤 帳號 <span id="user-badge" style="font-size:10px;color:var(--dm);margin-left:4px"></span></button></div>
+<div class="tabs"><button class="tab active" onclick="showTab('import')">📋 匯入</button><button class="tab" onclick="showTab('list')">📦 列表 <span class="badge" id="cnt">0</span></button><button class="tab" onclick="showTab('schedule')">📅 安裝 <span class="badge" id="sched-cnt" style="background:#fef9ec;color:#b45309">0</span></button><button class="tab" onclick="showTab('output')">📤 輸出</button><button class="tab" onclick="showTab('stats')">📊 統計</button><button class="tab" onclick="showTab('customers')">👥 客戶</button><button class="tab" onclick="showTab('account')">👤 帳號 <span id="user-badge" style="font-size:10px;color:var(--dm);margin-left:4px"></span></button></div>
 
 <div class="main" id="tab-import"><div id="today-summary" style="display:none"></div><div class="card" style="background:linear-gradient(135deg,#f3e8ff,#fff);border:1px solid #d8b4fe"><div class="card-h" style="background:transparent"><h3>🏪 店內銷售</h3><div style="display:flex;gap:6px;flex-wrap:wrap"><button class="btn" onclick="openStoreSaleModal()" style="background:#7e22ce;border-color:#7e22ce;color:#fff;font-weight:700" title="櫃台現金/刷卡直購用">+ 新增訂單</button></div></div></div>
 <div class="card" style="background:var(--card-momo-bg);border:1px solid var(--card-momo-bd)"><div class="card-h" style="background:transparent"><h3>🚀 自動抓 MOMO</h3><div style="display:flex;gap:6px;flex-wrap:wrap"><button class="btn" onclick="resetMomoApi()" title="重設 API Token">⚙️</button><button class="btn" onclick="testNotify()" title="測試 Discord / LINE 連線" style="font-size:11px">🔔 測試</button><button class="btn btn-g" id="momo-auto-btn" onclick="fetchMomoAuto()" style="background:var(--mo);border-color:var(--mo)" title="自動抓 MOMO 未出貨訂單">🔄 抓取</button></div></div><div class="card-b" style="padding:10px 16px"><div id="momo-auto-status" style="font-size:11px;color:var(--dm);font-family:var(--mono)">第一次只問 Token，其他裝置自動共用 ☁️</div></div></div>
@@ -257,6 +257,8 @@ body.has-batch-bar .main{padding-bottom:140px}
 <div class="card"><div class="card-h"><h3>貼上後台資料</h3><div style="display:flex;gap:6px;flex-wrap:wrap"><button class="btn" onclick="clearInput()">清空</button><button class="btn btn-b" onclick="runParse()">預覽</button><button class="btn btn-g" onclick="doImport()" title="匯入到 Firebase">匯入</button><button class="btn" onclick="doReimport()" title="同單號覆蓋（修舊資料用）" style="border-color:#f59e0b;color:#b45309">🔄 覆蓋</button><button class="btn" onclick="copyPCScript()" title="複製 PChome F12 撈單 script" style="border-color:#7c3aed;color:#7c3aed;font-weight:700">📋 F12 腳本</button></div></div><div class="card-b"><details class="hint" style="cursor:pointer"><summary style="font-weight:600;cursor:pointer">📖 操作說明（點開看）</summary><div style="margin-top:8px"><b>MOMO：</b>SCM 後台 → Ctrl+A → Ctrl+C → 貼下方<br><b>PChome（F12 新法）：</b>按 <strong>📋 F12 腳本</strong> → PChome「印貨資料」view → F12 → Console → Ctrl+V Enter → alert 確認 → 回來貼下方<br><b>PChome（舊法）：</b>供應商後台 → Ctrl+A → Ctrl+C → 貼下方</div></details><textarea id="raw-input" rows="7" placeholder="把 MOMO 後台 / PChome 後台 / F12 JSON 貼在這裡..."></textarea></div></div><div id="preview-area"></div></div>
 
 <div class="main hidden" id="tab-list"><div class="filter-row"><span class="fg-grp" data-grp="plat"><button class="fbtn on" data-fg="plat" data-stat="all" onclick="setF('all',this)">全部</button><button class="fbtn" data-fg="plat" data-stat="MO" onclick="setF('MO',this)">Mo</button><button class="fbtn" data-fg="plat" data-stat="PC" onclick="setF('PC',this)">Pc</button><button class="fbtn" data-fg="plat" data-stat="ST" onclick="setF('ST',this)">店內</button><button id="mob-stat-cycle" class="fbtn st-cycle" onclick="cycleStatus()" title="點擊循環切換狀態篩選">狀態</button></span><span class="fb-divider">｜</span><span class="fg-grp" data-grp="status" title="Ctrl/Cmd + 點擊可多選"><button class="fbtn on" data-fg="status" data-stat="status:all" onclick="setSF('all',this,event)">狀態</button><button class="fbtn" data-fg="status" data-stat="status:active" onclick="setActiveStatuses(this)" title="一鍵選所有「進行中」狀態（排除 已完成 / 已取消 / 轉線下）" style="color:#b45309;border-color:#b45309;font-weight:700">🔥 進行中</button><button class="fbtn" data-fg="status" data-stat="status:未確認" onclick="setSF('未確認',this,event)">未確認</button><button class="fbtn" data-fg="status" data-stat="status:已確認" onclick="setSF('已確認',this,event)">已確認</button><button class="fbtn" data-fg="status" data-stat="status:交涉中" onclick="setSF('交涉中',this,event)">交涉中</button><button class="fbtn" data-fg="status" data-stat="status:未接電" onclick="setSF('未接電',this,event)">未接電</button><button class="fbtn" data-fg="status" data-stat="status:已出貨" onclick="setSF('已出貨',this,event)">已出貨</button><button class="fbtn" data-fg="status" data-stat="status:待收費" onclick="setSF('待收費',this,event)" title="安裝/加購款還沒收 — 自動連動偵測" style="color:#dc2626;border-color:#dc2626;font-weight:700">💰 待收費</button><button class="fbtn" data-fg="status" data-stat="status:補貨中" onclick="setSF('補貨中',this,event)">補貨中</button><button class="fbtn" data-fg="status" data-stat="status:已完成" onclick="setSF('已完成',this,event)" title="只看已完成單" style="color:var(--grn);border-color:#8cc4a0;font-weight:700">✅ 已完成</button><button class="fbtn" data-fg="status" data-stat="status:已取消" onclick="setSF('已取消',this,event)">已取消</button><button class="fbtn" data-fg="status" data-stat="status:轉線下" onclick="setSF('轉線下',this,event)">🏪 轉線下</button></span><span class="fb-divider">｜</span><span class="fg-grp" data-grp="special"><button class="fbtn" data-fg="special" onclick="toggleSpecial('changeAddr',this)" title="只看客戶有申請改地址的訂單">⚠️ 改址</button><button class="fbtn" data-fg="special" onclick="toggleSpecial('newToday',this)" title="只看今日新單">🆕 今日</button><button class="fbtn" data-fg="special" onclick="toggleSpecial('unpaidFee',this)" title="只看有未收款的訂單（安裝/加購費>0 但未收）— 含已完成的單，跨所有狀態篩" style="color:#dc2626;border-color:#dc2626;font-weight:700">💰 未收款</button></span><span style="flex:1"></span><span id="filter-applied-info" style="display:none"></span><input class="search" id="q" placeholder="搜尋姓名/單號/商品..." oninput="searchListDebounced()" title="按 / 或 Ctrl+K 快速聚焦"></div><div id="list-area"></div></div>
+
+<div class="main hidden" id="tab-schedule"><div class="filter-row" style="flex-wrap:wrap;gap:6px;align-items:center"><span class="fg-grp" data-grp="schview"><span style="font-size:11px;color:var(--dm);font-weight:600">📅 視圖：</span><button class="fbtn on" data-fg="schview" onclick="setSchedView('today',this)">今日</button><button class="fbtn" data-fg="schview" onclick="setSchedView('week',this)">本週</button><button class="fbtn" data-fg="schview" onclick="setSchedView('biweek',this)">雙週</button><button class="fbtn" data-fg="schview" onclick="setSchedView('all',this)">全部</button><button class="fbtn" data-fg="schview" onclick="setSchedView('date',this)" title="挑指定日">📆 指定日</button><input type="date" id="sched-date" style="font-size:11px;padding:3px 6px;display:none" onchange="onSchedDateChange()"></span><span class="fb-divider">｜</span><span class="fg-grp" id="sched-installer-row"><span style="font-size:11px;color:var(--dm)">🔧 師傅：</span><button class="fbtn on" data-installer="all" onclick="setSchedInstaller('all',this)">全部</button></span><span style="flex:1"></span><span style="font-size:11px;color:var(--dm)">共 <strong id="sched-show-cnt">0</strong> 筆</span></div><div id="schedule-area"></div></div>
 
 <div class="main hidden" id="tab-output"><div class="card"><div class="card-h"><h3>整理格式</h3><div style="display:flex;gap:6px;flex-wrap:wrap"><button class="btn btn-g" onclick="copyOutput()">📋 複製</button><button class="btn" onclick="shareOutput()" title="手機原生分享（傳到 LINE/Telegram 等）">📤 分享</button><button class="btn" onclick="exportCSV('output')" title="此區間 CSV">🔍 區間 csv</button><button class="btn" onclick="exportCSV('all')" title="全部 CSV">📊 全 csv</button></div></div><div class="card-b"><div class="filter-row" style="margin-bottom:8px;align-items:center;flex-wrap:wrap;gap:6px"><span class="fg-grp"><span style="font-size:11px;color:var(--dm)">🛒 平台：</span><button class="fbtn on" data-fg="oplat" onclick="setOutputPlatform('all',this)">全部</button><button class="fbtn" data-fg="oplat" onclick="setOutputPlatform('MO',this)">Mo</button><button class="fbtn" data-fg="oplat" onclick="setOutputPlatform('PC',this)">Pc</button><button class="fbtn" data-fg="oplat" onclick="setOutputPlatform('ST',this)">店內</button></span></div><div class="filter-row" style="margin-bottom:8px;align-items:center;flex-wrap:wrap;gap:6px" title="Ctrl/Cmd + 點擊可多選"><span class="fg-grp"><span style="font-size:11px;color:var(--dm)">🏷️ 狀態：</span><button class="fbtn on" data-fg="ostatus" data-stat="all" onclick="setOutputStatus('all',this,event)">全部</button><button class="fbtn" data-fg="ostatus" data-stat="未確認" onclick="setOutputStatus('未確認',this,event)">未確認</button><button class="fbtn" data-fg="ostatus" data-stat="已確認" onclick="setOutputStatus('已確認',this,event)">已確認</button><button class="fbtn" data-fg="ostatus" data-stat="交涉中" onclick="setOutputStatus('交涉中',this,event)">交涉中</button><button class="fbtn" data-fg="ostatus" data-stat="未接電" onclick="setOutputStatus('未接電',this,event)">未接電</button><button class="fbtn" data-fg="ostatus" data-stat="已出貨" onclick="setOutputStatus('已出貨',this,event)">已出貨</button><button class="fbtn" data-fg="ostatus" data-stat="待收費" onclick="setOutputStatus('待收費',this,event)" style="color:#dc2626;border-color:#dc2626;font-weight:700">💰 待收費</button><button class="fbtn" data-fg="ostatus" data-stat="補貨中" onclick="setOutputStatus('補貨中',this,event)">補貨中</button><button class="fbtn" data-fg="ostatus" data-stat="已完成" onclick="setOutputStatus('已完成',this,event)">已完成</button></span></div><div class="filter-row" style="margin-bottom:10px;align-items:center;flex-wrap:wrap;gap:6px"><span class="fg-grp"><span style="font-size:11px;color:var(--dm)">📅 日期：</span><button class="fbtn on" data-fg="odate" onclick="setOutputDate('today',this)">今天</button><button class="fbtn" data-fg="odate" onclick="setOutputDate('yesterday',this)">昨天</button><button class="fbtn" data-fg="odate" onclick="setOutputDate('week',this)">本週</button><button class="fbtn" data-fg="odate" onclick="setOutputDate('month',this)">本月</button><button class="fbtn" data-fg="odate" onclick="setOutputDate('all',this)">全部</button></span><span class="fg-grp"><span style="font-size:11px;color:var(--dm)">自訂區間：</span><input type="date" id="of-from" onchange="onOutputDateChange()" style="font-size:11px;padding:2px 6px"><span style="font-size:11px;color:var(--dm)">→</span><input type="date" id="of-to" onchange="onOutputDateChange()" style="font-size:11px;padding:2px 6px"></span><span style="flex:1"></span><span style="font-size:11px;color:var(--dm)">顯示 <strong id="ocnt">0</strong> 筆</span></div><div class="filter-row" style="margin-bottom:10px;align-items:center;flex-wrap:wrap;gap:8px"><input class="search" id="oq" placeholder="搜尋姓名/單號/商品/地址..." oninput="searchOutputDebounced()" style="flex:1;min-width:200px"><label style="font-size:11px;color:var(--dm);display:flex;align-items:center;gap:4px;cursor:pointer"><input type="checkbox" id="oinc-skip" onchange="toggleOutputIncSkip(this.checked)"> 顯示 已取消 / 轉線下</label></div><div class="hint">CSV 用 UTF-8 BOM 編碼，Excel 開啟中文不會亂碼。預設不顯示已取消 / 轉線下訂單（勾選右邊 checkbox 可看）。</div><div id="output-area">尚無訂單</div></div></div></div>
 <div class="main hidden" id="tab-stats"><div class="filter-row" style="margin-bottom:14px;flex-wrap:wrap;gap:6px"><span style="font-size:12px;color:var(--dm);font-weight:600">📅 期間：</span><button class="fbtn" onclick="setStatsPeriod('today',this)">今日</button><button class="fbtn" onclick="setStatsPeriod('7',this)">7 天</button><button class="fbtn on" onclick="setStatsPeriod('30',this)">30 天</button><button class="fbtn" onclick="setStatsPeriod('90',this)">3 個月</button><button class="fbtn" onclick="setStatsPeriod('all',this)">全部</button><span style="margin-left:8px;color:var(--ht)">｜</span><span style="font-size:11px;color:var(--dm)">指定月份：</span><input type="month" id="stats-month" onchange="setStatsMonth(this.value)" style="font-size:12px;padding:4px 8px;border:1px solid var(--bd);border-radius:6px;background:var(--sf)"></div><div id="stats-area"></div></div>
@@ -335,7 +337,7 @@ if(!window._dupChecked){window._dupChecked=true;const dupGroups=new Map();orders
 if(!window._pchomePhoneBackfilled){window._pchomePhoneBackfilled=true;const upd={};orders.forEach(o=>{if(o.platform!=='PC')return;const p=String(o.phone||'').trim();if(!p||p.includes('#'))return;const m=p.match(/^(\d+)\s*[,，]\s*(\d[\d-]*\d)\s*$/);if(m){const np=m[1]+'#'+m[2].replace(/-/g,'')+'#1';o.phone=np;upd[o.id+'/phone']=np}});const n=Object.keys(upd).length;if(n>0){_setSavingBadge();db.ref('orders').update(upd).then(()=>{if(typeof showToast==='function')showToast(`📞 已自動修正 ${n} 筆 PChome 電話格式（撥通自動選分機 1）`,null,null,5000)}).catch(_saveError)}}
 ordersLoaded=true;updateCnt();
 const at=document.querySelector('.tab.active')?.textContent||'';
-if(at.includes('列表'))renderList();if(at.includes('輸出'))renderOutput();if(at.includes('統計'))renderStats();if(at.includes('客戶'))renderCustomers();
+if(at.includes('列表'))renderList();if(at.includes('安裝')&&typeof renderSchedule==='function')renderSchedule();if(at.includes('輸出'))renderOutput();if(at.includes('統計'))renderStats();if(at.includes('客戶'))renderCustomers();
 setSyncOn();window.scrollTo(0,sc)}
 db.ref('orders').on('value',snap=>{
   try{
@@ -625,6 +627,8 @@ function formatDispatchPhone(el){const s=(el.value||'').trim();const m=s.match(/
 // 折衷版：剝 $/, /空白/全形/字母但保留 . — parseInt 遇 . 自然停，TWD 整數安全
 function cn(v){return(v+'').replace(/[^\d.]/g,'').replace(/^0+(?=\d)/,'')}
 function updateCnt(){
+  // 同步排程 tab badge：所有 install===是 的訂單數
+  if(typeof _updateSchedBadge==='function')_updateSchedBadge();
   const el=document.getElementById('cnt');if(!el)return;
   const waiting=orders.filter(o=>isPending(o.status)).length;
   // 手機版徽章空間有限 — 只顯示「待 N」或總數，避免跟下一個 tab 重疊
@@ -668,7 +672,7 @@ function clearInput(){document.getElementById('raw-input').value='';document.get
 async function copyPCScript(){try{const r=await fetch('pchome-scraper.js?_='+Date.now());if(!r.ok)throw new Error('HTTP '+r.status);const code=await r.text();await navigator.clipboard.writeText(code);alert('✅ PChome F12 撈單 script 已複製到剪貼簿！\n\n下一步：\n1. 切到 PChome 廠商後台「印貨資料 / 商品明細」view（看得到 商品名稱、收貨人、訂單編號 那個 view）\n2. F12 → Console → Ctrl+V → Enter\n3. 跳出 alert 顯示抓到 N 筆 → 訂單 JSON 已自動複製\n4. 回來這頁 → 在下方大框 Ctrl+V → 按「匯入雲端」')}catch(e){alert('複製失敗：'+e.message+'\n\n你可以直接打開 yaukulele.github.io/order-system/pchome-scraper.js 手動 copy')}}
 
 // ===== TABS =====
-function showTab(t){const tabs=['import','list','output','stats','customers','account'];tabs.forEach(id=>document.getElementById('tab-'+id).classList.toggle('hidden',id!==t));document.querySelectorAll('.tabs .tab').forEach((b,i)=>b.classList.toggle('active',tabs[i]===t));window.scrollTo({top:0,behavior:'instant'});if(t==='list')renderList();if(t==='output')renderOutput();if(t==='stats')renderStats();if(t==='customers')renderCustomers();if(t==='account')renderAccount()}
+function showTab(t){const tabs=['import','list','schedule','output','stats','customers','account'];tabs.forEach(id=>document.getElementById('tab-'+id).classList.toggle('hidden',id!==t));document.querySelectorAll('.tabs .tab').forEach((b,i)=>b.classList.toggle('active',tabs[i]===t));window.scrollTo({top:0,behavior:'instant'});if(t==='list')renderList();if(t==='schedule')renderSchedule();if(t==='output')renderOutput();if(t==='stats')renderStats();if(t==='customers')renderCustomers();if(t==='account')renderAccount()}
 
 // ===== AUTH / 使用者帳號系統 =====
 let currentUser=null,currentRole='';
@@ -767,6 +771,19 @@ async function renderAccount(){
     '<button class="btn btn-g" onclick="changeOwnPassword()">🔐 修改我的密碼</button> '+
     '<button class="btn" onclick="doLogout()" style="border-color:var(--pc);color:var(--pc)">🚪 登出</button>'+
     '</div></div>';
+  // 🔧 安裝師傅清單 — 所有人看得到，admin 才能改
+  html+='<div class="card"><div class="card-h"><h3>🔧 安裝師傅</h3>'+(isAdmin()?'<button class="btn btn-g" onclick="addInstaller()">+ 新增師傅</button>':'')+'</div><div class="card-b">';
+  if(!installers.length)html+='<div style="color:var(--dm)">尚未設定任何師傅</div>';
+  else{
+    html+='<div style="display:flex;flex-wrap:wrap;gap:6px">';
+    for(const name of installers){
+      const safe=esc(name);const cnt=orders.filter(o=>o.installer===name&&o.install==='是').length;
+      const jsName=JSON.stringify(name).replace(/"/g,'&quot;');
+      html+=`<span class="tag" style="display:inline-flex;align-items:center;gap:6px;padding:6px 10px;background:var(--blu);color:#fff;border-radius:6px;font-weight:700">🔧 ${safe}<span style="font-size:10px;opacity:.85;font-weight:400">${cnt} 單</span>${isAdmin()?` <button class="act" onclick="renameInstaller(${jsName})" style="background:#fff;color:var(--blu);border:none;padding:2px 6px;font-size:10px" title="改名">✏️</button> <button class="act" onclick="removeInstaller(${jsName})" style="background:#fff;color:var(--pc);border:none;padding:2px 6px;font-size:10px" title="移除">×</button>`:''}</span>`;
+    }
+    html+='</div>';
+  }
+  html+='<div style="font-size:11px;color:var(--dm);margin-top:8px">'+(isAdmin()?'管理員可新增、改名、移除師傅。所有裝置共用，動作會寫進操作紀錄。':'只有管理員可以新增/移除師傅')+'</div></div></div>';
   if(isAdmin()){
     html+='<div class="card"><div class="card-h"><h3>🛡️ 帳號管理</h3><button class="btn btn-g" onclick="addUser()">+ 新增帳號</button></div><div class="card-b" style="overflow-x:auto"><table style="width:100%"><thead><tr><th>使用者</th><th>密碼</th><th>角色</th><th>建立時間</th><th>操作</th></tr></thead><tbody>';
     for(const [u,d] of Object.entries(users)){
@@ -1269,8 +1286,8 @@ function installCellClick(oid,ev){
       const summary=[`費用 $${o.installFee||0}`,o.installPaidAmount?`已收 $${o.installPaidAmount}`:'',o.installDay||'',o.installTime||''].filter(Boolean).join(' / ');
       if(!confirm(`改成 未確認 會清掉：\n${summary}\n\n確定？`))return;
     }
-    o.install='未確認';o.installFee=0;o.installDay='';o.installTime='';o.installPaidAmount=0;
-  }else{o.install='未確認'}
+    o.install='未確認';o.installFee=0;o.installDay='';o.installTime='';o.installPaidAmount=0;o.installDate='';o.installer='';
+  }else{o.install='未確認';o.installDate='';o.installer=''}
   logActivity(o,`安裝服務 → 未確認`);saveOne(o);renderList();
 }
 function addonCellClick(oid,ev){
@@ -1289,16 +1306,21 @@ function addonCellClick(oid,ev){
 // inline 小選單 — 不用 modal，按鈕就地展開讓用戶選
 function openInstallMenu(oid,ev){
   const o=findO(oid);if(!o)return;
-  // 用 prompt-style 但有兩個明確選項：先試 confirm，OK=要 / Cancel=不要；皆可
-  const r=window.confirm('🔧 要安裝服務？\n\n確定 = 要安裝（下一步輸入費用）\n取消 = 不安裝');
+  const r=window.confirm('🔧 要安裝服務？\n\n確定 = 要安裝（下一步輸入費用 + 日期）\n取消 = 不安裝');
   if(r){
     const v=prompt('安裝費用（直接輸入數字，0 也可以）：',o.installFee||'0');
     if(v===null)return;
     const n=parseAmt(v);if(isNaN(n)||n<0){alert('金額無效');return}
-    o.install='是';o.installFee=n;
-    logActivity(o,`安裝服務 ✓ 要安裝 $${n}`);saveOne(o);renderList();
+    const dateDefault=o.installDate||'';
+    const d=prompt('安裝日期（YYYY-MM-DD，留空 = 尚未排日）：',dateDefault);
+    if(d===null)return;
+    const inst=(installers[0]||'阿淵');
+    o.install='是';o.installFee=n;o.installDate=(d||'').trim();
+    if(!o.installer)o.installer=inst;
+    logActivity(o,`安裝服務 ✓ 要安裝 $${n}${o.installDate?` ${o.installDate}`:''} 師傅:${o.installer}`);
+    saveOne(o);renderList();
   }else{
-    o.install='否';o.installFee=0;o.installDay='';o.installTime='';o.installPaidAmount=0;
+    o.install='否';o.installFee=0;o.installDay='';o.installTime='';o.installPaidAmount=0;o.installDate='';o.installer='';
     logActivity(o,`安裝服務 ✗ 不安裝`);saveOne(o);renderList();
   }
 }
@@ -1740,8 +1762,9 @@ document.getElementById('modal-body').innerHTML=`<h3>編輯訂單${customerHisto
 <div class="fg" style="margin-bottom:8px"><div class="fi"><label>🏢 管理室</label><div class="sched-row" id="e-mgmt"><button class="sched-btn ${o.addrMgmt==='有'?'picked':''}" onclick="pickRadio('e-mgmt','有',this)">有</button><button class="sched-btn ${o.addrMgmt==='無'?'picked':''}" onclick="pickRadio('e-mgmt','無',this)">無</button><button class="sched-btn ${(!o.addrMgmt||o.addrMgmt==='')?'picked':''}" onclick="pickRadio('e-mgmt','',this)">未填</button></div></div><div class="fi"><label>🛗 電梯（2 樓以上）</label><div class="sched-row" id="e-elev"><button class="sched-btn ${o.addrElev==='有'?'picked':''}" onclick="pickRadio('e-elev','有',this)">有</button><button class="sched-btn ${o.addrElev==='無'?'picked':''}" onclick="pickRadio('e-elev','無',this)">無</button><button class="sched-btn ${o.addrElev==='不適用'?'picked':''}" onclick="pickRadio('e-elev','不適用',this)">不適用</button><button class="sched-btn ${(!o.addrElev||o.addrElev==='')?'picked':''}" onclick="pickRadio('e-elev','',this)">未填</button></div></div></div>
 <div class="fg"><div class="fi"><label>數量</label><input type="text" inputmode="numeric" id="e-qty" value="${o.qty||1}" oninput="this.value=cn(this.value)"></div><div class="fi"><label>商品金額</label><input type="text" inputmode="numeric" id="e-amt" value="${o.amount||''}" oninput="this.value=cn(this.value);calcT()"></div></div>
 <div style="border:1px solid var(--bd);border-radius:8px;padding:12px;margin:8px 0;background:var(--sf2)"><div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px"><span style="font-size:12px;font-weight:700">🔧 安裝服務</span><button class="${o.install==='是'?'toggle-on':(o.install==='否'?'toggle-off':'toggle-unknown')}" onclick="togEI()" id="ei-btn" title="點擊循環：未確認 → 要安裝 → 不安裝">${o.install==='是'?'✓ 需要安裝':(o.install==='否'?'✗ 不需要安裝':'？ 未確認')}</button></div>
-<div id="ei-panel" class="${o.install==='是'?'':'hidden'}"><div class="fi" style="margin-bottom:8px"><label>安裝費用</label><input type="text" inputmode="numeric" id="e-instf" value="${o.installFee||''}" oninput="this.value=cn(this.value);calcT()"></div>
-<div style="margin-bottom:6px"><span style="font-size:10px;font-weight:700;color:var(--dm)">📅 日期 <span style="font-weight:400;color:var(--ht)">（可複選）</span></span><div class="sched-row">${DAYS.map(d=>`<button class="sched-btn${['週六','週日'].includes(d)?' weekend':''}${(o.installDay&&o.installDay.split(/[、,\/]/).map(x=>x.trim()).includes(d))?' picked':''}" onclick="pickD('${d}',this)">${d}</button>`).join('')}</div></div>
+<div id="ei-panel" class="${o.install==='是'?'':'hidden'}"><div class="fg"><div class="fi"><label>安裝費用</label><input type="text" inputmode="numeric" id="e-instf" value="${o.installFee||''}" oninput="this.value=cn(this.value);calcT()"></div><div class="fi"><label>📅 安裝日期</label><input type="date" id="e-installDate" value="${o.installDate||''}"></div></div>
+<div class="fg full" style="margin-top:6px"><div class="fi"><label>🔧 安裝師傅</label><select id="e-installer">${installers.map(n=>`<option ${(o.installer||installers[0])===n?'selected':''}>${esc(n)}</option>`).join('')}</select></div></div>
+<div style="margin:8px 0 6px"><span style="font-size:10px;font-weight:700;color:var(--dm)">📆 週幾 <span style="font-weight:400;color:var(--ht)">（提示用，可複選）</span></span><div class="sched-row">${DAYS.map(d=>`<button class="sched-btn${['週六','週日'].includes(d)?' weekend':''}${(o.installDay&&o.installDay.split(/[、,\/]/).map(x=>x.trim()).includes(d))?' picked':''}" onclick="pickD('${d}',this)">${d}</button>`).join('')}</div></div>
 <div><span style="font-size:10px;font-weight:700;color:var(--dm)">🕐 時段</span><div class="sched-row">${TIMES.map(t=>`<button class="sched-btn${o.installTime===t?' picked':''}" onclick="pickT('${t}',this)">${t}</button>`).join('')}</div></div></div></div>
 <div style="border:1px solid var(--bd);border-radius:8px;padding:12px;margin:8px 0;background:var(--sf2)"><div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px"><span style="font-size:12px;font-weight:700">🛒 加購</span><button class="${o.addon==='是'?'toggle-on':(o.addon==='否'?'toggle-off':'toggle-unknown')}" onclick="togEA()" id="ea-btn" title="點擊循環：未確認 → 要加購 → 不加購">${o.addon==='是'?'✓ 有加購':(o.addon==='否'?'✗ 無加購':'？ 未確認')}</button></div>
 <div id="ea-panel" class="${o.addon==='是'?'':'hidden'}"><div class="fi" style="margin-bottom:8px"><label>加購金額</label><input type="text" inputmode="numeric" id="e-addonf" value="${o.addonFee||''}" oninput="this.value=cn(this.value);calcT()"></div><div class="fi"><label>加購內容（例如：琴架、變壓器、調音器…）</label><input type="text" id="e-addonitems" value="${esc(o.addonItems||'')}" placeholder="加購了什麼" list="addon-items-suggestions"></div></div></div>
@@ -1800,8 +1823,11 @@ o.platform=document.getElementById('e-plat').value;o.orderNo=document.getElement
 // 三段狀態從 button class 讀：toggle-on=是 / toggle-off=否 / toggle-unknown=未確認
 const _ibtn=document.getElementById('ei-btn');
 o.install=_ibtn.classList.contains('toggle-on')?'是':(_ibtn.classList.contains('toggle-unknown')?'未確認':'否');
-if(o.install==='否'||o.install==='未確認'){o.installFee=0;o.installDay='';o.installTime='';o.installPaidAmount=0}
+if(o.install==='否'||o.install==='未確認'){o.installFee=0;o.installDay='';o.installTime='';o.installPaidAmount=0;o.installDate='';o.installer=''}
 else{o.installFee=parseInt(document.getElementById('e-instf').value)||0;o.installDay='';o.installTime='';
+  o.installDate=document.getElementById('e-installDate')?.value||'';
+  const newInstaller=document.getElementById('e-installer')?.value||installers[0]||'阿淵';
+  if((o.installer||'')!==newInstaller){if(o.installer)logActivity(o,`安裝師傅 ${o.installer} → ${newInstaller}`);else logActivity(o,`指派安裝師傅：${newInstaller}`);o.installer=newInstaller}
   const days=[];
   document.querySelectorAll('#ei-panel .sched-btn.picked').forEach(b=>{const v=b.textContent;if(DAYS.includes(v))days.push(v);if(TIMES.includes(v))o.installTime=v});
   if(days.length){days.sort((a,b)=>DAYS.indexOf(a)-DAYS.indexOf(b));o.installDay=days.join('、')}
@@ -1834,7 +1860,10 @@ if(newDely!==(o.delyGbStr||'')||newTracking!==(o.trackingNo||'')){
 o.delyGbStr=newDely;o.trackingNo=newTracking;
 let note=document.getElementById('e-note').value.trim().replace(/【安裝】[^\n]*/g,'').trim();
 if(o.install==='是'&&(o.installDay||o.installTime)){note='【安裝】'+o.installDay+(o.installTime?' '+o.installTime:'')+(o.installFee?' $'+o.installFee:'')+(note?'\n'+note:'')}
-o.note=note;saveOne(o);pendingRemoteOrders=null;closeModal();renderList()}
+o.note=note;saveOne(o);pendingRemoteOrders=null;closeModal();renderList();
+// 如果用戶在排程 tab 開的 edit，存完也要 refresh 排程
+if(document.querySelector('.tab.active')?.textContent?.includes('安裝')&&typeof renderSchedule==='function')renderSchedule();
+updateCnt();}
 // 從編輯 modal 直接跳到 MOMO 出貨確認 — 先儲存當前 edit 改動，再開 ship modal（會用剛存好的 trackingNo / delyGbStr 預填）
 function syncShipFromEdit(){
   const o=findO(editId);
@@ -2092,6 +2121,185 @@ async function submitShip(force){
   }
 }
 document.getElementById('raw-input')?.addEventListener('paste',()=>setTimeout(runParse,200));
+
+// ===== 安裝師傅清單（Firebase /installers 共用） =====
+let installers=['阿淵'];let installersLoaded=false;
+db.ref('installers').on('value',snap=>{
+  const val=snap.val();
+  if(Array.isArray(val))installers=val.filter(x=>typeof x==='string'&&x.trim());
+  else if(val&&typeof val==='object')installers=Object.values(val).filter(s=>typeof s==='string'&&s.trim());
+  else installers=[];
+  if(!installers.length)installers=['阿淵'];
+  installersLoaded=true;
+  // Re-render 相關 UI（在排程頁 / 帳號頁時）
+  const at=document.querySelector('.tab.active')?.textContent||'';
+  if(at.includes('安裝'))renderSchedule();
+  if(at.includes('帳號')&&typeof isAdmin==='function'&&isAdmin())renderAccount();
+});
+// 第一次：如果 Firebase 沒種子過，種一個 ['阿淵']
+db.ref('installers').once('value').then(snap=>{if(!snap.exists())db.ref('installers').set(['阿淵']).catch(()=>{})}).catch(()=>{});
+
+async function addInstaller(){
+  if(!isAdmin()){alert('只有管理員能新增師傅');return}
+  const name=prompt('🔧 新增安裝師傅姓名：');
+  if(!name||!name.trim())return;
+  const n=name.trim();
+  if(installers.includes(n)){alert(`「${n}」已存在`);return}
+  const next=[...installers,n];
+  try{await db.ref('installers').set(next);await logUserAction('add-installer',n);showToast(`✅ 已新增師傅：${n}`)}
+  catch(e){alert('新增失敗：'+e.message)}
+}
+async function removeInstaller(name){
+  if(!isAdmin()){alert('只有管理員能移除師傅');return}
+  const using=orders.filter(o=>o.installer===name&&o.install==='是').length;
+  const msg=using>0
+    ? `⚠️ 已有 ${using} 筆訂單指派給「${name}」。\n移除後這些訂單仍會顯示，但下拉選不到他了（可以重新指派給別人）。\n\n確定移除？`
+    : `移除師傅「${name}」？`;
+  if(!confirm(msg))return;
+  const next=installers.filter(x=>x!==name);
+  if(!next.length){alert('至少要留一位師傅');return}
+  try{await db.ref('installers').set(next);await logUserAction('remove-installer',name);showToast(`已移除師傅：${name}`)}
+  catch(e){alert('移除失敗：'+e.message)}
+}
+async function renameInstaller(oldName){
+  if(!isAdmin()){alert('只有管理員能改師傅名');return}
+  const newName=prompt(`✏️ 把「${oldName}」改名為：`,oldName);
+  if(!newName||!newName.trim()||newName.trim()===oldName)return;
+  const n=newName.trim();
+  if(installers.includes(n)){alert(`「${n}」已存在`);return}
+  // 連動更新所有用此師傅的訂單
+  const affected=orders.filter(o=>o.installer===oldName);
+  const next=installers.map(x=>x===oldName?n:x);
+  try{
+    await db.ref('installers').set(next);
+    if(affected.length){const upd={};for(const o of affected){o.installer=n;upd[o.id+'/installer']=n}await db.ref('orders').update(upd);for(const o of affected)logActivity(o,`安裝師傅 ${oldName} → ${n}`)}
+    await logUserAction('rename-installer',`${oldName} → ${n}（連動 ${affected.length} 筆訂單）`);
+    showToast(`✅ 已改名 ${oldName} → ${n}`);
+  }catch(e){alert('改名失敗：'+e.message)}
+}
+
+// ===== 📅 安裝行程 Tab =====
+let schedView=localStorage.getItem('schedView')||'today';
+let schedDate=localStorage.getItem('schedDate')||null;
+let schedInstaller=localStorage.getItem('schedInstaller')||'all';
+function setSchedView(v,btn){
+  schedView=v;localStorage.setItem('schedView',v);
+  document.querySelectorAll('#tab-schedule .fbtn[data-fg="schview"]').forEach(b=>b.classList.remove('on'));
+  btn?.classList.add('on');
+  const dp=document.getElementById('sched-date');
+  if(v==='date'){if(!schedDate)schedDate=localDateISO();dp.value=schedDate;dp.style.display=''}
+  else dp.style.display='none';
+  renderSchedule();
+}
+function onSchedDateChange(){
+  const dp=document.getElementById('sched-date');
+  schedDate=dp.value;localStorage.setItem('schedDate',schedDate||'');
+  schedView='date';
+  renderSchedule();
+}
+function setSchedInstaller(name,btn){
+  schedInstaller=name;localStorage.setItem('schedInstaller',name);
+  document.querySelectorAll('#sched-installer-row .fbtn').forEach(b=>b.classList.remove('on'));
+  btn?.classList.add('on');
+  renderSchedule();
+}
+function _schedAdvIso(n){const d=new Date(localDateISO()+'T00:00:00');d.setDate(d.getDate()+n);return localDateISO(d)}
+function formatSchedDate(d){
+  if(d==='未排日')return '⚠️ 未排日（請進編輯設定安裝日期）';
+  try{
+    const dt=new Date(d+'T00:00:00');
+    const today=localDateISO();
+    const weekday=['週日','週一','週二','週三','週四','週五','週六'][dt.getDay()];
+    let mark='';
+    if(d===today)mark=' 🔥 今日';
+    else if(d===_schedAdvIso(1))mark=' 📍 明日';
+    else if(d===_schedAdvIso(-1))mark=' ⏪ 昨日';
+    return `📅 ${d.slice(5).replace('-','/')} ${weekday}${mark}`;
+  }catch(e){return d}
+}
+function _platShort(p){return p==='MO'?'M':p==='PC'?'P':p==='ST'?'店':(p||'?')}
+function _platCls(p){return p==='MO'?'brand-mo':p==='PC'?'brand-pc':(p==='ST'?'brand-store':'')}
+function renderSchedRow(o){
+  const ps=splitProductSpecs(o);
+  const ph=bestPhone(o);
+  const inst=o.installer||'';
+  const time=o.installTime?` ${o.installTime}`:'';
+  const day=o.installDay?`（${o.installDay}）`:'';
+  const paid=(o.installPaidAmount||0)>0;
+  const feeChip=`安裝費 $${(o.installFee||0).toLocaleString()} ${paid?'<span style="color:var(--grn);font-weight:700">✓已收</span>':'<span style="color:#dc2626;font-weight:700">⚠未收</span>'}`;
+  return `<div class="sched-row-card" onclick="openEdit('${o.id}')" style="padding:10px 14px;border-top:1px solid var(--bd);cursor:pointer">
+    <div style="display:flex;align-items:center;gap:8px;margin-bottom:4px;flex-wrap:wrap">
+      <span class="brand-pill ${_platCls(o.platform)}" style="font-size:9px;padding:1px 5px">${_platShort(o.platform)}</span>
+      <strong style="font-size:13px">${esc(o.name||'?')}</strong>
+      <span style="font-size:11px;color:var(--dm);font-family:var(--mono)">${ph?phoneTel(ph):'—'}</span>
+      <span style="margin-left:auto;font-size:11px;color:var(--blu);font-weight:700">🔧 ${esc(inst||'未指派')}${time}${day}</span>
+    </div>
+    <div style="font-size:12px;color:var(--tx);margin-bottom:2px">${esc(ps.name||o.product||'')}${ps.specs?` <span class="spec-pill" style="font-size:10px">${esc(ps.specs)}</span>`:''} × ${o.qty||1} ｜ ${feeChip}</div>
+    <div style="font-size:11px;color:var(--dm)">📍 ${esc(o.address||'—')}</div>
+  </div>`;
+}
+function syncSchedInstallerRow(){
+  const row=document.getElementById('sched-installer-row');
+  if(!row)return;
+  let html='<span style="font-size:11px;color:var(--dm)">🔧 師傅：</span>';
+  html+=`<button class="fbtn ${schedInstaller==='all'?'on':''}" onclick="setSchedInstaller('all',this)">全部</button>`;
+  for(const name of installers){
+    const safe=esc(name);const jsName=name.replace(/\\/g,'\\\\').replace(/'/g,"\\'");
+    html+=`<button class="fbtn ${schedInstaller===name?'on':''}" onclick="setSchedInstaller('${jsName}',this)">${safe}</button>`;
+  }
+  row.innerHTML=html;
+}
+function renderSchedule(){
+  if(!document.getElementById('tab-schedule'))return;
+  syncSchedInstallerRow();
+  // 同步 view buttons on 狀態
+  document.querySelectorAll('#tab-schedule .fbtn[data-fg="schview"]').forEach(b=>{
+    const onclick=b.getAttribute('onclick')||'';
+    const v=onclick.match(/setSchedView\('([^']+)'/)?.[1];
+    b.classList.toggle('on',v===schedView);
+  });
+  const dp=document.getElementById('sched-date');if(dp){dp.style.display=schedView==='date'?'':'none';if(schedView==='date'&&schedDate)dp.value=schedDate}
+  const today=localDateISO();
+  const tdate=new Date(today+'T00:00:00');
+  let fromIso=null,toIso=null;
+  if(schedView==='today'){fromIso=toIso=today}
+  else if(schedView==='week'){fromIso=today;const d=new Date(tdate);d.setDate(d.getDate()+6);toIso=localDateISO(d)}
+  else if(schedView==='biweek'){fromIso=today;const d=new Date(tdate);d.setDate(d.getDate()+13);toIso=localDateISO(d)}
+  else if(schedView==='date'){fromIso=toIso=(schedDate||today)}
+  // all → no date filter
+  const candidates=orders.filter(o=>o.install==='是');
+  // 全部所有需安裝（tab badge 用）
+  const tabBadge=document.getElementById('sched-cnt');if(tabBadge)tabBadge.textContent=candidates.length;
+  let filtered=candidates;
+  if(fromIso){filtered=filtered.filter(o=>{const d=o.installDate||'';return d&&d>=fromIso&&d<=toIso})}
+  if(schedInstaller!=='all'){filtered=filtered.filter(o=>(o.installer||'')===schedInstaller)}
+  const noDate=candidates.filter(o=>!o.installDate&&(schedInstaller==='all'||o.installer===schedInstaller));
+  document.getElementById('sched-show-cnt').textContent=filtered.length;
+  // 分組 by installDate
+  const groups={};
+  for(const o of filtered){const d=o.installDate;if(!groups[d])groups[d]=[];groups[d].push(o)}
+  const sortedDates=Object.keys(groups).sort();
+  let html='';
+  if(!filtered.length&&!(schedView==='all'&&noDate.length)){
+    const tip=schedView==='all'?'目前沒有任何 ✓ 要安裝 的訂單。':`此區間（${fromIso}${toIso!==fromIso?' ~ '+toIso:''}）沒有安裝行程。`;
+    html=`<div class="card"><div class="card-b" style="color:var(--dm);text-align:center;padding:30px">📭 ${esc(tip)}<br><span style="font-size:11px">提示：訂單列表把安裝設為「要安裝」並填日期 → 會自動出現在這裡</span></div></div>`;
+  }
+  for(const dt of sortedDates){
+    html+=`<div class="card" style="margin-bottom:10px"><div class="card-h"><h3>${formatSchedDate(dt)} <span class="badge">${groups[dt].length}</span></h3></div><div class="card-b" style="padding:0">`;
+    for(const o of groups[dt])html+=renderSchedRow(o);
+    html+=`</div></div>`;
+  }
+  // all 模式才顯示「未排日」區塊
+  if(schedView==='all'&&noDate.length){
+    html+=`<div class="card" style="margin-top:10px;border-color:#f0c4d8"><div class="card-h" style="background:var(--mo-bg)"><h3>⚠️ 還沒排安裝日 <span class="badge" style="background:var(--mo);color:#fff">${noDate.length}</span></h3></div><div class="card-b" style="padding:0">`;
+    for(const o of noDate.slice(0,200))html+=renderSchedRow(o);
+    html+=`</div></div>`;
+  }
+  document.getElementById('schedule-area').innerHTML=html;
+}
+// 列表上的安裝/加購狀態變動時 + applyRemoteOrders 後，badge 數量要更新
+function _updateSchedBadge(){const c=orders.filter(o=>o.install==='是').length;const el=document.getElementById('sched-cnt');if(el)el.textContent=c}
+
 bootAuth();
 // Re-render on viewport breakpoint cross (mobile ↔ desktop) — 列表/客戶都要切版
 let _wasMobile=isMobile();window.addEventListener('resize',()=>{const now=isMobile();if(now!==_wasMobile){_wasMobile=now;updateCnt();const at=document.querySelector('.tab.active')?.textContent||'';if(at.includes('列表'))renderList();if(at.includes('客戶'))renderCustomers()}});
