@@ -2787,7 +2787,20 @@ function openSchedRouteForDate(dateIso,opts){
   if(url.length>2000){
     if(!confirm(`URL 長度 ${url.length} 字元，超過建議上限 2000。可能 Google Maps 會載不完整。\n仍要繼續嗎？`))return;
   }
-  window.open(url,'_blank','noopener');
+  // PWA / iOS 防 popup block — 嘗試 window.open，失敗就 fallback 用 location 跳轉 + toast 提示
+  const w=window.open(url,'_blank','noopener');
+  if(!w){
+    // popup 被擋 — 給用戶可手動點的連結
+    if(confirm(`無法自動開啟 Google Maps（瀏覽器擋彈窗）。\n按「確定」直接在這個 tab 開啟（會離開系統頁面）\n按「取消」我把 URL 複製到剪貼簿，你自己貼上`)){
+      window.location.href=url;
+    }else{
+      navigator.clipboard.writeText(url).then(()=>{
+        showToast('路線 URL 已複製到剪貼簿，貼到瀏覽器網址列開啟',null,null,6000);
+      }).catch(()=>{
+        prompt('複製失敗，請手動 copy 這串網址：',url);
+      });
+    }
+  }
 }
 
 bootAuth();
