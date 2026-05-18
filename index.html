@@ -2573,13 +2573,17 @@ function renderWeekGrid(filtered,noDate){
     html+='</tr>';
   }
   html+='</tbody></table></div>';
-  // 路線規劃按鈕（每日一顆）
-  html+='<div style="margin-top:10px;display:flex;flex-wrap:wrap;gap:6px;align-items:center"><span style="font-size:11px;color:var(--dm);margin-right:4px">每日路線</span>';
+  // 每日「複製清單 + 規劃路線」（grid 下方一列）
+  html+='<div style="margin-top:10px;display:flex;flex-wrap:wrap;gap:8px;align-items:center">';
+  let hasAnyDayOrders=false;
   for(const d of days){
     const dayOrders=filtered.filter(o=>o.installDate===d);
     if(!dayOrders.length)continue;
-    html+=`<button class="btn" onclick="openSchedRouteForDate('${d}')" style="font-size:11px">${d.slice(5).replace('-','/')} (${dayOrders.length})</button>`;
+    hasAnyDayOrders=true;
+    const dayLabel=d.slice(5).replace('-','/');
+    html+=`<div style="display:inline-flex;align-items:center;gap:2px;background:var(--sf2);padding:3px 8px;border-radius:14px;border:1px solid var(--bd);font-size:11px"><span style="font-weight:700;color:var(--dm);margin-right:4px">${dayLabel}(${dayOrders.length})</span><button class="btn" onclick="copySchedDay('${d}')" style="font-size:10px;padding:2px 8px">複製</button><button class="btn" onclick="openSchedRouteForDate('${d}')" style="font-size:10px;padding:2px 8px">路線</button></div>`;
   }
+  if(!hasAnyDayOrders)html+='<span style="font-size:11px;color:var(--ht)">尚無已排程訂單可規劃</span>';
   html+='</div>';
   // 未排日提示 — 同時也是 drop target，從 grid 拖回來會自動取消排程
   if(noDate&&noDate.length){
