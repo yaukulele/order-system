@@ -1805,7 +1805,10 @@ function togEI(){_modalDirty=true;
   // 讀目前狀態（從 button class 推）
   const cur=b.classList.contains('toggle-on')?'是':(b.classList.contains('toggle-off')?'否':'未確認');
   const next=cur==='未確認'?'是':(cur==='是'?'否':'未確認');
-  if(next==='是'){b.className='toggle-on';b.textContent='要安裝';p.classList.remove('hidden')}
+  if(next==='是'){b.className='toggle-on';b.textContent='要安裝';p.classList.remove('hidden');
+    // 切到「要安裝」後重算 mismatch hint
+    if(typeof updateInstallMismatchHint==='function')setTimeout(updateInstallMismatchHint,0);
+  }
   else if(next==='否'){b.className='toggle-off';b.textContent='不安裝';p.classList.add('hidden');
     // 切到「不安裝」清掉欄位
     const fee=document.getElementById('e-instf');if(fee)fee.value='';
