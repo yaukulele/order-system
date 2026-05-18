@@ -508,7 +508,10 @@ function cleanNote(n){const lines=String(n||'').split('\n');const out=[];for(con
 function buildNoteLine(o){const parts=[];/* 地址屬性放最前 */if(o.addrMgmt)parts.push((o.addrMgmt==='有'?'有':'無')+'管理室');if(o.addrElev&&o.addrElev!=='不適用')parts.push((o.addrElev==='有'?'有':'無')+'電梯');
 if(o.install==='是'){
   const segs=[];
-  if(o.installDay)segs.push(o.installDay+(o.installTime?' '+o.installTime:''));
+  // 已排程：日期 + 時段（installDate / installSlot 優先；客戶希望 installDay/installTime 當 fallback）
+  if(o.installDate){segs.push(o.installDate+(o.installSlot?' '+o.installSlot:''))}
+  else if(o.installDay)segs.push(o.installDay+(o.installTime?' '+o.installTime:''));
+  if(o.installer)segs.push('師傅 '+o.installer);
   if(o.installFee)segs.push('$'+o.installFee);
   if(!segs.length)segs.push('是');
   segs.push(o.installPaidAmount>0?'已收 $'+o.installPaidAmount:'未收');
@@ -1952,7 +1955,7 @@ function confirmWipeAll(){
 function openStoreSaleModal(){
   editId=null;shipId=null;_modalDirty=false;
   const today=localDateISO();
-  document.getElementById('modal-body').innerHTML=`<h3>🏪 新增店內銷售</h3>
+  document.getElementById('modal-body').innerHTML=`<h3>新增店內銷售</h3>
 <div style="background:#f3e8ff;border:1px solid #d8b4fe;border-radius:8px;padding:10px 14px;font-size:11px;color:#7e22ce;margin-bottom:12px;line-height:1.6">櫃台現場買賣用：填完按儲存就會加進列表，平台「店」、狀態「已完成」。多品項把每樣商品分行寫即可。</div>
 <div class="fg"><div class="fi"><label>日期</label><input type="date" id="st-date" value="${today}"></div><div class="fi"><label>狀態</label><select id="st-status"><option>已完成</option><option>已確認</option><option>未確認</option></select></div></div>
 <div class="fg"><div class="fi"><label>姓名 <span style="color:var(--pc)">*</span></label><input id="st-name" placeholder="客戶姓名（現場客可寫「現場客」）"></div><div class="fi"><label>電話</label><input id="st-phone" inputmode="tel" placeholder="聯絡電話（可空）"></div></div>
