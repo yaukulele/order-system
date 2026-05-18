@@ -357,7 +357,8 @@ db.ref('orders').on('value',snap=>{
     // （之前 race：toggleStatus → saveOne 300ms 排隊中 → 別人寫 Y → value 來 → applyRemoteOrders →
     //  本地 status edit 沒進 cloud 就被遠端蓋掉，saveOne 拿到的是被覆蓋後的值，寫回去也沒救）
     // 拖曳中也要 defer — 拖曳卡片時 re-render 會把 DOM 砍掉，原本 drag 中斷
-    if(isModalOpen()||isInputFocused()||_saveOneTimer||_saveAllTimer||(typeof _schedDragOid!=='undefined'&&_schedDragOid)){pendingRemoteOrders=val;setSyncOn();return}
+    const dragging=(typeof _schedDragOid!=='undefined'&&_schedDragOid)||(typeof _touchDragOid!=='undefined'&&_touchDragOid);
+    if(isModalOpen()||isInputFocused()||_saveOneTimer||_saveAllTimer||dragging){pendingRemoteOrders=val;setSyncOn();return}
     applyRemoteOrders(val)
   }catch(e){
     // listener body 出例外會讓整個 realtime sync 死掉 — 至少 log + 提示用戶
@@ -2477,6 +2478,84 @@ function schedDrop(e,dateIso,slot){
   if(!oid)return;
   scheduleOrderToSlot(oid,dateIso,slot==='未排時段'?'':slot);
 }
+// 觸控裝置 drag fallback — iOS Safari HTML5 drag 在 touch 不觸發
+// 用 pointer events 做最小可用版本：長按 200ms 啟動 drag、touchmove 跟手指、touchend 落到 elementFromPoint
+let _touchDragOid=null,_touchDragGhost=null,_touchDragTimer=null,_touchDragActive=false;
+function _isTouchDevice(){return 'ontouchstart' in window||navigator.maxTouchPoints>0}
+document.addEventListener('touchstart',function(e){
+  if(!_isTouchDevice())return;
+  const card=e.target.closest('.grid-cell-card[draggable=true],.sched-row-card.draggable[draggable=true]');
+  if(!card)return;
+  // 取出 order id（從 ondragstart 屬性 parse）
+  const od=card.getAttribute('ondragstart')||'';
+  const m=od.match(/schedDragStart\(event,'([^']+)'\)/);
+  if(!m)return;
+  _touchDragOid=m[1];
+  _touchDragActive=false;
+  // Long-press 200ms 才啟動 drag — 避免普通 tap 也觸發
+  if(_touchDragTimer)clearTimeout(_touchDragTimer);
+  const t=e.touches[0];const startX=t.clientX,startY=t.clientY;
+  _touchDragTimer=setTimeout(()=>{
+    _touchDragActive=true;
+    // Build ghost
+    _touchDragGhost=card.cloneNode(true);
+    _touchDragGhost.style.cssText='position:fixed;pointer-events:none;opacity:.85;z-index:99999;width:'+card.offsetWidth+'px;left:'+(startX-card.offsetWidth/2)+'px;top:'+(startY-20)+'px;box-shadow:0 4px 16px rgba(0,0,0,.3);transform:rotate(2deg)';
+    document.body.appendChild(_touchDragGhost);
+    card.classList.add('grid-card-dragging');
+  },200);
+},{passive:true});
+document.addEventListener('touchmove',function(e){
+  if(!_touchDragOid)return;
+  // 沒啟動就取消 long-press（用戶在滑動 scroll，不是 drag）
+  if(!_touchDragActive){if(_touchDragTimer){clearTimeout(_touchDragTimer);_touchDragTimer=null}_touchDragOid=null;return}
+  e.preventDefault(); // drag 中阻止 scroll
+  const t=e.touches[0];
+  if(_touchDragGhost){_touchDragGhost.style.left=(t.clientX-_touchDragGhost.offsetWidth/2)+'px';_touchDragGhost.style.top=(t.clientY-20)+'px'}
+  // 高亮 hover 中的 drop target
+  document.querySelectorAll('.drop-target-active').forEach(x=>x.classList.remove('drop-target-active'));
+  const elBelow=document.elementFromPoint(t.clientX,t.clientY);
+  const cell=elBelow?.closest('.week-grid-tbl td');
+  const unsched=elBelow?.closest('.sched-unschedule-drop');
+  if(cell&&cell.getAttribute('ondrop'))cell.classList.add('drop-target-active');
+  else if(unsched)unsched.classList.add('drop-target-active');
+},{passive:false});
+document.addEventListener('touchend',function(e){
+  if(_touchDragTimer){clearTimeout(_touchDragTimer);_touchDragTimer=null}
+  if(!_touchDragOid){return}
+  const wasActive=_touchDragActive;
+  const oid=_touchDragOid;
+  // 清 ghost + state
+  if(_touchDragGhost){_touchDragGhost.remove();_touchDragGhost=null}
+  document.querySelectorAll('.grid-card-dragging').forEach(x=>x.classList.remove('grid-card-dragging'));
+  document.querySelectorAll('.drop-target-active').forEach(x=>x.classList.remove('drop-target-active'));
+  _touchDragOid=null;_touchDragActive=false;
+  if(!wasActive)return; // tap（沒 drag），讓 onclick 處理
+  // 找 drop target
+  const t=e.changedTouches[0];
+  const elBelow=document.elementFromPoint(t.clientX,t.clientY);
+  const cell=elBelow?.closest('.week-grid-tbl td');
+  const unsched=elBelow?.closest('.sched-unschedule-drop');
+  if(cell){
+    const onDrop=cell.getAttribute('ondrop')||'';
+    const m=onDrop.match(/schedDrop\(event,'([^']+)','([^']+)'\)/);
+    if(m){
+      e.preventDefault();
+      const slot=m[2]==='未排時段'?'':m[2];
+      scheduleOrderToSlot(oid,m[1],slot);
+    }
+  }else if(unsched){
+    e.preventDefault();
+    unscheduleOrder(oid);
+  }
+});
+document.addEventListener('touchcancel',function(){
+  if(_touchDragTimer){clearTimeout(_touchDragTimer);_touchDragTimer=null}
+  if(_touchDragGhost){_touchDragGhost.remove();_touchDragGhost=null}
+  document.querySelectorAll('.grid-card-dragging').forEach(x=>x.classList.remove('grid-card-dragging'));
+  document.querySelectorAll('.drop-target-active').forEach(x=>x.classList.remove('drop-target-active'));
+  _touchDragOid=null;_touchDragActive=false;
+});
+
 // 拖到「還沒排安裝日」card → 取消排程（清 installDate + installSlot）
 function schedDropUnschedule(e){
   e.preventDefault();
