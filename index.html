@@ -106,6 +106,7 @@ td{padding:7px 10px;border-bottom:1px solid #f0ede6}tr:hover td{background:var(-
 .toggle-unknown{padding:3px 10px;border-radius:5px;border:2px dashed #b45309;background:#fef9ec;color:#b45309;font-size:10px;font-weight:700;cursor:pointer;font-family:var(--sans)}
 /* 週表 grid 拖曳 */
 .week-grid-tbl td.drop-target-active{background:#e3f2fd!important;outline:2px dashed var(--blu);outline-offset:-3px}
+.sched-unschedule-drop.drop-target-active{background:var(--mo-bg)!important;outline:2px dashed var(--mo);outline-offset:-3px}
 .week-grid-tbl .grid-cell-card,.sched-row-card.draggable{cursor:grab}
 .week-grid-tbl .grid-cell-card:active,.sched-row-card.draggable:active{cursor:grabbing}
 .week-grid-tbl .grid-cell-card[draggable=true]{user-select:none;-webkit-user-drag:element}
@@ -2370,8 +2371,6 @@ function renderWeekGrid(filtered,noDate){
       if(!cell.length)html+='<div style="color:var(--ht);font-size:10px;text-align:center;padding:14px 0">—</div>';
       else{
         for(const o of cell){
-          const ps=splitProductSpecs(o);
-          const paid=(o.installPaidAmount||0)>0;
           // 警示：客戶希望週幾 / 時段 跟此 cell 不符時 cell 邊框換橘
           const targetWd=['週日','週一','週二','週三','週四','週五','週六'][new Date(d+'T00:00:00').getDay()];
           const prefDays=(o.installDay||'').split(/[、,\/]/).map(x=>x.trim()).filter(Boolean);
@@ -2381,10 +2380,11 @@ function renderWeekGrid(filtered,noDate){
           const borderColor=(dayMismatch||timeMismatch)?'#f59e0b':'var(--blu)';
           const bgColor=(dayMismatch||timeMismatch)?'#fef9ec':'#eaf3fd';
           const mismatchTip=(dayMismatch||timeMismatch)?`title="客戶希望${prefDays.join('、')||'(未填)'} ${prefTimes.join('、')||'(未填)'}，目前排程與其不符"`:'';
-          html+=`<div class="grid-cell-card" draggable="true" ondragstart="schedDragStart(event,'${o.id}')" ondragend="schedDragEnd(event)" onclick="openEdit('${o.id}')" ${mismatchTip} style="background:${bgColor};border-left:3px solid ${borderColor};border-radius:4px;padding:4px 6px;margin-bottom:3px">
-            <div style="font-weight:700;font-size:11px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap" title="${esc(o.name||'')}">${esc(o.name||'?')}${(dayMismatch||timeMismatch)?' <span style="color:#b45309;font-size:9px">⚠</span>':''}</div>
-            <div style="color:var(--dm);font-size:10px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap" title="${esc(ps.name||o.product||'')}">${esc(ps.name||o.product||'')}</div>
-            <div style="display:flex;justify-content:space-between;align-items:center;font-size:9px;margin-top:1px"><span style="color:var(--blu);font-weight:700">${esc(o.installer||'')}</span><span style="color:${paid?'var(--grn)':'#dc2626'};font-weight:700">$${(o.installFee||0).toLocaleString()}</span></div>
+          const ph=bestPhone(o);
+          html+=`<div class="grid-cell-card" draggable="true" ondragstart="schedDragStart(event,'${o.id}')" ondragend="schedDragEnd(event)" onclick="openEdit('${o.id}')" ${mismatchTip} style="background:${bgColor};border-left:3px solid ${borderColor};border-radius:4px;padding:5px 7px;margin-bottom:3px">
+            <div style="font-weight:700;font-size:12px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap" title="${esc(o.name||'')}">${esc(o.name||'?')}${(dayMismatch||timeMismatch)?' <span style="color:#b45309;font-size:9px">⚠</span>':''}</div>
+            ${ph?`<div style="font-size:10px;color:var(--dm);font-family:var(--mono);overflow:hidden;text-overflow:ellipsis;white-space:nowrap" title="${esc(ph)}">${esc(ph)}</div>`:''}
+            ${o.address?`<div style="font-size:10px;color:var(--tx);line-height:1.25;overflow:hidden;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical" title="${esc(o.address)}">${esc(o.address)}</div>`:''}
           </div>`;
         }
       }
@@ -2401,11 +2401,14 @@ function renderWeekGrid(filtered,noDate){
     html+=`<button class="btn" onclick="openSchedRouteForDate('${d}')" style="font-size:11px">${d.slice(5).replace('-','/')} (${dayOrders.length})</button>`;
   }
   html+='</div>';
-  // 未排日提示
+  // 未排日提示 — 同時也是 drop target，從 grid 拖回來會自動取消排程
   if(noDate&&noDate.length){
-    html+=`<div class="card" style="margin-top:10px;border-color:#f0c4d8"><div class="card-h" style="background:var(--mo-bg)"><h3>還沒排安裝日 <span class="badge" style="background:var(--mo);color:#fff">${noDate.length}</span></h3></div><div class="card-b" style="padding:0">`;
+    html+=`<div class="card sched-unschedule-drop" ondragover="schedDragOver(event)" ondragleave="schedDragLeave(event)" ondrop="schedDropUnschedule(event)" style="margin-top:10px;border-color:#f0c4d8"><div class="card-h" style="background:var(--mo-bg)"><h3>還沒排安裝日 <span class="badge" style="background:var(--mo);color:#fff">${noDate.length}</span></h3><span style="font-size:11px;color:var(--mo);font-weight:600;margin-left:auto">拖卡片來此 = 取消排程</span></div><div class="card-b" style="padding:0">`;
     for(const o of noDate.slice(0,50))html+=renderSchedRow(o,{draggable:true});
     html+=`</div></div>`;
+  }else{
+    // 沒未排日的單時，也提供一個空 drop zone，讓 grid 上的卡片可以拖回來取消
+    html+=`<div class="card sched-unschedule-drop" ondragover="schedDragOver(event)" ondragleave="schedDragLeave(event)" ondrop="schedDropUnschedule(event)" style="margin-top:10px;border:1px dashed var(--bd)"><div class="card-b" style="text-align:center;color:var(--dm);font-size:12px;padding:14px">拖卡片來這裡 = 取消排程（移回未排日）</div></div>`;
   }
   return html;
 }
@@ -2439,6 +2442,27 @@ function schedDrop(e,dateIso,slot){
   const oid=e.dataTransfer.getData('text/plain')||_schedDragOid;
   if(!oid)return;
   scheduleOrderToSlot(oid,dateIso,slot==='未排時段'?'':slot);
+}
+// 拖到「還沒排安裝日」card → 取消排程（清 installDate + installSlot）
+function schedDropUnschedule(e){
+  e.preventDefault();
+  e.currentTarget.classList.remove('drop-target-active');
+  const oid=e.dataTransfer.getData('text/plain')||_schedDragOid;
+  if(!oid)return;
+  unscheduleOrder(oid);
+}
+function unscheduleOrder(oid){
+  const o=findO(oid);if(!o)return;
+  if(!o.installDate&&!o.installSlot){showToast('已經沒有排程',null,null,2000);return}
+  const oldDate=o.installDate||'';
+  const oldSlot=o.installSlot||'';
+  o.installDate='';
+  o.installSlot='';
+  logActivity(o,`取消排程 ${oldDate} ${oldSlot||'未排時段'} → 未排日`);
+  saveOne(o);
+  renderSchedule();
+  // 提供 5 秒復原視窗
+  showToast(`已取消排程：${o.name||''}（移回未排日）`,'復原',()=>scheduleOrderToSlot(oid,oldDate,oldSlot),5000);
 }
 // Drop / 點選 quick-schedule：更新 installDate + installSlot，並警告客戶希望與實際排程不符
 function scheduleOrderToSlot(oid,dateIso,slot){
