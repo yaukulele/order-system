@@ -2580,12 +2580,14 @@ function unscheduleOrder(oid){
 // Drop / 點選 quick-schedule：更新 installDate + installSlot，並警告客戶希望與實際排程不符
 function scheduleOrderToSlot(oid,dateIso,slot){
   const o=findO(oid);if(!o)return;
+  const oldDate=o.installDate||'';
+  const oldSlot=o.installSlot||'';
+  // No-op：拖到原本的格子，省一次 save + render
+  if(o.install==='是'&&oldDate===dateIso&&oldSlot===(slot||'')){return}
   if(o.install!=='是'){
     if(!confirm('這筆訂單目前不是「要安裝」狀態，要設定為要安裝並排程到此時段嗎？'))return;
     o.install='是';if(!o.installer)o.installer=installers[0]||'阿淵';
   }
-  const oldDate=o.installDate||'';
-  const oldSlot=o.installSlot||'';
   o.installDate=dateIso;
   o.installSlot=slot||''; // '' = 未排時段
   // 警示客戶希望 vs 排程不符
