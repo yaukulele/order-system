@@ -2823,6 +2823,14 @@ function openSchedRouteForDate(dateIso,opts){
   opts=opts||{};
   const target=orders.filter(o=>o.install==='是'&&o.installDate===dateIso&&(schedInstaller==='all'||o.installer===schedInstaller)&&o.status!=='已完成'&&o.status!=='已取消'&&o.status!=='轉線下');
   if(!target.length){alert(`${dateIso} 沒有安裝行程可以規劃`);return}
+  // 多師傅警告：schedInstaller='all' 且有 ≥2 位師傅的單 → 路線會混合
+  if(schedInstaller==='all'){
+    const insts=new Set(target.map(o=>o.installer||'未指派'));
+    if(insts.size>1){
+      const list=[...insts].join('、');
+      if(!confirm(`這個路線會混合 ${insts.size} 位師傅（${list}）的訂單。\n\n按確定 = 混合一條路線（可能繞遠路）\n按取消 = 先到上面「師傅」chip 選單一師傅再規劃`))return;
+    }
+  }
   let stops=target.map(o=>(o.address||'').trim()).filter(Boolean);
   if(!stops.length){alert('這些訂單都沒填地址，沒辦法規劃路線');return}
   // 啟發式排序：時段優先（早上 → 下午 → 晚上 / 未排），同時段內按 ZIP 字串排（地理相近）
