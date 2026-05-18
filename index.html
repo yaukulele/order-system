@@ -266,7 +266,7 @@ body.has-batch-bar .main{padding-bottom:140px}
 
 <div class="main hidden" id="tab-list"><div class="filter-row"><span class="fg-grp" data-grp="plat"><button class="fbtn on" data-fg="plat" data-stat="all" onclick="setF('all',this)">全部</button><button class="fbtn" data-fg="plat" data-stat="MO" onclick="setF('MO',this)">Mo</button><button class="fbtn" data-fg="plat" data-stat="PC" onclick="setF('PC',this)">Pc</button><button class="fbtn" data-fg="plat" data-stat="ST" onclick="setF('ST',this)">店內</button><button id="mob-stat-cycle" class="fbtn st-cycle" onclick="cycleStatus()" title="點擊循環切換狀態篩選">狀態</button></span><span class="fb-divider">｜</span><span class="fg-grp" data-grp="status" title="Ctrl/Cmd + 點擊可多選"><button class="fbtn on" data-fg="status" data-stat="status:all" onclick="setSF('all',this,event)">全狀態</button><button class="fbtn" data-fg="status" data-stat="status:active" onclick="setActiveStatuses(this)" title="一鍵選所有「進行中」狀態（排除 已完成 / 已取消 / 轉線下）" style="color:#b45309;border-color:#b45309;font-weight:700">進行中</button><button class="fbtn" data-fg="status" data-stat="status:未確認" onclick="setSF('未確認',this,event)">未確認</button><button class="fbtn" data-fg="status" data-stat="status:已確認" onclick="setSF('已確認',this,event)">已確認</button><button class="fbtn" data-fg="status" data-stat="status:交涉中" onclick="setSF('交涉中',this,event)">交涉中</button><button class="fbtn" data-fg="status" data-stat="status:未接電" onclick="setSF('未接電',this,event)">未接電</button><button class="fbtn" data-fg="status" data-stat="status:已出貨" onclick="setSF('已出貨',this,event)">已出貨</button><button class="fbtn" data-fg="status" data-stat="status:待收費" onclick="setSF('待收費',this,event)" title="安裝/加購款還沒收 — 自動連動偵測" style="color:#dc2626;border-color:#dc2626;font-weight:700">待收費</button><button class="fbtn" data-fg="status" data-stat="status:補貨中" onclick="setSF('補貨中',this,event)">補貨中</button><button class="fbtn" data-fg="status" data-stat="status:已完成" onclick="setSF('已完成',this,event)" title="只看已完成單" style="color:var(--grn);border-color:#8cc4a0;font-weight:700">已完成</button><button class="fbtn" data-fg="status" data-stat="status:已取消" onclick="setSF('已取消',this,event)">已取消</button><button class="fbtn" data-fg="status" data-stat="status:轉線下" onclick="setSF('轉線下',this,event)">轉線下</button></span><span class="fb-divider">｜</span><span class="fg-grp" data-grp="special"><button class="fbtn" data-fg="special" onclick="toggleSpecial('changeAddr',this)" title="只看客戶有申請改地址的訂單">改址</button><button class="fbtn" data-fg="special" onclick="toggleSpecial('newToday',this)" title="只看今日新單">今日</button><button class="fbtn" data-fg="special" onclick="toggleSpecial('unpaidFee',this)" title="只看有未收款的訂單（安裝/加購費>0 但未收）— 含已完成的單，跨所有狀態篩" style="color:#dc2626;border-color:#dc2626;font-weight:700">未收款</button></span><span style="flex:1"></span><span id="filter-applied-info" style="display:none"></span><input class="search" id="q" placeholder="搜尋姓名/單號/商品..." oninput="searchListDebounced()" title="按 / 或 Ctrl+K 快速聚焦"></div><div id="list-area"></div></div>
 
-<div class="main hidden" id="tab-schedule"><div class="filter-row" style="flex-wrap:wrap;gap:6px;align-items:center"><span class="fg-grp" data-grp="schview"><span style="font-size:11px;color:var(--dm);font-weight:600">視圖</span><button class="fbtn on" data-fg="schview" onclick="setSchedView('today',this)">今日</button><button class="fbtn" data-fg="schview" onclick="setSchedView('week',this)">本週</button><button class="fbtn" data-fg="schview" onclick="setSchedView('biweek',this)">雙週</button><button class="fbtn" data-fg="schview" onclick="setSchedView('weekgrid',this)" title="行事曆網格 — 早午晚 × 七天">週表</button><button class="fbtn" data-fg="schview" onclick="setSchedView('all',this)">全部</button><button class="fbtn" data-fg="schview" onclick="setSchedView('date',this)" title="挑指定日">指定日</button><input type="date" id="sched-date" style="font-size:11px;padding:3px 6px;display:none" onchange="onSchedDateChange()"></span><span class="fb-divider">｜</span><span class="fg-grp" id="sched-installer-row"><span style="font-size:11px;color:var(--dm)">師傅</span><button class="fbtn on" data-installer="all" onclick="setSchedInstaller('all',this)">全部</button></span><span style="flex:1"></span><button class="btn" id="sched-route-btn" onclick="openSchedRoute()" title="開 Google Maps 規劃今日路線" style="font-size:11px;display:none">規劃路線</button><span style="font-size:11px;color:var(--dm)">共 <strong id="sched-show-cnt">0</strong> 筆</span></div><div id="schedule-area"></div></div>
+<div class="main hidden" id="tab-schedule"><div class="filter-row" style="flex-wrap:wrap;gap:6px;align-items:center"><span class="fg-grp" data-grp="schview"><span style="font-size:11px;color:var(--dm);font-weight:600">視圖</span><button class="fbtn on" data-fg="schview" onclick="setSchedView('today',this)">今日</button><button class="fbtn" data-fg="schview" onclick="setSchedView('week',this)">本週</button><button class="fbtn" data-fg="schview" onclick="setSchedView('biweek',this)">雙週</button><button class="fbtn" data-fg="schview" onclick="setSchedView('weekgrid',this)" title="行事曆網格 — 早午晚 × 七天">週表</button><button class="fbtn" data-fg="schview" onclick="setSchedView('all',this)">全部</button><button class="fbtn" data-fg="schview" onclick="setSchedView('date',this)" title="挑指定日">指定日</button><input type="date" id="sched-date" style="font-size:11px;padding:3px 6px;display:none" onchange="onSchedDateChange()"></span><span class="fb-divider">｜</span><span class="fg-grp" id="sched-installer-row"><span style="font-size:11px;color:var(--dm)">師傅</span><button class="fbtn on" data-installer="all" onclick="setSchedInstaller('all',this)">全部</button></span><span style="flex:1"></span><button class="btn" id="sched-copy-btn" onclick="copySchedCurrentView()" title="複製當日清單到剪貼簿（給司機/師傅貼 LINE 用）" style="font-size:11px;display:none">複製清單</button><button class="btn" id="sched-route-btn" onclick="openSchedRoute()" title="開 Google Maps 規劃今日路線" style="font-size:11px;display:none">規劃路線</button><span style="font-size:11px;color:var(--dm)">共 <strong id="sched-show-cnt">0</strong> 筆</span></div><div id="schedule-area"></div></div>
 
 <div class="main hidden" id="tab-output"><div class="card"><div class="card-h"><h3>整理格式</h3><div style="display:flex;gap:6px;flex-wrap:wrap"><button class="btn btn-g" onclick="copyOutput()">📋 複製</button><button class="btn" onclick="shareOutput()" title="手機原生分享（傳到 LINE/Telegram 等）">📤 分享</button><button class="btn" onclick="exportCSV('output')" title="此區間 CSV">🔍 區間 csv</button><button class="btn" onclick="exportCSV('all')" title="全部 CSV">📊 全 csv</button></div></div><div class="card-b"><div class="filter-row" style="margin-bottom:8px;align-items:center;flex-wrap:wrap;gap:6px"><span class="fg-grp"><span style="font-size:11px;color:var(--dm)">🛒 平台：</span><button class="fbtn on" data-fg="oplat" onclick="setOutputPlatform('all',this)">全部</button><button class="fbtn" data-fg="oplat" onclick="setOutputPlatform('MO',this)">Mo</button><button class="fbtn" data-fg="oplat" onclick="setOutputPlatform('PC',this)">Pc</button><button class="fbtn" data-fg="oplat" onclick="setOutputPlatform('ST',this)">店內</button></span></div><div class="filter-row" style="margin-bottom:8px;align-items:center;flex-wrap:wrap;gap:6px" title="Ctrl/Cmd + 點擊可多選"><span class="fg-grp"><span style="font-size:11px;color:var(--dm)">🏷️ 狀態：</span><button class="fbtn on" data-fg="ostatus" data-stat="all" onclick="setOutputStatus('all',this,event)">全部</button><button class="fbtn" data-fg="ostatus" data-stat="未確認" onclick="setOutputStatus('未確認',this,event)">未確認</button><button class="fbtn" data-fg="ostatus" data-stat="已確認" onclick="setOutputStatus('已確認',this,event)">已確認</button><button class="fbtn" data-fg="ostatus" data-stat="交涉中" onclick="setOutputStatus('交涉中',this,event)">交涉中</button><button class="fbtn" data-fg="ostatus" data-stat="未接電" onclick="setOutputStatus('未接電',this,event)">未接電</button><button class="fbtn" data-fg="ostatus" data-stat="已出貨" onclick="setOutputStatus('已出貨',this,event)">已出貨</button><button class="fbtn" data-fg="ostatus" data-stat="待收費" onclick="setOutputStatus('待收費',this,event)" style="color:#dc2626;border-color:#dc2626;font-weight:700">💰 待收費</button><button class="fbtn" data-fg="ostatus" data-stat="補貨中" onclick="setOutputStatus('補貨中',this,event)">補貨中</button><button class="fbtn" data-fg="ostatus" data-stat="已完成" onclick="setOutputStatus('已完成',this,event)">已完成</button></span></div><div class="filter-row" style="margin-bottom:10px;align-items:center;flex-wrap:wrap;gap:6px"><span class="fg-grp"><span style="font-size:11px;color:var(--dm)">📅 日期：</span><button class="fbtn on" data-fg="odate" onclick="setOutputDate('today',this)">今天</button><button class="fbtn" data-fg="odate" onclick="setOutputDate('yesterday',this)">昨天</button><button class="fbtn" data-fg="odate" onclick="setOutputDate('week',this)">本週</button><button class="fbtn" data-fg="odate" onclick="setOutputDate('month',this)">本月</button><button class="fbtn" data-fg="odate" onclick="setOutputDate('all',this)">全部</button></span><span class="fg-grp"><span style="font-size:11px;color:var(--dm)">自訂區間：</span><input type="date" id="of-from" onchange="onOutputDateChange()" style="font-size:11px;padding:2px 6px"><span style="font-size:11px;color:var(--dm)">→</span><input type="date" id="of-to" onchange="onOutputDateChange()" style="font-size:11px;padding:2px 6px"></span><span style="flex:1"></span><span style="font-size:11px;color:var(--dm)">顯示 <strong id="ocnt">0</strong> 筆</span></div><div class="filter-row" style="margin-bottom:10px;align-items:center;flex-wrap:wrap;gap:8px"><input class="search" id="oq" placeholder="搜尋姓名/單號/商品/地址..." oninput="searchOutputDebounced()" style="flex:1;min-width:200px"><label style="font-size:11px;color:var(--dm);display:flex;align-items:center;gap:4px;cursor:pointer"><input type="checkbox" id="oinc-skip" onchange="toggleOutputIncSkip(this.checked)"> 顯示 已取消 / 轉線下</label></div><div class="hint">CSV 用 UTF-8 BOM 編碼，Excel 開啟中文不會亂碼。預設不顯示已取消 / 轉線下訂單（勾選右邊 checkbox 可看）。</div><div id="output-area">尚無訂單</div></div></div></div>
 <div class="main hidden" id="tab-stats"><div class="filter-row" style="margin-bottom:14px;flex-wrap:wrap;gap:6px"><span style="font-size:12px;color:var(--dm);font-weight:600">📅 期間：</span><button class="fbtn" onclick="setStatsPeriod('today',this)">今日</button><button class="fbtn" onclick="setStatsPeriod('7',this)">7 天</button><button class="fbtn on" onclick="setStatsPeriod('30',this)">30 天</button><button class="fbtn" onclick="setStatsPeriod('90',this)">3 個月</button><button class="fbtn" onclick="setStatsPeriod('all',this)">全部</button><span style="margin-left:8px;color:var(--ht)">｜</span><span style="font-size:11px;color:var(--dm)">指定月份：</span><input type="month" id="stats-month" onchange="setStatsMonth(this.value)" style="font-size:12px;padding:4px 8px;border:1px solid var(--bd);border-radius:6px;background:var(--sf)"></div><div id="stats-area"></div></div>
@@ -2424,6 +2424,7 @@ function renderSchedule(){
   // 週表 grid 視圖：3 行（早午晚 + 未排）× 7 天
   if(schedView==='weekgrid'){
     const globalRouteBtn=document.getElementById('sched-route-btn');if(globalRouteBtn)globalRouteBtn.style.display='none';
+    const copyBtn=document.getElementById('sched-copy-btn');if(copyBtn)copyBtn.style.display='none';
     document.getElementById('schedule-area').innerHTML=renderWeekGrid(filtered,noDate);
     _renderSchedBatchBar();
     return;
@@ -2454,8 +2455,10 @@ function renderSchedule(){
     html=`<div class="card"><div class="card-b" style="color:var(--dm);text-align:center;padding:30px">${esc(tip)}${extra}<br><span style="font-size:11px;color:var(--ht)">提示：把訂單的安裝設為「要安裝」並填日期 → 會自動出現在這裡</span></div></div>`;
   }
   for(const dt of sortedDates){
-    const routeBtn=(dt!=='未排日'&&groups[dt].length>0)?`<button class="btn" onclick="event.stopPropagation();openSchedRouteForDate('${dt}')" style="font-size:11px;margin-left:auto">規劃路線</button>`:'';
-    html+=`<div class="card" style="margin-bottom:10px"><div class="card-h" style="display:flex;align-items:center;gap:8px"><h3 style="flex:0 0 auto">${formatSchedDate(dt)} <span class="badge">${groups[dt].length}</span></h3>${routeBtn}</div><div class="card-b" style="padding:0">`;
+    const dayBtns=(dt!=='未排日'&&groups[dt].length>0)
+      ?`<div style="margin-left:auto;display:flex;gap:4px"><button class="btn" onclick="event.stopPropagation();copySchedDay('${dt}')" style="font-size:11px">複製清單</button><button class="btn" onclick="event.stopPropagation();openSchedRouteForDate('${dt}')" style="font-size:11px">規劃路線</button></div>`
+      :'';
+    html+=`<div class="card" style="margin-bottom:10px"><div class="card-h" style="display:flex;align-items:center;gap:8px"><h3 style="flex:0 0 auto">${formatSchedDate(dt)} <span class="badge">${groups[dt].length}</span></h3>${dayBtns}</div><div class="card-b" style="padding:0">`;
     for(const o of groups[dt])html+=renderSchedRow(o);
     html+=`</div></div>`;
   }
@@ -2467,9 +2470,12 @@ function renderSchedule(){
     for(const o of noDate.slice(0,200))html+=renderSchedRow(o,{draggable:true});
     html+=`</div></div>`;
   }
-  // 「規劃路線」全域按鈕：today / 指定日 視圖時顯示
+  // 「規劃路線」/「複製清單」全域按鈕：today / 指定日 視圖時顯示
+  const showGlobal=((schedView==='today'||schedView==='date')&&filtered.length>0);
   const globalRouteBtn=document.getElementById('sched-route-btn');
-  if(globalRouteBtn){globalRouteBtn.style.display=((schedView==='today'||schedView==='date')&&filtered.length>0)?'':'none'}
+  if(globalRouteBtn)globalRouteBtn.style.display=showGlobal?'':'none';
+  const copyBtn=document.getElementById('sched-copy-btn');
+  if(copyBtn)copyBtn.style.display=showGlobal?'':'none';
   document.getElementById('schedule-area').innerHTML=html;
   _renderSchedBatchBar();
 }
@@ -2769,6 +2775,44 @@ function openSchedRoute(){
   // 預設用當前 view 的日期：today / date 模式各自帶
   const dateIso=schedView==='date'?(schedDate||localDateISO()):localDateISO();
   openSchedRouteForDate(dateIso);
+}
+function copySchedCurrentView(){
+  const dateIso=schedView==='date'?(schedDate||localDateISO()):localDateISO();
+  copySchedDay(dateIso);
+}
+// 複製當日清單給司機/師傅（純文字格式，貼 LINE 用）
+function copySchedDay(dateIso){
+  const target=orders.filter(o=>o.install==='是'&&o.installDate===dateIso&&(schedInstaller==='all'||o.installer===schedInstaller)&&o.status!=='已完成'&&o.status!=='已取消'&&o.status!=='轉線下');
+  if(!target.length){alert(`${dateIso} 沒有安裝行程可複製`);return}
+  // 按師傅分組（如 schedInstaller=all 多人）+ 同師傅內按時段 + ZIP
+  const slotOrder={'早上':0,'下午':1,'晚上':2,'':3};
+  target.sort((a,b)=>{
+    const ia=(a.installer||'~未指派').localeCompare(b.installer||'~未指派');
+    if(ia!==0)return ia;
+    const sa=slotOrder[effectiveSlot(a)]??3,sb=slotOrder[effectiveSlot(b)]??3;
+    if(sa!==sb)return sa-sb;
+    const za=((a.address||'').match(/^\d{3,5}/)||[''])[0];
+    const zb=((b.address||'').match(/^\d{3,5}/)||[''])[0];
+    return za.localeCompare(zb);
+  });
+  const wd=['週日','週一','週二','週三','週四','週五','週六'][new Date(dateIso+'T00:00:00').getDay()];
+  let txt=`【${dateIso} ${wd}】安裝清單（${target.length} 單）\n`;
+  txt+=`倉庫起點：${warehouseAddress}\n`;
+  let lastInst='';
+  target.forEach((o,i)=>{
+    if(o.installer!==lastInst){lastInst=o.installer||'';txt+=`\n── ${lastInst||'未指派'} ──\n`}
+    const slot=effectiveSlot(o)||'未排時段';
+    const ph=bestPhone(o)||'(無電話)';
+    const ps=splitProductSpecs(o);
+    const prod=`${ps.name||o.product||''}${ps.specs?'（'+ps.specs+'）':''} ×${o.qty||1}`;
+    const fee=`$${(o.installFee||0).toLocaleString()}${(o.installPaidAmount||0)>0?' 已收':' 未收'}`;
+    txt+=`${i+1}. [${slot}] ${o.name||'?'} ｜ ${ph}\n   ${prod}\n   ${o.address||'(無地址)'}\n   安裝費 ${fee}\n`;
+  });
+  navigator.clipboard.writeText(txt).then(()=>{
+    showToast(`已複製 ${dateIso} ${target.length} 單清單到剪貼簿`,null,null,4000);
+  }).catch(()=>{
+    prompt('複製失敗，請手動 copy：',txt);
+  });
 }
 function openSchedRouteForDate(dateIso,opts){
   opts=opts||{};
