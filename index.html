@@ -103,6 +103,13 @@ td{padding:7px 10px;border-bottom:1px solid #f0ede6}tr:hover td{background:var(-
 .st-pending-pay{background:#dc2626;color:#fff;border-color:#7f1d1d;font-weight:800;box-shadow:0 0 0 1px #fca5a5}
 .toggle-off{padding:3px 10px;border-radius:5px;border:1px solid var(--bd);background:var(--sf2);color:var(--dm);font-size:10px;font-weight:600;cursor:pointer;font-family:var(--sans)}
 .toggle-on{padding:3px 10px;border-radius:5px;border:2px solid var(--grn);background:var(--grn-bg);color:var(--grn);font-size:10px;font-weight:700;cursor:pointer;font-family:var(--sans)}
+.toggle-unknown{padding:3px 10px;border-radius:5px;border:2px dashed #b45309;background:#fef9ec;color:#b45309;font-size:10px;font-weight:700;cursor:pointer;font-family:var(--sans)}
+/* 安裝/加購 inline 選單（點未確認跳出） */
+.acc-menu{display:flex;flex-direction:column;gap:2px;align-items:stretch}
+.acc-menu button{padding:3px 6px;border-radius:5px;font-size:10px;font-weight:700;cursor:pointer;font-family:var(--sans);white-space:nowrap;min-height:24px}
+.acc-menu .acc-yes{border:2px solid var(--grn);background:var(--grn-bg);color:var(--grn)}
+.acc-menu .acc-no{border:1px solid var(--bd);background:var(--sf2);color:var(--dm)}
+.acc-menu .acc-cancel{border:none;background:transparent;color:var(--ht);font-size:9px;padding:2px}
 .fee-input{width:68px;padding:3px 6px;border:2px solid var(--grn);border-radius:4px;font-size:11px;font-family:var(--mono);text-align:right;outline:none}
 .total-cell{font-family:var(--mono);font-weight:800;color:var(--grn);font-size:12px}
 .stats-g{display:grid;grid-template-columns:repeat(auto-fit,minmax(140px,1fr));gap:10px;margin-bottom:14px}
@@ -249,7 +256,7 @@ body.has-batch-bar .main{padding-bottom:140px}
 <div class="card" style="background:var(--card-pc-bg);border:1px solid var(--card-pc-bd)"><div class="card-h" style="background:transparent"><h3>🛒 自動抓 PChome</h3><div style="display:flex;gap:6px;flex-wrap:wrap"><button class="btn btn-g" id="pchome-auto-btn" onclick="fetchPchomeAuto()" style="background:var(--pc);border-color:var(--pc)" title="自動抓 PChome 未出貨訂單（共用 MOMO API Token）">🔄 抓取</button></div></div><div class="card-b" style="padding:10px 16px"><div id="pchome-auto-status" style="font-size:11px;color:var(--dm);font-family:var(--mono)">共用 MOMO Token / IP，PChome 後台 → API 自動帶個資 ☁️</div></div></div>
 <div class="card"><div class="card-h"><h3>貼上後台資料</h3><div style="display:flex;gap:6px;flex-wrap:wrap"><button class="btn" onclick="clearInput()">清空</button><button class="btn btn-b" onclick="runParse()">預覽</button><button class="btn btn-g" onclick="doImport()" title="匯入到 Firebase">匯入</button><button class="btn" onclick="doReimport()" title="同單號覆蓋（修舊資料用）" style="border-color:#f59e0b;color:#b45309">🔄 覆蓋</button><button class="btn" onclick="copyPCScript()" title="複製 PChome F12 撈單 script" style="border-color:#7c3aed;color:#7c3aed;font-weight:700">📋 F12 腳本</button></div></div><div class="card-b"><details class="hint" style="cursor:pointer"><summary style="font-weight:600;cursor:pointer">📖 操作說明（點開看）</summary><div style="margin-top:8px"><b>MOMO：</b>SCM 後台 → Ctrl+A → Ctrl+C → 貼下方<br><b>PChome（F12 新法）：</b>按 <strong>📋 F12 腳本</strong> → PChome「印貨資料」view → F12 → Console → Ctrl+V Enter → alert 確認 → 回來貼下方<br><b>PChome（舊法）：</b>供應商後台 → Ctrl+A → Ctrl+C → 貼下方</div></details><textarea id="raw-input" rows="7" placeholder="把 MOMO 後台 / PChome 後台 / F12 JSON 貼在這裡..."></textarea></div></div><div id="preview-area"></div></div>
 
-<div class="main hidden" id="tab-list"><div class="filter-row"><span class="fg-grp" data-grp="plat"><button class="fbtn on" data-fg="plat" data-stat="all" onclick="setF('all',this)">全部</button><button class="fbtn" data-fg="plat" data-stat="MO" onclick="setF('MO',this)">Mo</button><button class="fbtn" data-fg="plat" data-stat="PC" onclick="setF('PC',this)">Pc</button><button class="fbtn" data-fg="plat" data-stat="ST" onclick="setF('ST',this)">店內</button><button id="mob-stat-cycle" class="fbtn st-cycle" onclick="cycleStatus()" title="點擊循環切換狀態篩選">狀態</button></span><span class="fb-divider">｜</span><span class="fg-grp" data-grp="status" title="Ctrl/Cmd + 點擊可多選"><button class="fbtn on" data-fg="status" data-stat="status:all" onclick="setSF('all',this,event)">狀態</button><button class="fbtn" data-fg="status" data-stat="status:未確認" onclick="setSF('未確認',this,event)">未確認</button><button class="fbtn" data-fg="status" data-stat="status:已確認" onclick="setSF('已確認',this,event)">已確認</button><button class="fbtn" data-fg="status" data-stat="status:交涉中" onclick="setSF('交涉中',this,event)">交涉中</button><button class="fbtn" data-fg="status" data-stat="status:未接電" onclick="setSF('未接電',this,event)">未接電</button><button class="fbtn" data-fg="status" data-stat="status:已出貨" onclick="setSF('已出貨',this,event)">已出貨</button><button class="fbtn" data-fg="status" data-stat="status:待收費" onclick="setSF('待收費',this,event)" title="安裝/加購款還沒收 — 自動連動偵測" style="color:#dc2626;border-color:#dc2626;font-weight:700">💰 待收費</button><button class="fbtn" data-fg="status" data-stat="status:補貨中" onclick="setSF('補貨中',this,event)">補貨中</button><button class="fbtn" data-fg="status" data-stat="status:已完成" onclick="setSF('已完成',this,event)" title="只看已完成單" style="color:var(--grn);border-color:#8cc4a0;font-weight:700">✅ 已完成</button><button class="fbtn" data-fg="status" data-stat="status:已取消" onclick="setSF('已取消',this,event)">已取消</button><button class="fbtn" data-fg="status" data-stat="status:轉線下" onclick="setSF('轉線下',this,event)">🏪 轉線下</button></span><span class="fb-divider">｜</span><span class="fg-grp" data-grp="special"><button class="fbtn" data-fg="special" onclick="toggleSpecial('changeAddr',this)" title="只看客戶有申請改地址的訂單">⚠️ 改址</button><button class="fbtn" data-fg="special" onclick="toggleSpecial('newToday',this)" title="只看今日新單">🆕 今日</button><button class="fbtn" data-fg="special" onclick="toggleSpecial('unpaidFee',this)" title="只看有未收款的訂單（安裝/加購費>0 但未收）— 含已完成的單，跨所有狀態篩" style="color:#dc2626;border-color:#dc2626;font-weight:700">💰 未收款</button></span><span style="flex:1"></span><span id="filter-applied-info" style="display:none"></span><input class="search" id="q" placeholder="搜尋姓名/單號/商品..." oninput="searchListDebounced()" title="按 / 或 Ctrl+K 快速聚焦"></div><div id="list-area"></div></div>
+<div class="main hidden" id="tab-list"><div class="filter-row"><span class="fg-grp" data-grp="plat"><button class="fbtn on" data-fg="plat" data-stat="all" onclick="setF('all',this)">全部</button><button class="fbtn" data-fg="plat" data-stat="MO" onclick="setF('MO',this)">Mo</button><button class="fbtn" data-fg="plat" data-stat="PC" onclick="setF('PC',this)">Pc</button><button class="fbtn" data-fg="plat" data-stat="ST" onclick="setF('ST',this)">店內</button><button id="mob-stat-cycle" class="fbtn st-cycle" onclick="cycleStatus()" title="點擊循環切換狀態篩選">狀態</button></span><span class="fb-divider">｜</span><span class="fg-grp" data-grp="status" title="Ctrl/Cmd + 點擊可多選"><button class="fbtn on" data-fg="status" data-stat="status:all" onclick="setSF('all',this,event)">狀態</button><button class="fbtn" data-fg="status" data-stat="status:active" onclick="setActiveStatuses(this)" title="一鍵選所有「進行中」狀態（排除 已完成 / 已取消 / 轉線下）" style="color:#b45309;border-color:#b45309;font-weight:700">🔥 進行中</button><button class="fbtn" data-fg="status" data-stat="status:未確認" onclick="setSF('未確認',this,event)">未確認</button><button class="fbtn" data-fg="status" data-stat="status:已確認" onclick="setSF('已確認',this,event)">已確認</button><button class="fbtn" data-fg="status" data-stat="status:交涉中" onclick="setSF('交涉中',this,event)">交涉中</button><button class="fbtn" data-fg="status" data-stat="status:未接電" onclick="setSF('未接電',this,event)">未接電</button><button class="fbtn" data-fg="status" data-stat="status:已出貨" onclick="setSF('已出貨',this,event)">已出貨</button><button class="fbtn" data-fg="status" data-stat="status:待收費" onclick="setSF('待收費',this,event)" title="安裝/加購款還沒收 — 自動連動偵測" style="color:#dc2626;border-color:#dc2626;font-weight:700">💰 待收費</button><button class="fbtn" data-fg="status" data-stat="status:補貨中" onclick="setSF('補貨中',this,event)">補貨中</button><button class="fbtn" data-fg="status" data-stat="status:已完成" onclick="setSF('已完成',this,event)" title="只看已完成單" style="color:var(--grn);border-color:#8cc4a0;font-weight:700">✅ 已完成</button><button class="fbtn" data-fg="status" data-stat="status:已取消" onclick="setSF('已取消',this,event)">已取消</button><button class="fbtn" data-fg="status" data-stat="status:轉線下" onclick="setSF('轉線下',this,event)">🏪 轉線下</button></span><span class="fb-divider">｜</span><span class="fg-grp" data-grp="special"><button class="fbtn" data-fg="special" onclick="toggleSpecial('changeAddr',this)" title="只看客戶有申請改地址的訂單">⚠️ 改址</button><button class="fbtn" data-fg="special" onclick="toggleSpecial('newToday',this)" title="只看今日新單">🆕 今日</button><button class="fbtn" data-fg="special" onclick="toggleSpecial('unpaidFee',this)" title="只看有未收款的訂單（安裝/加購費>0 但未收）— 含已完成的單，跨所有狀態篩" style="color:#dc2626;border-color:#dc2626;font-weight:700">💰 未收款</button></span><span style="flex:1"></span><span id="filter-applied-info" style="display:none"></span><input class="search" id="q" placeholder="搜尋姓名/單號/商品..." oninput="searchListDebounced()" title="按 / 或 Ctrl+K 快速聚焦"></div><div id="list-area"></div></div>
 
 <div class="main hidden" id="tab-output"><div class="card"><div class="card-h"><h3>整理格式</h3><div style="display:flex;gap:6px;flex-wrap:wrap"><button class="btn btn-g" onclick="copyOutput()">📋 複製</button><button class="btn" onclick="shareOutput()" title="手機原生分享（傳到 LINE/Telegram 等）">📤 分享</button><button class="btn" onclick="exportCSV('output')" title="此區間 CSV">🔍 區間 csv</button><button class="btn" onclick="exportCSV('all')" title="全部 CSV">📊 全 csv</button></div></div><div class="card-b"><div class="filter-row" style="margin-bottom:8px;align-items:center;flex-wrap:wrap;gap:6px"><span class="fg-grp"><span style="font-size:11px;color:var(--dm)">🛒 平台：</span><button class="fbtn on" data-fg="oplat" onclick="setOutputPlatform('all',this)">全部</button><button class="fbtn" data-fg="oplat" onclick="setOutputPlatform('MO',this)">Mo</button><button class="fbtn" data-fg="oplat" onclick="setOutputPlatform('PC',this)">Pc</button><button class="fbtn" data-fg="oplat" onclick="setOutputPlatform('ST',this)">店內</button></span></div><div class="filter-row" style="margin-bottom:8px;align-items:center;flex-wrap:wrap;gap:6px" title="Ctrl/Cmd + 點擊可多選"><span class="fg-grp"><span style="font-size:11px;color:var(--dm)">🏷️ 狀態：</span><button class="fbtn on" data-fg="ostatus" data-stat="all" onclick="setOutputStatus('all',this,event)">全部</button><button class="fbtn" data-fg="ostatus" data-stat="未確認" onclick="setOutputStatus('未確認',this,event)">未確認</button><button class="fbtn" data-fg="ostatus" data-stat="已確認" onclick="setOutputStatus('已確認',this,event)">已確認</button><button class="fbtn" data-fg="ostatus" data-stat="交涉中" onclick="setOutputStatus('交涉中',this,event)">交涉中</button><button class="fbtn" data-fg="ostatus" data-stat="未接電" onclick="setOutputStatus('未接電',this,event)">未接電</button><button class="fbtn" data-fg="ostatus" data-stat="已出貨" onclick="setOutputStatus('已出貨',this,event)">已出貨</button><button class="fbtn" data-fg="ostatus" data-stat="待收費" onclick="setOutputStatus('待收費',this,event)" style="color:#dc2626;border-color:#dc2626;font-weight:700">💰 待收費</button><button class="fbtn" data-fg="ostatus" data-stat="補貨中" onclick="setOutputStatus('補貨中',this,event)">補貨中</button><button class="fbtn" data-fg="ostatus" data-stat="已完成" onclick="setOutputStatus('已完成',this,event)">已完成</button></span></div><div class="filter-row" style="margin-bottom:10px;align-items:center;flex-wrap:wrap;gap:6px"><span class="fg-grp"><span style="font-size:11px;color:var(--dm)">📅 日期：</span><button class="fbtn on" data-fg="odate" onclick="setOutputDate('today',this)">今天</button><button class="fbtn" data-fg="odate" onclick="setOutputDate('yesterday',this)">昨天</button><button class="fbtn" data-fg="odate" onclick="setOutputDate('week',this)">本週</button><button class="fbtn" data-fg="odate" onclick="setOutputDate('month',this)">本月</button><button class="fbtn" data-fg="odate" onclick="setOutputDate('all',this)">全部</button></span><span class="fg-grp"><span style="font-size:11px;color:var(--dm)">自訂區間：</span><input type="date" id="of-from" onchange="onOutputDateChange()" style="font-size:11px;padding:2px 6px"><span style="font-size:11px;color:var(--dm)">→</span><input type="date" id="of-to" onchange="onOutputDateChange()" style="font-size:11px;padding:2px 6px"></span><span style="flex:1"></span><span style="font-size:11px;color:var(--dm)">顯示 <strong id="ocnt">0</strong> 筆</span></div><div class="filter-row" style="margin-bottom:10px;align-items:center;flex-wrap:wrap;gap:8px"><input class="search" id="oq" placeholder="搜尋姓名/單號/商品/地址..." oninput="searchOutputDebounced()" style="flex:1;min-width:200px"><label style="font-size:11px;color:var(--dm);display:flex;align-items:center;gap:4px;cursor:pointer"><input type="checkbox" id="oinc-skip" onchange="toggleOutputIncSkip(this.checked)"> 顯示 已取消 / 轉線下</label></div><div class="hint">CSV 用 UTF-8 BOM 編碼，Excel 開啟中文不會亂碼。預設不顯示已取消 / 轉線下訂單（勾選右邊 checkbox 可看）。</div><div id="output-area">尚無訂單</div></div></div></div>
 <div class="main hidden" id="tab-stats"><div class="filter-row" style="margin-bottom:14px;flex-wrap:wrap;gap:6px"><span style="font-size:12px;color:var(--dm);font-weight:600">📅 期間：</span><button class="fbtn" onclick="setStatsPeriod('today',this)">今日</button><button class="fbtn" onclick="setStatsPeriod('7',this)">7 天</button><button class="fbtn on" onclick="setStatsPeriod('30',this)">30 天</button><button class="fbtn" onclick="setStatsPeriod('90',this)">3 個月</button><button class="fbtn" onclick="setStatsPeriod('all',this)">全部</button><span style="margin-left:8px;color:var(--ht)">｜</span><span style="font-size:11px;color:var(--dm)">指定月份：</span><input type="month" id="stats-month" onchange="setStatsMonth(this.value)" style="font-size:12px;padding:4px 8px;border:1px solid var(--bd);border-radius:6px;background:var(--sf)"></div><div id="stats-area"></div></div>
@@ -404,7 +411,7 @@ if(id&&(name||prod)){let iso=localDateISO();if(date){const[mm,dd]=date.split('/'
 let phPC='';const phM=bk.match(/\b(09\d{8})\b/);if(phM)phPC=phM[1];
 // realPhone 留空 — 從 PC 後台抓的 phPC 其實是代撥號（0928000899），不是客戶真實手機。
 // 用戶手動填客戶真實手機（從 LINE / 來電留下的）才寫進 realPhone。bestPhone(o) 會優先用 realPhone。
-res.push({id:gid(),date:iso,dateFmt:date,platform:'PC',orderNo:id,product:prod,specs,name,phone:phPC,realPhone:'',address:addr,install:'否',installFee:0,installDay:'',installTime:'',addon:'否',addonFee:0,amount:amt,qty,status:'未確認',note:''})}}return res}
+res.push({id:gid(),date:iso,dateFmt:date,platform:'PC',orderNo:id,product:prod,specs,name,phone:phPC,realPhone:'',address:addr,install:'未確認',installFee:0,installDay:'',installTime:'',addon:'未確認',addonFee:0,amount:amt,qty,status:'未確認',note:''})}}return res}
 
 function parseMO(raw){const hs=/\d+\(•\)/.test(raw);if(hs){const b=raw.split(/\d+\(•\)/).filter(x=>x.trim().length>30);const r=b.map(parseMOB).filter(Boolean);if(r.length)return r}const re=/(\d{14,}-\d{3}-\d{3}-\d{3})/g,sn=new Set(),h=[];let m;while((m=re.exec(raw))!==null){if(!sn.has(m[1])){sn.add(m[1]);h.push({id:m[1],pos:m.index})}}if(h.length){const r=[];for(let i=0;i<h.length;i++){const o=parseMOB(raw.substring(h[i].pos,i+1<h.length?h[i+1].pos:raw.length));if(o)r.push(o)}if(r.length)return r}const s=parseMOB(raw);return s?[s]:[]}
 function parseMOB(bk){let t=bk.replace(/請回覆/g,' ').replace(/請選取[^\n]*/g,' ').replace(/已配送|已確認[^\n]*|已確定[^\n]*|已電聯[^\n]*|多次電聯[^\n]*|暫時電聯[^\n]*/g,' ').replace(/需配送[^\n]*|無貨取消[^\n]*|收件資料[^\n]*|無適當[^\n]*/g,' ').replace(/宅配通|新竹貨運|統一速達|大榮貨運|順豐速運|全球快遞|通盈貨運|新航貨運|郵局|便利袋|富昇物流|其他宅配|宅配-宅配通大電/g,' ').replace(/原箱|momo制式包材-紙箱\(袋\)|momo制式包材-破壞袋|自有包材|循環箱/g,' ').replace(/其他/g,' ').replace(/\n/g,' ').replace(/\s{2,}/g,' ').trim();
@@ -414,7 +421,7 @@ let ac='';if(pr){const ap=t.substring(t.indexOf(pr)+pr.length);const vm=ap.match
 if(pr&&ac){if(pr.includes('黑色/白色')||pr.includes('白色/黑色'))pr=pr.replace(/黑色\/白色|白色\/黑色/,ac);else if(pr.includes('/'))pr=pr.replace(/[^\s(/]+\/[^\s()）]+/,ac)}
 const nm=t.match(/([\u4e00-\u9fa5]{2,5})(?=\s*09\d{8})/);const name=nm?nm[1]:'';const ph=t.match(/(09\d{8}#\d+)/);const phone=ph?ph[1]:'';
 let addr='';if(phone){const ap=t.substring(t.indexOf(phone)+phone.length).trim();const am=ap.match(/^(\d{3}\s*[\u4e00-\u9fa5][^【]*?)(?:\s*\d{7,}\s*【|\s*\d{7,}|【)/);if(am)addr=am[1].replace(/\s+/g,' ').trim();else{const fb=ap.match(/^(\d{3}\s*[^【]+?)【/);if(fb)addr=fb[1].replace(/\s+/g,' ').replace(/\s*\d{7,}\s*$/,'').trim()}}
-if(!no||(!name&&!pr))return null;return{id:gid(),date:dt,dateFmt:df,platform:'MO',orderNo:no,product:pr,specs:'',name,phone,address:addr,install:'否',installFee:0,installDay:'',installTime:'',addon:'否',addonFee:0,amount:0,qty:1,status:'未確認',note:''}}
+if(!no||(!name&&!pr))return null;return{id:gid(),date:dt,dateFmt:df,platform:'MO',orderNo:no,product:pr,specs:'',name,phone,address:addr,install:'未確認',installFee:0,installDay:'',installTime:'',addon:'未確認',addonFee:0,amount:0,qty:1,status:'未確認',note:''}}
 
 // ===== HELPERS =====
 function gid(){return Date.now().toString(36)+Math.random().toString(36).slice(2,6)}
@@ -858,13 +865,24 @@ function setSF(f,b,e){
     if(i>=0)cStatus.splice(i,1);else cStatus.push(f);
   }
   else cStatus=[f];
-  // 同步按鈕 on 狀態
+  syncStatusChips();updateStatCycleBtn();persistFilters();renderList();
+}
+// 「🔥 進行中」一鍵全選：排除終態（已完成 / 已取消 / 轉線下），其他全進
+const ACTIVE_STATUSES=['未確認','已確認','交涉中','未接電','已出貨','待收費','補貨中'];
+function isActivePreset(){return cStatus.length===ACTIVE_STATUSES.length&&ACTIVE_STATUSES.every(s=>cStatus.includes(s))}
+function setActiveStatuses(btn){_mobileExpand=false;
+  // 已是 active preset → 再點 = 清空回「全部」
+  if(isActivePreset())cStatus=[];
+  else cStatus=[...ACTIVE_STATUSES];
+  syncStatusChips();updateStatCycleBtn();persistFilters();renderList();
+}
+function syncStatusChips(){
+  const preset=isActivePreset();
   document.querySelectorAll('.filter-row .fbtn[data-fg="status"]').forEach(x=>{
     const raw=x.dataset.stat||'';const v=raw.replace('status:','');
-    const active=(v==='all'&&!cStatus.length)||(v!=='all'&&cStatus.includes(v));
+    const active=v==='active'?preset:(v==='all'?!cStatus.length:cStatus.includes(v));
     x.classList.toggle('on',active);
   });
-  updateStatCycleBtn();persistFilters();renderList();
 }
 // 手機板用單顆按鈕循環切換狀態篩選；desktop 隱藏，照常用 status chips
 // 含已完成 — 移除成交 tab 後，已完成單留在列表，cycle 也要能循環到
@@ -977,7 +995,7 @@ function resetMomoApi(){
 }
 
 function transformMomoOrder(o){let date=localDateISO(),dateFmt='';const dm=(o.lastPricDate||'').match(/(\d{4})\/(\d{1,2})\/(\d{1,2})/);if(dm){date=`${dm[1]}-${String(dm[2]).padStart(2,'0')}-${String(dm[3]).padStart(2,'0')}`;dateFmt=`${parseInt(dm[2])}/${parseInt(dm[3])}`}
-return{id:gid(),date,dateFmt,platform:'MO',orderNo:o.completeOrderNo||'',product:o.goodsName||'',specs:o.goodsDtInfo||'',name:o.receiver||'',phone:o.receiverMobile||o.receiverTel||'',address:o.newReceiverAddr||o.receiverAddr||'',install:'否',installFee:0,installDay:'',installTime:'',addon:'否',addonFee:0,amount:parseInt(o.salePrice)||parseInt(o.buyPrice)||0,qty:parseInt(o.syslast)||1,status:'未確認',note:o.newReceiverAddr?'⚠ 客戶申請改地址':''}}
+return{id:gid(),date,dateFmt,platform:'MO',orderNo:o.completeOrderNo||'',product:o.goodsName||'',specs:o.goodsDtInfo||'',name:o.receiver||'',phone:o.receiverMobile||o.receiverTel||'',address:o.newReceiverAddr||o.receiverAddr||'',install:'未確認',installFee:0,installDay:'',installTime:'',addon:'未確認',addonFee:0,amount:parseInt(o.salePrice)||parseInt(o.buyPrice)||0,qty:parseInt(o.syslast)||1,status:'未確認',note:o.newReceiverAddr?'⚠ 客戶申請改地址':''}}
 
 function parseDateRangeInput(s){s=(s||'').trim().toLowerCase();if(!s)return{days:30};if(s==='today'||s==='今天')return{from:isoToday(),to:isoToday()};if(/^\d+$/.test(s))return{days:parseInt(s,10)};const range=s.match(/^(\d{4})[/\-](\d{1,2})[/\-](\d{1,2})\s*[-~至]\s*(\d{4})[/\-](\d{1,2})[/\-](\d{1,2})$/);if(range){return{from:`${range[1]}-${range[2].padStart(2,'0')}-${range[3].padStart(2,'0')}`,to:`${range[4]}-${range[5].padStart(2,'0')}-${range[6].padStart(2,'0')}`}}const single=s.match(/^(\d{4})[/\-](\d{1,2})[/\-](\d{1,2})$/);if(single){const d=`${single[1]}-${single[2].padStart(2,'0')}-${single[3].padStart(2,'0')}`;return{from:d,to:isoToday()}}return null}
 function isoToday(){return localDateISO()}
@@ -1188,8 +1206,8 @@ function buildOrderActions(o,variant){
         :`<button class="act" onclick="togAddonPaid('${oid}')" title="加購款未收 — 點擊填已收金額" style="border-color:var(--amb);color:var(--amb);font-weight:700">🛒⚠</button> `))
     :'';
   // 加 install / addon（mobile 行內快速開啟，desktop 已有 toggle 不重複）
-  const quickAddInstall=(isMob&&o.install==='否')?`<button onclick="toggleInstall('${oid}')" style="color:var(--blu);border-color:#a8c4f0" title="開啟安裝服務">+🔧</button>`:'';
-  const quickAddAddon=(isMob&&o.addon==='否')?`<button onclick="toggleAddon('${oid}')" style="color:var(--mo);border-color:#f0c4d8" title="開啟加購">+🛒</button>`:'';
+  const quickAddInstall=(isMob&&(o.install==='否'||o.install==='未確認'||!o.install))?`<button onclick="installCellClick('${oid}',event)" style="color:var(--blu);border-color:#a8c4f0" title="${o.install==='否'?'目前不安裝':'安裝服務未確認'} — 點擊設定">${o.install==='否'?'+🔧':'?🔧'}</button>`:'';
+  const quickAddAddon=(isMob&&(o.addon==='否'||o.addon==='未確認'||!o.addon))?`<button onclick="addonCellClick('${oid}',event)" style="color:var(--mo);border-color:#f0c4d8" title="${o.addon==='否'?'目前不加購':'加購未確認'} — 點擊設定">${o.addon==='否'?'+🛒':'?🛒'}</button>`:'';
   // 編輯 / 複製 / 拍照 / 刪
   const edit=isMob?`<button onclick="openEdit('${oid}')">✏️ 編輯</button>`:`<button class="act" onclick="openEdit('${oid}')">編輯</button>`;
   const copy=isMob?`<button onclick="copyShipping('${oid}',this)">📋 複製</button>`:`<button class="act" onclick="copyShipping('${oid}',this)" title="複製出貨資料（姓名/電話/地址/商品/單號）">📋</button>`;
@@ -1226,6 +1244,81 @@ function toggleStatus(oid){
   renderList();
 }
 function stCls(s){return s==='已確認'?'st-btn st-confirmed':s==='交涉中'?'st-btn st-negotiate':s==='未接電'?'st-btn st-noanswer':(s==='未確認'||s==='待出貨')?'st-btn st-wait':s==='已出貨'?'st-btn st-ship':s==='待收費'?'st-btn st-pending-pay':s==='已完成'?'st-btn st-done':s==='補貨中'?'st-btn st-restock':(s==='轉線下'||s==='已轉線下')?'st-btn st-offline':'st-btn st-cancel'}
+// 三段安裝狀態：未確認 / 是 / 否
+// - 未確認：點 → 跳小選單 [要安裝][不安裝]
+// - 是：點 → cycle 回 未確認（要清資料先 confirm）
+// - 否：點 → cycle 回 未確認
+function renderInstallCell(o,oid){
+  if(o.install==='是')return `<div style="display:flex;flex-direction:column;align-items:center;gap:2px"><button class="toggle-on" onclick="installCellClick('${oid}',event)" title="要安裝（點擊變未確認）" style="white-space:nowrap">✓ 安裝</button><input type="text" inputmode="numeric" value="${o.installFee||''}" placeholder="$" oninput="this.value=cn(this.value);setInstFee('${oid}',this.value)" class="fee-input" style="width:50px"></div>`;
+  if(o.install==='否')return `<button class="toggle-off" onclick="installCellClick('${oid}',event)" title="不安裝（點擊變未確認）" style="white-space:nowrap">✗ 不安裝</button>`;
+  // 未確認（含新單預設 + 舊資料 install 未填的）
+  return `<button class="toggle-unknown" onclick="installCellClick('${oid}',event)" title="未確認（點擊選要/不要）" style="white-space:nowrap">？ 待確認</button>`;
+}
+function renderAddonCell(o,oid){
+  if(o.addon==='是')return `<div style="display:flex;flex-direction:column;align-items:center;gap:2px"><button class="toggle-on" onclick="addonCellClick('${oid}',event)" title="要加購（點擊變未確認）" style="white-space:nowrap">✓ 加購</button><input type="text" inputmode="numeric" value="${o.addonFee||''}" placeholder="$" oninput="this.value=cn(this.value);setAddonFee('${oid}',this.value)" class="fee-input" style="width:50px"></div>`;
+  if(o.addon==='否')return `<button class="toggle-off" onclick="addonCellClick('${oid}',event)" title="不加購（點擊變未確認）" style="white-space:nowrap">✗ 不加購</button>`;
+  return `<button class="toggle-unknown" onclick="addonCellClick('${oid}',event)" title="未確認（點擊選要/不要）" style="white-space:nowrap">？ 待確認</button>`;
+}
+// 點擊路由：未確認 → 跳選單；是/否 → 走 toggleInstall 既有 cycle（變回未確認，要清資料先 confirm）
+function installCellClick(oid,ev){
+  const o=findO(oid);if(!o)return;
+  if(o.install==='未確認'||!o.install){openInstallMenu(oid,ev);return}
+  if(o.install==='是'){
+    const hasData=(o.installFee||0)>0||(o.installPaidAmount||0)>0||o.installDay||o.installTime;
+    if(hasData){
+      const summary=[`費用 $${o.installFee||0}`,o.installPaidAmount?`已收 $${o.installPaidAmount}`:'',o.installDay||'',o.installTime||''].filter(Boolean).join(' / ');
+      if(!confirm(`改成 未確認 會清掉：\n${summary}\n\n確定？`))return;
+    }
+    o.install='未確認';o.installFee=0;o.installDay='';o.installTime='';o.installPaidAmount=0;
+  }else{o.install='未確認'}
+  logActivity(o,`安裝服務 → 未確認`);saveOne(o);renderList();
+}
+function addonCellClick(oid,ev){
+  const o=findO(oid);if(!o)return;
+  if(o.addon==='未確認'||!o.addon){openAddonMenu(oid,ev);return}
+  if(o.addon==='是'){
+    const hasData=(o.addonFee||0)>0||(o.addonPaidAmount||0)>0||(o.addonItems||'').trim();
+    if(hasData){
+      const summary=[`費用 $${o.addonFee||0}`,o.addonPaidAmount?`已收 $${o.addonPaidAmount}`:'',o.addonItems||''].filter(Boolean).join(' / ');
+      if(!confirm(`改成 未確認 會清掉：\n${summary}\n\n確定？`))return;
+    }
+    o.addon='未確認';o.addonFee=0;o.addonPaidAmount=0;o.addonItems='';
+  }else{o.addon='未確認'}
+  logActivity(o,`加購 → 未確認`);saveOne(o);renderList();
+}
+// inline 小選單 — 不用 modal，按鈕就地展開讓用戶選
+function openInstallMenu(oid,ev){
+  const o=findO(oid);if(!o)return;
+  // 用 prompt-style 但有兩個明確選項：先試 confirm，OK=要 / Cancel=不要；皆可
+  const r=window.confirm('🔧 要安裝服務？\n\n確定 = 要安裝（下一步輸入費用）\n取消 = 不安裝');
+  if(r){
+    const v=prompt('安裝費用（直接輸入數字，0 也可以）：',o.installFee||'0');
+    if(v===null)return;
+    const n=parseAmt(v);if(isNaN(n)||n<0){alert('金額無效');return}
+    o.install='是';o.installFee=n;
+    logActivity(o,`安裝服務 ✓ 要安裝 $${n}`);saveOne(o);renderList();
+  }else{
+    o.install='否';o.installFee=0;o.installDay='';o.installTime='';o.installPaidAmount=0;
+    logActivity(o,`安裝服務 ✗ 不安裝`);saveOne(o);renderList();
+  }
+}
+function openAddonMenu(oid,ev){
+  const o=findO(oid);if(!o)return;
+  const r=window.confirm('🛒 有加購商品？\n\n確定 = 要加購（下一步輸入金額 + 備註）\n取消 = 不加購');
+  if(r){
+    const v=prompt('加購金額（直接輸入數字）：',o.addonFee||'0');
+    if(v===null)return;
+    const n=parseAmt(v);if(isNaN(n)||n<0){alert('金額無效');return}
+    const note=prompt('加購內容備註（例：加譜架+收線器）：',o.addonItems||'');
+    if(note===null)return;
+    o.addon='是';o.addonFee=n;o.addonItems=note.trim();
+    logActivity(o,`加購 ✓ 要加購 $${n}${note?' ('+note.slice(0,20)+')':''}`);saveOne(o);renderList();
+  }else{
+    o.addon='否';o.addonFee=0;o.addonPaidAmount=0;o.addonItems='';
+    logActivity(o,`加購 ✗ 不加購`);saveOne(o);renderList();
+  }
+}
+// 舊版單 toggle — 保留以防別處 call（mobile quickAdd 仍叫 toggleInstall）
 function toggleInstall(oid){const o=findO(oid);if(!o)return;
   // 是→否 會 wipe installFee/Day/Time/PaidAmount — 有已收或排程才提醒，否則太煩
   if(o.install==='是'){
@@ -1235,8 +1328,9 @@ function toggleInstall(oid){const o=findO(oid);if(!o)return;
       if(!confirm(`關掉安裝服務會清掉這些資訊：\n${summary}\n\n確定？`))return;
     }
   }
-  o.install=o.install==='是'?'否':'是';
-  if(o.install==='否'){o.installFee=0;o.installDay='';o.installTime='';o.installPaidAmount=0}
+  // 三段循環：未確認 → 是；是 → 否；否 → 未確認
+  o.install=o.install==='是'?'否':(o.install==='否'?'未確認':'是');
+  if(o.install==='否'||o.install==='未確認'){o.installFee=0;o.installDay='';o.installTime='';o.installPaidAmount=0}
   saveOne(o);renderList()
 }
 function toggleAddon(oid){const o=findO(oid);if(!o)return;
@@ -1264,8 +1358,9 @@ function toggleSort(){sortOrder=sortOrder==='date-desc'?'date-asc':'date-desc';p
 function resetAllFilters(){cFilter='all';cStatus=[];cSpecial=null;const q=document.getElementById('q');if(q)q.value='';document.querySelectorAll('#tab-list .fbtn').forEach(b=>b.classList.remove('on'));const fp=document.querySelector('#tab-list .fbtn[data-fg="plat"]');if(fp)fp.classList.add('on');const fs=document.querySelector('#tab-list .fbtn[data-fg="status"]');if(fs)fs.classList.add('on');persistFilters();renderList();showToast('已清除所有篩選')}
 function updateFilterIndicator(){const el=document.getElementById('filter-applied-info');if(!el)return;const count=(cFilter!=='all'?1:0)+(cStatus.length?1:0)+(cSpecial?1:0)+((document.getElementById('q')?.value||'').trim()?1:0);if(count>0){el.style.display='inline-block';el.innerHTML=`<button onclick="resetAllFilters()" style="background:#fef0f5;color:var(--mo);border:1px solid var(--mo);padding:4px 12px;border-radius:14px;font-weight:700;cursor:pointer;font-size:11px;margin-right:6px">${count} 個篩選 ↻ 清除</button>`}else{el.style.display='none'}}
 function restoreFilterUI(){document.querySelectorAll('#tab-list .fbtn[data-fg="plat"]').forEach(x=>x.classList.remove('on'));const fp=document.querySelector(`#tab-list .fbtn[data-fg="plat"][onclick*="'${cFilter}'"]`);if(fp)fp.classList.add('on');else document.querySelector('#tab-list .fbtn[data-fg="plat"]')?.classList.add('on');
-  // status 多選：每個對應的 button 都標 on；狀態 button 在 cStatus 為空時亮起
-  document.querySelectorAll('#tab-list .fbtn[data-fg="status"]').forEach(x=>{const raw=x.dataset.stat||'';const v=raw.replace('status:','');const active=(v==='all'&&!cStatus.length)||(v!=='all'&&cStatus.includes(v));x.classList.toggle('on',active)});
+  // status 多選：每個對應的 button 都標 on；狀態 button 在 cStatus 為空時亮起；🔥 進行中 看是否符合 preset
+  const _preset=(typeof isActivePreset==='function')&&isActivePreset();
+  document.querySelectorAll('#tab-list .fbtn[data-fg="status"]').forEach(x=>{const raw=x.dataset.stat||'';const v=raw.replace('status:','');const active=v==='active'?_preset:(v==='all'&&!cStatus.length)||(v!=='all'&&cStatus.includes(v));x.classList.toggle('on',active)});
   // 恢復 special filter (cSpecial)
   document.querySelectorAll('#tab-list .fbtn[data-fg="special"]').forEach(x=>x.classList.remove('on'));
   if(cSpecial){const sp=document.querySelector(`#tab-list .fbtn[data-fg="special"][onclick*="'${cSpecial}'"]`);if(sp)sp.classList.add('on')}
@@ -1367,9 +1462,9 @@ fl.forEach(o=>{const oid=o.id;
 const bucket=bucketOf.get(oid);
 if(bucket!==lastBucket){h+=`<tr class="row-group-h"><td colspan="11">${bucket} <span style="color:var(--ht);font-weight:400;margin-left:6px">(${bucketCnt[bucket]} 筆)</span></td></tr>`;lastBucket=bucket}
 const r=prepareOrderRow(o,{skipNote:true});const a=buildOrderActions(o,'desktop');
-const ibInner=o.install==='是'?`<div style="display:flex;flex-direction:column;align-items:center;gap:2px"><button class="toggle-on" onclick="toggleInstall('${oid}')" style="white-space:nowrap">安裝</button><input type="text" inputmode="numeric" value="${o.installFee||''}" placeholder="$" oninput="this.value=cn(this.value);setInstFee('${oid}',this.value)" class="fee-input" style="width:50px"></div>`:`<button class="toggle-off" onclick="toggleInstall('${oid}')" style="white-space:nowrap">不安裝</button>`;
+const ibInner=renderInstallCell(o,oid);
 const ib=ibInner+subSlot(r.installInfo);
-const abInner=o.addon==='是'?`<div style="display:flex;flex-direction:column;align-items:center;gap:2px"><button class="toggle-on" onclick="toggleAddon('${oid}')" style="white-space:nowrap">加購</button><input type="text" inputmode="numeric" value="${o.addonFee||''}" placeholder="$" oninput="this.value=cn(this.value);setAddonFee('${oid}',this.value)" class="fee-input" style="width:50px"></div>`:`<button class="toggle-off" onclick="toggleAddon('${oid}')" style="white-space:nowrap">無加購</button>`;
+const abInner=renderAddonCell(o,oid);
 const ab=abInner+subSlot(o.addon==='是'&&o.addonItems?(o.addonItems.length>10?o.addonItems.slice(0,10)+'…':o.addonItems):'');
 const checked=selectedIds.has(o.id);
 // 規格併入品名 cell — 用小 pill 顯示，省一整欄寬度給操作欄
@@ -1644,12 +1739,12 @@ document.getElementById('modal-body').innerHTML=`<h3>編輯訂單${customerHisto
 <div class="fg full"><div class="fi"><label>地址</label><input id="e-addr" value="${esc(o.address)}"></div></div>
 <div class="fg" style="margin-bottom:8px"><div class="fi"><label>🏢 管理室</label><div class="sched-row" id="e-mgmt"><button class="sched-btn ${o.addrMgmt==='有'?'picked':''}" onclick="pickRadio('e-mgmt','有',this)">有</button><button class="sched-btn ${o.addrMgmt==='無'?'picked':''}" onclick="pickRadio('e-mgmt','無',this)">無</button><button class="sched-btn ${(!o.addrMgmt||o.addrMgmt==='')?'picked':''}" onclick="pickRadio('e-mgmt','',this)">未填</button></div></div><div class="fi"><label>🛗 電梯（2 樓以上）</label><div class="sched-row" id="e-elev"><button class="sched-btn ${o.addrElev==='有'?'picked':''}" onclick="pickRadio('e-elev','有',this)">有</button><button class="sched-btn ${o.addrElev==='無'?'picked':''}" onclick="pickRadio('e-elev','無',this)">無</button><button class="sched-btn ${o.addrElev==='不適用'?'picked':''}" onclick="pickRadio('e-elev','不適用',this)">不適用</button><button class="sched-btn ${(!o.addrElev||o.addrElev==='')?'picked':''}" onclick="pickRadio('e-elev','',this)">未填</button></div></div></div>
 <div class="fg"><div class="fi"><label>數量</label><input type="text" inputmode="numeric" id="e-qty" value="${o.qty||1}" oninput="this.value=cn(this.value)"></div><div class="fi"><label>商品金額</label><input type="text" inputmode="numeric" id="e-amt" value="${o.amount||''}" oninput="this.value=cn(this.value);calcT()"></div></div>
-<div style="border:1px solid var(--bd);border-radius:8px;padding:12px;margin:8px 0;background:var(--sf2)"><div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px"><span style="font-size:12px;font-weight:700">🔧 安裝服務</span><button class="${o.install==='是'?'toggle-on':'toggle-off'}" onclick="togEI()" id="ei-btn">${o.install==='是'?'✓ 需要安裝':'不需要安裝'}</button></div>
-<div id="ei-panel" class="${o.install==='否'?'hidden':''}"><div class="fi" style="margin-bottom:8px"><label>安裝費用</label><input type="text" inputmode="numeric" id="e-instf" value="${o.installFee||''}" oninput="this.value=cn(this.value);calcT()"></div>
+<div style="border:1px solid var(--bd);border-radius:8px;padding:12px;margin:8px 0;background:var(--sf2)"><div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px"><span style="font-size:12px;font-weight:700">🔧 安裝服務</span><button class="${o.install==='是'?'toggle-on':(o.install==='否'?'toggle-off':'toggle-unknown')}" onclick="togEI()" id="ei-btn" title="點擊循環：未確認 → 要安裝 → 不安裝">${o.install==='是'?'✓ 需要安裝':(o.install==='否'?'✗ 不需要安裝':'？ 未確認')}</button></div>
+<div id="ei-panel" class="${o.install==='是'?'':'hidden'}"><div class="fi" style="margin-bottom:8px"><label>安裝費用</label><input type="text" inputmode="numeric" id="e-instf" value="${o.installFee||''}" oninput="this.value=cn(this.value);calcT()"></div>
 <div style="margin-bottom:6px"><span style="font-size:10px;font-weight:700;color:var(--dm)">📅 日期 <span style="font-weight:400;color:var(--ht)">（可複選）</span></span><div class="sched-row">${DAYS.map(d=>`<button class="sched-btn${['週六','週日'].includes(d)?' weekend':''}${(o.installDay&&o.installDay.split(/[、,\/]/).map(x=>x.trim()).includes(d))?' picked':''}" onclick="pickD('${d}',this)">${d}</button>`).join('')}</div></div>
 <div><span style="font-size:10px;font-weight:700;color:var(--dm)">🕐 時段</span><div class="sched-row">${TIMES.map(t=>`<button class="sched-btn${o.installTime===t?' picked':''}" onclick="pickT('${t}',this)">${t}</button>`).join('')}</div></div></div></div>
-<div style="border:1px solid var(--bd);border-radius:8px;padding:12px;margin:8px 0;background:var(--sf2)"><div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px"><span style="font-size:12px;font-weight:700">🛒 加購</span><button class="${o.addon==='是'?'toggle-on':'toggle-off'}" onclick="togEA()" id="ea-btn">${o.addon==='是'?'✓ 有加購':'無加購'}</button></div>
-<div id="ea-panel" class="${o.addon==='否'?'hidden':''}"><div class="fi" style="margin-bottom:8px"><label>加購金額</label><input type="text" inputmode="numeric" id="e-addonf" value="${o.addonFee||''}" oninput="this.value=cn(this.value);calcT()"></div><div class="fi"><label>加購內容（例如：琴架、變壓器、調音器…）</label><input type="text" id="e-addonitems" value="${esc(o.addonItems||'')}" placeholder="加購了什麼" list="addon-items-suggestions"></div></div></div>
+<div style="border:1px solid var(--bd);border-radius:8px;padding:12px;margin:8px 0;background:var(--sf2)"><div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px"><span style="font-size:12px;font-weight:700">🛒 加購</span><button class="${o.addon==='是'?'toggle-on':(o.addon==='否'?'toggle-off':'toggle-unknown')}" onclick="togEA()" id="ea-btn" title="點擊循環：未確認 → 要加購 → 不加購">${o.addon==='是'?'✓ 有加購':(o.addon==='否'?'✗ 無加購':'？ 未確認')}</button></div>
+<div id="ea-panel" class="${o.addon==='是'?'':'hidden'}"><div class="fi" style="margin-bottom:8px"><label>加購金額</label><input type="text" inputmode="numeric" id="e-addonf" value="${o.addonFee||''}" oninput="this.value=cn(this.value);calcT()"></div><div class="fi"><label>加購內容（例如：琴架、變壓器、調音器…）</label><input type="text" id="e-addonitems" value="${esc(o.addonItems||'')}" placeholder="加購了什麼" list="addon-items-suggestions"></div></div></div>
 <datalist id="addon-items-suggestions">${getAddonSuggestions().map(s=>`<option value="${esc(s)}"></option>`).join('')}</datalist>
 <div class="total-box"><div class="t-label">合計金額</div><div class="t-val" id="e-tot">$${tot(o).toLocaleString()}</div></div>
 ${o.platform==='ST'?`<div style="border:1px solid var(--bd);border-radius:8px;padding:12px;margin:8px 0;background:var(--sf2)"><div style="font-size:12px;font-weight:700;margin-bottom:8px">📦 物流 <span style="font-weight:400;color:var(--dm);font-size:10px">（外送/寄送才需填）</span></div><div class="fg"><div class="fi"><label>物流公司</label><select id="e-dely"><option value="">— 未填（現場取走） —</option>${MOMO_DELY_COMPANIES.map(c=>`<option ${o.delyGbStr===c?'selected':''}>${c}</option>`).join('')}</select></div><div class="fi"><label>物流單號</label><input id="e-tracking" value="${esc(o.trackingNo||'')}" placeholder="(可空)" style="font-family:var(--mono)"></div></div><div style="margin-top:6px;font-size:10px;color:var(--dm)">店內訂單通常現場取走，物流可空</div></div>`:`<div style="border:1px solid var(--bd);border-radius:8px;padding:12px;margin:8px 0;background:var(--sf2)"><div style="font-size:12px;font-weight:700;margin-bottom:8px">📦 物流</div><div class="fg"><div class="fi"><label>物流公司</label><select id="e-dely"><option value="">— 未填 —</option>${MOMO_DELY_COMPANIES.map(c=>`<option ${o.delyGbStr===c?'selected':''}>${c}</option>`).join('')}</select></div><div class="fi"><label>物流單號</label><input id="e-tracking" value="${esc(o.trackingNo||'')}" placeholder="物流單號" style="font-family:var(--mono)"></div></div>${o.platform==='MO'?`<div style="margin-top:8px;display:flex;gap:8px;align-items:center;flex-wrap:wrap"><button type="button" class="btn" onclick="syncShipFromEdit()" style="background:var(--mo);color:#fff;border-color:var(--mo);font-size:11px;font-weight:700">📤 同步到 MOMO 後台</button><span style="font-size:10px;color:var(--dm)">用上面的單號開「出貨確認」回填到 MOMO（會跳 DRY RUN 預覽）</span></div>`:`<div style="margin-top:6px;font-size:10px;color:var(--dm)">PChome 訂單只記錄在本地，沒有 API 回填管道</div>`}</div>`}
@@ -1659,18 +1754,38 @@ ${activityTimelineHTML(o.note)}<div class="fg full"><div class="fi"><label>備�
 <div class="modal-ft"><button class="btn" onclick="closeModal()">取消</button><button class="btn btn-g" onclick="saveEdit()">儲存</button></div>`;
 document.getElementById('modal-overlay').classList.remove('hidden');document.body.style.overflow='hidden'}
 
-function togEI(){_modalDirty=true;const p=document.getElementById('ei-panel'),b=document.getElementById('ei-btn');if(p.classList.contains('hidden')){p.classList.remove('hidden');b.className='toggle-on';b.textContent='✓ 需要安裝'}else{p.classList.add('hidden');b.className='toggle-off';b.textContent='不需要安裝';
-  // 關掉安裝時清掉相關欄位避免不一致
-  const fee=document.getElementById('e-instf');if(fee)fee.value='';
-  document.querySelectorAll('#ei-panel .sched-btn.picked').forEach(b=>b.classList.remove('picked'));
+// 三段循環：未確認 → 是（要安裝） → 否（不安裝） → 未確認
+function togEI(){_modalDirty=true;
+  const b=document.getElementById('ei-btn'),p=document.getElementById('ei-panel');
+  // 讀目前狀態（從 button class 推）
+  const cur=b.classList.contains('toggle-on')?'是':(b.classList.contains('toggle-off')?'否':'未確認');
+  const next=cur==='未確認'?'是':(cur==='是'?'否':'未確認');
+  if(next==='是'){b.className='toggle-on';b.textContent='✓ 需要安裝';p.classList.remove('hidden')}
+  else if(next==='否'){b.className='toggle-off';b.textContent='✗ 不需要安裝';p.classList.add('hidden');
+    // 切到「不安裝」清掉欄位
+    const fee=document.getElementById('e-instf');if(fee)fee.value='';
+    document.querySelectorAll('#ei-panel .sched-btn.picked').forEach(x=>x.classList.remove('picked'));
+  }else{b.className='toggle-unknown';b.textContent='？ 未確認';p.classList.add('hidden');
+    // 未確認也清掉欄位（保持資料一致：未確認 = 還沒設費用）
+    const fee=document.getElementById('e-instf');if(fee)fee.value='';
+    document.querySelectorAll('#ei-panel .sched-btn.picked').forEach(x=>x.classList.remove('picked'));
+  }
   calcT()
-}}
-function togEA(){_modalDirty=true;const p=document.getElementById('ea-panel'),b=document.getElementById('ea-btn');if(p.classList.contains('hidden')){p.classList.remove('hidden');b.className='toggle-on';b.textContent='✓ 有加購'}else{p.classList.add('hidden');b.className='toggle-off';b.textContent='無加購';
-  // 關掉加購時清掉相關欄位
-  const fee=document.getElementById('e-addonf');if(fee)fee.value='';
-  const it=document.getElementById('e-addonitems');if(it)it.value='';
+}
+function togEA(){_modalDirty=true;
+  const b=document.getElementById('ea-btn'),p=document.getElementById('ea-panel');
+  const cur=b.classList.contains('toggle-on')?'是':(b.classList.contains('toggle-off')?'否':'未確認');
+  const next=cur==='未確認'?'是':(cur==='是'?'否':'未確認');
+  if(next==='是'){b.className='toggle-on';b.textContent='✓ 有加購';p.classList.remove('hidden')}
+  else if(next==='否'){b.className='toggle-off';b.textContent='✗ 無加購';p.classList.add('hidden');
+    const fee=document.getElementById('e-addonf');if(fee)fee.value='';
+    const it=document.getElementById('e-addonitems');if(it)it.value='';
+  }else{b.className='toggle-unknown';b.textContent='？ 未確認';p.classList.add('hidden');
+    const fee=document.getElementById('e-addonf');if(fee)fee.value='';
+    const it=document.getElementById('e-addonitems');if(it)it.value='';
+  }
   calcT()
-}}
+}
 function pickRadio(groupId,value,btn){_modalDirty=true;const grp=document.getElementById(groupId);if(!grp)return;grp.querySelectorAll('.sched-btn').forEach(b=>b.classList.remove('picked'));btn.classList.add('picked');grp.dataset.value=value}
 function pickD(d,btn){_modalDirty=true;btn.classList.toggle('picked')}
 function pickT(t,btn){_modalDirty=true;const wasPicked=btn.classList.contains('picked');document.querySelectorAll('#ei-panel .sched-btn').forEach(b=>{if(TIMES.includes(b.textContent))b.classList.remove('picked')});if(!wasPicked)btn.classList.add('picked')}
@@ -1682,15 +1797,18 @@ const _snap=JSON.parse(JSON.stringify(o));
 const newDate=document.getElementById('e-date').value;
 if(newDate!==o.date){o.date=newDate;o.dateFmt=fmtD(newDate)}
 o.platform=document.getElementById('e-plat').value;o.orderNo=document.getElementById('e-no').value.trim();o.product=document.getElementById('e-prod').value.trim();o.specs=document.getElementById('e-specs').value.trim();o.name=document.getElementById('e-name').value.trim();o.phone=document.getElementById('e-phone').value.trim();o.realPhone=(document.getElementById('e-realPhone')?.value||'').trim();o.address=document.getElementById('e-addr').value.trim();o.addrMgmt=document.getElementById('e-mgmt')?.dataset.value??(o.addrMgmt||'');o.addrElev=document.getElementById('e-elev')?.dataset.value??(o.addrElev||'');o.amount=parseInt(document.getElementById('e-amt').value)||0;o.qty=parseInt(document.getElementById('e-qty').value)||1;
-o.install=document.getElementById('ei-panel').classList.contains('hidden')?'否':'是';
-if(o.install==='否'){o.installFee=0;o.installDay='';o.installTime='';o.installPaidAmount=0}
+// 三段狀態從 button class 讀：toggle-on=是 / toggle-off=否 / toggle-unknown=未確認
+const _ibtn=document.getElementById('ei-btn');
+o.install=_ibtn.classList.contains('toggle-on')?'是':(_ibtn.classList.contains('toggle-unknown')?'未確認':'否');
+if(o.install==='否'||o.install==='未確認'){o.installFee=0;o.installDay='';o.installTime='';o.installPaidAmount=0}
 else{o.installFee=parseInt(document.getElementById('e-instf').value)||0;o.installDay='';o.installTime='';
   const days=[];
   document.querySelectorAll('#ei-panel .sched-btn.picked').forEach(b=>{const v=b.textContent;if(DAYS.includes(v))days.push(v);if(TIMES.includes(v))o.installTime=v});
   if(days.length){days.sort((a,b)=>DAYS.indexOf(a)-DAYS.indexOf(b));o.installDay=days.join('、')}
 }
-o.addon=document.getElementById('ea-panel').classList.contains('hidden')?'否':'是';
-if(o.addon==='否'){o.addonFee=0;o.addonItems='';o.addonPaidAmount=0}
+const _abtn=document.getElementById('ea-btn');
+o.addon=_abtn.classList.contains('toggle-on')?'是':(_abtn.classList.contains('toggle-unknown')?'未確認':'否');
+if(o.addon==='否'||o.addon==='未確認'){o.addonFee=0;o.addonItems='';o.addonPaidAmount=0}
 else{o.addonFee=parseInt(document.getElementById('e-addonf').value)||0;o.addonItems=(document.getElementById('e-addonitems')?.value||'').trim()}
 o.status=document.getElementById('e-st').value;
 // 防呆：狀態從非「已完成」改成「已完成」且有未收款 → confirm；取消就回滾 + 中止 save
