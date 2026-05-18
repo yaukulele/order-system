@@ -1290,7 +1290,7 @@ function renderAddonCell(o,oid){
   if(o.addon==='否')return `<button class="toggle-off" onclick="addonCellClick('${oid}',event)" title="不加購（點擊變未確認）" style="white-space:nowrap">不加購</button>`;
   return `<button class="toggle-unknown" onclick="addonCellClick('${oid}',event)" title="未確認（點擊選要/不要）" style="white-space:nowrap">待確認</button>`;
 }
-// 點擊路由：未確認 → 跳選單；是/否 → 走 toggleInstall 既有 cycle（變回未確認，要清資料先 confirm）
+// 點擊路由：未確認 → 跳選單；是/否 → cycle 回未確認（有資料先 confirm 清掉）
 function installCellClick(oid,ev){
   const o=findO(oid);if(!o)return;
   if(o.install==='未確認'||!o.install){openInstallMenu(oid,ev);return}
@@ -1356,33 +1356,7 @@ function openAddonMenu(oid,ev){
     logActivity(o,`加購 ✗ 不加購`);saveOne(o);renderList();
   }
 }
-// 舊版單 toggle — 保留以防別處 call（mobile quickAdd 仍叫 toggleInstall）
-function toggleInstall(oid){const o=findO(oid);if(!o)return;
-  // 是→否 會 wipe installFee/Day/Time/PaidAmount — 有已收或排程才提醒，否則太煩
-  if(o.install==='是'){
-    const hasData=(o.installFee||0)>0||(o.installPaidAmount||0)>0||o.installDay||o.installTime;
-    if(hasData){
-      const summary=[`費用 $${o.installFee||0}`,o.installPaidAmount?`已收 $${o.installPaidAmount}`:'',o.installDay||'',o.installTime||''].filter(Boolean).join(' / ');
-      if(!confirm(`關掉安裝服務會清掉這些資訊：\n${summary}\n\n確定？`))return;
-    }
-  }
-  // 三段循環：未確認 → 是；是 → 否；否 → 未確認
-  o.install=o.install==='是'?'否':(o.install==='否'?'未確認':'是');
-  if(o.install==='否'||o.install==='未確認'){o.installFee=0;o.installDay='';o.installTime='';o.installPaidAmount=0}
-  saveOne(o);renderList()
-}
-function toggleAddon(oid){const o=findO(oid);if(!o)return;
-  if(o.addon==='是'){
-    const hasData=(o.addonFee||0)>0||(o.addonPaidAmount||0)>0||(o.addonItems||'').trim();
-    if(hasData){
-      const summary=[`費用 $${o.addonFee||0}`,o.addonPaidAmount?`已收 $${o.addonPaidAmount}`:'',o.addonItems||''].filter(Boolean).join(' / ');
-      if(!confirm(`關掉加購會清掉：\n${summary}\n\n確定？`))return;
-    }
-  }
-  o.addon=o.addon==='是'?'否':'是';
-  if(o.addon==='否'){o.addonFee=0;o.addonPaidAmount=0;o.addonItems=''}
-  saveOne(o);renderList()
-}
+// 舊版 toggleInstall / toggleAddon 移除（已改用 installCellClick / addonCellClick 三段）
 // 解析金額輸入 — 容忍 $、,、空白、單位字（元 NT）、小數點；遇 . 截斷（TWD 整數元）
 // 之前 .replace(/[^\d]/g,'') 把「500.50」併成「50050」放大 100 倍 — 直接 OOPS
 function parseAmt(v){if(v==null)return NaN;const m=String(v).replace(/[^\d.]/g,'').match(/^(\d+)/);return m?parseInt(m[1]):NaN}
