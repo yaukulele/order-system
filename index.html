@@ -2253,6 +2253,12 @@ function _renderSchedBatchBar(){
     <button class="btn" onclick="schedBatchClear()" style="background:transparent;color:#fff;border-color:#fff;font-size:11px;margin-left:auto">清除選取</button>`;
 }
 function schedBatchClear(){_schedBatch.clear();renderSchedule();_renderSchedBatchBar()}
+function schedBatchToggleAll(ids,check){
+  if(!Array.isArray(ids))return;
+  if(check){ids.forEach(id=>_schedBatch.add(id))}
+  else{ids.forEach(id=>_schedBatch.delete(id))}
+  renderSchedule();_renderSchedBatchBar();
+}
 function schedBatchAssignInstaller(){
   if(_schedBatch.size===0)return;
   const list=installers.join('\n  ');
@@ -2441,7 +2447,9 @@ function renderSchedule(){
   }
   // all 模式才顯示「未排日」區塊
   if(schedView==='all'&&noDate.length){
-    html+=`<div class="card" style="margin-top:10px;border-color:#f0c4d8"><div class="card-h" style="background:var(--mo-bg)"><h3>還沒排安裝日 <span class="badge" style="background:var(--mo);color:#fff">${noDate.length}</span></h3></div><div class="card-b" style="padding:0">`;
+    const allChecked=noDate.every(o=>_schedBatch.has(o.id));
+    const oidList=noDate.map(o=>o.id);
+    html+=`<div class="card sched-unschedule-drop" ondragover="schedDragOver(event)" ondragleave="schedDragLeave(event)" ondrop="schedDropUnschedule(event)" style="margin-top:10px;border-color:#f0c4d8"><div class="card-h" style="background:var(--mo-bg);display:flex;align-items:center;gap:8px"><h3 style="flex:0 0 auto">還沒排安裝日 <span class="badge" style="background:var(--mo);color:#fff">${noDate.length}</span></h3><label style="font-size:11px;color:var(--mo);font-weight:600;display:flex;align-items:center;gap:4px;cursor:pointer;margin-left:auto"><input type="checkbox" ${allChecked?'checked':''} onchange="schedBatchToggleAll(${JSON.stringify(oidList).replace(/"/g,'&quot;')},this.checked)" style="transform:scale(1.15);accent-color:var(--mo)">全選</label></div><div class="card-b" style="padding:0">`;
     for(const o of noDate.slice(0,200))html+=renderSchedRow(o,{draggable:true});
     html+=`</div></div>`;
   }
@@ -2555,7 +2563,9 @@ function renderWeekGrid(filtered,noDate){
   html+='</div>';
   // 未排日提示 — 同時也是 drop target，從 grid 拖回來會自動取消排程
   if(noDate&&noDate.length){
-    html+=`<div class="card sched-unschedule-drop" ondragover="schedDragOver(event)" ondragleave="schedDragLeave(event)" ondrop="schedDropUnschedule(event)" style="margin-top:10px;border-color:#f0c4d8"><div class="card-h" style="background:var(--mo-bg)"><h3>還沒排安裝日 <span class="badge" style="background:var(--mo);color:#fff">${noDate.length}</span></h3><span style="font-size:11px;color:var(--mo);font-weight:600;margin-left:auto">拖卡片來此 = 取消排程</span></div><div class="card-b" style="padding:0">`;
+    const allChecked=noDate.every(o=>_schedBatch.has(o.id));
+    const oidList=noDate.map(o=>o.id);
+    html+=`<div class="card sched-unschedule-drop" ondragover="schedDragOver(event)" ondragleave="schedDragLeave(event)" ondrop="schedDropUnschedule(event)" style="margin-top:10px;border-color:#f0c4d8"><div class="card-h" style="background:var(--mo-bg);display:flex;align-items:center;gap:8px;flex-wrap:wrap"><h3 style="flex:0 0 auto">還沒排安裝日 <span class="badge" style="background:var(--mo);color:#fff">${noDate.length}</span></h3><label style="font-size:11px;color:var(--mo);font-weight:600;display:flex;align-items:center;gap:4px;cursor:pointer;margin-left:auto"><input type="checkbox" ${allChecked?'checked':''} onchange="schedBatchToggleAll(${JSON.stringify(oidList).replace(/"/g,'&quot;')},this.checked)" style="transform:scale(1.15);accent-color:var(--mo)">全選</label><span style="font-size:11px;color:var(--mo);font-weight:600">拖卡片來此 = 取消排程</span></div><div class="card-b" style="padding:0">`;
     for(const o of noDate.slice(0,50))html+=renderSchedRow(o,{draggable:true});
     html+=`</div></div>`;
   }else{
@@ -2752,15 +2762,16 @@ function openSchedRouteForDate(dateIso,opts){
   if(!target.length){alert(`${dateIso} 沒有安裝行程可以規劃`);return}
   let stops=target.map(o=>(o.address||'').trim()).filter(Boolean);
   if(!stops.length){alert('這些訂單都沒填地址，沒辦法規劃路線');return}
-  // 啟發式排序：按 ZIP 字串排（同郵遞區號通常地理相近）+ 同 ZIP 內按時段先後（早上→下午→晚上）
+  // 啟發式排序：時段優先（早上 → 下午 → 晚上 / 未排），同時段內按 ZIP 字串排（地理相近）
+  // 為什麼時段優先：早上客戶不能等下午才到 — 時段是 hard constraint，距離只是 soft optimization
   const slotOrder={'早上':0,'下午':1,'晚上':2,'':3};
   const orderMap=new Map(target.map(o=>[(o.address||'').trim(),o]));
   stops.sort((a,b)=>{
-    const za=(a.match(/^\d{3,5}/)||[''])[0],zb=(b.match(/^\d{3,5}/)||[''])[0];
-    if(za!==zb)return za.localeCompare(zb);
     const sa=slotOrder[effectiveSlot(orderMap.get(a)||{})]??3;
     const sb=slotOrder[effectiveSlot(orderMap.get(b)||{})]??3;
-    return sa-sb;
+    if(sa!==sb)return sa-sb;
+    const za=(a.match(/^\d{3,5}/)||[''])[0],zb=(b.match(/^\d{3,5}/)||[''])[0];
+    return za.localeCompare(zb);
   });
   // Round-trip 選項：用戶要不要回倉庫？
   if(!('roundTrip' in opts)){
