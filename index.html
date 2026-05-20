@@ -928,9 +928,11 @@ function setSF(f,b,e){
   else cStatus=[f];
   syncStatusChips();updateStatCycleBtn();persistFilters();renderList();
 }
-// 「🔥 進行中」一鍵全選：排除終態（已完成 / 已取消 / 轉線下），其他全進
+// 「進行中」一鍵全選：排除終態（已完成 / 已取消 / 轉線下），其他全進
 const ACTIVE_STATUSES=['未確認','已確認','交涉中','未接電','已出貨','待收費','補貨中'];
 function isActivePreset(){return cStatus.length===ACTIVE_STATUSES.length&&ACTIVE_STATUSES.every(s=>cStatus.includes(s))}
+// 每次開頁/登入 → 列表預設篩選「進行中」（用戶要求；不記上次 cStatus）
+cStatus=[...ACTIVE_STATUSES];persistFilters();
 function setActiveStatuses(btn){_mobileExpand=false;
   // 已是 active preset → 再點 = 清空回「全部」
   if(isActivePreset())cStatus=[];
@@ -1492,6 +1494,8 @@ function updateFilterCounts(){
       statCnt[o.status]=(statCnt[o.status]||0)+1;
       // 待收費 count = 此狀態 + 自動偵測未收費（不重複計實際 status='待收費' 的）
       if(o.status!=='待收費'&&isPendingPayment(o))statCnt['待收費']++;
+      // 「進行中」preset count = 所有非終態狀態的訂單數（不重複，每單只算一次）
+      if(ACTIVE_STATUSES.includes(o.status))statCnt['active']=(statCnt['active']||0)+1;
     }
   }
   document.querySelectorAll('#tab-list .fbtn[data-fg="plat"]').forEach(btn=>{setBtnCount(btn,platCnt[btn.dataset.stat]||0)});
@@ -2389,7 +2393,7 @@ function renderSchedRow(o,opts){
   return `<div class="sched-row-card${dragClass}"${dragAttrs} onclick="openEdit('${o.id}')" style="padding:10px 14px;border-top:1px solid var(--bd);cursor:${draggable?'grab':'pointer'}">
     <div style="display:flex;align-items:center;gap:8px;margin-bottom:4px;flex-wrap:wrap">
       ${checkbox}${dragHint}<span class="brand-pill ${_platCls(o.platform)}" style="font-size:9px;padding:1px 5px">${_platShort(o.platform)}</span>
-      <strong style="font-size:13px">${esc(o.name||'?')}</strong>${staleBadge}
+      <strong style="font-size:13px">${esc(o.name||'?')}</strong>${addrRegion(o.address)?`<span style="font-size:9px;color:#1657b5;background:#e8eef9;border-radius:3px;padding:1px 5px;font-weight:700">${esc(addrRegion(o.address))}</span>`:''}${staleBadge}
       <span style="font-size:11px;color:var(--dm);font-family:var(--mono)">${ph?phoneTel(ph):'—'}</span>
       <span style="margin-left:auto;font-size:11px;color:var(--blu);font-weight:700">${esc(inst||'未指派')}${time}${day}</span>
     </div>
@@ -2524,7 +2528,7 @@ function renderWeekGrid(filtered,noDate){
           const tipAttr=tips.length?`title="${esc(tips.join(' / '))}"`:'';
           const ph=bestPhone(o);
           html+=`<div class="grid-cell-card" draggable="true" ondragstart="schedDragStart(event,'${o.id}')" ondragend="schedDragEnd(event)" onclick="openEdit('${o.id}')" ${tipAttr} style="background:${bgColor};border-left:3px solid ${borderColor};border-radius:4px;padding:5px 7px;margin-bottom:3px">
-            <div style="font-weight:700;font-size:12px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap" title="${esc(o.name||'')}">${esc(o.name||'?')}${badge}</div>
+            <div style="font-weight:700;font-size:12px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap" title="${esc(o.name||'')}">${esc(o.name||'?')}${addrRegion(o.address)?`<span style="font-size:9px;color:#1657b5;background:#e8eef9;border-radius:3px;padding:0 4px;margin-left:4px;font-weight:700">${esc(addrRegion(o.address))}</span>`:''}${badge}</div>
             ${ph?`<div style="font-size:10px;color:var(--dm);font-family:var(--mono);overflow:hidden;text-overflow:ellipsis;white-space:nowrap" title="${esc(ph)}">${esc(ph)}</div>`:''}
             ${o.address?`<div style="font-size:10px;color:var(--tx);line-height:1.25;overflow:hidden;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical" title="${esc(o.address)}">${esc(o.address)}</div>`:''}
           </div>`;
