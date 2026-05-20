@@ -1232,11 +1232,18 @@ function prepareOrderRow(o,opts){
 }
 // 從地址抽「縣市 + 區」簡化字串 — 第一頁就能看出大概在哪
 // 「桃園市八德區介壽路二段455巷20號」→「桃園八德」
+// 「新竹市東區世傑路288號」→「新竹東區」（單字區名如 東/西/南/北/中 保留「區」避免歧義）
 function addrRegion(addr){
   if(!addr)return '';
   const a=String(addr).replace(/^\d{3,6}\s*/,'').trim(); // 去前面郵遞區號
-  const m=a.match(/^(.+?[縣市])(.+?[區鄉鎮市])/);
-  if(m)return m[1].replace(/[縣市]$/,'')+m[2].replace(/[區鄉鎮市]$/,'');
+  const m=a.match(/^(.+?[縣市])(.+?)([區鄉鎮市])/);
+  if(m){
+    const city=m[1].replace(/[縣市]$/,'');
+    const distName=m[2],distSuffix=m[3];
+    // 區名只剩 1 字（東/西/南/北/中區）→ 保留後綴，否則「新竹東」會看不懂
+    const dist=distName.length<=1?distName+distSuffix:distName;
+    return city+dist;
+  }
   const m2=a.match(/^(.+?[縣市])/);
   if(m2)return m2[1].replace(/[縣市]$/,'');
   return '';
