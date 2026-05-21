@@ -3,7 +3,7 @@
 //   有差異就 postMessage 通知頁面跳「有新版本」toast。兼顧「開頁快」+「拿得到最新」。
 // 其他 shell asset: stale-while-revalidate
 // Bumps cache version on every release; old caches cleaned up on activate.
-const CACHE = "order-system-v161";
+const CACHE = "order-system-v162";
 const SHELL = ["./", "./index.html", "./manifest.json", "./icon.svg"];
 
 self.addEventListener("install", (event) => {
@@ -48,18 +48,21 @@ self.addEventListener("fetch", (event) => {
         const networkUpdate = fetch(req)
           .then(async (res) => {
             if (res && res.status === 200) {
-              const fresh = res.clone();
-              // 跟舊 cache 比對 → 不同就通知頁面有新版
+              // 先比對是否有差異（趁 cached 還沒被覆蓋）
+              let changed = false;
               if (cached) {
                 try {
                   const [newText, oldText] = await Promise.all([res.clone().text(), cached.clone().text()]);
-                  if (newText !== oldText) {
-                    const cs = await self.clients.matchAll();
-                    cs.forEach((c) => c.postMessage({ type: "new-version" }));
-                  }
+                  changed = newText !== oldText;
                 } catch (_) {}
               }
-              await cache.put(req, fresh).catch(() => {});
+              // 先把新版寫進 cache — 確保用戶點「立即更新」reload 時拿到的是新版
+              await cache.put(req, res.clone()).catch(() => {});
+              // cache 已更新才通知頁面 → 用戶點 reload 不會再拿到舊的
+              if (changed) {
+                const cs = await self.clients.matchAll();
+                cs.forEach((c) => c.postMessage({ type: "new-version" }));
+              }
             }
             return res;
           })
