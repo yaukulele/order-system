@@ -2527,11 +2527,11 @@ function _populateWeekDropdown(){
 }
 function renderSchedule(){
   if(!document.getElementById('tab-schedule'))return;
-  // 清掉 batch 選取中已不存在的 ids（例如別裝置刪了）
-  if(_schedBatch.size){const ids=new Set(orders.map(o=>o.id));for(const id of [..._schedBatch])if(!ids.has(id))_schedBatch.delete(id)}
   syncSchedInstallerRow();
   _populateWeekDropdown();
   const candidates=_schedCandidates();
+  // 清掉 batch 選取中「已不在排程」的 ids（刪除 / 已標完成 / 改成不安裝 都要移出選取）
+  if(_schedBatch.size){const candIds=new Set(candidates.map(o=>o.id));for(const id of [..._schedBatch])if(!candIds.has(id))_schedBatch.delete(id)}
   // 全部待安裝（tab badge 用）
   const tabBadge=document.getElementById('sched-cnt');if(tabBadge)tabBadge.textContent=candidates.length;
   // 週表：選定週的週一→週日 7 天 + 未指定日期 + 師傅篩選
