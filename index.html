@@ -363,6 +363,8 @@ try{
       orders=Object.values(parsed);orders.forEach(migrateStatus);
       ordersLoaded=true;
       // 不 render 任何 tab — 第一次 showTab 就會 render，省 init blocking
+      // 但 tab badge（列表/安裝筆數）立刻更新，開頁就看得到數字（不用等 Firebase）
+      try{updateCnt()}catch(_){}
       console.log(`[cache] restored ${orders.length} orders from localStorage`);
     }
   }
