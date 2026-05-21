@@ -730,8 +730,9 @@ async function bootAuth(){
     const savedRole=localStorage.getItem('orderSysRole')||'user';
     if(saved){currentUser=saved;currentRole=savedRole;onAuthReady()}
     else{showLoginModal()} // 沒登入過：立刻顯示登入框，不等 Firebase
-    // 背景驗證 — Firebase 真的有這個 user 嗎？
+    // 背景驗證 — 一次抓完整 users node，省下原本第二趟 users/<saved> round-trip
     const usersSnap=await db.ref('users').once('value');
+    const allUsers=usersSnap.val()||{};
     if(!usersSnap.exists()){
       const ts=new Date().toISOString();
       // 不 await — 種子寫入完成才繼續會延 100-300ms，登入框已顯示，背景跑就好
@@ -742,18 +743,19 @@ async function bootAuth(){
       }).catch(()=>{});
     }
     if(saved){
-      const snap=await db.ref('users/'+saved).once('value');
-      if(snap.exists()){
-        const role=snap.val().role||'user';
-        currentUser=saved;currentRole=role;
-        localStorage.setItem('orderSysRole',role);
+      const u=allUsers[saved];
+      if(u){
+        currentUser=saved;currentRole=u.role||'user';
+        localStorage.setItem('orderSysRole',currentRole);
         onAuthReady();return;
       }
-      // 雲端找不到這個 user → 強制登出
-      localStorage.removeItem('orderSysUser');
-      localStorage.removeItem('orderSysRole');
-      currentUser=null;currentRole='';
-      showLoginModal();
+      // 雲端找不到這個 user → 但種子剛寫入時 allUsers 可能還沒含 → 只在「users 已存在但沒這人」才登出
+      if(usersSnap.exists()){
+        localStorage.removeItem('orderSysUser');
+        localStorage.removeItem('orderSysRole');
+        currentUser=null;currentRole='';
+        showLoginModal();
+      }
     }
   }catch(e){console.error('bootAuth failed',e);if(!currentUser)showLoginModal()}
 }
