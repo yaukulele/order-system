@@ -544,7 +544,17 @@ function platformPill(p){if(p==='MO')return '<span class="brand-pill brand-mo" t
 // 比原本的 3 次 .filter() chain 快約 2-3 倍（長備註訂單在 list render 上有感）
 const _RE_ACT=/^\[\d{4}-\d{2}-\d{2}\s\d{2}:\d{2}(?:\s@[^\]]+)?\]/;
 const _RE_META=/^【(?:安裝|加購)】/;
-function cleanNote(n){const lines=String(n||'').split('\n');const out=[];for(const ln of lines){const t=ln.trim();if(!t||_RE_ACT.test(t)||_RE_META.test(t))continue;out.push(t)}return out.join('\n')}
+// cleanNote 加快取 — 同 note 內容 → 同結果，list render 每筆都呼叫一次省得重算
+const _cleanNoteCache=new Map();
+function cleanNote(n){
+  const key=n||'';
+  if(_cleanNoteCache.has(key))return _cleanNoteCache.get(key);
+  const lines=String(key).split('\n');const out=[];
+  for(const ln of lines){const t=ln.trim();if(!t||_RE_ACT.test(t)||_RE_META.test(t))continue;out.push(t)}
+  const result=out.join('\n');
+  if(_cleanNoteCache.size<4000)_cleanNoteCache.set(key,result);
+  return result;
+}
 // 從 install/addon 欄位 + 用戶 note 重建備註行；安裝/加購用 toggle 設好的 fee 即使從沒進過編輯視窗也會出現
 function buildNoteLine(o){const parts=[];/* 地址屬性放最前 */if(o.addrMgmt)parts.push((o.addrMgmt==='有'?'有':'無')+'管理室');if(o.addrElev&&o.addrElev!=='不適用')parts.push((o.addrElev==='有'?'有':'無')+'電梯');
 if(o.install==='是'){
