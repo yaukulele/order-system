@@ -370,24 +370,28 @@ try{
   }
 }catch(e){console.warn('cache restore failed',e);try{localStorage.removeItem(ORDERS_CACHE_KEY)}catch(_){}}
 // 雲端寫進 cache（debounced）— 不要每次 update 都寫，省 IO
-let _ordersCacheTimer=null;
-function _cacheOrdersToLocal(val){
+// 收 preJson（listener 已算好的 JSON.stringify(val)）→ 不重算，省一次大字串化
+let _ordersCacheTimer=null,_pendingCacheJson=null;
+function _cacheOrdersToLocal(val,preJson){
+  if(val&&Object.keys(val).length<=2000){ // 防 localStorage quota（5MB 約 2000 單）
+    _pendingCacheJson=(typeof preJson==='string')?preJson:JSON.stringify(val);
+  }else{
+    _pendingCacheJson=null; // 太大不快取
+  }
   if(_ordersCacheTimer)clearTimeout(_ordersCacheTimer);
   _ordersCacheTimer=setTimeout(()=>{
     _ordersCacheTimer=null;
-    try{
-      if(val&&Object.keys(val).length<=2000){ // 防 localStorage quota（5MB 約 2000 單）
-        localStorage.setItem(ORDERS_CACHE_KEY,JSON.stringify(val));
-      }
-    }catch(e){console.warn('cache save failed (quota?):',e.message)}
+    if(_pendingCacheJson==null)return;
+    try{localStorage.setItem(ORDERS_CACHE_KEY,_pendingCacheJson)}
+    catch(e){console.warn('cache save failed (quota?):',e.message)}
   },1500); // 1.5s debounce — 多次 update 連續來時只寫最後一次
 }
 db.ref('orders').on('value',snap=>{
   try{
     const val=snap.val();
-    _cacheOrdersToLocal(val);
     // Skip echo of own write — 比對 local state，相同就不 re-render（避免 spam UI）
     const json=val?JSON.stringify(val):'';
+    _cacheOrdersToLocal(val,json); // 共用上面算好的 json，不重算
     if(json===_snapshotJson()){pendingRemoteOrders=null;ordersLoaded=true;updateCnt();setSyncOn();return}
     // 還有 pending 本地 save → 不能直接 applyRemoteOrders 否則會把本地未送出的 edit 沖掉
     // （之前 race：toggleStatus → saveOne 300ms 排隊中 → 別人寫 Y → value 來 → applyRemoteOrders →
