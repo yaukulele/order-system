@@ -2929,7 +2929,11 @@ bootAuth();
 // Re-render on viewport breakpoint cross (mobile ↔ desktop) — 列表/客戶都要切版
 let _wasMobile=isMobile();window.addEventListener('resize',()=>{const now=isMobile();if(now!==_wasMobile){_wasMobile=now;updateCnt();const at=document.querySelector('.tab.active')?.textContent||'';if(at.includes('列表'))renderList();if(at.includes('客戶'))renderCustomers()}});
 // 定期檢查並套用 pending 遠端更新（modal 關 + 沒輸入框聚焦 時）
-setInterval(()=>{if(pendingRemoteOrders!==null&&!isModalOpen()&&!isInputFocused()&&!_saveOneTimer&&!_saveAllTimer){const v=pendingRemoteOrders;applyRemoteOrders(v)}},2000);
+setInterval(()=>{
+  // 拖曳中也不能套用遠端更新 — re-render 會砍掉拖曳中的 DOM
+  const _dragging=(typeof _schedDragOid!=='undefined'&&_schedDragOid)||(typeof _touchDragOid!=='undefined'&&_touchDragOid);
+  if(pendingRemoteOrders!==null&&!isModalOpen()&&!isInputFocused()&&!_saveOneTimer&&!_saveAllTimer&&!_dragging){const v=pendingRemoteOrders;applyRemoteOrders(v)}
+},2000);
 // Register service worker (PWA support)
 if('serviceWorker' in navigator){
   window.addEventListener('load',()=>{navigator.serviceWorker.register('sw.js').catch(()=>{})});
