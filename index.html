@@ -2870,7 +2870,7 @@ async function setWarehouseAddress(){
 // openSchedRoute / copySchedCurrentView 移除 — 簡化只剩週表後沒有 caller
 // 複製當日清單給司機/師傅（純文字格式，貼 LINE 用）
 function copySchedDay(dateIso){
-  const target=orders.filter(o=>o.install==='是'&&o.installDate===dateIso&&(schedInstaller==='all'||o.installer===schedInstaller)&&o.status!=='已完成'&&o.status!=='已取消'&&o.status!=='轉線下');
+  const target=orders.filter(o=>o.install==='是'&&!o.installDone&&o.installDate===dateIso&&(schedInstaller==='all'||o.installer===schedInstaller)&&o.status!=='已取消'&&o.status!=='轉線下');
   if(!target.length){alert(`${dateIso} 沒有安裝行程可複製`);return}
   // 按師傅分組（如 schedInstaller=all 多人）+ 同師傅內按時段 + ZIP
   const slotOrder={'早上':0,'下午':1,'晚上':2,'':3};
@@ -2904,7 +2904,7 @@ function copySchedDay(dateIso){
 }
 function openSchedRouteForDate(dateIso,opts){
   opts=opts||{};
-  const target=orders.filter(o=>o.install==='是'&&o.installDate===dateIso&&(schedInstaller==='all'||o.installer===schedInstaller)&&o.status!=='已完成'&&o.status!=='已取消'&&o.status!=='轉線下');
+  const target=orders.filter(o=>o.install==='是'&&!o.installDone&&o.installDate===dateIso&&(schedInstaller==='all'||o.installer===schedInstaller)&&o.status!=='已取消'&&o.status!=='轉線下');
   if(!target.length){alert(`${dateIso} 沒有安裝行程可以規劃`);return}
   // 多師傅警告：schedInstaller='all' 且有 ≥2 位師傅的單 → 路線會混合
   if(schedInstaller==='all'){
