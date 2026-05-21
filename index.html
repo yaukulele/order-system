@@ -1861,7 +1861,8 @@ document.getElementById('modal-body').innerHTML=`<h3>編輯訂單${customerHisto
 <div style="margin:10px 0 4px;padding-top:8px;border-top:1px dashed var(--bd)"><span style="font-size:10px;font-weight:700;color:var(--dm)">客戶希望（記錄用，跟實際排程不同會顯示提示）</span></div>
 <div style="margin:4px 0"><span style="font-size:10px;font-weight:600;color:var(--dm)">週幾 <span style="font-weight:400;color:var(--ht)">（可複選）</span></span><div class="sched-row">${DAYS.map(d=>`<button class="sched-btn${['週六','週日'].includes(d)?' weekend':''}${(o.installDay&&o.installDay.split(/[、,\/]/).map(x=>x.trim()).includes(d))?' picked':''}" onclick="pickD('${d}',this)">${d}</button>`).join('')}</div></div>
 <div><span style="font-size:10px;font-weight:600;color:var(--dm)">時段 <span style="font-weight:400;color:var(--ht)">（可複選）</span></span><div class="sched-row">${TIMES.map(t=>`<button class="sched-btn${((o.installTime||'').split(/[、,\/]/).map(x=>x.trim()).includes(t))?' picked':''}" onclick="pickT('${t}',this)">${t}</button>`).join('')}</div></div>
-<div id="ei-mismatch-hint" style="font-size:10px;color:#b45309;background:#fef9ec;padding:4px 8px;border-radius:4px;margin-top:8px;display:none"></div></div></div>
+<div id="ei-mismatch-hint" style="font-size:10px;color:#b45309;background:#fef9ec;padding:4px 8px;border-radius:4px;margin-top:8px;display:none"></div>
+<div style="margin-top:10px;padding-top:8px;border-top:1px dashed var(--bd);display:flex;align-items:center;justify-content:space-between"><span style="font-size:11px;font-weight:700;color:var(--dm)">安裝完成狀態</span><button type="button" class="${o.installDone?'toggle-on':'toggle-off'}" id="ei-done-btn" onclick="togEIDone()" title="切換安裝是否完成">${o.installDone?'✓ 已完成安裝':'未完成（仍在排程中）'}</button></div></div></div>
 <div style="border:1px solid var(--bd);border-radius:8px;padding:12px;margin:8px 0;background:var(--sf2)"><div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px"><span style="font-size:12px;font-weight:700">加購</span><button class="${o.addon==='是'?'toggle-on':(o.addon==='否'?'toggle-off':'toggle-unknown')}" onclick="togEA()" id="ea-btn" title="點擊循環：未確認 → 要加購 → 不加購">${o.addon==='是'?'要加購':(o.addon==='否'?'不加購':'待確認')}</button></div>
 <div id="ea-panel" class="${o.addon==='是'?'':'hidden'}"><div class="fi" style="margin-bottom:8px"><label>加購金額</label><input type="text" inputmode="numeric" id="e-addonf" value="${o.addonFee||''}" oninput="this.value=cn(this.value);calcT()"></div><div class="fi"><label>加購內容（例如：琴架、變壓器、調音器…）</label><input type="text" id="e-addonitems" value="${esc(o.addonItems||'')}" placeholder="加購了什麼" list="addon-items-suggestions"></div></div></div>
 <datalist id="addon-items-suggestions">${getAddonSuggestions().map(s=>`<option value="${esc(s)}"></option>`).join('')}</datalist>
@@ -1916,13 +1917,19 @@ function togEI(){_modalDirty=true;
     b.className=next==='否'?'toggle-off':'toggle-unknown';
     b.textContent=next==='否'?'不安裝':'待確認';
     p.classList.add('hidden');
-    // 切到「不安裝/未確認」→ 清掉所有安裝欄位（費用/日期/時段/週幾時段 chips）保持資料一致
+    // 切到「不安裝/未確認」→ 清掉所有安裝欄位（費用/日期/時段/週幾時段 chips/完成狀態）保持資料一致
     const fee=document.getElementById('e-instf');if(fee)fee.value='';
     const dInp=document.getElementById('e-installDate');if(dInp)dInp.value='';
     const sSel=document.getElementById('e-installSlot');if(sSel)sSel.value='';
+    const doneBtn=document.getElementById('ei-done-btn');if(doneBtn){doneBtn.className='toggle-off';doneBtn.textContent='未完成（仍在排程中）'}
     document.querySelectorAll('#ei-panel .sched-btn.picked').forEach(x=>x.classList.remove('picked'));
   }
   calcT()
+}
+// 編輯 modal 內切換「安裝完成狀態」— 給 6 秒復原視窗過了之後的永久 un-mark 路徑
+function togEIDone(){_modalDirty=true;const b=document.getElementById('ei-done-btn');if(!b)return;
+  if(b.classList.contains('toggle-on')){b.className='toggle-off';b.textContent='未完成（仍在排程中）'}
+  else{b.className='toggle-on';b.textContent='✓ 已完成安裝'}
 }
 function togEA(){_modalDirty=true;
   const b=document.getElementById('ea-btn'),p=document.getElementById('ea-panel');
@@ -1957,6 +1964,12 @@ if(o.install==='否'||o.install==='未確認'){o.installFee=0;o.installDay='';o.
 else{o.installFee=parseInt(document.getElementById('e-instf').value)||0;o.installDay='';o.installTime='';
   o.installDate=document.getElementById('e-installDate')?.value||'';
   o.installSlot=document.getElementById('e-installSlot')?.value||'';
+  // 安裝完成狀態（從 ei-done-btn 讀）— 新標完成時記時間戳
+  const _doneBtn=document.getElementById('ei-done-btn');
+  const wasDone=!!o.installDone;
+  o.installDone=_doneBtn?_doneBtn.classList.contains('toggle-on'):!!o.installDone;
+  if(o.installDone&&!wasDone){o.installDoneAt=new Date().toISOString();logActivity(o,'安裝完成（編輯視窗）')}
+  else if(!o.installDone&&wasDone){logActivity(o,'安裝完成 → 撤銷（編輯視窗）')}
   const newInstaller=document.getElementById('e-installer')?.value||installers[0]||'阿淵';
   if((o.installer||'')!==newInstaller){if(o.installer)logActivity(o,`安裝師傅 ${o.installer} → ${newInstaller}`);else logActivity(o,`指派安裝師傅：${newInstaller}`);o.installer=newInstaller}
   const days=[],times=[];
