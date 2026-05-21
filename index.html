@@ -2550,10 +2550,15 @@ function renderSchedule(){
   let filtered=candidates;
   filtered=filtered.filter(o=>{const d=o.installDate||'';return d&&d>=monday&&d<=sunIso});
   if(schedInstaller!=='all'){filtered=filtered.filter(o=>(o.installer||'')===schedInstaller)}
-  const noDate=candidates.filter(o=>!o.installDate&&(schedInstaller==='all'||o.installer===schedInstaller))
+  const instMatch=o=>(schedInstaller==='all'||o.installer===schedInstaller);
+  const noDate=candidates.filter(o=>!o.installDate&&instMatch(o))
     .sort((a,b)=>(a.date||'').localeCompare(b.date||''));
-  document.getElementById('sched-show-cnt').textContent=filtered.length+noDate.length;
-  document.getElementById('schedule-area').innerHTML=renderWeekGrid(filtered,noDate,monday);
+  // 逾期未完成：排程日期已過本週週一還沒按「完成安裝」— 否則會藏在所有週次視圖之外看不到
+  const week0Mon=_mondayOfWeek(0);
+  const overdue=candidates.filter(o=>o.installDate&&o.installDate<week0Mon&&instMatch(o))
+    .sort((a,b)=>(a.installDate||'').localeCompare(b.installDate||''));
+  document.getElementById('sched-show-cnt').textContent=filtered.length+noDate.length+overdue.length;
+  document.getElementById('schedule-area').innerHTML=renderWeekGrid(filtered,noDate,monday,overdue);
   _renderSchedBatchBar();
 }
 // 列表上的安裝/加購狀態變動時 + applyRemoteOrders 後，badge 數量要更新
@@ -2576,7 +2581,7 @@ function effectiveSlot(o){
   for(const t of arr)if(TIMES.includes(t))return t;
   return ''; // 真的沒任何時段才丟「未排時段」row
 }
-function renderWeekGrid(filtered,noDate,monday){
+function renderWeekGrid(filtered,noDate,monday,overdue){
   // days：固定週一→週日（monday 由 renderSchedule 傳入）
   const days=[];const m=new Date((monday||_mondayOfWeek(0))+'T00:00:00');
   for(let i=0;i<7;i++){const d=new Date(m);d.setDate(d.getDate()+i);days.push(localDateISO(d))}
@@ -2665,6 +2670,12 @@ function renderWeekGrid(filtered,noDate,monday){
   }
   if(!hasAnyDayOrders)html+='<span style="font-size:11px;color:var(--ht)">尚無已排程訂單可規劃</span>';
   html+='</div>';
+  // 逾期未完成 — 排程日已過本週週一但沒按「完成安裝」，否則藏在所有週次視圖外看不到
+  if(overdue&&overdue.length){
+    html+=`<div class="card" style="margin-top:10px;border:2px solid #dc2626"><div class="card-h" style="background:#fee2e2"><h3 style="color:#dc2626">逾期未完成 <span class="badge" style="background:#dc2626;color:#fff">${overdue.length}</span></h3><span style="font-size:11px;color:#dc2626;margin-left:auto">排程日已過 — 請按「完成安裝」或重新排日</span></div><div class="card-b" style="padding:0">`;
+    for(const o of overdue.slice(0,100))html+=renderSchedRow(o,{draggable:true});
+    html+=`</div></div>`;
+  }
   // 未排日提示 — 同時也是 drop target，從 grid 拖回來會自動取消排程
   if(noDate&&noDate.length){
     const allChecked=noDate.every(o=>_schedBatch.has(o.id));
