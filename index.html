@@ -482,7 +482,7 @@ function undoLast(){const u=undoStack.pop();if(!u){showToast('沒有可還原的
   if(u.kind==='delete-one'){
     orders.push(u.order);
     // 只 update 還原的這筆（之前 saveAll 會把所有訂單都重寫一次浪費頻寬+撞 race）
-    saveOne(u.order);renderList();
+    saveOne(u.order);renderList();updateCnt();
     showToast(`✅ 已還原「${u.order.name||u.order.product||'訂單'}」`)
   }
   else if(u.kind==='delete-batch'){
@@ -490,7 +490,7 @@ function undoLast(){const u=undoStack.pop();if(!u){showToast('沒有可還原的
     // 只 update 還原的那批
     const updates={};for(const o of u.orders)updates[o.id]=o;
     _setSavingBadge();db.ref('orders').update(updates).catch(_saveError);
-    renderList();
+    renderList();updateCnt();
     showToast(`✅ 已還原 ${u.orders.length} 筆訂單`)
   }
   else if(u.kind==='bulk-restore-status'){
