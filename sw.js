@@ -3,7 +3,7 @@
 //   有差異就 postMessage 通知頁面跳「有新版本」toast。兼顧「開頁快」+「拿得到最新」。
 // 其他 shell asset: stale-while-revalidate
 // Bumps cache version on every release; old caches cleaned up on activate.
-const CACHE = "order-system-v162";
+const CACHE = "order-system-v163";
 const SHELL = ["./", "./index.html", "./manifest.json", "./icon.svg"];
 
 self.addEventListener("install", (event) => {
@@ -45,14 +45,15 @@ self.addEventListener("fetch", (event) => {
     event.respondWith(
       caches.open(CACHE).then(async (cache) => {
         const cached = (await cache.match(req)) || (await cache.match("./index.html"));
+        // 比對用 clone — return cached 會消耗 body，背景再讀就失敗。先 clone 留著比對。
+        const cachedForCompare = cached ? cached.clone() : null;
         const networkUpdate = fetch(req)
           .then(async (res) => {
             if (res && res.status === 200) {
-              // 先比對是否有差異（趁 cached 還沒被覆蓋）
               let changed = false;
-              if (cached) {
+              if (cachedForCompare) {
                 try {
-                  const [newText, oldText] = await Promise.all([res.clone().text(), cached.clone().text()]);
+                  const [newText, oldText] = await Promise.all([res.clone().text(), cachedForCompare.text()]);
                   changed = newText !== oldText;
                 } catch (_) {}
               }
@@ -66,7 +67,7 @@ self.addEventListener("fetch", (event) => {
             }
             return res;
           })
-          .catch(() => cached);
+          .catch(() => cached && cached.clone());
         // 背景更新不阻塞回應，但 waitUntil 保 SW 活到 cache.put 完成
         event.waitUntil(networkUpdate.catch(() => {}));
         return cached || networkUpdate;
