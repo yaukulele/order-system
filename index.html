@@ -2489,17 +2489,28 @@ function setSchedWeek(offset){
   schedWeekOffset=parseInt(offset,10)||0;
   renderSchedule();
 }
-// 填週次下拉 — 本週 + 後 3 週，標籤帶日期區間
+// 填週次下拉 — 至少本週 + 後 3 週；若有訂單排到更遠，自動延伸週數（避免訂單藏在看不到的週）
 function _populateWeekDropdown(){
   const sel=document.getElementById('sched-week');
   if(!sel)return;
   const labels=['本週','下週','第 3 週','第 4 週'];
+  // 算最遠的 install 訂單在第幾週 → 下拉至少涵蓋到那
+  let maxWeek=3;
+  const mon0=_mondayOfWeek(0);
+  for(const o of _schedCandidates()){
+    if(!o.installDate||o.installDate<mon0)continue;
+    const diffDays=Math.floor((new Date(o.installDate+'T00:00:00')-new Date(mon0+'T00:00:00'))/86400000);
+    const wk=Math.floor(diffDays/7);
+    if(wk>maxWeek)maxWeek=wk;
+  }
+  if(maxWeek>51)maxWeek=51; // 安全上限 1 年
   let html='';
-  for(let i=0;i<4;i++){
+  for(let i=0;i<=maxWeek;i++){
     const mon=_mondayOfWeek(i);
     const sd=new Date(mon+'T00:00:00');sd.setDate(sd.getDate()+6);
     const range=`${mon.slice(5).replace('-','/')}–${localDateISO(sd).slice(5).replace('-','/')}`;
-    html+=`<option value="${i}" ${i===schedWeekOffset?'selected':''}>${labels[i]}（${range}）</option>`;
+    const label=labels[i]||`第 ${i+1} 週`;
+    html+=`<option value="${i}" ${i===schedWeekOffset?'selected':''}>${label}（${range}）</option>`;
   }
   sel.innerHTML=html;
 }
