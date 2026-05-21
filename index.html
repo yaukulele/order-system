@@ -1898,13 +1898,14 @@ function togEI(){_modalDirty=true;
     // 切到「要安裝」後重算 mismatch hint
     if(typeof updateInstallMismatchHint==='function')setTimeout(updateInstallMismatchHint,0);
   }
-  else if(next==='否'){b.className='toggle-off';b.textContent='不安裝';p.classList.add('hidden');
-    // 切到「不安裝」清掉欄位
+  else if(next==='否'||next==='未確認'){
+    b.className=next==='否'?'toggle-off':'toggle-unknown';
+    b.textContent=next==='否'?'不安裝':'待確認';
+    p.classList.add('hidden');
+    // 切到「不安裝/未確認」→ 清掉所有安裝欄位（費用/日期/時段/週幾時段 chips）保持資料一致
     const fee=document.getElementById('e-instf');if(fee)fee.value='';
-    document.querySelectorAll('#ei-panel .sched-btn.picked').forEach(x=>x.classList.remove('picked'));
-  }else{b.className='toggle-unknown';b.textContent='待確認';p.classList.add('hidden');
-    // 未確認也清掉欄位（保持資料一致：未確認 = 還沒設費用）
-    const fee=document.getElementById('e-instf');if(fee)fee.value='';
+    const dInp=document.getElementById('e-installDate');if(dInp)dInp.value='';
+    const sSel=document.getElementById('e-installSlot');if(sSel)sSel.value='';
     document.querySelectorAll('#ei-panel .sched-btn.picked').forEach(x=>x.classList.remove('picked'));
   }
   calcT()
