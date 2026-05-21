@@ -1,8 +1,9 @@
 // Order system service worker.
-// HTML / root: network-first (fall back to cache offline) — user 第一次 reload 就拿到最新版
+// HTML / root: stale-while-revalidate — 開頁立刻給 cache（秒開），背景抓最新版，
+//   有差異就 postMessage 通知頁面跳「有新版本」toast。兼顧「開頁快」+「拿得到最新」。
 // 其他 shell asset: stale-while-revalidate
 // Bumps cache version on every release; old caches cleaned up on activate.
-const CACHE = "order-system-v160";
+const CACHE = "order-system-v161";
 const SHELL = ["./", "./index.html", "./manifest.json", "./icon.svg"];
 
 self.addEventListener("install", (event) => {
@@ -40,17 +41,33 @@ self.addEventListener("fetch", (event) => {
   if (url.search) return;
 
   if (isHTMLRequest(req, url)) {
-    // Network-first for HTML — user reload 立刻看到最新版；斷線才 fallback cache
+    // Stale-while-revalidate for HTML — 立刻回 cache（秒開），背景抓最新比對
     event.respondWith(
-      fetch(req)
-        .then((res) => {
-          if (res && res.status === 200) {
-            const clone = res.clone();
-            caches.open(CACHE).then((c) => c.put(req, clone)).catch(() => {});
-          }
-          return res;
-        })
-        .catch(() => caches.match(req).then((c) => c || caches.match("./index.html")))
+      caches.open(CACHE).then(async (cache) => {
+        const cached = (await cache.match(req)) || (await cache.match("./index.html"));
+        const networkUpdate = fetch(req)
+          .then(async (res) => {
+            if (res && res.status === 200) {
+              const fresh = res.clone();
+              // 跟舊 cache 比對 → 不同就通知頁面有新版
+              if (cached) {
+                try {
+                  const [newText, oldText] = await Promise.all([res.clone().text(), cached.clone().text()]);
+                  if (newText !== oldText) {
+                    const cs = await self.clients.matchAll();
+                    cs.forEach((c) => c.postMessage({ type: "new-version" }));
+                  }
+                } catch (_) {}
+              }
+              await cache.put(req, fresh).catch(() => {});
+            }
+            return res;
+          })
+          .catch(() => cached);
+        // 背景更新不阻塞回應，但 waitUntil 保 SW 活到 cache.put 完成
+        event.waitUntil(networkUpdate.catch(() => {}));
+        return cached || networkUpdate;
+      })
     );
     return;
   }
