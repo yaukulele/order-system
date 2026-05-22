@@ -1340,8 +1340,8 @@ function buildOrderActions(o,variant){
         :`<button class="act" onclick="togAddonPaid('${oid}')" title="加購款未收 — 點擊填已收金額" style="border-color:var(--amb);color:var(--amb);font-weight:700">🛒⚠</button> `))
     :'';
   // 加 install / addon（mobile 行內快速開啟，desktop 已有 toggle 不重複）
-  const quickAddInstall=(isMob&&(o.install==='否'||o.install==='未確認'||!o.install))?`<button onclick="installCellClick('${oid}',event)" style="color:var(--blu);border-color:#a8c4f0;font-size:10px" title="${o.install==='否'?'目前不安裝':'安裝服務未確認'} — 點擊設定">${o.install==='否'?'＋安裝':'安裝?'}</button>`:'';
-  const quickAddAddon=(isMob&&(o.addon==='否'||o.addon==='未確認'||!o.addon))?`<button onclick="addonCellClick('${oid}',event)" style="color:var(--mo);border-color:#f0c4d8;font-size:10px" title="${o.addon==='否'?'目前不加購':'加購未確認'} — 點擊設定">${o.addon==='否'?'＋加購':'加購?'}</button>`:'';
+  const quickAddInstall=(isMob&&(o.install==='否'||o.install==='未確認'||!o.install))?`<button onclick="installCellClick('${oid}',event)" style="${o.install==='否'?'color:#6b7280;border-color:#d1d5db;background:#f3f4f6':'color:var(--blu);border-color:#a8c4f0'};font-size:10px" title="${o.install==='否'?'已確認不安裝（點擊改）':'安裝服務未確認 — 點擊設定'}">${o.install==='否'?'不安裝':'安裝?'}</button>`:'';
+  const quickAddAddon=(isMob&&(o.addon==='否'||o.addon==='未確認'||!o.addon))?`<button onclick="addonCellClick('${oid}',event)" style="${o.addon==='否'?'color:#6b7280;border-color:#d1d5db;background:#f3f4f6':'color:var(--mo);border-color:#f0c4d8'};font-size:10px" title="${o.addon==='否'?'已確認不加購（點擊改）':'加購未確認 — 點擊設定'}">${o.addon==='否'?'不加購':'加購?'}</button>`:'';
   // 編輯 / 複製 / 拍照 / 刪
   const edit=isMob?`<button onclick="openEdit('${oid}')">✏️ 編輯</button>`:`<button class="act" onclick="openEdit('${oid}')">編輯</button>`;
   const copy=isMob?`<button onclick="copyShipping('${oid}',this)">📋 複製</button>`:`<button class="act" onclick="copyShipping('${oid}',this)" title="複製出貨資料（姓名/電話/地址/商品/單號）">📋</button>`;
