@@ -1486,7 +1486,19 @@ function renderAddonCell(o,oid){
 function installCellClick(oid,ev){
   const o=findO(oid);if(!o)return;
   if(o.install==='未確認'||!o.install){openInstallMenu(oid,ev);return}
-  if(o.install==='是'){
+  const prevState=o.install;
+  // 預先擷取要清掉的資訊 — 進 log 給未來查（用戶常常想知道改前金額是多少）
+  const prevSegs=[];
+  if(prevState==='是'){
+    if(o.installFee)prevSegs.push(`費用 $${o.installFee}`);
+    if(o.installPaidAmount)prevSegs.push(`已收 $${o.installPaidAmount}`);
+    if(o.installDate)prevSegs.push(o.installDate);
+    if(o.installSlot)prevSegs.push(o.installSlot);
+    if(o.installer)prevSegs.push('師傅 '+o.installer);
+    if(o.installDay)prevSegs.push(o.installDay);
+    if(o.installTime)prevSegs.push(o.installTime);
+  }
+  if(prevState==='是'){
     const hasData=(o.installFee||0)>0||(o.installPaidAmount||0)>0||o.installDay||o.installTime;
     if(hasData){
       const summary=[`費用 $${o.installFee||0}`,o.installPaidAmount?`已收 $${o.installPaidAmount}`:'',o.installDay||'',o.installTime||''].filter(Boolean).join(' / ');
@@ -1494,12 +1506,22 @@ function installCellClick(oid,ev){
     }
     o.install='未確認';o.installFee=0;o.installDay='';o.installTime='';o.installPaidAmount=0;o.installDate='';o.installSlot='';o.installer='';o.installDone=false;
   }else{o.install='未確認';o.installDate='';o.installSlot='';o.installer='';o.installDone=false}
-  logActivity(o,`安裝服務 → 未確認`);saveOne(o);renderList();updateCnt();
+  // 在 log 保留改前的金額/日期/師傅，避免用戶誤觸後找不回來
+  const tail=prevSegs.length?`（原 ${prevSegs.join(' / ')}）`:'';
+  logActivity(o,`安裝 ${prevState} → 未確認${tail}`);saveOne(o);renderList();updateCnt();
 }
 function addonCellClick(oid,ev){
   const o=findO(oid);if(!o)return;
   if(o.addon==='未確認'||!o.addon){openAddonMenu(oid,ev);return}
-  if(o.addon==='是'){
+  const prevState=o.addon;
+  // 預先擷取要清掉的資訊
+  const prevSegs=[];
+  if(prevState==='是'){
+    if(o.addonFee)prevSegs.push(`金額 $${o.addonFee}`);
+    if(o.addonPaidAmount)prevSegs.push(`已收 $${o.addonPaidAmount}`);
+    if((o.addonItems||'').trim())prevSegs.push(o.addonItems.trim());
+  }
+  if(prevState==='是'){
     const hasData=(o.addonFee||0)>0||(o.addonPaidAmount||0)>0||(o.addonItems||'').trim();
     if(hasData){
       const summary=[`費用 $${o.addonFee||0}`,o.addonPaidAmount?`已收 $${o.addonPaidAmount}`:'',o.addonItems||''].filter(Boolean).join(' / ');
@@ -1507,7 +1529,8 @@ function addonCellClick(oid,ev){
     }
     o.addon='未確認';o.addonFee=0;o.addonPaidAmount=0;o.addonItems='';
   }else{o.addon='未確認'}
-  logActivity(o,`加購 → 未確認`);saveOne(o);renderList();
+  const tail=prevSegs.length?`（原 ${prevSegs.join(' / ')}）`:'';
+  logActivity(o,`加購 ${prevState} → 未確認${tail}`);saveOne(o);renderList();
 }
 // inline 小選單 — 不用 modal，按鈕就地展開讓用戶選
 function openInstallMenu(oid,ev){
@@ -2113,6 +2136,8 @@ o.platform=document.getElementById('e-plat').value;o.orderNo=document.getElement
 // 三段狀態從 button class 讀：toggle-on=是 / toggle-off=否 / toggle-unknown=未確認
 const _ibtn=document.getElementById('ei-btn');
 o.install=_ibtn.classList.contains('toggle-on')?'是':(_ibtn.classList.contains('toggle-unknown')?'未確認':'否');
+// 改前 → 改後不同且原本是「要安裝」有資料 → 在 log 保留原金額/日期/師傅，避免誤觸找不回來
+if(_snap.install==='是'&&o.install!=='是'){const segs=[];if(_snap.installFee)segs.push(`費用 $${_snap.installFee}`);if(_snap.installPaidAmount)segs.push(`已收 $${_snap.installPaidAmount}`);if(_snap.installDate)segs.push(_snap.installDate);if(_snap.installSlot)segs.push(_snap.installSlot);if(_snap.installer)segs.push('師傅 '+_snap.installer);if(_snap.installDay)segs.push(_snap.installDay);if(_snap.installTime)segs.push(_snap.installTime);logActivity(o,`安裝 是 → ${o.install}${segs.length?'（原 '+segs.join(' / ')+'）':''}（編輯視窗）`)}
 if(o.install==='否'||o.install==='未確認'){o.installFee=0;o.installDay='';o.installTime='';o.installPaidAmount=0;o.installDate='';o.installSlot='';o.installer='';o.installDone=false}
 else{o.installFee=parseInt(document.getElementById('e-instf').value)||0;o.installDay='';o.installTime='';
   // 安裝已收金額（新增 — 可填部分）
@@ -2134,6 +2159,8 @@ else{o.installFee=parseInt(document.getElementById('e-instf').value)||0;o.instal
 }
 const _abtn=document.getElementById('ea-btn');
 o.addon=_abtn.classList.contains('toggle-on')?'是':(_abtn.classList.contains('toggle-unknown')?'未確認':'否');
+// 同樣：加購從「是」改掉前，把原本金額/已收/品項記到 log
+if(_snap.addon==='是'&&o.addon!=='是'){const segs=[];if(_snap.addonFee)segs.push(`金額 $${_snap.addonFee}`);if(_snap.addonPaidAmount)segs.push(`已收 $${_snap.addonPaidAmount}`);if((_snap.addonItems||'').trim())segs.push(_snap.addonItems.trim());logActivity(o,`加購 是 → ${o.addon}${segs.length?'（原 '+segs.join(' / ')+'）':''}（編輯視窗）`)}
 if(o.addon==='否'||o.addon==='未確認'){o.addonFee=0;o.addonItems='';o.addonPaidAmount=0}
 else{o.addonFee=parseInt(document.getElementById('e-addonf').value)||0;o.addonItems=(document.getElementById('e-addonitems')?.value||'').trim();
   // 加購已收金額（新增 — 可填部分）
