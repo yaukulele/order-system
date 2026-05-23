@@ -1328,25 +1328,40 @@ function buildOrderActions(o,variant){
       ?`<button class="primary" onclick="openShipMomo('${oid}')">📤 出貨</button>`
       :`<button class="act" onclick="openShipMomo('${oid}')" title="回填物流單號到 MOMO" style="border-color:var(--mo);color:var(--mo);font-weight:700">📤 出貨</button> `)
     :'';
-  // 安裝款已收/未收（只在 install===是）
+  // 安裝款已收/未收/部分已收（只在 install===是）
+  // 三狀態：未收(0) / 部分(0<paid<fee) / 已收齊(paid>=fee)。部分視為「未收齊」橘色提醒
+  const _iFee=Number(o.installFee)||0,_iPaid=Number(o.installPaidAmount)||0;
+  const _iPartial=_iPaid>0&&_iFee>0&&_iPaid<_iFee;
+  const _iFull=_iFee>0&&_iPaid>=_iFee;
   const instPaid=o.install==='是'
-    ?(((o.installPaidAmount||0)>0)
+    ?(_iFull
       ?(isMob
-        ?`<button class="success" onclick="togInstallPaid('${oid}')">🔧 已收 $${o.installPaidAmount}</button>`
-        :`<button class="act" onclick="togInstallPaid('${oid}')" title="安裝款已收 $${o.installPaidAmount}（點擊改回未收）" style="border-color:var(--grn);color:var(--grn);font-weight:700">🔧✓$${o.installPaidAmount}</button> `)
-      :(isMob
-        ?`<button onclick="togInstallPaid('${oid}')" style="color:var(--amb);border-color:#f0d68a">🔧 未收 ⚠</button>`
-        :`<button class="act" onclick="togInstallPaid('${oid}')" title="安裝款未收 — 點擊填已收金額" style="border-color:var(--amb);color:var(--amb);font-weight:700">🔧⚠</button> `))
+        ?`<button class="success" onclick="togInstallPaid('${oid}')">🔧 已收 $${_iPaid}</button>`
+        :`<button class="act" onclick="togInstallPaid('${oid}')" title="安裝款已收齊 $${_iPaid} / 應 $${_iFee}（點擊調整）" style="border-color:var(--grn);color:var(--grn);font-weight:700">🔧✓$${_iPaid}</button> `)
+      :(_iPartial
+        ?(isMob
+          ?`<button onclick="togInstallPaid('${oid}')" style="color:#b45309;border-color:#f59e0b;background:#fef3c7">🔧 缺 $${_iFee-_iPaid} ⚠</button>`
+          :`<button class="act" onclick="togInstallPaid('${oid}')" title="安裝款部分已收 $${_iPaid} / 應 $${_iFee}，還缺 $${_iFee-_iPaid}" style="border-color:#f59e0b;color:#b45309;background:#fef3c7;font-weight:700">🔧$${_iPaid}/$${_iFee}</button> `)
+        :(isMob
+          ?`<button onclick="togInstallPaid('${oid}')" style="color:var(--amb);border-color:#f0d68a">🔧 未收 ⚠</button>`
+          :`<button class="act" onclick="togInstallPaid('${oid}')" title="安裝款未收 — 點擊填已收金額" style="border-color:var(--amb);color:var(--amb);font-weight:700">🔧⚠</button> `)))
     :'';
-  // 加購款已收/未收
+  // 加購款已收/未收/部分已收
+  const _aFee=Number(o.addonFee)||0,_aPaid=Number(o.addonPaidAmount)||0;
+  const _aPartial=_aPaid>0&&_aFee>0&&_aPaid<_aFee;
+  const _aFull=_aFee>0&&_aPaid>=_aFee;
   const addonPaid=o.addon==='是'
-    ?(((o.addonPaidAmount||0)>0)
+    ?(_aFull
       ?(isMob
-        ?`<button class="success" onclick="togAddonPaid('${oid}')">🛒 已收 $${o.addonPaidAmount}</button>`
-        :`<button class="act" onclick="togAddonPaid('${oid}')" title="加購款已收 $${o.addonPaidAmount}（點擊改回未收）" style="border-color:var(--grn);color:var(--grn);font-weight:700">🛒✓$${o.addonPaidAmount}</button> `)
-      :(isMob
-        ?`<button onclick="togAddonPaid('${oid}')" style="color:var(--amb);border-color:#f0d68a">🛒 未收 ⚠</button>`
-        :`<button class="act" onclick="togAddonPaid('${oid}')" title="加購款未收 — 點擊填已收金額" style="border-color:var(--amb);color:var(--amb);font-weight:700">🛒⚠</button> `))
+        ?`<button class="success" onclick="togAddonPaid('${oid}')">🛒 已收 $${_aPaid}</button>`
+        :`<button class="act" onclick="togAddonPaid('${oid}')" title="加購款已收齊 $${_aPaid} / 應 $${_aFee}（點擊調整）" style="border-color:var(--grn);color:var(--grn);font-weight:700">🛒✓$${_aPaid}</button> `)
+      :(_aPartial
+        ?(isMob
+          ?`<button onclick="togAddonPaid('${oid}')" style="color:#b45309;border-color:#f59e0b;background:#fef3c7">🛒 缺 $${_aFee-_aPaid} ⚠</button>`
+          :`<button class="act" onclick="togAddonPaid('${oid}')" title="加購款部分已收 $${_aPaid} / 應 $${_aFee}，還缺 $${_aFee-_aPaid}" style="border-color:#f59e0b;color:#b45309;background:#fef3c7;font-weight:700">🛒$${_aPaid}/$${_aFee}</button> `)
+        :(isMob
+          ?`<button onclick="togAddonPaid('${oid}')" style="color:var(--amb);border-color:#f0d68a">🛒 未收 ⚠</button>`
+          :`<button class="act" onclick="togAddonPaid('${oid}')" title="加購款未收 — 點擊填已收金額" style="border-color:var(--amb);color:var(--amb);font-weight:700">🛒⚠</button> `)))
     :'';
   // 加 install / addon（mobile 行內快速開啟，desktop 已有 toggle 不重複）
   const quickAddInstall=(isMob&&(o.install==='否'||o.install==='未確認'||!o.install))?`<button onclick="installCellClick('${oid}',event)" style="${o.install==='否'?'color:#6b7280;border-color:#d1d5db;background:#f3f4f6':'color:var(--blu);border-color:#a8c4f0'};font-size:10px" title="${o.install==='否'?'已確認不安裝（點擊改）':'安裝服務未確認 — 點擊設定'}">${o.install==='否'?'不安裝':'安裝?'}</button>`:'';
@@ -1502,8 +1517,41 @@ function openAddonMenu(oid,ev){
 // 解析金額輸入 — 容忍 $、,、空白、單位字（元 NT）、小數點；遇 . 截斷（TWD 整數元）
 // 之前 .replace(/[^\d]/g,'') 把「500.50」併成「50050」放大 100 倍 — 直接 OOPS
 function parseAmt(v){if(v==null)return NaN;const m=String(v).replace(/[^\d.]/g,'').match(/^(\d+)/);return m?parseInt(m[1]):NaN}
-function togInstallPaid(oid){const o=findO(oid);if(!o||o.install!=='是')return;if((o.installPaidAmount||0)>0){if(!confirm(`改回「未收」？目前已收 $${o.installPaidAmount}`))return;const prev=o.installPaidAmount;o.installPaidAmount=0;logActivity(o,`安裝款 已收 $${prev} → 未收`);saveOne(o);renderList()}else{const v=prompt('💰 已收金額（直接輸入數字）：',o.installFee||'');if(v===null)return;const n=parseAmt(v);if(!n||n<0){alert('金額無效');return}o.installPaidAmount=n;logActivity(o,`安裝款已收 $${n}`);saveOne(o);renderList()}}
-function togAddonPaid(oid){const o=findO(oid);if(!o||o.addon!=='是')return;if((o.addonPaidAmount||0)>0){if(!confirm(`改回「未收」？目前已收 $${o.addonPaidAmount}`))return;const prev=o.addonPaidAmount;o.addonPaidAmount=0;logActivity(o,`加購款 已收 $${prev} → 未收`);saveOne(o);renderList()}else{const v=prompt('💰 已收金額（直接輸入數字）：',o.addonFee||'');if(v===null)return;const n=parseAmt(v);if(!n||n<0){alert('金額無效');return}o.addonPaidAmount=n;logActivity(o,`加購款已收 $${n}`);saveOne(o);renderList()}}
+// 安裝款 / 加購款 收款 toggle — 支援部分已收（input 任意金額），0 = 改回未收
+function togInstallPaid(oid){
+  const o=findO(oid);if(!o||o.install!=='是')return;
+  const fee=Number(o.installFee)||0;const cur=Number(o.installPaidAmount)||0;
+  const need=Math.max(0,fee-cur);
+  const msg=cur>0
+    ?`💰 更新安裝款已收金額\n\n應收 $${fee.toLocaleString()} / 目前已收 $${cur.toLocaleString()}${need>0?`（還缺 $${need.toLocaleString()}）`:'（已收齊）'}\n\n直接輸入新已收金額（0 = 改回未收，可填部分金額）：`
+    :`💰 安裝款已收金額\n\n應收 $${fee.toLocaleString()}\n直接輸入數字（可少於應收 = 部分已收，會在列表持續提醒）：`;
+  const v=prompt(msg,cur>0?cur:(fee||''));
+  if(v===null)return;
+  const n=parseAmt(v);
+  if(isNaN(n)||n<0){alert('金額無效');return}
+  if(n===cur)return;
+  o.installPaidAmount=n;
+  const tail=n===0?'未收':(n<fee?`部分已收（缺 $${(fee-n).toLocaleString()}）`:'已收齊');
+  logActivity(o,`安裝款 ${cur===0?'未收':'$'+cur} → ${n===0?'未收':'$'+n}（${tail}）`);
+  saveOne(o);renderList()
+}
+function togAddonPaid(oid){
+  const o=findO(oid);if(!o||o.addon!=='是')return;
+  const fee=Number(o.addonFee)||0;const cur=Number(o.addonPaidAmount)||0;
+  const need=Math.max(0,fee-cur);
+  const msg=cur>0
+    ?`💰 更新加購款已收金額\n\n應收 $${fee.toLocaleString()} / 目前已收 $${cur.toLocaleString()}${need>0?`（還缺 $${need.toLocaleString()}）`:'（已收齊）'}\n\n直接輸入新已收金額（0 = 改回未收，可填部分金額）：`
+    :`💰 加購款已收金額\n\n應收 $${fee.toLocaleString()}\n直接輸入數字（可少於應收 = 部分已收，會在列表持續提醒）：`;
+  const v=prompt(msg,cur>0?cur:(fee||''));
+  if(v===null)return;
+  const n=parseAmt(v);
+  if(isNaN(n)||n<0){alert('金額無效');return}
+  if(n===cur)return;
+  o.addonPaidAmount=n;
+  const tail=n===0?'未收':(n<fee?`部分已收（缺 $${(fee-n).toLocaleString()}）`:'已收齊');
+  logActivity(o,`加購款 ${cur===0?'未收':'$'+cur} → ${n===0?'未收':'$'+n}（${tail}）`);
+  saveOne(o);renderList()
+}
 function setInstFee(oid,v){const o=findO(oid);if(!o)return;o.installFee=parseInt(v)||0;saveOne(o);const el=document.getElementById('tot-'+oid);if(el)el.textContent=$(tot(o))}
 function setAddonFee(oid,v){const o=findO(oid);if(!o)return;o.addonFee=parseInt(v)||0;saveOne(o);const el=document.getElementById('tot-'+oid);if(el)el.textContent=$(tot(o))}
 function setQty(oid,v){const o=findO(oid);if(!o)return;const n=parseInt(v);o.qty=n>=1?n:1;saveOne(o)}
@@ -1535,14 +1583,15 @@ function isMobile(){return window.matchMedia('(max-width:768px)').matches}
 // 改址狀態判定：只看 `⚠ 客戶申請改地址` 這個 marker，不含 activity log
 // （之前 `.includes('改地址')` 會在用戶按下「同意/拒絕」之後仍然 true，因為 log 寫了「同意改地址」）
 function hasPendingAddrChange(o){return(o.note||'').includes('⚠ 客戶申請改地址')}
-// 待收費 自動偵測 — 有安裝/加購且「費用>0」但款項還沒入帳。
+// 待收費 自動偵測 — 有安裝/加購且「應收 > 已收」就算未收（含部分已收）。
 // 已取消/轉線下/已完成的單視為結案不算；fee=0（免費服務）也不算待收費（沒錢可收）
-function isPendingPayment(o){if(!o)return false;if(o.status==='已取消'||o.status==='轉線下'||o.status==='已完成')return false;if(o.install==='是'&&Number(o.installFee)>0&&!(Number(o.installPaidAmount)>0))return true;if(o.addon==='是'&&Number(o.addonFee)>0&&!(Number(o.addonPaidAmount)>0))return true;return false}
-// 已完成 防呆：產生未收款警告訊息，若沒有未收款就回 null（不警告）
-function buildPendingPaymentWarn(o){if(!isPendingPayment(o))return null;const parts=[];if(o.install==='是'&&Number(o.installFee)>0&&!(Number(o.installPaidAmount)>0))parts.push(`🔧 安裝費 $${o.installFee} 還沒收`);if(o.addon==='是'&&Number(o.addonFee)>0&&!(Number(o.addonPaidAmount)>0))parts.push(`🛒 加購費 $${o.addonFee} 還沒收`);return parts.join('\n')}
+// ⚠ 之前 bug：條件是 !(installPaidAmount > 0)，意思「只有 0 才算未收」→ 部分已收 5000/6380 會被當成全收齊
+function isPendingPayment(o){if(!o)return false;if(o.status==='已取消'||o.status==='轉線下'||o.status==='已完成')return false;if(o.install==='是'&&Number(o.installFee)>0&&Number(o.installPaidAmount||0)<Number(o.installFee))return true;if(o.addon==='是'&&Number(o.addonFee)>0&&Number(o.addonPaidAmount||0)<Number(o.addonFee))return true;return false}
+// 已完成 防呆：產生未收款警告訊息（含部分已收，把「還缺多少」算出來）
+function buildPendingPaymentWarn(o){if(!isPendingPayment(o))return null;const parts=[];if(o.install==='是'&&Number(o.installFee)>0){const need=Number(o.installFee)-Number(o.installPaidAmount||0);if(need>0)parts.push(`🔧 安裝費 還缺 $${need.toLocaleString()}（應 $${Number(o.installFee).toLocaleString()} / 已收 $${Number(o.installPaidAmount||0).toLocaleString()}）`)}if(o.addon==='是'&&Number(o.addonFee)>0){const need=Number(o.addonFee)-Number(o.addonPaidAmount||0);if(need>0)parts.push(`🛒 加購費 還缺 $${need.toLocaleString()}（應 $${Number(o.addonFee).toLocaleString()} / 已收 $${Number(o.addonPaidAmount||0).toLocaleString()}）`)}return parts.join('\n')}
 // 任何未收款（special filter「💰 未收款」用）— 跟 isPendingPayment 差別：含「已完成」訂單
 // 用途：客戶收到貨後安裝師傅還沒回來收尾款，這種單會被標已完成卻仍有未收 → 用這個 filter 抓出來
-function hasAnyUnpaidFee(o){if(!o)return false;if(o.status==='已取消'||o.status==='轉線下')return false;if(o.install==='是'&&Number(o.installFee)>0&&!(Number(o.installPaidAmount)>0))return true;if(o.addon==='是'&&Number(o.addonFee)>0&&!(Number(o.addonPaidAmount)>0))return true;return false}
+function hasAnyUnpaidFee(o){if(!o)return false;if(o.status==='已取消'||o.status==='轉線下')return false;if(o.install==='是'&&Number(o.installFee)>0&&Number(o.installPaidAmount||0)<Number(o.installFee))return true;if(o.addon==='是'&&Number(o.addonFee)>0&&Number(o.addonPaidAmount||0)<Number(o.addonFee))return true;return false}
 // statusMatchList: cStatus 篩選邏輯 — 待收費 連動偵測；無 cStatus = 顯示全部
 // 之前預設排除已完成（搭配成交 tab）— 移除成交 tab 後改成全顯，用戶用 ✅ 已完成 button 篩選
 function statusMatchList(o){
