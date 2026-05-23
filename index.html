@@ -220,14 +220,23 @@ body.fullscreen-mode .filter-row{top:32px}
 #tab-customers .filter-row,#tab-output .card-b .filter-row{flex-direction:column!important;align-items:stretch!important;flex-wrap:wrap!important;overflow:visible!important;position:static!important;background:transparent!important;padding:6px 0!important;gap:8px!important;top:auto!important}
 #tab-customers .filter-row .search,#tab-output .card-b .filter-row .search{width:100%!important;min-width:0!important;flex:1 1 auto}
 #tab-customers .filter-row .fg-grp,#tab-output .card-b .filter-row .fg-grp{display:flex!important;flex-wrap:wrap;align-items:center;gap:6px;width:100%}
-/* 列表頁 mobile：filter-row 不橫捲，平台 / 特殊 各佔一行；狀態收成單顆循環按鈕貼在平台後面 */
-#tab-list .filter-row{flex-wrap:wrap!important;overflow-x:visible!important;align-items:flex-start;row-gap:6px}
-#tab-list .filter-row .fg-grp{display:flex!important;flex:1 1 100%;flex-wrap:wrap;align-items:center;gap:4px}
+/* 列表頁 mobile：平台 / 狀態 / 特殊 / 紀錄 緊密排版 — 3 行而非 5 行 */
+#tab-list .filter-row{flex-wrap:wrap!important;overflow-x:visible!important;align-items:center;row-gap:5px;padding:5px 4px;column-gap:5px}
+/* 平台組獨佔 row 1（含 cycle status button），讓平台與狀態邏輯分離 */
+#tab-list .filter-row .fg-grp[data-grp="plat"]{display:flex!important;flex:1 1 100%;flex-wrap:wrap;align-items:center;gap:4px}
+/* 特殊組與紀錄/篩選按鈕同 row 2 — 不再各自佔滿一行 */
+#tab-list .filter-row .fg-grp[data-grp="special"]{display:flex!important;flex:0 1 auto;flex-wrap:wrap;align-items:center;gap:4px}
+#tab-list .filter-row #filter-applied-info{margin-left:auto;order:50}
+#tab-list .filter-row > button[onclick*="openActivityLog"]{order:60;margin-left:4px;margin-right:0!important}
 #tab-list .filter-row .fb-divider{display:none}
-#tab-list .filter-row .search{flex:1 1 100%!important;width:100%!important;min-width:0;order:99}
+#tab-list .filter-row > span[style*="flex:1"]{display:none}
+#tab-list .filter-row .search{flex:1 1 100%!important;width:100%!important;min-width:0;order:99;margin-top:2px}
 /* 把整組「狀態」chip 在手機隱藏，由 #mob-stat-cycle 取代 */
 #tab-list .filter-row [data-grp="status"]{display:none!important}
+/* cycle status button：右側對齊 plat row 末端，跟平台 chip 區分視覺位置 */
 #mob-stat-cycle{display:inline-flex!important;margin-left:auto;font-weight:700;border-width:2px}
+/* 手機 fbtn 視覺更精緻 — 略縮 padding / min-width，保留 36px 觸控高度 */
+#tab-list .filter-row .fbtn{padding:6px 10px;min-width:46px}
 table{font-size:10px}
 th,td{padding:6px 4px}
 .act,.toggle-on,.toggle-off,.st-btn{min-height:36px;padding:6px 8px;font-size:10px}
@@ -1003,11 +1012,11 @@ function syncStatusChips(){
 const STAT_CYCLE=['all','未確認','已確認','交涉中','未接電','已出貨','待收費','已完成','補貨中','已取消','轉線下'];
 function cycleStatus(){const cur=cStatus.length===1?cStatus[0]:'all';const i=STAT_CYCLE.indexOf(cur);const next=STAT_CYCLE[(i+1)%STAT_CYCLE.length];setSF(next,null,null)}
 function updateStatCycleBtn(){const btn=document.getElementById('mob-stat-cycle');if(!btn)return;
-  // 多選時顯示第一個狀態 + 「+N」標示；單選或狀態維持原顯示
+  // label 緊湊：全=狀態 / 單=狀態名 / 多=「篩N」（之前「未確認+6」太長會撐爆 row 1 wrap）
   const all=!cStatus.length;
-  let label;if(all)label='狀態';else if(cStatus.length===1)label=cStatus[0];else label=cStatus[0]+`+${cStatus.length-1}`;
+  let label;if(all)label='狀態';else if(cStatus.length===1)label=cStatus[0];else label=`篩${cStatus.length}`;
   const cnt=orders.filter(o=>{if(cFilter!=='all'&&o.platform!==cFilter)return false;if(!statusMatchList(o))return false;if(cSpecial==='unpaidFee'&&!hasAnyUnpaidFee(o))return false;return true}).length;
-  btn.innerHTML=`${esc(label)} <span style="opacity:.75;font-weight:600;margin-left:4px">${cnt}</span>`;
+  btn.innerHTML=`${esc(label)} <span style="opacity:.75;font-weight:600;margin-left:3px">${cnt}</span>`;
   const tail=(all||cStatus.length>1)?'':` ${stCls(cStatus[0]).replace('st-btn ','')}`;
   btn.className='fbtn st-cycle'+(all?' on':'')+tail;
 }
