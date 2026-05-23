@@ -226,8 +226,11 @@ body.fullscreen-mode .filter-row{top:32px}
 #tab-list .filter-row{flex-wrap:wrap!important;overflow-x:visible!important;align-items:center;row-gap:5px;padding:5px 4px;column-gap:4px}
 /* 平台組獨佔 row 1，右側塞篩選 chip + 📜 紀錄（透過 order + margin-left:auto） */
 #tab-list .filter-row .fg-grp[data-grp="plat"]{display:flex!important;flex:1 1 100%;flex-wrap:wrap;align-items:center;gap:4px}
-/* 狀態組獨佔 row 2-3：手機改全部顯示（不用 cycle popup），12 顆 chip 在 row 2-3 自然 wrap */
-#tab-list .filter-row .fg-grp[data-grp="status"]{display:flex!important;flex:1 1 100%;flex-wrap:wrap;align-items:center;gap:4px}
+/* 狀態組獨佔 row 2：一行可橫滑（省直向空間，用戶可以撥右看完所有狀態） */
+#tab-list .filter-row .fg-grp[data-grp="status"]{display:flex!important;flex:1 1 100%;flex-wrap:nowrap!important;align-items:center;gap:4px;overflow-x:auto;overflow-y:hidden;-webkit-overflow-scrolling:touch;scrollbar-width:thin;padding-bottom:2px;scroll-snap-type:x proximity}
+#tab-list .filter-row .fg-grp[data-grp="status"]::-webkit-scrollbar{height:3px}
+#tab-list .filter-row .fg-grp[data-grp="status"]::-webkit-scrollbar-thumb{background:var(--bd);border-radius:2px}
+#tab-list .filter-row .fg-grp[data-grp="status"] .fbtn{flex:0 0 auto;scroll-snap-align:start}
 /* 特殊組與篩選提示 / 📜 紀錄 共用 row 4 — special 用 flex auto 讓後面 chip 能擠在同 row */
 #tab-list .filter-row .fg-grp[data-grp="special"]{display:inline-flex!important;flex:0 1 auto;flex-wrap:wrap;align-items:center;gap:4px}
 /* 篩選 chip + 📜 紀錄 → 在 special 後面，margin-left:auto 推到 row 4 右側 */
