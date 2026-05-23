@@ -2078,6 +2078,8 @@ document.addEventListener('keydown',e=>{
   // 不在輸入框時才響應字母快捷鍵
   const inInput=['INPUT','TEXTAREA','SELECT'].includes(document.activeElement?.tagName);
   if(e.key==='Escape'){
+    // 狀態下拉選單先關
+    const sm=document.getElementById('status-menu');if(sm&&sm.style.display==='block'){closeStatusMenu();return}
     if(isModalOpen()){closeModal();return}
     // 清除搜尋（列表 q / 客戶 cq / 輸出 oq 都吃）
     const searchInputs=['q','cq','oq'].map(id=>document.getElementById(id)).filter(Boolean);
@@ -2520,15 +2522,33 @@ function _schedCandidates(){
 function markInstallDone(oid){
   const o=findO(oid);if(!o)return;
   if(!confirm(`確認「${o.name||'?'}」的安裝已完成？\n\n按確定後這筆會從安裝排程移除（訂單本身不受影響，可在列表查到）。`))return;
+  // 確認完成 → 順便問安裝款收到了沒（提醒用戶當下確認，未收則列表「待收費」提醒會持續顯示）
+  const fee=Number(o.installFee)||0;
+  const prevPaid=Number(o.installPaidAmount)||0;
+  let setPaid=false;
+  if(fee>0&&prevPaid<fee){
+    const unpaid=fee-prevPaid;
+    const msg=`💰 安裝費 $${fee.toLocaleString()} 已經收到了嗎？\n\n`+
+      (prevPaid>0?`目前已收 $${prevPaid.toLocaleString()}，還缺 $${unpaid.toLocaleString()}\n\n`:'')+
+      `確定 = 已收齊（標為已收 $${fee.toLocaleString()}）\n`+
+      `取消 = 還沒收（列表會持續顯示「待收費」提醒，不會消失）`;
+    if(confirm(msg)){
+      o.installPaidAmount=fee;setPaid=true;
+      logActivity(o,`安裝款已收 $${fee}（完成安裝時確認）`);
+    }
+  }
   o.installDone=true;o.installDoneAt=new Date().toISOString();
   logActivity(o,'安裝完成（確認鍵）');
-  saveOne(o);renderSchedule();updateCnt();
-  showToast(`已確認安裝完成：${o.name||''}`,'復原',()=>{
+  saveOne(o);renderSchedule();updateCnt();renderList();
+  const stillUnpaid=fee>0&&Number(o.installPaidAmount||0)<fee;
+  const tail=stillUnpaid?' ⚠ 安裝款未收，列表「待收費」提醒會持續顯示':(setPaid?' ✓ 安裝款已標收齊':'');
+  showToast(`已確認安裝完成：${o.name||''}${tail}`,'復原',()=>{
     const x=findO(oid);if(!x)return;
     x.installDone=false;delete x.installDoneAt;
-    logActivity(x,'安裝完成 → 撤銷');
-    saveOne(x);renderSchedule();updateCnt();
-  },6000);
+    if(setPaid)x.installPaidAmount=prevPaid;
+    logActivity(x,`安裝完成 → 撤銷${setPaid?'（含已收款）':''}`);
+    saveOne(x);renderSchedule();updateCnt();renderList();
+  },8000);
 }
 function syncSchedInstallerRow(){
   const row=document.getElementById('sched-installer-row');
