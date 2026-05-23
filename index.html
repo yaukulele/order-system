@@ -2185,7 +2185,10 @@ function notifyDesktop(title,body){if(localStorage.getItem('notif-enabled')!=='1
 refreshNotifBtn();
 
 // ===== CSV 匯出 =====
-function csvCell(v){const s=String(v??'');if(/[",\n]/.test(s))return'"'+s.replace(/"/g,'""')+'"';return s}
+// CSV cell：跳脫雙引號 + CSV injection 防護
+// 以 =/+/@/tab/CR 開頭，或非數字的「-」開頭 → 前綴一個 ' 讓 Excel/Sheets 當純文字（防 formula 注入）
+// 「-100」這種純負數保留原樣（讀回來還是數字）。
+function csvCell(v){let s=String(v??'');if(/^[=+@\t\r]/.test(s)||(/^-/.test(s)&&!/^-\d/.test(s)))s="'"+s;if(/[",\n]/.test(s))return'"'+s.replace(/"/g,'""')+'"';return s}
 function exportCSV(scope){
   // scope: 'filtered' (列表頁 filter) | 'all' | 'output' (輸出頁 filter)
   const list=scope==='filtered'?filterListOrders():(scope==='output'?filterOutputOrders():orders.slice());
