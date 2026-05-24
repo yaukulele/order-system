@@ -293,6 +293,7 @@ body.has-batch-bar .main{padding-bottom:140px}
 <div class="main" id="tab-import"><div id="today-summary" style="display:none"></div><div class="card" style="background:linear-gradient(135deg,#f3e8ff,#fff);border:1px solid #d8b4fe"><div class="card-h" style="background:transparent"><h3>🏪 店內銷售</h3><div style="display:flex;gap:6px;flex-wrap:wrap"><button class="btn" onclick="openStoreSaleModal()" style="background:#7e22ce;border-color:#7e22ce;color:#fff;font-weight:700" title="櫃台現金/刷卡直購用">+ 新增訂單</button></div></div></div>
 <div class="card" style="background:var(--card-momo-bg);border:1px solid var(--card-momo-bd)"><div class="card-h" style="background:transparent"><h3>🚀 自動抓 MOMO</h3><div style="display:flex;gap:6px;flex-wrap:wrap"><button class="btn" onclick="resetMomoApi()" title="重設 API Token">⚙️</button><button class="btn" onclick="testNotify()" title="測試 Discord / LINE 連線" style="font-size:11px">🔔 測試</button><button class="btn btn-g" id="momo-auto-btn" onclick="fetchMomoAuto()" style="background:var(--mo);border-color:var(--mo)" title="自動抓 MOMO 未出貨訂單">🔄 抓取</button></div></div><div class="card-b" style="padding:10px 16px"><div id="momo-auto-status" style="font-size:11px;color:var(--dm);font-family:var(--mono)">第一次只問 Token，其他裝置自動共用 ☁️</div></div></div>
 <div class="card" style="background:var(--card-pc-bg);border:1px solid var(--card-pc-bd)"><div class="card-h" style="background:transparent"><h3>🛒 自動抓 PChome</h3><div style="display:flex;gap:6px;flex-wrap:wrap"><button class="btn btn-g" id="pchome-auto-btn" onclick="fetchPchomeAuto()" style="background:var(--pc);border-color:var(--pc)" title="自動抓 PChome 未出貨訂單（共用 MOMO API Token）">🔄 抓取</button></div></div><div class="card-b" style="padding:10px 16px"><div id="pchome-auto-status" style="font-size:11px;color:var(--dm);font-family:var(--mono)">共用 MOMO Token / IP，PChome 後台 → API 自動帶個資 ☁️</div></div></div>
+<div class="card" style="background:#fffbeb;border:1px solid #fde047"><div class="card-h" style="background:transparent"><h3>⏰ 自動排程抓單</h3><div style="display:flex;gap:6px;flex-wrap:wrap;align-items:center"><select id="auto-poll-sel" onchange="setAutoPollInterval(this.value)" style="font-size:12px;padding:6px 10px;border:1px solid var(--bd);border-radius:6px;background:var(--sf);font-weight:700"><option value="0">關閉</option><option value="5">每 5 分</option><option value="15">每 15 分</option><option value="30">每 30 分</option><option value="60">每 60 分</option></select></div></div><div class="card-b" style="padding:8px 16px"><div id="auto-poll-status" style="font-size:11px;color:var(--dm);font-family:var(--mono);margin-bottom:4px">已關閉</div><div style="font-size:10px;color:var(--ht);line-height:1.4">PWA 開著就會跑（每 N 分抓 MOMO + PChome 最近 1 天）。新單跳 toast 通知。手機分頁切走就停（省 API quota）。</div></div></div>
 <div class="card"><div class="card-h"><h3>貼上後台資料</h3><div style="display:flex;gap:6px;flex-wrap:wrap"><button class="btn" onclick="clearInput()">清空</button><button class="btn btn-b" onclick="runParse()">預覽</button><button class="btn btn-g" onclick="doImport()" title="匯入到 Firebase">匯入</button><button class="btn" onclick="doReimport()" title="同單號覆蓋（修舊資料用）" style="border-color:#f59e0b;color:#b45309">🔄 覆蓋</button><button class="btn" onclick="copyPCScript()" title="複製 PChome F12 撈單 script" style="border-color:#7c3aed;color:#7c3aed;font-weight:700">📋 F12 腳本</button></div></div><div class="card-b"><details class="hint" style="cursor:pointer"><summary style="font-weight:600;cursor:pointer">📖 操作說明（點開看）</summary><div style="margin-top:8px"><b>MOMO：</b>SCM 後台 → Ctrl+A → Ctrl+C → 貼下方<br><b>PChome（F12 新法）：</b>按 <strong>📋 F12 腳本</strong> → PChome「印貨資料」view → F12 → Console → Ctrl+V Enter → alert 確認 → 回來貼下方<br><b>PChome（舊法）：</b>供應商後台 → Ctrl+A → Ctrl+C → 貼下方</div></details><textarea id="raw-input" rows="7" placeholder="把 MOMO 後台 / PChome 後台 / F12 JSON 貼在這裡..."></textarea></div></div><div id="preview-area"></div></div>
 
 <div class="main hidden" id="tab-list"><div class="filter-row"><span class="fg-grp" data-grp="plat"><button class="fbtn on" data-fg="plat" data-stat="all" onclick="setF('all',this)">全部</button><button class="fbtn" data-fg="plat" data-stat="MO" onclick="setF('MO',this)">Mo</button><button class="fbtn" data-fg="plat" data-stat="PC" onclick="setF('PC',this)">Pc</button><button class="fbtn" data-fg="plat" data-stat="ST" onclick="setF('ST',this)">店內</button><button id="mob-stat-cycle" class="fbtn st-cycle" onclick="cycleStatus()" title="點擊循環切換狀態篩選">狀態</button></span><span class="fb-divider">｜</span><span class="fg-grp" data-grp="status" title="Ctrl/Cmd + 點擊可多選"><button class="fbtn on" data-fg="status" data-stat="status:all" onclick="setSF('all',this,event)">全狀態</button><button class="fbtn" data-fg="status" data-stat="status:active" onclick="setActiveStatuses(this)" title="一鍵選所有「進行中」狀態（排除 已完成 / 已取消 / 轉線下）" style="color:#b45309;border-color:#b45309;font-weight:700">進行中</button><button class="fbtn" data-fg="status" data-stat="status:未確認" onclick="setSF('未確認',this,event)">未確認</button><button class="fbtn" data-fg="status" data-stat="status:已確認" onclick="setSF('已確認',this,event)">已確認</button><button class="fbtn" data-fg="status" data-stat="status:交涉中" onclick="setSF('交涉中',this,event)">交涉中</button><button class="fbtn" data-fg="status" data-stat="status:未接電" onclick="setSF('未接電',this,event)">未接電</button><button class="fbtn" data-fg="status" data-stat="status:已出貨" onclick="setSF('已出貨',this,event)">已出貨</button><button class="fbtn" data-fg="status" data-stat="status:直接出" onclick="setSF('直接出',this,event)" title="直接出貨（不安裝）" style="color:#3f6212;border-color:#a3e635;font-weight:700">直接出</button><button class="fbtn" data-fg="status" data-stat="status:待收費" onclick="setSF('待收費',this,event)" title="安裝/加購款還沒收 — 自動連動偵測" style="color:#dc2626;border-color:#dc2626;font-weight:700">待收費</button><button class="fbtn" data-fg="status" data-stat="status:補貨中" onclick="setSF('補貨中',this,event)">補貨中</button><button class="fbtn" data-fg="status" data-stat="status:壓SP" onclick="setSF('壓SP',this,event)" title="壓住廠商 SP（等廠商出貨）" style="color:#0e7490;border-color:#67e8f9;font-weight:700">壓SP</button><button class="fbtn" data-fg="status" data-stat="status:已完成" onclick="setSF('已完成',this,event)" title="只看已完成單" style="color:var(--grn);border-color:#8cc4a0;font-weight:700">已完成</button><button class="fbtn" data-fg="status" data-stat="status:已取消" onclick="setSF('已取消',this,event)">已取消</button><button class="fbtn" data-fg="status" data-stat="status:轉線下" onclick="setSF('轉線下',this,event)">轉線下</button></span><span class="fb-divider">｜</span><span class="fg-grp" data-grp="special"><button class="fbtn" data-fg="special" onclick="toggleSpecial('changeAddr',this)" title="只看客戶有申請改地址的訂單">改址</button><button class="fbtn" data-fg="special" onclick="toggleSpecial('newToday',this)" title="只看今日新單">今日</button><button class="fbtn" data-fg="special" onclick="toggleSpecial('unpaidFee',this)" title="只看有未收款的訂單（安裝/加購費>0 但未收）— 含已完成的單，跨所有狀態篩" style="color:#dc2626;border-color:#dc2626;font-weight:700">未收款</button></span><span style="flex:1"></span><span id="filter-applied-info" style="display:none"></span><button class="btn" onclick="openActivityLog()" style="font-size:11px;padding:4px 10px;margin-right:6px;background:#fef0f5;border-color:#f0c4d8;color:var(--mo)" title="看最近所有訂單的操作紀錄（找「剛剛動了哪一筆」用）">📜 紀錄</button><input class="search" id="q" placeholder="搜尋姓名/單號/商品..." oninput="this.value=fwToHw(this.value);searchListDebounced()" title="按 / 或 Ctrl+K 快速聚焦（全形數字自動轉半形）"></div><div id="list-area"></div></div>
@@ -1253,6 +1254,97 @@ async function fetchPchomeAuto(){
     alert(`網路錯誤：${err.message}\n\n檢查：\n1. Railway service 是否運行中\n2. 網路是否正常`);
   }finally{btn.disabled=false;btn.textContent=oldText}
 }
+
+// ===== 自動排程抓單 — 每 N 分背景跑 MOMO + PChome，無 prompt 無 alert，新單跳 toast =====
+let _autoPollTimer=null,_autoPollMin=parseInt(localStorage.getItem('autoPollMin')||'0')||0,_autoPollLast=null,_autoPollBusy=false;
+function setAutoPollInterval(min){
+  min=parseInt(min)||0;_autoPollMin=min;localStorage.setItem('autoPollMin',String(min));
+  _restartAutoPoll();_renderAutoPollStatus();
+  if(min>0){showToast(`🤖 自動排程已開啟：每 ${min} 分抓 MOMO + PChome`,null,null,3500)}
+  else{showToast('🤖 自動排程已關閉',null,null,2500)}
+}
+function _restartAutoPoll(){
+  if(_autoPollTimer){clearInterval(_autoPollTimer);_autoPollTimer=null}
+  if(_autoPollMin>0)_autoPollTimer=setInterval(_runAutoPoll,_autoPollMin*60000);
+}
+function _renderAutoPollStatus(){
+  const el=document.getElementById('auto-poll-status');if(!el)return;
+  const sel=document.getElementById('auto-poll-sel');if(sel&&sel.value!==String(_autoPollMin))sel.value=String(_autoPollMin);
+  if(_autoPollMin===0){el.textContent='已關閉（按上面下拉啟動）';el.style.color='var(--dm)';return}
+  const lastTxt=_autoPollLast?`上次 ${_autoPollLast.toLocaleTimeString('zh-TW',{hour:'2-digit',minute:'2-digit',second:'2-digit',hour12:false})}`:'尚未跑過';
+  let nextTxt='';
+  if(_autoPollLast){
+    const nextMs=_autoPollLast.getTime()+_autoPollMin*60000-Date.now();
+    nextTxt=nextMs<=0?' ｜ 下次：即將':` ｜ 下次 ~${Math.max(0,Math.round(nextMs/60000))} 分後`;
+  }
+  el.textContent=`✅ 每 ${_autoPollMin} 分 ｜ ${lastTxt}${nextTxt}`;
+  el.style.color='var(--grn)';
+}
+async function _runAutoPoll(){
+  if(_autoPollBusy)return;
+  if(document.hidden)return; // 不在前景不跑（省 API quota + 省電）
+  _autoPollBusy=true;
+  try{
+    const m=await _silentFetchMomo(1).catch(()=>({ok:false,added:0}));
+    const p=await _silentFetchPchome(1).catch(()=>({ok:false,added:0}));
+    _autoPollLast=new Date();_renderAutoPollStatus();
+    const added=(m.added||0)+(p.added||0);
+    if(added>0){
+      showToast(`🤖 自動抓單：MOMO ${m.added||0} 筆 / PChome ${p.added||0} 筆`,'📋 看列表',()=>{showTab('list');cStatus=['未確認'];persistFilters();restoreFilterUI();renderList()},6000);
+      if(typeof notifyDesktop==='function')notifyDesktop(`📦 自動抓到 ${added} 筆新單`,`MOMO ${m.added||0} / PChome ${p.added||0}`);
+    }
+  }finally{_autoPollBusy=false}
+}
+async function _silentFetchMomo(days=1){
+  await momoConfigReady;const api=getMomoApi(),token=getMomoToken();
+  if(!api||!token)return {ok:false,added:0,err:'no config'};
+  try{
+    const r=await fetch(`${api}/api/orders/momo/unsent?days=${days}`,{headers:{'X-API-Token':token}});
+    if(!r.ok)return {ok:false,added:0,err:'HTTP '+r.status};
+    const data=await r.json();
+    if(!data.ok)return {ok:false,added:0,err:data.error||'api err'};
+    const fetched=Array.isArray(data.orders)?data.orders:[];
+    if(!fetched.length)return {ok:true,added:0};
+    const ex=new Set(orders.map(o=>o.orderNo));
+    const nw=fetched.map(transformMomoOrder).filter(o=>o.orderNo&&!ex.has(o.orderNo));
+    if(nw.length){
+      orders.push(...nw);const upd={};for(const o of nw)upd[o.id]=o;
+      _setSavingBadge();db.ref('orders').update(upd).catch(_saveError);
+      updateCnt();const at=document.querySelector('.tab.active')?.textContent||'';if(at.includes('列表'))renderList();
+    }
+    return {ok:true,added:nw.length};
+  }catch(e){return {ok:false,added:0,err:e.message}}
+}
+async function _silentFetchPchome(days=1){
+  await momoConfigReady;const api=getMomoApi(),token=getMomoToken();
+  if(!api||!token)return {ok:false,added:0,err:'no config'};
+  try{
+    const r=await fetch(`${api}/api/orders/pchome/unsent?days=${days}`,{headers:{'X-API-Token':token}});
+    if(!r.ok)return {ok:false,added:0,err:'HTTP '+r.status};
+    const data=await r.json();
+    if(!data.ok)return {ok:false,added:0,err:data.error||'api err'};
+    const fetched=Array.isArray(data.orders)?data.orders:[];
+    if(!fetched.length)return {ok:true,added:0};
+    const ex=new Set(orders.map(o=>o.orderNo));
+    const nw=fetched.map(o=>Object.assign({},o,{id:gid()})).filter(o=>o.orderNo&&!ex.has(o.orderNo));
+    if(nw.length){
+      orders.push(...nw);const upd={};for(const o of nw)upd[o.id]=o;
+      _setSavingBadge();db.ref('orders').update(upd).catch(_saveError);
+      updateCnt();const at=document.querySelector('.tab.active')?.textContent||'';if(at.includes('列表'))renderList();
+    }
+    return {ok:true,added:nw.length};
+  }catch(e){return {ok:false,added:0,err:e.message}}
+}
+// 從背景回前景時，超過排程間隔就立刻補抓一次
+document.addEventListener('visibilitychange',()=>{
+  if(!document.hidden&&_autoPollMin>0){
+    if(!_autoPollLast||Date.now()-_autoPollLast.getTime()>_autoPollMin*60000)_runAutoPoll();
+  }
+});
+// 每 30 秒更新一次狀態列的「下次 ~X 分後」倒數
+setInterval(()=>{if(_autoPollMin>0)_renderAutoPollStatus()},30000);
+// boot — 還原上次設定 + 啟動排程
+_restartAutoPoll();setTimeout(_renderAutoPollStatus,100);
 
 // ===== 拆品名/規格（一個頁面顯示順眼用） =====
 // 從 MOMO 完整品名（例：「【ROLAND 樂蘭】 FP30X 88鍵電鋼琴 全套組 黑色」）拆出
