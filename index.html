@@ -1394,7 +1394,14 @@ function prepareOrderRow(o,opts){
   const addrBadge=hasPendingAddrChange(o)?'<span class="tag" style="background:#fef9ec;color:#b45309;font-size:9px" title="客戶申請改地址">改址</span>':'';
   const trackInfo=o.trackingNo?`<div style="font-size:9px;color:var(--dm);margin-top:2px">${esc(o.delyGbStr||'')}<br>${esc(o.trackingNo)}</div>`:'';
   const region=addrRegion(o.address);
-  return{ps,ph,qty,addrAttrs,noteShort,installInfo,addonInfo,newBadge,addrBadge,trackInfo,region};
+  // 大榮偏遠地區 — 必須加運費的提醒（地址匹配偏遠規則時亮起）
+  const remoteHit=isRemoteAddress(o.address);
+  let remoteBadge='';
+  if(remoteHit){
+    const why=remoteHit.matchedKeyword?`${remoteHit.city} ${remoteHit.district||''} (${remoteHit.matchedKeyword})`:`${remoteHit.city} ${remoteHit.district||''}`;
+    remoteBadge=`<span class="tag" style="background:#fee2e2;color:#b91c1c;border:1px solid #fca5a5;font-size:9px;font-weight:700" title="大榮貨運偏遠地區（必須加運費）— 命中：${esc(why.trim())}">🚛 偏遠</span>`;
+  }
+  return{ps,ph,qty,addrAttrs,noteShort,installInfo,addonInfo,newBadge,addrBadge,trackInfo,region,remoteBadge};
 }
 // 從地址抽「縣市 + 區」簡化字串 — 第一頁就能看出大概在哪
 // 「桃園市八德區介壽路二段455巷20號」→「桃園八德」
@@ -1420,6 +1427,108 @@ function _computeAddrRegion(addr){
   const m2=a.match(/^(.+?[縣市])/);
   if(m2)return m2[1].replace(/[縣市]$/,'');
   return '';
+}
+
+// 大榮貨運偏遠地區（需另加運費）— 用戶 2026-05-25 提供的官方列表
+// 規則：{city, district?, keywords?}
+//   - 只有 city + district：整個區/鄉/鎮算偏遠
+//   - 加 keywords：地址須同時包含 city + district + 至少一個 keyword
+//   - 只有 city + keywords（沒 district）：地址含 city 且含某 keyword 即算（例：陽明山、夢時代）
+// 比對前會把地址去空白避免「員山路 3 段」 vs 「員山路3段」不匹配
+const DALI_REMOTE_AREAS=[
+  // 宜蘭縣
+  {city:'宜蘭',district:'大同鄉'},{city:'宜蘭',district:'南澳鄉'},
+  {city:'宜蘭',district:'員山',keywords:['員山路三段','員山路3段','長嶺路','再連路','福山街','中華村','粗坑','冷水坑','雙埤路']},
+  {city:'宜蘭',district:'礁溪',keywords:['大溪里','更新里','濱海路三段','濱海路3段','濱海路四段','濱海路4段','濱海路五段','濱海路5段','大里里','石城里','濱海路六段','濱海路6段','濱海路七段','濱海路7段']},
+  {city:'宜蘭',district:'蘇澳',keywords:['蘇花公路','東澳里','南強里','朝陽里']},
+  // 台北市
+  {city:'台北',district:'士林',keywords:['力行街','至善路一段','至善路1段','至善路二段','至善路2段','故宮路','東吳大學']},
+  {city:'台北',district:'文山',keywords:['指南路三段','指南路3段']},
+  {city:'台北',district:'北投',keywords:['榮總醫院','振興醫院']},
+  {city:'台北',district:'信義',keywords:['南山廣場','統一時代百貨']},
+  {city:'台北',keywords:['陽明山']},
+  // 新北市
+  {city:'新北',district:'三芝區'},{city:'新北',district:'平溪區'},{city:'新北',district:'石門區'},{city:'新北',district:'石碇區'},
+  {city:'新北',district:'坪林區'},{city:'新北',district:'金山區'},{city:'新北',district:'烏來區'},{city:'新北',district:'貢寮區'},
+  {city:'新北',district:'雙溪區'},{city:'新北',district:'萬里區'},
+  {city:'新北',district:'汐止',keywords:['長壽街','汐萬路三段','汐萬路3段']},
+  {city:'新北',district:'林口',keywords:['下福村','太平村','頂福村','瑞平村','嘉寶村','三井Outlet','三井']},
+  {city:'新北',district:'瑞芳',keywords:['九份','金瓜石','粉鳥潭']},
+  {city:'新北',keywords:['大菁路','北宜路三段','北宜路3段','禾豐路','松林路','直潭路','華城路','華城新','新高路三段','新高路3段','新潭路','銀河洞','灣潭路','廣興里','秀岡山莊']},
+  // 桃園市
+  {city:'桃園',district:'大溪',keywords:['新峰里','復興里','珠津部落']},
+  {city:'桃園',district:'復興區'},
+  // 新竹縣
+  {city:'新竹',district:'五峰鄉'},{city:'新竹',district:'尖石鄉'},
+  // 苗栗縣
+  {city:'苗栗',district:'三灣',keywords:['神仙山','無極玄天']},
+  {city:'苗栗',district:'大湖',keywords:['小南勢','大南勢','社祭角','香林']},
+  {city:'苗栗',district:'卓蘭鎮'},{city:'苗栗',district:'獅潭鄉'},{city:'苗栗',district:'泰安鄉'},
+  {city:'苗栗',district:'南庄',keywords:['東河里','蓬萊里','鹿場']},
+  // 台中市
+  {city:'台中',district:'太平',keywords:['酒桶山','大湖巷','山田路','中山巷','北田路','長青巷','長壽路四段','長壽路4段','南圍巷']},
+  {city:'台中',district:'石岡',keywords:['金星里','龍興里','仙連坪']},
+  {city:'台中',district:'后里',keywords:['麗寶']},
+  {city:'台中',district:'和平區'},
+  {city:'台中',district:'東勢',keywords:['明正里','茂興里','東崎里','東崎街','石排巷','永盛巷','天冷','中坑坪','東坑路','東關路','慶東里','慶福里']},
+  {city:'台中',district:'新社',keywords:['水井里','崑山里','中興街','福興里','永豐','明裕','美林','頭嵙','二嵙','福民']},
+  // 南投縣
+  {city:'南投',district:'仁愛鄉'},{city:'南投',district:'信義鄉'},
+  {city:'南投',district:'水里',keywords:['上安村','郡坑村','民和村','興隆村']},
+  {city:'南投',district:'鹿谷',keywords:['和雅村','溪頭']},
+  {city:'南投',district:'集集',keywords:['兵整中心']},
+  // 雲林縣
+  {city:'雲林',district:'古坑',keywords:['山峰村','桂林村','華山村','華南村','華興村','尖山坑','石仔坑','訓頭坑','關山','井水','華禎村','樟湖村']},
+  // 嘉義縣
+  {city:'嘉義',district:'大埔鄉'},{city:'嘉義',district:'阿里山'},
+  {city:'嘉義',district:'中埔',keywords:['三層村','東興村','中崙村','瀺水村','灣潭村','石碩村','深坑村','瑞豐村']},
+  {city:'嘉義',district:'竹崎',keywords:['中和村','光華村','文峰村','石棹','靈起湖','文興村','金釐村','緻儀村']},
+  {city:'嘉義',district:'東石',keywords:['三家村','塹厝村','海堪村','副瀞村','港口村','瑤潭村','深下村','籐橋村','鰲鼓村']},
+  {city:'嘉義',district:'義竹',keywords:['東崙村','西崙村','墙仔村','路安村','掌潭村']},
+  {city:'嘉義',district:'梅山',keywords:['太平村','大興村','半天村','安靖村','瑞里村','瑞峰村','碧湖村','太和村','油車寮','樟樹湖','雙瀛村']},
+  {city:'嘉義',district:'番路',keywords:['大湖村','公田村','公興村','華山村','觸口']},
+  // 台南市
+  {city:'台南',district:'大內區'},{city:'台南',district:'南化區'},{city:'台南',district:'龍崎區'},{city:'台南',district:'左鎮區'},
+  {city:'台南',district:'玉井區'},{city:'台南',district:'楠西區'},
+  {city:'台南',district:'七股',keywords:['十份里','三股里','永吉里']},
+  {city:'台南',district:'北門',keywords:['雙春里']},
+  {city:'台南',district:'白河',keywords:['關仔嶺','六溪里','仙草里','南寮里','玳頂里','關嶺里']},
+  {city:'台南',district:'東山',keywords:['青山里']},
+  // 高雄市
+  {city:'高雄',district:'內門區'},{city:'高雄',district:'六龜區'},{city:'高雄',district:'田寮區'},
+  {city:'高雄',district:'甲仙區'},{city:'高雄',district:'杉林區'},{city:'高雄',district:'美濃區'},
+  {city:'高雄',district:'旗津區'},{city:'高雄',district:'旗山區'},
+  {city:'高雄',keywords:['夢時代','義大遊樂','義大世界','義大123','義大皇家']},
+  // 屏東縣
+  {city:'屏東',district:'三地門'},{city:'屏東',district:'牡丹鄉'},{city:'屏東',district:'車城鄉'},
+  {city:'屏東',district:'來義鄉'},{city:'屏東',district:'恆春'},{city:'屏東',district:'春日鄉'},
+  {city:'屏東',district:'泰武鄉'},{city:'屏東',district:'琉球鄉'},{city:'屏東',district:'滿州鄉'},
+  {city:'屏東',district:'霧台鄉'},
+  // 花蓮縣
+  {city:'花蓮',district:'玉里'},{city:'花蓮',district:'秀林鄉'},{city:'花蓮',district:'卓溪鄉'},
+  {city:'花蓮',district:'富里鄉'},{city:'花蓮',district:'瑞穗鄉'},{city:'花蓮',district:'豐濱鄉'},
+  {city:'花蓮',district:'壽豐',keywords:['水璉村','雙寮村','月眉村']},
+  // 台東縣
+  {city:'台東',district:'大武鄉'},{city:'台東',district:'太麻里'},{city:'台東',district:'池上鄉'},
+  {city:'台東',district:'東河鄉'},{city:'台東',district:'海端鄉'},{city:'台東',district:'金峰鄉'},
+  {city:'台東',district:'長濱鄉'},{city:'台東',district:'達仁鄉'},{city:'台東',district:'關山'},
+];
+const _remoteCache=new Map();
+function isRemoteAddress(addr){
+  if(!addr)return null;
+  if(_remoteCache.has(addr))return _remoteCache.get(addr);
+  const a=String(addr).replace(/\s+/g,'');
+  let hit=null;
+  for(const r of DALI_REMOTE_AREAS){
+    if(!a.includes(r.city))continue;
+    if(r.district&&!a.includes(r.district))continue;
+    if(!r.keywords){hit=r;break}
+    let matched=null;
+    for(const k of r.keywords){if(a.includes(k.replace(/\s+/g,''))){matched=k;break}}
+    if(matched){hit={...r,matchedKeyword:matched};break}
+  }
+  if(_remoteCache.size<3000)_remoteCache.set(addr,hit);
+  return hit;
 }
 
 // Action buttons — 共用一份來源，desktop/mobile 兩種樣式
@@ -1843,7 +1952,7 @@ const ab=abInner+subSlot(o.addon==='是'&&o.addonItems?(o.addonItems.length>10?o
 const checked=selectedIds.has(o.id);
 // 規格併入品名 cell — 用小 pill 顯示，省一整欄寬度給操作欄
 const prodSpecCombined=`${escWithHL(r.ps.name)}${r.ps.specs?` <span class="spec-pill" title="${esc(r.ps.specs)}">${esc(r.ps.specs)}</span>`:''}`;
-h+=`<tr><td class="batch-cell"><input type="checkbox" data-oid="${o.id}" ${checked?'checked':''} onclick="toggleRowSelected('${o.id}')"></td><td class="mono" style="width:56px">${fmtD(o.date)}${r.newBadge?' '+r.newBadge:''}</td><td style="width:44px;text-align:center">${platformPill(o.platform)}${r.addrBadge?' '+r.addrBadge:''}</td><td class="prod-cell" onclick="openEdit('${oid}')" style="cursor:pointer" title="點擊編輯：${esc(o.product)}">${prodSpecCombined}</td><td class="tab-list-mobile-hide qty-cell"><input type="text" inputmode="numeric" value="${r.qty}" oninput="this.value=cn(this.value);setQty('${oid}',this.value)" class="fee-input qty-input" style="width:34px${r.qty>1?';border-color:var(--mo);background:var(--mo-bg);color:var(--mo);font-weight:800':''}"></td><td class="name-cell" title="${r.ph?'電話 '+esc(r.ph):''}${o.address?'\n地址 '+esc(o.address):''}${r.noteShort?'\n備註 '+esc(r.noteShort):''}"><span style="white-space:nowrap">${escWithHL(o.name)}${r.region?`<span style="font-size:9px;color:#1657b5;background:#e8eef9;border-radius:3px;padding:1px 5px;margin-left:5px;font-weight:700" title="${esc(o.address||'')}">${esc(r.region)}</span>`:''}</span>${r.ph?`<div style="font-size:9px;color:var(--dm);font-family:var(--mono);margin-top:1px;max-width:140px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${phoneTel(r.ph)}</div>`:''}${r.noteShort?`<div style="font-size:9px;color:#b45309;background:#fef9ec;border-radius:3px;padding:2px 5px;margin-top:2px;max-width:190px;white-space:normal;line-height:1.3;overflow:hidden;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical" title="${esc(r.noteShort)}">${escWithHL(r.noteShort)}</div>`:''}</td><td class="tab-list-mobile-hide acc-cell">${ib}</td><td class="tab-list-mobile-hide acc-cell">${ab}</td><td class="total-cell" id="tot-${oid}" style="width:78px">${$(tot(o))}${r.trackInfo}</td><td style="width:76px"><button class="${stCls(o.status)}" onclick="openStatusMenu('${oid}',event)" title="點擊選擇狀態">${o.status} ▾</button></td><td class="act-cell"><div class="act-wrap">${a.addrAck}${a.ship}${a.instPaid}${a.addonPaid}${a.edit}${a.copy}${a.cam}${a.del}</div></td></tr>`});
+h+=`<tr><td class="batch-cell"><input type="checkbox" data-oid="${o.id}" ${checked?'checked':''} onclick="toggleRowSelected('${o.id}')"></td><td class="mono" style="width:56px">${fmtD(o.date)}${r.newBadge?' '+r.newBadge:''}</td><td style="width:44px;text-align:center">${platformPill(o.platform)}${r.addrBadge?' '+r.addrBadge:''}${r.remoteBadge?' '+r.remoteBadge:''}</td><td class="prod-cell" onclick="openEdit('${oid}')" style="cursor:pointer" title="點擊編輯：${esc(o.product)}">${prodSpecCombined}</td><td class="tab-list-mobile-hide qty-cell"><input type="text" inputmode="numeric" value="${r.qty}" oninput="this.value=cn(this.value);setQty('${oid}',this.value)" class="fee-input qty-input" style="width:34px${r.qty>1?';border-color:var(--mo);background:var(--mo-bg);color:var(--mo);font-weight:800':''}"></td><td class="name-cell" title="${r.ph?'電話 '+esc(r.ph):''}${o.address?'\n地址 '+esc(o.address):''}${r.noteShort?'\n備註 '+esc(r.noteShort):''}"><span style="white-space:nowrap">${escWithHL(o.name)}${r.region?`<span style="font-size:9px;color:#1657b5;background:#e8eef9;border-radius:3px;padding:1px 5px;margin-left:5px;font-weight:700" title="${esc(o.address||'')}">${esc(r.region)}</span>`:''}</span>${r.ph?`<div style="font-size:9px;color:var(--dm);font-family:var(--mono);margin-top:1px;max-width:140px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${phoneTel(r.ph)}</div>`:''}${r.noteShort?`<div style="font-size:9px;color:#b45309;background:#fef9ec;border-radius:3px;padding:2px 5px;margin-top:2px;max-width:190px;white-space:normal;line-height:1.3;overflow:hidden;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical" title="${esc(r.noteShort)}">${escWithHL(r.noteShort)}</div>`:''}</td><td class="tab-list-mobile-hide acc-cell">${ib}</td><td class="tab-list-mobile-hide acc-cell">${ab}</td><td class="total-cell" id="tot-${oid}" style="width:78px">${$(tot(o))}${r.trackInfo}</td><td style="width:76px"><button class="${stCls(o.status)}" onclick="openStatusMenu('${oid}',event)" title="點擊選擇狀態">${o.status} ▾</button></td><td class="act-cell"><div class="act-wrap">${a.addrAck}${a.ship}${a.instPaid}${a.addonPaid}${a.edit}${a.copy}${a.cam}${a.del}</div></td></tr>`});
 h+='</tbody></table></div></div>';document.getElementById('list-area').innerHTML=h;renderBatchBar(fl)}
 
 // 勾單一行：不重 render 整個列表（避免幾百筆訂單時點 checkbox 卡頓）
@@ -1869,7 +1978,7 @@ h+=`<div class="ord-card" data-oid="${oid}">
 <div class="ord-card-h">
 <input type="checkbox" data-oid="${oid}" ${checked?'checked':''} onclick="toggleRowSelected('${oid}')" style="width:18px;height:18px;cursor:pointer">
 <span class="ord-date">${fmtD(o.date)}</span>
-${platformPill(o.platform)}${r.addrBadge}${r.newBadge}
+${platformPill(o.platform)}${r.addrBadge}${r.remoteBadge}${r.newBadge}
 <span class="ord-total">${$(tot(o))}</span>
 </div>
 <div class="ord-card-name">${escWithHL(o.name||'(無姓名)')}${r.region?`<span style="font-size:10px;color:#1657b5;background:#e8eef9;border-radius:4px;padding:2px 7px;font-weight:700;margin-left:6px;vertical-align:middle" title="${esc(o.address||'')}">${esc(r.region)}</span>`:''}${r.qty>1?` <span class="qty-pill large">× ${r.qty}</span>`:''}</div>
@@ -2765,7 +2874,7 @@ function renderSchedRow(o,opts){
   return `<div class="sched-row-card${dragClass}"${dragAttrs} onclick="openEdit('${o.id}')" style="padding:10px 14px;border-top:1px solid var(--bd);cursor:${draggable?'grab':'pointer'}">
     <div style="display:flex;align-items:center;gap:8px;margin-bottom:4px;flex-wrap:wrap">
       ${checkbox}${dragHint}<span class="brand-pill ${_platCls(o.platform)}" style="font-size:9px;padding:1px 5px">${_platShort(o.platform)}</span>
-      <strong style="font-size:13px">${esc(o.name||'?')}</strong>${addrRegion(o.address)?`<span style="font-size:9px;color:#1657b5;background:#e8eef9;border-radius:3px;padding:1px 5px;font-weight:700">${esc(addrRegion(o.address))}</span>`:''}${staleBadge}${schedDateBadge}
+      <strong style="font-size:13px">${esc(o.name||'?')}</strong>${addrRegion(o.address)?`<span style="font-size:9px;color:#1657b5;background:#e8eef9;border-radius:3px;padding:1px 5px;font-weight:700">${esc(addrRegion(o.address))}</span>`:''}${(()=>{const hit=isRemoteAddress(o.address);return hit?`<span style="font-size:9px;color:#b91c1c;background:#fee2e2;border:1px solid #fca5a5;border-radius:3px;padding:1px 5px;font-weight:700" title="大榮偏遠地區（必須加運費）">🚛 偏遠</span>`:''})()}${staleBadge}${schedDateBadge}
       <span style="font-size:11px;color:var(--dm);font-family:var(--mono)">${ph?phoneTel(ph):'—'}</span>
       <span style="margin-left:auto;font-size:11px;color:var(--blu);font-weight:700">${esc(inst||'未指派')}${time}${day}</span>
     </div>
