@@ -361,6 +361,9 @@ const selectedIds=new Set();
 // 待收費 = 已出貨後安裝/加購款還沒收 — 紅色強烈提醒。也可自動偵測（isPendingPayment）
 const ST=['未確認','已確認','交涉中','未接電','已出貨','直接出','待收費','補貨中','已完成','已取消','轉線下'],DAYS=['週一','週二','週三','週四','週五','週六','週日'],TIMES=['早上','下午','晚上'];
 function isPending(s){return s==='未確認'||s==='已確認'||s==='交涉中'||s==='未接電'||s==='補貨中'||s==='待出貨'||s==='待收費'||s==='直接出'}
+// 服務（安裝 或 自送配送）— 兩者都進排程
+function isServiceActive(o){return o&&(o.install==='是'||o.install==='配送')}
+function isSelfDeliver(o){return o&&o.install==='配送'}
 function migrateStatus(o){if(!o)return;if(o.status==='待出貨')o.status='未確認';if(o.status==='已轉線下')o.status='轉線下';if(o.status==='壓SP')o.status='補貨中'}
 
 // Realtime listener — 模態視窗開著時暫存遠端更新，關閉再套用，避免覆蓋本地編輯
@@ -1434,7 +1437,7 @@ function prepareOrderRow(o,opts){
   if(o.addrElev&&o.addrElev!=='不適用')addrAttrs.push((o.addrElev==='有'?'有':'無')+'梯');
   let noteShort='';if(!(opts&&opts.skipNote)){const f=cleanNote(o.note).replace(/\n/g,' ');noteShort=f.length>80?f.slice(0,80)+'…':f}
   // 列表顯示優先：實際排程（installDate + installSlot）→ 客戶希望（installDay+installTime）
-  const installInfo=o.install==='是'?(o.installDate?`${o.installDate.slice(5).replace('-','/')}${o.installSlot?' '+o.installSlot:''}`:(o.installDay?`${o.installDay}${o.installTime?' '+o.installTime:''}`:'')):'';
+  const installInfo=isServiceActive(o)?(o.installDate?`${o.installDate.slice(5).replace('-','/')}${o.installSlot?' '+o.installSlot:''}`:(o.installDay?`${o.installDay}${o.installTime?' '+o.installTime:''}`:'')):'';
   const addonInfo=o.addon==='是'&&o.addonItems?o.addonItems.slice(0,16):'';
   const newBadge=isNewOrder(o)?'<span class="tag" style="background:#dcfce7;color:#166534;font-size:9px">NEW</span>':'';
   const addrBadge=hasPendingAddrChange(o)?'<span class="tag" style="background:#fef9ec;color:#b45309;font-size:9px" title="客戶申請改地址">改址</span>':'';
@@ -1600,7 +1603,7 @@ function buildOrderActions(o,variant){
   const _iFee=Number(o.installFee)||0,_iPaid=Number(o.installPaidAmount)||0;
   const _iPartial=_iPaid>0&&_iFee>0&&_iPaid<_iFee;
   const _iFull=_iFee>0&&_iPaid>=_iFee;
-  const instPaid=o.install==='是'
+  const instPaid=isServiceActive(o)
     ?(_iFull
       ?(isMob
         ?`<button class="success" onclick="togInstallPaid('${oid}')">🔧 已收 $${_iPaid}</button>`
@@ -1741,6 +1744,7 @@ function stCls(s){return s==='已確認'?'st-btn st-confirmed':s==='交涉中'?'
 // - 否：點 → cycle 回 未確認
 function renderInstallCell(o,oid){
   if(o.install==='是')return `<div style="display:flex;flex-direction:column;align-items:center;gap:2px"><button class="toggle-on" onclick="installCellClick('${oid}',event)" title="要安裝（點擊變未確認）" style="white-space:nowrap">安裝</button><input type="text" inputmode="numeric" value="${o.installFee||''}" placeholder="$" oninput="this.value=cn(this.value);setInstFee('${oid}',this.value)" class="fee-input" style="width:50px"></div>`;
+  if(o.install==='配送')return `<div style="display:flex;flex-direction:column;align-items:center;gap:2px"><button onclick="installCellClick('${oid}',event)" title="自己配送（點擊變未確認）" style="white-space:nowrap;background:#dbeafe;color:#1d4ed8;border:2px solid #93c5fd;border-radius:5px;padding:3px 10px;font-size:10px;font-weight:700;cursor:pointer">配送</button><input type="text" inputmode="numeric" value="${o.installFee||''}" placeholder="$" oninput="this.value=cn(this.value);setInstFee('${oid}',this.value)" class="fee-input" style="width:50px"></div>`;
   if(o.install==='否')return `<button class="toggle-off" onclick="installCellClick('${oid}',event)" title="不安裝（點擊變未確認）" style="white-space:nowrap">不安裝</button>`;
   return `<button class="toggle-unknown" onclick="installCellClick('${oid}',event)" title="未確認（點擊選要/不要）" style="white-space:nowrap">待確認</button>`;
 }
@@ -1756,7 +1760,7 @@ function installCellClick(oid,ev){
   const prevState=o.install;
   // 預先擷取要清掉的資訊 — 進 log 給未來查（用戶常常想知道改前金額是多少）
   const prevSegs=[];
-  if(prevState==='是'){
+  if(prevState==='是'||prevState==='配送'){
     if(o.installFee)prevSegs.push(`費用 $${o.installFee}`);
     if(o.installPaidAmount)prevSegs.push(`已收 $${o.installPaidAmount}`);
     if(o.installDate)prevSegs.push(o.installDate);
@@ -1765,11 +1769,12 @@ function installCellClick(oid,ev){
     if(o.installDay)prevSegs.push(o.installDay);
     if(o.installTime)prevSegs.push(o.installTime);
   }
-  if(prevState==='是'){
+  if(prevState==='是'||prevState==='配送'){
+    const kindLabel=prevState==='配送'?'自送':'安裝';
     const hasData=(o.installFee||0)>0||(o.installPaidAmount||0)>0||o.installDay||o.installTime;
     if(hasData){
       const summary=[`費用 $${o.installFee||0}`,o.installPaidAmount?`已收 $${o.installPaidAmount}`:'',o.installDay||'',o.installTime||''].filter(Boolean).join(' / ');
-      if(!confirm(`改成 未確認 會清掉：\n${summary}\n\n確定？`))return;
+      if(!confirm(`改成 未確認 會清掉：\n${kindLabel}：${summary}\n\n確定？`))return;
     }
     o.install='未確認';o.installFee=0;o.installDay='';o.installTime='';o.installPaidAmount=0;o.installDate='';o.installSlot='';o.installer='';o.installDone=false;
   }else{o.install='未確認';o.installDate='';o.installSlot='';o.installer='';o.installDone=false}
@@ -1799,28 +1804,32 @@ function addonCellClick(oid,ev){
   const tail=prevSegs.length?`（原 ${prevSegs.join(' / ')}）`:'';
   logActivity(o,`加購 ${prevState} → 未確認${tail}`);saveOne(o);renderList();
 }
-// inline 小選單 — 不用 modal，按鈕就地展開讓用戶選
+// inline 小選單 — 3 階段 confirm 鏈：要服務嗎？→ 安裝 / 配送？→ 費用 / 日期
 function openInstallMenu(oid,ev){
   const o=findO(oid);if(!o)return;
-  const r=window.confirm('要安裝服務？\n\n確定 = 要安裝（下一步輸入費用 + 日期）\n取消 = 不安裝');
-  if(r){
-    const v=prompt('安裝費用（直接輸入數字，0 也可以）：',o.installFee||'0');
-    if(v===null)return;
-    const n=parseAmt(v);if(isNaN(n)||n<0){alert('金額無效');return}
-    const dateDefault=o.installDate||localDateISO();
-    const d=prompt('安裝日期（格式 YYYY-MM-DD，例：2026-05-20，留空 = 尚未排日）：',dateDefault);
-    if(d===null)return;
-    const dTrim=(d||'').trim();
-    if(dTrim&&!/^\d{4}-\d{2}-\d{2}$/.test(dTrim)){alert('日期格式錯誤！需要 YYYY-MM-DD（例：2026-05-20）');return}
-    const inst=(installers[0]||'阿淵');
-    o.install='是';o.installFee=n;o.installDate=dTrim;
-    if(!o.installer)o.installer=inst;
-    logActivity(o,`安裝服務 要安裝 $${n}${o.installDate?` ${o.installDate}`:''} 師傅:${o.installer}`);
-    saveOne(o);renderList();updateCnt();
-  }else{
+  const r=window.confirm('需要服務嗎？\n\n確定 = 要（下一步選 安裝 / 自送）\n取消 = 不安裝');
+  if(!r){
     o.install='否';o.installFee=0;o.installDay='';o.installTime='';o.installPaidAmount=0;o.installDate='';o.installSlot='';o.installer='';o.installDone=false;
     logActivity(o,`安裝服務 不安裝`);saveOne(o);renderList();updateCnt();
+    return;
   }
+  // 哪種服務？安裝 vs 自送
+  const isSelf=window.confirm('哪種服務？\n\n確定 = 🚚 自己配送（路線跟安裝合排）\n取消 = 🔧 要安裝');
+  const kind=isSelf?'配送':'是';
+  const kindLabel=isSelf?'自送':'安裝';
+  const v=prompt(`${kindLabel}費用（直接輸入數字，0 也可以）：`,o.installFee||'0');
+  if(v===null)return;
+  const n=parseAmt(v);if(isNaN(n)||n<0){alert('金額無效');return}
+  const dateDefault=o.installDate||localDateISO();
+  const d=prompt(`${kindLabel}日期（格式 YYYY-MM-DD，例：2026-05-20，留空 = 尚未排日）：`,dateDefault);
+  if(d===null)return;
+  const dTrim=(d||'').trim();
+  if(dTrim&&!/^\d{4}-\d{2}-\d{2}$/.test(dTrim)){alert('日期格式錯誤！需要 YYYY-MM-DD（例：2026-05-20）');return}
+  const inst=(installers[0]||'阿淵');
+  o.install=kind;o.installFee=n;o.installDate=dTrim;
+  if(!o.installer)o.installer=inst;
+  logActivity(o,`${kindLabel}服務 $${n}${o.installDate?` ${o.installDate}`:''} 師傅:${o.installer}`);
+  saveOne(o);renderList();updateCnt();
 }
 function openAddonMenu(oid,ev){
   const o=findO(oid);if(!o)return;
@@ -1911,12 +1920,12 @@ function hasPendingAddrChange(o){return(o.note||'').includes('⚠ 客戶申請�
 // 待收費 自動偵測 — 有安裝/加購且「應收 > 已收」就算未收（含部分已收）。
 // 已取消/轉線下/已完成的單視為結案不算；fee=0（免費服務）也不算待收費（沒錢可收）
 // ⚠ 之前 bug：條件是 !(installPaidAmount > 0)，意思「只有 0 才算未收」→ 部分已收 5000/6380 會被當成全收齊
-function isPendingPayment(o){if(!o)return false;if(o.status==='已取消'||o.status==='轉線下'||o.status==='已完成')return false;if(o.install==='是'&&Number(o.installFee)>0&&Number(o.installPaidAmount||0)<Number(o.installFee))return true;if(o.addon==='是'&&Number(o.addonFee)>0&&Number(o.addonPaidAmount||0)<Number(o.addonFee))return true;return false}
+function isPendingPayment(o){if(!o)return false;if(o.status==='已取消'||o.status==='轉線下'||o.status==='已完成')return false;if(isServiceActive(o)&&Number(o.installFee)>0&&Number(o.installPaidAmount||0)<Number(o.installFee))return true;if(o.addon==='是'&&Number(o.addonFee)>0&&Number(o.addonPaidAmount||0)<Number(o.addonFee))return true;return false}
 // 已完成 防呆：產生未收款警告訊息（含部分已收，把「還缺多少」算出來）
-function buildPendingPaymentWarn(o){if(!isPendingPayment(o))return null;const parts=[];if(o.install==='是'&&Number(o.installFee)>0){const need=Number(o.installFee)-Number(o.installPaidAmount||0);if(need>0)parts.push(`🔧 安裝費 還缺 $${need.toLocaleString()}（應 $${Number(o.installFee).toLocaleString()} / 已收 $${Number(o.installPaidAmount||0).toLocaleString()}）`)}if(o.addon==='是'&&Number(o.addonFee)>0){const need=Number(o.addonFee)-Number(o.addonPaidAmount||0);if(need>0)parts.push(`🛒 加購費 還缺 $${need.toLocaleString()}（應 $${Number(o.addonFee).toLocaleString()} / 已收 $${Number(o.addonPaidAmount||0).toLocaleString()}）`)}return parts.join('\n')}
+function buildPendingPaymentWarn(o){if(!isPendingPayment(o))return null;const parts=[];if(isServiceActive(o)&&Number(o.installFee)>0){const need=Number(o.installFee)-Number(o.installPaidAmount||0);const _kind=isSelfDeliver(o)?'🚚 配送':'🔧 安裝';if(need>0)parts.push(`${_kind}費 還缺 $${need.toLocaleString()}（應 $${Number(o.installFee).toLocaleString()} / 已收 $${Number(o.installPaidAmount||0).toLocaleString()}）`)}if(o.addon==='是'&&Number(o.addonFee)>0){const need=Number(o.addonFee)-Number(o.addonPaidAmount||0);if(need>0)parts.push(`🛒 加購費 還缺 $${need.toLocaleString()}（應 $${Number(o.addonFee).toLocaleString()} / 已收 $${Number(o.addonPaidAmount||0).toLocaleString()}）`)}return parts.join('\n')}
 // 任何未收款（special filter「💰 未收款」用）— 跟 isPendingPayment 差別：含「已完成」訂單
 // 用途：客戶收到貨後安裝師傅還沒回來收尾款，這種單會被標已完成卻仍有未收 → 用這個 filter 抓出來
-function hasAnyUnpaidFee(o){if(!o)return false;if(o.status==='已取消'||o.status==='轉線下')return false;if(o.install==='是'&&Number(o.installFee)>0&&Number(o.installPaidAmount||0)<Number(o.installFee))return true;if(o.addon==='是'&&Number(o.addonFee)>0&&Number(o.addonPaidAmount||0)<Number(o.addonFee))return true;return false}
+function hasAnyUnpaidFee(o){if(!o)return false;if(o.status==='已取消'||o.status==='轉線下')return false;if(isServiceActive(o)&&Number(o.installFee)>0&&Number(o.installPaidAmount||0)<Number(o.installFee))return true;if(o.addon==='是'&&Number(o.addonFee)>0&&Number(o.addonPaidAmount||0)<Number(o.addonFee))return true;return false}
 // statusMatchList: cStatus 篩選邏輯 — 待收費 連動偵測；無 cStatus = 顯示全部
 // 之前預設排除已完成（搭配成交 tab）— 移除成交 tab 後改成全顯，用戶用 ✅ 已完成 button 篩選
 function statusMatchList(o){
@@ -2020,7 +2029,7 @@ if(bucket!==lastBucket){h+=`<div class="ord-bucket-h">${bucket} <span class="buc
 const r=prepareOrderRow(o);const a=buildOrderActions(o,'mobile');
 const checked=selectedIds.has(o.id);
 // pill 點擊 → 開編輯 modal（mobile 沒有行內 fee input，這樣可快速跳到編輯）
-const installPill=o.install==='是'?`<span class="qty-pill" style="color:var(--blu);border-color:var(--blu);cursor:pointer" onclick="openEdit('${oid}')" title="${r.installInfo?esc(r.installInfo):'未排日期 — 點擊編輯'}">安裝${o.installFee?' +$'+o.installFee:''}${r.installInfo?' '+esc(r.installInfo):''}</span>`:'';
+const installPill=isServiceActive(o)?`<span class="qty-pill" style="color:${isSelfDeliver(o)?'#1d4ed8':'var(--blu)'};border-color:${isSelfDeliver(o)?'#93c5fd':'var(--blu)'};cursor:pointer" onclick="openEdit('${oid}')" title="${r.installInfo?esc(r.installInfo):'未排日期 — 點擊編輯'}">${isSelfDeliver(o)?'🚚 配送':'🔧 安裝'}${o.installFee?' +$'+o.installFee:''}${r.installInfo?' '+esc(r.installInfo):''}</span>`:'';
 const addonPill=o.addon==='是'?`<span class="qty-pill" style="color:var(--mo);border-color:var(--mo);cursor:pointer" onclick="openEdit('${oid}')" title="${r.addonInfo?esc(r.addonInfo):''} — 點擊編輯">加購${o.addonFee?' +$'+o.addonFee:''}${r.addonInfo?' '+esc(r.addonInfo):''}</span>`:'';
 h+=`<div class="ord-card" data-oid="${oid}">
 <div class="ord-card-h">
@@ -2270,8 +2279,8 @@ document.getElementById('modal-body').innerHTML=`<h3>編輯訂單${customerHisto
 <div class="fg full"><div class="fi"><label>地址</label><input id="e-addr" value="${esc(o.address)}"></div></div>
 <div class="fg" style="margin-bottom:8px"><div class="fi"><label>🏢 管理室</label><div class="sched-row" id="e-mgmt"><button class="sched-btn ${o.addrMgmt==='有'?'picked':''}" onclick="pickRadio('e-mgmt','有',this)">有</button><button class="sched-btn ${o.addrMgmt==='無'?'picked':''}" onclick="pickRadio('e-mgmt','無',this)">無</button><button class="sched-btn ${(!o.addrMgmt||o.addrMgmt==='')?'picked':''}" onclick="pickRadio('e-mgmt','',this)">未填</button></div></div><div class="fi"><label>🛗 電梯（2 樓以上）</label><div class="sched-row" id="e-elev"><button class="sched-btn ${o.addrElev==='有'?'picked':''}" onclick="pickRadio('e-elev','有',this)">有</button><button class="sched-btn ${o.addrElev==='無'?'picked':''}" onclick="pickRadio('e-elev','無',this)">無</button><button class="sched-btn ${o.addrElev==='不適用'?'picked':''}" onclick="pickRadio('e-elev','不適用',this)">不適用</button><button class="sched-btn ${(!o.addrElev||o.addrElev==='')?'picked':''}" onclick="pickRadio('e-elev','',this)">未填</button></div></div></div>
 <div class="fg"><div class="fi"><label>數量</label><input type="text" inputmode="numeric" id="e-qty" value="${o.qty||1}" oninput="this.value=cn(this.value)"></div><div class="fi"><label>商品金額</label><input type="text" inputmode="numeric" id="e-amt" value="${o.amount||''}" oninput="this.value=cn(this.value);calcT()"></div></div>
-<div style="border:1px solid var(--bd);border-radius:8px;padding:12px;margin:8px 0;background:var(--sf2)"><div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px"><span style="font-size:12px;font-weight:700">安裝服務</span><button class="${o.install==='是'?'toggle-on':(o.install==='否'?'toggle-off':'toggle-unknown')}" onclick="togEI()" id="ei-btn" title="點擊循環：未確認 → 要安裝 → 不安裝">${o.install==='是'?'要安裝':(o.install==='否'?'不安裝':'待確認')}</button></div>
-<div id="ei-panel" class="${o.install==='是'?'':'hidden'}"><div class="fg"><div class="fi"><label>安裝費用</label><input type="text" inputmode="numeric" id="e-instf" value="${o.installFee||''}" oninput="this.value=cn(this.value);calcT();updateInstallPaidHint()"></div><div class="fi"><label>安裝已收 <span style="font-weight:400;color:var(--ht);font-size:10px">（0=未收，可填部分）</span></label><input type="text" inputmode="numeric" id="e-instpaid" value="${o.installPaidAmount||''}" oninput="this.value=cn(this.value);updateInstallPaidHint()" placeholder="0"></div></div>
+<div style="border:1px solid var(--bd);border-radius:8px;padding:12px;margin:8px 0;background:var(--sf2)"><div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px"><span style="font-size:12px;font-weight:700">安裝/配送</span><button class="${o.install==='是'?'toggle-on':(o.install==='配送'?'toggle-on':(o.install==='否'?'toggle-off':'toggle-unknown'))}" onclick="togEI()" id="ei-btn" data-kind="${o.install||'未確認'}" title="點擊循環：未確認 → 要安裝 → 要配送 → 不安裝"${o.install==='配送'?' style="background:#dbeafe;color:#1d4ed8;border-color:#93c5fd"':''}>${o.install==='是'?'🔧 要安裝':(o.install==='配送'?'🚚 要配送':(o.install==='否'?'不安裝':'待確認'))}</button></div>
+<div id="ei-panel" class="${isServiceActive(o)?'':'hidden'}"><div class="fg"><div class="fi"><label>安裝費用</label><input type="text" inputmode="numeric" id="e-instf" value="${o.installFee||''}" oninput="this.value=cn(this.value);calcT();updateInstallPaidHint()"></div><div class="fi"><label>安裝已收 <span style="font-weight:400;color:var(--ht);font-size:10px">（0=未收，可填部分）</span></label><input type="text" inputmode="numeric" id="e-instpaid" value="${o.installPaidAmount||''}" oninput="this.value=cn(this.value);updateInstallPaidHint()" placeholder="0"></div></div>
 <div id="ei-paid-hint" style="font-size:11px;color:var(--dm);margin-top:-4px;margin-bottom:6px;padding:4px 8px;background:var(--sf2);border-radius:4px;display:none"></div>
 <div class="fg"><div class="fi"><label>安裝日期 <span style="font-weight:400;color:var(--ht);font-size:10px">（實際排程）</span></label><input type="date" id="e-installDate" value="${o.installDate||''}" onchange="updateInstallMismatchHint()"></div><div class="fi"></div></div>
 <div class="fg" style="margin-top:6px"><div class="fi"><label>安裝師傅</label><select id="e-installer">${(o.installer&&!installers.includes(o.installer)?`<option value="${esc(o.installer)}" selected>${esc(o.installer)}（已移除）</option>`:'')}${installers.map(n=>`<option ${((o.installer&&installers.includes(o.installer)?o.installer:installers[0])===n)?'selected':''}>${esc(n)}</option>`).join('')}</select></div><div class="fi"><label>安裝時段 <span style="font-weight:400;color:var(--ht);font-size:10px">（實際排程 / 在週表 grid 擺放位置）</span></label><select id="e-installSlot" onchange="updateInstallMismatchHint()"><option value="" ${!o.installSlot?'selected':''}>— 未排時段 —</option>${TIMES.map(t=>`<option value="${esc(t)}" ${o.installSlot===t?'selected':''}>${esc(t)}</option>`).join('')}</select></div></div>
@@ -2344,18 +2353,22 @@ function updateAddonPaidHint(){_modalDirty=true;_paidHint('e-addonf','e-addonpai
 // 三段循環：未確認 → 是（要安裝） → 否（不安裝） → 未確認
 function togEI(){_modalDirty=true;
   const b=document.getElementById('ei-btn'),p=document.getElementById('ei-panel');
-  // 讀目前狀態（從 button class 推）
-  const cur=b.classList.contains('toggle-on')?'是':(b.classList.contains('toggle-off')?'否':'未確認');
-  const next=cur==='未確認'?'是':(cur==='是'?'否':'未確認');
-  if(next==='是'){b.className='toggle-on';b.textContent='要安裝';p.classList.remove('hidden');
-    // 切到「要安裝」後重算 mismatch hint
+  // 4-state cycle：未確認 → 是 → 配送 → 否 → 未確認
+  const cur=b.dataset.kind||'未確認';
+  const next=cur==='未確認'?'是':(cur==='是'?'配送':(cur==='配送'?'否':'未確認'));
+  b.dataset.kind=next;
+  if(next==='是'){b.className='toggle-on';b.textContent='🔧 要安裝';b.style.cssText='';p.classList.remove('hidden');
+    if(typeof updateInstallMismatchHint==='function')setTimeout(updateInstallMismatchHint,0);
+  }
+  else if(next==='配送'){b.className='toggle-on';b.textContent='🚚 要配送';b.style.cssText='background:#dbeafe;color:#1d4ed8;border-color:#93c5fd';p.classList.remove('hidden');
     if(typeof updateInstallMismatchHint==='function')setTimeout(updateInstallMismatchHint,0);
   }
   else if(next==='否'||next==='未確認'){
     b.className=next==='否'?'toggle-off':'toggle-unknown';
     b.textContent=next==='否'?'不安裝':'待確認';
+    b.style.cssText='';
     p.classList.add('hidden');
-    // 切到「不安裝/未確認」→ 清掉所有安裝欄位（費用/已收/日期/時段/週幾時段 chips/完成狀態）保持資料一致
+    // 切到「不安裝/未確認」→ 清掉所有安裝/配送欄位保持資料一致
     const fee=document.getElementById('e-instf');if(fee)fee.value='';
     const paid=document.getElementById('e-instpaid');if(paid)paid.value='';
     const phint=document.getElementById('ei-paid-hint');if(phint)phint.style.display='none';
@@ -2401,11 +2414,11 @@ const _snap=JSON.parse(JSON.stringify(o));
 const newDate=document.getElementById('e-date').value;
 if(newDate!==o.date){o.date=newDate;o.dateFmt=fmtD(newDate)}
 o.platform=document.getElementById('e-plat').value;o.orderNo=document.getElementById('e-no').value.trim();o.product=document.getElementById('e-prod').value.trim();o.specs=document.getElementById('e-specs').value.trim();o.name=document.getElementById('e-name').value.trim();o.phone=document.getElementById('e-phone').value.trim();o.realPhone=(document.getElementById('e-realPhone')?.value||'').trim();o.address=document.getElementById('e-addr').value.trim();o.addrMgmt=document.getElementById('e-mgmt')?.dataset.value??(o.addrMgmt||'');o.addrElev=document.getElementById('e-elev')?.dataset.value??(o.addrElev||'');o.amount=parseInt(document.getElementById('e-amt').value)||0;o.qty=parseInt(document.getElementById('e-qty').value)||1;
-// 三段狀態從 button class 讀：toggle-on=是 / toggle-off=否 / toggle-unknown=未確認
+// 4-state 從 button dataset.kind 讀：未確認 / 是 / 配送 / 否
 const _ibtn=document.getElementById('ei-btn');
-o.install=_ibtn.classList.contains('toggle-on')?'是':(_ibtn.classList.contains('toggle-unknown')?'未確認':'否');
-// 改前 → 改後不同且原本是「要安裝」有資料 → 在 log 保留原金額/日期/師傅，避免誤觸找不回來
-if(_snap.install==='是'&&o.install!=='是'){const segs=[];if(_snap.installFee)segs.push(`費用 $${_snap.installFee}`);if(_snap.installPaidAmount)segs.push(`已收 $${_snap.installPaidAmount}`);if(_snap.installDate)segs.push(_snap.installDate);if(_snap.installSlot)segs.push(_snap.installSlot);if(_snap.installer)segs.push('師傅 '+_snap.installer);if(_snap.installDay)segs.push(_snap.installDay);if(_snap.installTime)segs.push(_snap.installTime);logActivity(o,`安裝 是 → ${o.install}${segs.length?'（原 '+segs.join(' / ')+'）':''}（編輯視窗）`)}
+o.install=_ibtn.dataset.kind||(_ibtn.classList.contains('toggle-on')?'是':(_ibtn.classList.contains('toggle-unknown')?'未確認':'否'));
+// 改前 → 改後不同且原本要服務（安裝/配送）有資料 → 在 log 保留原金額/日期/師傅
+if((_snap.install==='是'||_snap.install==='配送')&&o.install!==_snap.install){const segs=[];if(_snap.installFee)segs.push(`費用 $${_snap.installFee}`);if(_snap.installPaidAmount)segs.push(`已收 $${_snap.installPaidAmount}`);if(_snap.installDate)segs.push(_snap.installDate);if(_snap.installSlot)segs.push(_snap.installSlot);if(_snap.installer)segs.push('師傅 '+_snap.installer);if(_snap.installDay)segs.push(_snap.installDay);if(_snap.installTime)segs.push(_snap.installTime);logActivity(o,`${_snap.install==='配送'?'配送':'安裝'} ${_snap.install} → ${o.install}${segs.length?'（原 '+segs.join(' / ')+'）':''}（編輯視窗）`)}
 if(o.install==='否'||o.install==='未確認'){o.installFee=0;o.installDay='';o.installTime='';o.installPaidAmount=0;o.installDate='';o.installSlot='';o.installer='';o.installDone=false}
 else{o.installFee=parseInt(document.getElementById('e-instf').value)||0;o.installDay='';o.installTime='';
   // 安裝已收金額（新增 — 可填部分）
@@ -2919,53 +2932,57 @@ function renderSchedRow(o,opts){
   const dragHint=draggable?'<span style="font-size:11px;color:var(--ht);margin-right:4px;cursor:grab" title="拖曳排程">⠿</span>':'';
   // 批次選取 checkbox（draggable 模式才有 — 通常是未排日 section）
   const checkbox=draggable?`<input type="checkbox" onclick="event.stopPropagation()" onchange="toggleSchedBatch('${o.id}',this.checked)" ${_schedBatch.has(o.id)?'checked':''} style="margin-right:4px;transform:scale(1.15);accent-color:var(--blu);cursor:pointer">`:'';
+  const kindBadge=isSelfDeliver(o)?`<span style="font-size:9px;color:#1d4ed8;background:#dbeafe;border:1px solid #93c5fd;border-radius:3px;padding:1px 5px;font-weight:700;white-space:nowrap" title="自己配送">配送</span>`:`<span style="font-size:9px;color:var(--grn);background:var(--grn-bg);border:1px solid #8cc4a0;border-radius:3px;padding:1px 5px;font-weight:700;white-space:nowrap" title="要安裝">安裝</span>`;
   return `<div class="sched-row-card${dragClass}"${dragAttrs} onclick="openEdit('${o.id}')" style="padding:10px 14px;border-top:1px solid var(--bd);cursor:${draggable?'grab':'pointer'}">
     <div style="display:flex;align-items:center;gap:8px;margin-bottom:4px;flex-wrap:wrap">
-      ${checkbox}${dragHint}<span class="brand-pill ${_platCls(o.platform)}" style="font-size:9px;padding:1px 5px">${_platShort(o.platform)}</span>
+      ${checkbox}${dragHint}<span class="brand-pill ${_platCls(o.platform)}" style="font-size:9px;padding:1px 5px">${_platShort(o.platform)}</span>${kindBadge}
       <strong style="font-size:13px">${esc(o.name||'?')}</strong>${addrRegion(o.address)?`<span style="font-size:9px;color:#1657b5;background:#e8eef9;border-radius:3px;padding:1px 5px;font-weight:700">${esc(addrRegion(o.address))}</span>`:''}${(()=>{const hit=isRemoteAddress(o.address);return hit?`<span style="font-size:9px;color:#b91c1c;background:#fef2f2;border:1px solid #fca5a5;border-radius:3px;padding:1px 5px;font-weight:700;white-space:nowrap" title="大榮偏遠地區・必須加運費">偏遠</span>`:''})()}${staleBadge}${schedDateBadge}
       <span style="font-size:11px;color:var(--dm);font-family:var(--mono)">${ph?phoneTel(ph):'—'}</span>
       <span style="margin-left:auto;font-size:11px;color:var(--blu);font-weight:700">${esc(inst||'未指派')}${time}${day}</span>
     </div>
     <div style="font-size:12px;color:var(--tx);margin-bottom:2px">${esc(ps.name||o.product||'')}${ps.specs?` <span class="spec-pill" style="font-size:10px">${esc(ps.specs)}</span>`:''} × ${o.qty||1} ｜ ${feeChip}</div>
     <div style="font-size:11px;color:var(--dm);margin-bottom:6px">${esc(o.address||'—')}</div>
-    <button onclick="event.stopPropagation();markInstallDone('${o.id}')" style="font-size:11px;font-weight:700;padding:4px 12px;border-radius:5px;border:1px solid var(--grn);background:var(--grn-bg);color:var(--grn);cursor:pointer">✓ 完成安裝</button>
+    <button onclick="event.stopPropagation();markInstallDone('${o.id}')" style="font-size:11px;font-weight:700;padding:4px 12px;border-radius:5px;border:1px solid var(--grn);background:var(--grn-bg);color:var(--grn);cursor:pointer">✓ 完成${isSelfDeliver(o)?'配送':'安裝'}</button>
   </div>`;
 }
 // 安裝排程的「待處理」訂單 — 要安裝、還沒按「完成安裝」確認鍵、且訂單沒取消/轉線下
 // 重點：訂單 status 改成「已完成」不會讓它從排程消失 — 安裝完成由 installDone 獨立控制
 // （用戶要求：客人改時間時訂單不要莫名消失，要按確認鍵才算結束）
 function _schedCandidates(){
-  return orders.filter(o=>o.install==='是'&&!o.installDone&&o.status!=='已取消'&&o.status!=='轉線下');
+  // 安裝 + 自己配送都進排程（兩者路線常重疊，一起排比較合理）
+  return orders.filter(o=>isServiceActive(o)&&!o.installDone&&o.status!=='已取消'&&o.status!=='轉線下');
 }
 // 「✓ 完成安裝」確認鍵 — 設 installDone=true，訂單才從排程移除
 function markInstallDone(oid){
   const o=findO(oid);if(!o)return;
-  if(!confirm(`確認「${o.name||'?'}」的安裝已完成？\n\n按確定後這筆會從安裝排程移除（訂單本身不受影響，可在列表查到）。`))return;
-  // 確認完成 → 順便問安裝款收到了沒（提醒用戶當下確認，未收則列表「待收費」提醒會持續顯示）
+  const isSelf=isSelfDeliver(o);
+  const kindLabel=isSelf?'配送':'安裝';
+  if(!confirm(`確認「${o.name||'?'}」的${kindLabel}已完成？\n\n按確定後這筆會從${kindLabel}排程移除（訂單本身不受影響，可在列表查到）。`))return;
+  // 確認完成 → 順便問款項收到了沒
   const fee=Number(o.installFee)||0;
   const prevPaid=Number(o.installPaidAmount)||0;
   let setPaid=false;
   if(fee>0&&prevPaid<fee){
     const unpaid=fee-prevPaid;
-    const msg=`💰 安裝費 $${fee.toLocaleString()} 已經收到了嗎？\n\n`+
+    const msg=`💰 ${kindLabel}費 $${fee.toLocaleString()} 已經收到了嗎？\n\n`+
       (prevPaid>0?`目前已收 $${prevPaid.toLocaleString()}，還缺 $${unpaid.toLocaleString()}\n\n`:'')+
       `確定 = 已收齊（標為已收 $${fee.toLocaleString()}）\n`+
       `取消 = 還沒收（列表會持續顯示「待收費」提醒，不會消失）`;
     if(confirm(msg)){
       o.installPaidAmount=fee;setPaid=true;
-      logActivity(o,`安裝款已收 $${fee}（完成安裝時確認）`);
+      logActivity(o,`${kindLabel}款已收 $${fee}（完成${kindLabel}時確認）`);
     }
   }
   o.installDone=true;o.installDoneAt=new Date().toISOString();
-  logActivity(o,'安裝完成（確認鍵）');
+  logActivity(o,`${kindLabel}完成（確認鍵）`);
   saveOne(o);renderSchedule();updateCnt();renderList();
   const stillUnpaid=fee>0&&Number(o.installPaidAmount||0)<fee;
-  const tail=stillUnpaid?' ⚠ 安裝款未收，列表「待收費」提醒會持續顯示':(setPaid?' ✓ 安裝款已標收齊':'');
-  showToast(`已確認安裝完成：${o.name||''}${tail}`,'復原',()=>{
+  const tail=stillUnpaid?` ⚠ ${kindLabel}款未收，列表「待收費」提醒會持續顯示`:(setPaid?` ✓ ${kindLabel}款已標收齊`:'');
+  showToast(`已確認${kindLabel}完成：${o.name||''}${tail}`,'復原',()=>{
     const x=findO(oid);if(!x)return;
     x.installDone=false;delete x.installDoneAt;
     if(setPaid)x.installPaidAmount=prevPaid;
-    logActivity(x,`安裝完成 → 撤銷${setPaid?'（含已收款）':''}`);
+    logActivity(x,`${kindLabel}完成 → 撤銷${setPaid?'（含已收款）':''}`);
     saveOne(x);renderSchedule();updateCnt();renderList();
   },8000);
 }
@@ -3140,11 +3157,13 @@ function renderWeekGrid(filtered,noDate,monday,overdue){
           if(dayMismatch||timeMismatch)tips.push(`客戶希望 ${prefDays.join('、')||'(未填)'} ${prefTimes.join('、')||'(未填)'}，目前排程不符`);
           const tipAttr=tips.length?`title="${esc(tips.join(' / '))}"`:'';
           const ph=bestPhone(o);
+          const isSelf=isSelfDeliver(o);
+          const kindMark=isSelf?`<span style="font-size:8px;background:#dbeafe;color:#1d4ed8;border-radius:2px;padding:0 3px;margin-right:3px;font-weight:700" title="自配送">配</span>`:'';
           html+=`<div class="grid-cell-card" draggable="true" ondragstart="schedDragStart(event,'${o.id}')" ondragend="schedDragEnd(event)" onclick="openEdit('${o.id}')" ${tipAttr} style="background:${bgColor};border-left:3px solid ${borderColor};border-radius:4px;padding:5px 7px;margin-bottom:3px">
-            <div style="font-weight:700;font-size:12px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap" title="${esc(o.name||'')}">${esc(o.name||'?')}${addrRegion(o.address)?`<span style="font-size:9px;color:#1657b5;background:#e8eef9;border-radius:3px;padding:0 4px;margin-left:4px;font-weight:700">${esc(addrRegion(o.address))}</span>`:''}${badge}</div>
+            <div style="font-weight:700;font-size:12px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap" title="${esc(o.name||'')}">${kindMark}${esc(o.name||'?')}${addrRegion(o.address)?`<span style="font-size:9px;color:#1657b5;background:#e8eef9;border-radius:3px;padding:0 4px;margin-left:4px;font-weight:700">${esc(addrRegion(o.address))}</span>`:''}${badge}</div>
             ${ph?`<div style="font-size:10px;color:var(--dm);font-family:var(--mono);overflow:hidden;text-overflow:ellipsis;white-space:nowrap" title="${esc(ph)}">${esc(ph)}</div>`:''}
             ${o.address?`<div style="font-size:10px;color:var(--tx);line-height:1.25;overflow:hidden;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical" title="${esc(o.address)}">${esc(o.address)}</div>`:''}
-            <button onclick="event.stopPropagation();markInstallDone('${o.id}')" style="margin-top:4px;width:100%;font-size:10px;font-weight:700;padding:3px;border-radius:4px;border:1px solid var(--grn);background:var(--grn-bg);color:var(--grn);cursor:pointer">✓ 完成安裝</button>
+            <button onclick="event.stopPropagation();markInstallDone('${o.id}')" style="margin-top:4px;width:100%;font-size:10px;font-weight:700;padding:3px;border-radius:4px;border:1px solid var(--grn);background:var(--grn-bg);color:var(--grn);cursor:pointer">✓ 完成${isSelf?'配送':'安裝'}</button>
           </div>`;
         }
       }
