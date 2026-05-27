@@ -3,7 +3,7 @@
 //   有差異就 postMessage 通知頁面跳「有新版本」toast。兼顧「開頁快」+「拿得到最新」。
 // 其他 shell asset: stale-while-revalidate
 // Bumps cache version on every release; old caches cleaned up on activate.
-const CACHE = "order-system-v188";
+const CACHE = "order-system-v189";
 const SHELL = ["./", "./index.html", "./manifest.json", "./icon.svg"];
 
 self.addEventListener("install", (event) => {
@@ -37,7 +37,28 @@ function isHTMLRequest(req, url) {
 self.addEventListener("fetch", (event) => {
   const req = event.request;
   const url = new URL(req.url);
-  if (req.method !== "GET" || url.origin !== self.location.origin) return;
+  if (req.method !== "GET") return;
+
+  // Firebase SDK from gstatic CDN — 版本化 URL，cache-first 安全永遠用 cache
+  // 省每次開頁 3 個 ~300KB 的網路請求（雖然瀏覽器本身有 HTTP cache，SW cache 比較可靠）
+  if (url.hostname === "www.gstatic.com" && url.pathname.startsWith("/firebasejs/")) {
+    event.respondWith(
+      caches.open(CACHE).then(async (cache) => {
+        const cached = await cache.match(req);
+        if (cached) return cached;
+        try {
+          const res = await fetch(req);
+          if (res && (res.ok || res.type === "opaque")) cache.put(req, res.clone()).catch(() => {});
+          return res;
+        } catch (e) {
+          return cached || Response.error();
+        }
+      })
+    );
+    return;
+  }
+
+  if (url.origin !== self.location.origin) return;
   if (url.search) return;
 
   if (isHTMLRequest(req, url)) {
