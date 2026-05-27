@@ -467,9 +467,9 @@ function _snapshotJson(){const d={};orders.forEach(o=>{d[o.id]=o});return JSON.s
 function _doSaveAll(){_saveAllTimer=null;const d={};orders.forEach(o=>{d[o.id]=o});_pendingOneIds.clear();db.ref('orders').update(d).catch(_saveError)}
 function _doSaveOnes(){_saveOneTimer=null;if(_pendingOneIds.size===0)return;const updates={};for(const id of _pendingOneIds){const o=findO(id);if(o)updates[id]=o}_pendingOneIds.clear();db.ref('orders').update(updates).catch(_saveError)}
 // saveAll = update 整包 orders（不用 set，避免 multi-device wipe）— 取消 pending saveOne，由 saveAll 統一處理
-function saveAll(immediate){_setSavingBadge();_pendingOneIds.clear();if(_saveOneTimer){clearTimeout(_saveOneTimer);_saveOneTimer=null}if(_saveAllTimer)clearTimeout(_saveAllTimer);if(immediate)_doSaveAll();else _saveAllTimer=setTimeout(_doSaveAll,300)}
+function saveAll(immediate){_setSavingBadge();_pendingOneIds.clear();if(_saveOneTimer){clearTimeout(_saveOneTimer);_saveOneTimer=null}if(_saveAllTimer)clearTimeout(_saveAllTimer);if(immediate)_doSaveAll();else _saveAllTimer=setTimeout(_doSaveAll,200)}
 // saveOne = single order update — 如果 saveAll 已 pending，等 saveAll 處理（包括這個 order）
-function saveOne(o){if(!o||!o.id)return;_setSavingBadge();if(_saveAllTimer)return;_pendingOneIds.add(o.id);if(_saveOneTimer)clearTimeout(_saveOneTimer);_saveOneTimer=setTimeout(_doSaveOnes,300)}
+function saveOne(o){if(!o||!o.id)return;_setSavingBadge();if(_saveAllTimer)return;_pendingOneIds.add(o.id);if(_saveOneTimer)clearTimeout(_saveOneTimer);_saveOneTimer=setTimeout(_doSaveOnes,200)}
 // 刪除單筆 — 必須顯式 remove，不能靠 saveAll（現在用 update 不會自動清舊 keys）
 function deleteOrderId(id){_setSavingBadge();db.ref('orders/'+id).remove().catch(_saveError)}
 function deleteOrderIds(ids){if(!ids||!ids.length)return;_setSavingBadge();const updates={};for(const id of ids)updates[id]=null;db.ref('orders').update(updates).catch(_saveError)}

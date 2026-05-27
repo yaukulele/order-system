@@ -3,7 +3,7 @@
 //   有差異就 postMessage 通知頁面跳「有新版本」toast。兼顧「開頁快」+「拿得到最新」。
 // 其他 shell asset: stale-while-revalidate
 // Bumps cache version on every release; old caches cleaned up on activate.
-const CACHE = "order-system-v189";
+const CACHE = "order-system-v190";
 const SHELL = ["./", "./index.html", "./manifest.json", "./icon.svg"];
 
 self.addEventListener("install", (event) => {
