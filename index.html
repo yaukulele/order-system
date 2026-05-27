@@ -460,7 +460,7 @@ db.ref('orders').on('value',snap=>{
 // 兩條路徑分開：saveAll / saveOne 都走 update（不用 set，避免沖掉其他裝置剛加的訂單）
 // 刪除訂單要走 deleteOrderId / deleteOrderIds（顯式 remove），不能靠「不在 orders 就消失」
 let _saveAllTimer=null,_saveOneTimer=null,_pendingOneIds=new Set();
-function _setSavingBadge(){const sb=document.getElementById('sync-badge');if(sb){sb.className='sync-dot sync-off';sb.innerHTML='<span class="dot dot-off"></span>儲存中...'}}
+function _setSavingBadge(){const sb=document.getElementById('sync-badge');if(sb){sb.className='sync-dot sync-on';sb.innerHTML='<span class="dot dot-on"></span>💾 同步中...';sb.title='本地已存，正在同步雲端'}}
 function _saveError(err){console.error('save failed',err);const sb=document.getElementById('sync-badge');if(sb){sb.className='sync-dot sync-off';sb.innerHTML='<span class="dot dot-off"></span>❌ 儲存失敗'}}
 function _snapshotJson(){const d={};orders.forEach(o=>{d[o.id]=o});return JSON.stringify(d)}
 // 之前用 set 會把其他裝置剛新增的訂單沖掉。現在 update — 安全多裝置同時操作
