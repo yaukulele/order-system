@@ -1310,8 +1310,10 @@ async function _runAutoPoll(){
   // 背景也跑（桌面瀏覽器 OK；手機 iOS Safari 會節流 timer 但 visibilitychange handler 會補抓）
   _autoPollBusy=true;
   try{
-    const m=await _silentFetchMomo(1).catch(()=>({ok:false,added:0}));
-    const p=await _silentFetchPchome(1).catch(()=>({ok:false,added:0}));
+    // 共用一次 live orderNo set fetch（兩個 silent fetch 之前各 fetch 一次 /orders.json，省一次 ~100KB 流量）
+    const sharedLiveSet=await _liveOrderNoSet().catch(()=>null);
+    const m=await _silentFetchMomo(1,sharedLiveSet).catch(()=>({ok:false,added:0}));
+    const p=await _silentFetchPchome(1,sharedLiveSet).catch(()=>({ok:false,added:0}));
     _autoPollLast=new Date();_renderAutoPollStatus();
     const added=(m.added||0)+(p.added||0);
     if(added>0){
@@ -1334,7 +1336,7 @@ async function _liveOrderNoSet(){
     return set;
   }catch(e){return null}
 }
-async function _silentFetchMomo(days=1){
+async function _silentFetchMomo(days=1,preLiveSet=null){
   await momoConfigReady;const api=getMomoApi(),token=getMomoToken();
   if(!api||!token)return {ok:false,added:0,err:'no config'};
   try{
@@ -1344,9 +1346,9 @@ async function _silentFetchMomo(days=1){
     if(!data.ok)return {ok:false,added:0,err:data.error||'api err'};
     const fetched=Array.isArray(data.orders)?data.orders:[];
     if(!fetched.length)return {ok:true,added:0};
-    // 雙重 dedup：先 local，再 live Firebase
+    // 雙重 dedup：先 local，再 live Firebase（auto-poll 會傳共用 set 進來省一次 fetch）
     const ex=new Set(orders.map(o=>o.orderNo));
-    const liveEx=await _liveOrderNoSet();if(liveEx)for(const n of liveEx)ex.add(n);
+    const liveEx=preLiveSet||await _liveOrderNoSet();if(liveEx)for(const n of liveEx)ex.add(n);
     const nw=fetched.map(transformMomoOrder).filter(o=>o.orderNo&&!ex.has(o.orderNo));
     if(nw.length){
       orders.push(...nw);const upd={};for(const o of nw)upd[o.id]=o;
@@ -1356,7 +1358,7 @@ async function _silentFetchMomo(days=1){
     return {ok:true,added:nw.length};
   }catch(e){return {ok:false,added:0,err:e.message}}
 }
-async function _silentFetchPchome(days=1){
+async function _silentFetchPchome(days=1,preLiveSet=null){
   await momoConfigReady;const api=getMomoApi(),token=getMomoToken();
   if(!api||!token)return {ok:false,added:0,err:'no config'};
   try{
@@ -1366,9 +1368,9 @@ async function _silentFetchPchome(days=1){
     if(!data.ok)return {ok:false,added:0,err:data.error||'api err'};
     const fetched=Array.isArray(data.orders)?data.orders:[];
     if(!fetched.length)return {ok:true,added:0};
-    // 雙重 dedup：先 local，再 live Firebase
+    // 雙重 dedup：先 local，再 live Firebase（共用 set 跑省一次 fetch）
     const ex=new Set(orders.map(o=>o.orderNo));
-    const liveEx=await _liveOrderNoSet();if(liveEx)for(const n of liveEx)ex.add(n);
+    const liveEx=preLiveSet||await _liveOrderNoSet();if(liveEx)for(const n of liveEx)ex.add(n);
     const nw=fetched.map(o=>Object.assign({},o,{id:gid()})).filter(o=>o.orderNo&&!ex.has(o.orderNo));
     if(nw.length){
       orders.push(...nw);const upd={};for(const o of nw)upd[o.id]=o;
