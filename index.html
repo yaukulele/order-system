@@ -177,6 +177,13 @@ td{padding:7px 10px;border-bottom:1px solid #f0ede6}tr:hover td{background:var(-
 .ord-card-phone .real-ph{color:var(--grn);margin-left:6px}
 .ord-card-addr{font-size:11px;color:var(--dm);line-height:1.4;margin-bottom:4px}
 .ord-card-note{font-size:11px;color:#b45309;background:#fef9ec;border-radius:4px;padding:4px 8px;margin-top:6px}
+/* 編輯備註的快捷詞 chips — 點一下就追加到備註 textarea 末尾 */
+.note-presets{display:flex;flex-wrap:wrap;gap:5px;margin:4px 0 6px}
+.note-preset-chip{font-size:11px;padding:4px 9px;background:var(--sf2);border:1px solid var(--bd);border-radius:14px;color:var(--ht);cursor:pointer;font-family:var(--sans);line-height:1.3;transition:background .15s,border-color .15s}
+.note-preset-chip:hover{background:var(--bg);border-color:var(--mo);color:var(--mo)}
+.note-preset-chip:active{transform:scale(.96)}
+[data-theme="dark"] .note-preset-chip{background:#262626;color:#d4d4d4;border-color:#404040}
+[data-theme="dark"] .note-preset-chip:hover{background:#332b14;color:#fcd34d;border-color:#fcd34d}
 /* Grid auto-fill — 按鈕填滿可用寬度，數量不固定也不會留白 */
 .ord-card-actions{display:grid;grid-template-columns:repeat(auto-fill,minmax(92px,1fr));gap:6px;margin-top:10px;padding-top:10px;border-top:1px dashed var(--bd)}
 .ord-card-actions button{width:100%;min-height:38px;padding:8px 6px;font-size:12px;font-family:var(--sans);font-weight:600;border:1px solid var(--bd);background:var(--sf2);color:var(--tx);border-radius:6px;cursor:pointer;display:flex;align-items:center;justify-content:center;gap:3px}
@@ -2298,7 +2305,7 @@ document.getElementById('modal-body').innerHTML=`<h3>編輯訂單${customerHisto
 ${o.platform==='ST'?`<div style="border:1px solid var(--bd);border-radius:8px;padding:12px;margin:8px 0;background:var(--sf2)"><div style="font-size:12px;font-weight:700;margin-bottom:8px">📦 物流 <span style="font-weight:400;color:var(--dm);font-size:10px">（外送/寄送才需填）</span></div><div class="fg"><div class="fi"><label>物流公司</label><select id="e-dely"><option value="">— 未填（現場取走） —</option>${MOMO_DELY_COMPANIES.map(c=>`<option ${o.delyGbStr===c?'selected':''}>${c}</option>`).join('')}</select></div><div class="fi"><label>物流單號</label><input id="e-tracking" value="${esc(o.trackingNo||'')}" placeholder="(可空)" style="font-family:var(--mono)"></div></div><div style="margin-top:6px;font-size:10px;color:var(--dm)">店內訂單通常現場取走，物流可空</div></div>`:`<div style="border:1px solid var(--bd);border-radius:8px;padding:12px;margin:8px 0;background:var(--sf2)"><div style="font-size:12px;font-weight:700;margin-bottom:8px">📦 物流</div><div class="fg"><div class="fi"><label>物流公司</label><select id="e-dely"><option value="">— 未填 —</option>${MOMO_DELY_COMPANIES.map(c=>`<option ${o.delyGbStr===c?'selected':''}>${c}</option>`).join('')}</select></div><div class="fi"><label>物流單號</label><input id="e-tracking" value="${esc(o.trackingNo||'')}" placeholder="物流單號" style="font-family:var(--mono)"></div></div>${o.platform==='MO'?`<div style="margin-top:8px;display:flex;gap:8px;align-items:center;flex-wrap:wrap"><button type="button" class="btn" onclick="syncShipFromEdit()" style="background:var(--mo);color:#fff;border-color:var(--mo);font-size:11px;font-weight:700">📤 同步到 MOMO 後台</button><span style="font-size:10px;color:var(--dm)">用上面的單號開「出貨確認」回填到 MOMO（會跳 DRY RUN 預覽）</span></div>`:`<div style="margin-top:6px;font-size:10px;color:var(--dm)">PChome 訂單只記錄在本地，沒有 API 回填管道</div>`}</div>`}
 <div class="fg" style="margin-top:10px"><div class="fi"><label>狀態</label><select id="e-st">${ST.map(s=>`<option ${o.status===s?'selected':''}>${s}</option>`).join('')}</select></div></div>
 ${(o.photos&&o.photos.length)?`<div class="fg full"><div class="fi"><label>📷 出貨照片（${o.photos.length} 張，點圖放大）</label><div style="display:flex;gap:6px;flex-wrap:wrap;padding:8px;background:var(--sf2);border:1px solid var(--bd);border-radius:8px">${o.photos.map((p,i)=>`<div style="position:relative"><a href="${esc(p.url)}" target="_blank" rel="noopener" style="display:block;width:88px;height:88px;border-radius:6px;overflow:hidden;border:1px solid var(--bd);background:#fff"><img src="${esc(p.url)}" style="width:100%;height:100%;object-fit:cover;display:block" loading="lazy"></a><button onclick="removeOrderPhoto('${o.id}',${i})" style="position:absolute;top:-6px;right:-6px;width:22px;height:22px;border-radius:50%;background:var(--pc);color:#fff;border:0;font-size:12px;cursor:pointer;font-weight:700;line-height:1" title="刪除此照片">×</button><div style="font-size:9px;color:var(--dm);text-align:center;margin-top:2px;font-family:var(--mono)">${new Date(p.ts).toLocaleString('zh-TW',{month:'2-digit',day:'2-digit',hour:'2-digit',minute:'2-digit'})}</div></div>`).join('')}</div></div></div>`:''}
-${activityTimelineHTML(o.note)}<div class="fg full"><div class="fi"><label>備註（含活動紀錄）</label><textarea id="e-note">${esc(o.note)}</textarea></div></div>
+${activityTimelineHTML(o.note)}<div class="fg full"><div class="fi"><label>備註（含活動紀錄）</label><div class="note-presets">${['不安裝不加購-直接出貨！','壓SP.貨到直接出！','日期壓後面一點，貨到出貨。','已加line交涉中'].map(t=>`<button type="button" class="note-preset-chip" onclick="insertNotePreset(${JSON.stringify(t)})">${esc(t)}</button>`).join('')}</div><textarea id="e-note">${esc(o.note)}</textarea></div></div>
 <div class="modal-ft"><button class="btn" onclick="closeModal()">取消</button><button class="btn btn-g" onclick="saveEdit()">儲存</button></div>`;
 document.getElementById('modal-overlay').classList.remove('hidden');document.body.style.overflow='hidden';
 // 初始化 mismatch hint（如果開啟編輯的單已經有客戶希望 + 實際排程不符 → 馬上顯示提示）
@@ -2309,6 +2316,16 @@ if(typeof updateAddonPaidHint==='function')updateAddonPaidHint();
 // updateInstallPaidHint/updateAddonPaidHint 會把 _modalDirty 設成 true（共用通用 hint 函式），
 // 但初始化呼叫不算用戶 dirty — reset 一下
 _modalDirty=false;}
+
+// 編輯備註的快捷詞插入 — 點 chip 把預設文字追加到 #e-note 末尾（已存在就 focus 不重複）
+function insertNotePreset(text){
+  const ta=document.getElementById('e-note');if(!ta||!text)return;
+  const cur=ta.value||'';
+  if(cur.split('\n').some(l=>l.trim()===text.trim())){ta.focus();return}
+  ta.value=cur?cur.replace(/\s+$/,'')+'\n'+text:text;
+  _modalDirty=true;
+  ta.focus();ta.scrollTop=ta.scrollHeight;
+}
 
 // 編輯 modal 內客戶希望 vs 實際排程 mismatch 提示（live update）
 function updateInstallMismatchHint(){
