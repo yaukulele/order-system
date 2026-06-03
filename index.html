@@ -3123,6 +3123,14 @@ function renderWeekGrid(filtered,noDate,monday,overdue){
     const k=o.installDate+'|'+slotKey;
     (cellOrders[k]=cellOrders[k]||[]).push(o);
   }
+  // 同格內順序：installSeq 小的排上面（手動 ▲▼ 調的當天訪問先後）；沒設的排後面，且保持插入順序穩定
+  for(const k in cellOrders){
+    cellOrders[k].sort((a,b)=>{
+      const sa=(typeof a.installSeq==='number')?a.installSeq:9999;
+      const sb=(typeof b.installSeq==='number')?b.installSeq:9999;
+      return sa-sb;
+    });
+  }
   // 衝突偵測：同師傅同日同時段排了 2+ 單 → 該 cell + 相關卡片標紅
   // 未指派的單不算衝突（沒指定誰要做就不重複）
   const conflictedOrderIds=new Set();
@@ -3157,7 +3165,7 @@ function renderWeekGrid(filtered,noDate,monday,overdue){
       html+=`<td ondragover="schedDragOver(event)" ondragleave="schedDragLeave(event)" ondrop="schedDrop(event,'${d}','${slotEscaped}')" style="border:1px solid var(--bd);padding:4px;vertical-align:top;background:${isToday?'#fffbf3':'#fff'};min-height:64px;height:64px">`;
       if(!cell.length)html+='<div style="color:var(--ht);font-size:10px;text-align:center;padding:14px 0">—</div>';
       else{
-        for(const o of cell){
+        cell.forEach((o,cardIdx)=>{
           // 警示：客戶希望週幾 / 時段 跟此 cell 不符時 cell 邊框換橘
           const targetWd=['週日','週一','週二','週三','週四','週五','週六'][new Date(d+'T00:00:00').getDay()];
           const prefDays=(o.installDay||'').split(/[、,\/]/).map(x=>x.trim()).filter(Boolean);
@@ -3176,13 +3184,16 @@ function renderWeekGrid(filtered,noDate,monday,overdue){
           const ph=bestPhone(o);
           const isSelf=isSelfDeliver(o);
           const kindMark=isSelf?`<span style="font-size:8px;background:#dbeafe;color:#1d4ed8;border-radius:2px;padding:0 3px;margin-right:3px;font-weight:700" title="自配送">配</span>`:'';
+          const multi=cell.length>1;
+          const seqBadge=multi?`<span style="display:inline-block;min-width:15px;height:15px;line-height:15px;text-align:center;background:#1657b5;color:#fff;border-radius:50%;font-size:9px;font-weight:700;margin-right:4px;flex:0 0 auto" title="當天訪問順序">${cardIdx+1}</span>`:'';
+          const moveBtns=multi?`<button onclick="event.stopPropagation();moveCardInCell('${o.id}',-1)" ${cardIdx===0?'disabled':''} title="往上 = 早一點到" style="width:28px;font-size:12px;font-weight:700;padding:3px 0;border-radius:4px;border:1px solid var(--bd);background:#fff;color:var(--tx);cursor:pointer;${cardIdx===0?'opacity:.3;cursor:default':''}">▲</button><button onclick="event.stopPropagation();moveCardInCell('${o.id}',1)" ${cardIdx===cell.length-1?'disabled':''} title="往下 = 晚一點到" style="width:28px;font-size:12px;font-weight:700;padding:3px 0;border-radius:4px;border:1px solid var(--bd);background:#fff;color:var(--tx);cursor:pointer;${cardIdx===cell.length-1?'opacity:.3;cursor:default':''}">▼</button>`:'';
           html+=`<div class="grid-cell-card" draggable="true" ondragstart="schedDragStart(event,'${o.id}')" ondragend="schedDragEnd(event)" onclick="openEdit('${o.id}')" ${tipAttr} style="background:${bgColor};border-left:3px solid ${borderColor};border-radius:4px;padding:5px 7px;margin-bottom:3px">
-            <div style="font-weight:700;font-size:12px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap" title="${esc(o.name||'')}">${kindMark}${esc(o.name||'?')}${addrRegion(o.address)?`<span style="font-size:9px;color:#1657b5;background:#e8eef9;border-radius:3px;padding:0 4px;margin-left:4px;font-weight:700">${esc(addrRegion(o.address))}</span>`:''}${badge}</div>
+            <div style="font-weight:700;font-size:12px;display:flex;align-items:center;overflow:hidden" title="${esc(o.name||'')}">${seqBadge}<span style="overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${kindMark}${esc(o.name||'?')}${addrRegion(o.address)?`<span style="font-size:9px;color:#1657b5;background:#e8eef9;border-radius:3px;padding:0 4px;margin-left:4px;font-weight:700">${esc(addrRegion(o.address))}</span>`:''}${badge}</span></div>
             ${ph?`<div style="font-size:10px;color:var(--dm);font-family:var(--mono);overflow:hidden;text-overflow:ellipsis;white-space:nowrap" title="${esc(ph)}">${esc(ph)}</div>`:''}
             ${o.address?`<div style="font-size:10px;color:var(--tx);line-height:1.25;overflow:hidden;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical" title="${esc(o.address)}">${esc(o.address)}</div>`:''}
-            <button onclick="event.stopPropagation();markInstallDone('${o.id}')" style="margin-top:4px;width:100%;font-size:10px;font-weight:700;padding:3px;border-radius:4px;border:1px solid var(--grn);background:var(--grn-bg);color:var(--grn);cursor:pointer">✓ 完成${isSelf?'配送':'安裝'}</button>
+            <div style="display:flex;gap:3px;margin-top:4px;align-items:stretch">${moveBtns}<button onclick="event.stopPropagation();markInstallDone('${o.id}')" style="flex:1;font-size:10px;font-weight:700;padding:3px;border-radius:4px;border:1px solid var(--grn);background:var(--grn-bg);color:var(--grn);cursor:pointer">✓ 完成${isSelf?'配送':'安裝'}</button></div>
           </div>`;
-        }
+        });
       }
       html+='</td>';
     }
@@ -3362,6 +3373,8 @@ function scheduleOrderToSlot(oid,dateIso,slot){
     if(!confirm('這筆訂單目前不是「要安裝」狀態，要設定為要安裝並排程到此時段嗎？'))return;
     o.install='是';if(!o.installer)o.installer=installers[0]||'阿淵';
   }
+  // 換格了就清掉手動順序 → 落在新格最後面（避免帶著舊 seq 跳到新格最上面）
+  if(oldDate!==dateIso||oldSlot!==(slot||''))o.installSeq=9999;
   o.installDate=dateIso;
   o.installSlot=slot||''; // '' = 未排時段
   // 警示客戶希望 vs 排程不符
@@ -3386,6 +3399,28 @@ function scheduleOrderToSlot(oid,dateIso,slot){
   }
 }
 
+// 同格內上下調整訪問順序 — dir=-1 往上（早到）、+1 往下（晚到）。用 installSeq 記錄
+function moveCardInCell(oid,dir){
+  const o=findO(oid);if(!o)return;
+  const slotKey=effectiveSlot(o)||'未排時段';
+  // 撈出跟此卡同一格（同日 + 同時段 + 目前師傅篩選）的所有單，跟週表 cell 成員一致
+  const cell=orders.filter(x=>isServiceActive(x)&&!x.installDone&&x.status!=='已取消'&&x.status!=='轉線下'
+    &&x.installDate===o.installDate&&(effectiveSlot(x)||'未排時段')===slotKey
+    &&(schedInstaller==='all'||(x.installer||'')===schedInstaller));
+  cell.sort((a,b)=>{
+    const sa=(typeof a.installSeq==='number')?a.installSeq:9999;
+    const sb=(typeof b.installSeq==='number')?b.installSeq:9999;
+    if(sa!==sb)return sa-sb;
+    return orders.indexOf(a)-orders.indexOf(b);
+  });
+  const i=cell.findIndex(x=>x.id===oid);
+  const j=i+dir;
+  if(i<0||j<0||j>=cell.length)return;
+  [cell[i],cell[j]]=[cell[j],cell[i]];
+  // 重新從 0 編號整格，只存有變動的（同格通常 2~4 筆，存得起）
+  cell.forEach((x,idx)=>{if(x.installSeq!==idx){x.installSeq=idx;saveOne(x)}});
+  renderSchedule();
+}
 // ===== Google Maps 規劃路線 =====
 const WAREHOUSE_CACHE_KEY='os_warehouse_v1';
 let warehouseAddress=(()=>{try{return localStorage.getItem(WAREHOUSE_CACHE_KEY)||'新北市土城'}catch(e){return '新北市土城'}})();
@@ -3410,6 +3445,9 @@ function copySchedDay(dateIso){
     if(ia!==0)return ia;
     const sa=slotOrder[effectiveSlot(a)]??3,sb=slotOrder[effectiveSlot(b)]??3;
     if(sa!==sb)return sa-sb;
+    // 手動 ▲▼ 調的順序優先於 ZIP
+    const qa=(typeof a.installSeq==='number')?a.installSeq:9999,qb=(typeof b.installSeq==='number')?b.installSeq:9999;
+    if(qa!==qb)return qa-qb;
     const za=((a.address||'').match(/^\d{3,5}/)||[''])[0];
     const zb=((b.address||'').match(/^\d{3,5}/)||[''])[0];
     return za.localeCompare(zb);
@@ -3453,9 +3491,13 @@ function openSchedRouteForDate(dateIso,opts){
   const slotOrder={'早上':0,'下午':1,'晚上':2,'':3};
   const orderMap=new Map(target.map(o=>[(o.address||'').trim(),o]));
   stops.sort((a,b)=>{
-    const sa=slotOrder[effectiveSlot(orderMap.get(a)||{})]??3;
-    const sb=slotOrder[effectiveSlot(orderMap.get(b)||{})]??3;
+    const oa=orderMap.get(a)||{},ob=orderMap.get(b)||{};
+    const sa=slotOrder[effectiveSlot(oa)]??3;
+    const sb=slotOrder[effectiveSlot(ob)]??3;
     if(sa!==sb)return sa-sb;
+    // 手動 ▲▼ 調的順序優先於 ZIP
+    const qa=(typeof oa.installSeq==='number')?oa.installSeq:9999,qb=(typeof ob.installSeq==='number')?ob.installSeq:9999;
+    if(qa!==qb)return qa-qb;
     const za=(a.match(/^\d{3,5}/)||[''])[0],zb=(b.match(/^\d{3,5}/)||[''])[0];
     return za.localeCompare(zb);
   });
