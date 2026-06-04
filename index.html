@@ -130,6 +130,8 @@ td{padding:7px 10px;border-bottom:1px solid #f0ede6}tr:hover td{background:var(-
 .drag-handle:active{cursor:grabbing}
 .week-grid-tbl .grid-cell-card[draggable=true],.sched-row-card.draggable[draggable=true]{-webkit-user-drag:element}
 .grid-card-dragging{opacity:.4}
+.copy-mini{display:inline-flex;align-items:center;justify-content:center;width:26px;height:26px;padding:0;margin-left:6px;border:1px solid var(--bd);border-radius:7px;background:var(--sf2);color:var(--dm);cursor:pointer;vertical-align:middle;flex:0 0 auto}
+.copy-mini:active{background:var(--blu);color:#fff;border-color:var(--blu)}
 .sched-drag-hint{font-size:10px;color:var(--dm);margin:6px 0;padding:4px 8px;background:var(--blu-bg,#eff6ff);border-left:3px solid var(--blu);border-radius:3px}
 /* 安裝/加購 inline 選單（點未確認跳出） */
 .acc-menu{display:flex;flex-direction:column;gap:2px;align-items:stretch}
@@ -596,6 +598,12 @@ db.ref('.info/connected').on('value',snap=>{const ok=!!snap.val();
 function bestPhone(o){return o.realPhone||o.phone||''}
 // 複製文字到剪貼簿，成功 toast、失敗 alert
 function copyText(txt,okMsg){return navigator.clipboard.writeText(txt).then(()=>{if(okMsg)showToast(okMsg,null,null,2000)}).catch(err=>alert('複製失敗：'+(err.message||err)))}
+// 一鍵複製小按鈕（手機長按選字常失效 → 直接點一下複製單一欄位）。line-icon、無 emoji
+function copyBtn(text,label){
+  if(text===undefined||text===null||text==='')return'';
+  const arg=JSON.stringify(String(text)).replace(/"/g,'&quot;');
+  return `<button type="button" class="copy-mini" onclick="event.stopPropagation();copyText(${arg},'已複製${label}')" title="複製${label}" aria-label="複製${label}"><svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="9" width="11" height="11" rx="2"></rect><path d="M5 15V5a2 2 0 0 1 2-2h10"></path></svg></button>`;
+}
 // 搜尋字標亮 — 把文字中跟當前 search query 相符的部分包 <mark> （已 esc 過的字串才能用）
 // escWithHL：把搜尋字 highlight。regex 依當前 q 值快取 — 之前每筆訂單欄位都重編 regex，
 // 500 筆 × 3 欄 = 1500 次 new RegExp 每次 render，現在只算一次。
@@ -2048,7 +2056,7 @@ h+=`<div class="ord-card" data-oid="${oid}">
 ${platformPill(o.platform)}${r.addrBadge}${r.newBadge}
 <span class="ord-total">${$(tot(o))}</span>
 </div>
-<div class="ord-card-name">${o.name?`<span style="cursor:pointer;text-decoration:underline;text-decoration-style:dotted;text-decoration-color:var(--ht);text-underline-offset:3px" onclick="event.stopPropagation();searchCustomerOrders(${JSON.stringify(o.name).replace(/"/g,'&quot;')})" title="🔒 鎖定看「${esc(o.name)}」的所有訂單">${escWithHL(o.name)}</span>`:'(無姓名)'}${r.region?`<span style="font-size:10px;color:#1657b5;background:#e8eef9;border-radius:4px;padding:2px 7px;font-weight:700;margin-left:6px;vertical-align:middle" title="${esc(o.address||'')}">${esc(r.region)}</span>`:''}${r.remoteBadge?`<span style="margin-left:4px;vertical-align:middle">${r.remoteBadge}</span>`:''}${r.qty>1?` <span class="qty-pill large">× ${r.qty}</span>`:''}</div>
+<div class="ord-card-name">${o.name?`<span style="cursor:pointer;text-decoration:underline;text-decoration-style:dotted;text-decoration-color:var(--ht);text-underline-offset:3px" onclick="event.stopPropagation();searchCustomerOrders(${JSON.stringify(o.name).replace(/"/g,'&quot;')})" title="🔒 鎖定看「${esc(o.name)}」的所有訂單">${escWithHL(o.name)}</span>`:'(無姓名)'}${r.region?`<span style="font-size:10px;color:#1657b5;background:#e8eef9;border-radius:4px;padding:2px 7px;font-weight:700;margin-left:6px;vertical-align:middle" title="${esc(o.address||'')}">${esc(r.region)}</span>`:''}${r.remoteBadge?`<span style="margin-left:4px;vertical-align:middle">${r.remoteBadge}</span>`:''}${r.qty>1?` <span class="qty-pill large">× ${r.qty}</span>`:''}${copyBtn(o.name,'姓名')}</div>
 <div class="ord-card-prod" onclick="openEdit('${oid}')" style="cursor:pointer">${r.ps.specs?`<span class="spec-pill" style="margin-right:6px">${esc(r.ps.specs)}</span>`:''}${escWithHL(r.ps.name||o.product||'')}</div>
 <div class="ord-card-meta">
 <button class="${stCls(o.status)}" onclick="openStatusMenu('${oid}',event)" style="min-height:30px" title="點擊選擇狀態">${o.status} ▾</button>
@@ -2057,8 +2065,8 @@ ${installPill}
 ${addonPill}
 ${r.addrAttrs.length?`<span class="qty-pill" style="color:var(--dm);font-size:10px">🏠 ${r.addrAttrs.join('+')}</span>`:''}
 </div>
-${r.ph?`<div class="ord-card-phone">📞 ${phoneTel(r.ph)}${o.realPhone?`<span class="real-ph">📱 ${phoneTel(o.realPhone)}</span>`:''}</div>`:''}
-${o.address?`<div class="ord-card-addr">📍 ${mapsLink(o.address)}</div>`:''}
+${r.ph?`<div class="ord-card-phone">📞 ${phoneTel(r.ph)}${copyBtn(r.ph,'電話')}${o.realPhone?`<span class="real-ph">📱 ${phoneTel(o.realPhone)}</span>${copyBtn(o.realPhone,'手機')}`:''}</div>`:''}
+${o.address?`<div class="ord-card-addr">📍 ${mapsLink(o.address)}${copyBtn(o.address,'地址')}</div>`:''}
 ${r.noteShort?`<div class="ord-card-note">${esc(r.noteShort)}</div>`:''}
 <div class="ord-card-actions">
 ${a.addrAck}${a.ship}${a.instPaid}${a.addonPaid}${a.quickAddInstall}${a.quickAddAddon}
