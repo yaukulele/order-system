@@ -122,10 +122,13 @@ td{padding:7px 10px;border-bottom:1px solid #f0ede6}tr:hover td{background:var(-
 /* 週表 grid 拖曳 */
 .week-grid-tbl td.drop-target-active{background:#e3f2fd!important;outline:2px dashed var(--blu);outline-offset:-3px}
 .sched-unschedule-drop.drop-target-active{background:var(--mo-bg)!important;outline:2px dashed var(--mo);outline-offset:-3px}
-.week-grid-tbl .grid-cell-card,.sched-row-card.draggable{cursor:grab}
+.week-grid-tbl .grid-cell-card,.sched-row-card.draggable{cursor:pointer}
 .sched-row-card{content-visibility:auto;contain-intrinsic-size:130px}
-.week-grid-tbl .grid-cell-card:active,.sched-row-card.draggable:active{cursor:grabbing}
-.week-grid-tbl .grid-cell-card[draggable=true],.sched-row-card.draggable[draggable=true]{user-select:none;-webkit-user-drag:element;touch-action:manipulation}
+/* 卡片內文字可以長按選取複製；拖曳改成只認 .drag-handle 那顆把手 */
+.week-grid-tbl .grid-cell-card,.sched-row-card.draggable{user-select:text;-webkit-user-select:text;-webkit-touch-callout:default}
+.drag-handle{cursor:grab;user-select:none;-webkit-user-select:none;touch-action:none;-webkit-touch-callout:none;flex:0 0 auto;color:var(--ht)}
+.drag-handle:active{cursor:grabbing}
+.week-grid-tbl .grid-cell-card[draggable=true],.sched-row-card.draggable[draggable=true]{-webkit-user-drag:element}
 .grid-card-dragging{opacity:.4}
 .sched-drag-hint{font-size:10px;color:var(--dm);margin:6px 0;padding:4px 8px;background:var(--blu-bg,#eff6ff);border-left:3px solid var(--blu);border-radius:3px}
 /* 安裝/加購 inline 選單（點未確認跳出） */
@@ -2946,7 +2949,7 @@ function renderSchedRow(o,opts){
   }
   const dragAttrs=draggable?` draggable="true" ondragstart="schedDragStart(event,'${o.id}')" ondragend="schedDragEnd(event)"`:'';
   const dragClass=draggable?' draggable':'';
-  const dragHint=draggable?'<span style="font-size:11px;color:var(--ht);margin-right:4px;cursor:grab" title="拖曳排程">⠿</span>':'';
+  const dragHint=draggable?'<span class="drag-handle" style="font-size:16px;margin-right:6px;padding:2px 5px;display:inline-block" title="按住這裡拖曳排程（其他地方可長按選字複製）">⠿</span>':'';
   // 批次選取 checkbox（draggable 模式才有 — 通常是未排日 section）
   const checkbox=draggable?`<input type="checkbox" onclick="event.stopPropagation()" onchange="toggleSchedBatch('${o.id}',this.checked)" ${_schedBatch.has(o.id)?'checked':''} style="margin-right:4px;transform:scale(1.15);accent-color:var(--blu);cursor:pointer">`:'';
   const kindBadge=isSelfDeliver(o)?`<span style="font-size:9px;color:#1d4ed8;background:#dbeafe;border:1px solid #93c5fd;border-radius:3px;padding:1px 5px;font-weight:700;white-space:nowrap" title="自己配送">配送</span>`:`<span style="font-size:9px;color:var(--grn);background:var(--grn-bg);border:1px solid #8cc4a0;border-radius:3px;padding:1px 5px;font-weight:700;white-space:nowrap" title="要安裝">安裝</span>`;
@@ -3188,7 +3191,7 @@ function renderWeekGrid(filtered,noDate,monday,overdue){
           const seqBadge=multi?`<span style="display:inline-block;min-width:15px;height:15px;line-height:15px;text-align:center;background:#1657b5;color:#fff;border-radius:50%;font-size:9px;font-weight:700;margin-right:4px;flex:0 0 auto" title="當天訪問順序">${cardIdx+1}</span>`:'';
           const moveBtns=multi?`<button onclick="event.stopPropagation();moveCardInCell('${o.id}',-1)" ${cardIdx===0?'disabled':''} title="往上 = 早一點到" style="width:28px;font-size:12px;font-weight:700;padding:3px 0;border-radius:4px;border:1px solid var(--bd);background:#fff;color:var(--tx);cursor:pointer;${cardIdx===0?'opacity:.3;cursor:default':''}">▲</button><button onclick="event.stopPropagation();moveCardInCell('${o.id}',1)" ${cardIdx===cell.length-1?'disabled':''} title="往下 = 晚一點到" style="width:28px;font-size:12px;font-weight:700;padding:3px 0;border-radius:4px;border:1px solid var(--bd);background:#fff;color:var(--tx);cursor:pointer;${cardIdx===cell.length-1?'opacity:.3;cursor:default':''}">▼</button>`:'';
           html+=`<div class="grid-cell-card" draggable="true" ondragstart="schedDragStart(event,'${o.id}')" ondragend="schedDragEnd(event)" onclick="openEdit('${o.id}')" ${tipAttr} style="background:${bgColor};border-left:3px solid ${borderColor};border-radius:4px;padding:5px 7px;margin-bottom:3px">
-            <div style="font-weight:700;font-size:12px;display:flex;align-items:center;overflow:hidden" title="${esc(o.name||'')}">${seqBadge}<span style="overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${kindMark}${esc(o.name||'?')}${addrRegion(o.address)?`<span style="font-size:9px;color:#1657b5;background:#e8eef9;border-radius:3px;padding:0 4px;margin-left:4px;font-weight:700">${esc(addrRegion(o.address))}</span>`:''}${badge}</span></div>
+            <div style="font-weight:700;font-size:12px;display:flex;align-items:center;overflow:hidden" title="${esc(o.name||'')}"><span class="drag-handle" style="font-size:13px;margin-right:3px" title="按住這裡拖曳排程（其他地方可長按選字複製）">⠿</span>${seqBadge}<span style="overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${kindMark}${esc(o.name||'?')}${addrRegion(o.address)?`<span style="font-size:9px;color:#1657b5;background:#e8eef9;border-radius:3px;padding:0 4px;margin-left:4px;font-weight:700">${esc(addrRegion(o.address))}</span>`:''}${badge}</span></div>
             ${ph?`<div style="font-size:10px;color:var(--dm);font-family:var(--mono);overflow:hidden;text-overflow:ellipsis;white-space:nowrap" title="${esc(ph)}">${esc(ph)}</div>`:''}
             ${o.address?`<div style="font-size:10px;color:var(--tx);line-height:1.25;overflow:hidden;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical" title="${esc(o.address)}">${esc(o.address)}</div>`:''}
             <div style="display:flex;gap:3px;margin-top:4px;align-items:stretch">${moveBtns}<button onclick="event.stopPropagation();markInstallDone('${o.id}')" style="flex:1;font-size:10px;font-weight:700;padding:3px;border-radius:4px;border:1px solid var(--grn);background:var(--grn-bg);color:var(--grn);cursor:pointer">✓ 完成${isSelf?'配送':'安裝'}</button></div>
@@ -3269,7 +3272,10 @@ let _touchDragOid=null,_touchDragGhost=null,_touchDragTimer=null,_touchDragActiv
 function _isTouchDevice(){return 'ontouchstart' in window||navigator.maxTouchPoints>0}
 document.addEventListener('touchstart',function(e){
   if(!_isTouchDevice())return;
-  const card=e.target.closest('.grid-cell-card[draggable=true],.sched-row-card.draggable[draggable=true]');
+  // 只有按在 ⠿ 把手上才啟動拖曳 — 其餘地方留給瀏覽器長按選字／複製
+  const handle=e.target.closest('.drag-handle');
+  if(!handle)return;
+  const card=handle.closest('.grid-cell-card[draggable=true],.sched-row-card.draggable[draggable=true]');
   if(!card)return;
   // 取出 order id（從 ondragstart 屬性 parse）
   const od=card.getAttribute('ondragstart')||'';
