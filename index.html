@@ -1664,9 +1664,30 @@ function buildOrderActions(o,variant){
   const camMobLabel=photoCnt>0?`📷 拍照 (${photoCnt})`:'📷 拍照';
   const cam=isMob?`<button onclick="capturePhoto('${oid}',this)" title="${photoCnt>0?'已有 '+photoCnt+' 張，點此再拍一張；點編輯看完整':'開相機拍照分享到 LINE'}" style="background:#fff7ed;color:#c2410c;border-color:#fed7aa">${camMobLabel}</button>`:`<button class="act" onclick="capturePhoto('${oid}',this)" title="${photoCnt>0?'已有 '+photoCnt+' 張，再拍一張':'開相機拍出貨照（手機）→ 分享到 LINE'}" style="border-color:#fb923c;color:#c2410c">${camLabel}</button>`;
   const del=isMob?`<button class="danger" onclick="delOrder('${oid}')">🗑 刪除</button>`:`<button class="act" onclick="delOrder('${oid}')">刪</button>`;
-  return{addrAck,ship,instPaid,addonPaid,quickAddInstall,quickAddAddon,edit,copy,cam,del};
+  // 🔍 商品頁：用商品名稱去對應平台搜尋（MO→MOMO / PC→PChome / 其他→Google），開商品頁重複確認這筆訂單
+  const _siteName=o.platform==='MO'?'MOMO':o.platform==='PC'?'PChome':'Google';
+  const prodLink=(o.product||'').trim()
+    ?(isMob
+      ?`<button onclick="openProdPage('${oid}')" title="去 ${_siteName} 搜這個商品，開網頁重複確認這筆訂單" style="background:#eef6ff;color:#1657b5;border-color:#a8c4f0">🔍 商品頁</button>`
+      :`<button class="act" onclick="openProdPage('${oid}')" title="用商品名稱去 ${_siteName} 搜尋，開商品頁重複確認這筆訂單" style="border-color:#a8c4f0;color:#1657b5">🔍 商品</button>`)
+    :'';
+  return{addrAck,ship,instPaid,addonPaid,quickAddInstall,quickAddAddon,edit,copy,cam,del,prodLink};
 }
 
+// 用商品名稱組出搜尋網址 — 重複確認訂單買的商品用
+function prodSearchUrl(o){
+  const q=encodeURIComponent((o.product||'').trim());
+  if(!q)return '';
+  if(o.platform==='MO')return 'https://www.momoshop.com.tw/search/searchShop.jsp?keyword='+q;
+  if(o.platform==='PC')return 'https://24h.pchome.com.tw/search/?q='+q;
+  return 'https://www.google.com/search?q='+q;
+}
+function openProdPage(oid){
+  const o=findO(oid);if(!o)return;
+  const url=prodSearchUrl(o);
+  if(!url){alert('這筆沒有商品名稱可以查');return}
+  window.open(url,'_blank','noopener');
+}
 function logActivity(o,action){const d=new Date();const p=n=>String(n).padStart(2,'0');const ts=`${d.getFullYear()}-${p(d.getMonth()+1)}-${p(d.getDate())} ${p(d.getHours())}:${p(d.getMinutes())}`;const who=currentUser?` @${currentUser}`:'';let note=((o.note||'')+`\n[${ts}${who}] ${action}`).trim();const lines=note.split('\n');if(lines.length>60)note=lines.slice(-60).join('\n');o.note=note}
 // 全部訂單的最近操作紀錄 — 把每筆訂單 note 裡的 [ts @who] action 行抽出來合成全域時間軸
 // 用途：「剛剛改了一筆但忘了是哪個客戶」→ 來這裡找
@@ -2077,6 +2098,7 @@ ${o.address?`<div class="ord-card-addr">📍 ${mapsLink(o.address)}${copyBtn(o.a
 ${r.noteShort?`<div class="ord-card-note">${esc(r.noteShort)}</div>`:''}
 <div class="ord-card-actions">
 ${a.addrAck}${a.ship}${a.instPaid}${a.addonPaid}${a.quickAddInstall}${a.quickAddAddon}
+${a.prodLink}
 ${a.edit}
 ${a.copy}
 ${a.cam}
