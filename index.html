@@ -1173,7 +1173,7 @@ function resetMomoApi(){
 }
 
 function transformMomoOrder(o){let date=localDateISO(),dateFmt='';const dm=(o.lastPricDate||'').match(/(\d{4})\/(\d{1,2})\/(\d{1,2})/);if(dm){date=`${dm[1]}-${String(dm[2]).padStart(2,'0')}-${String(dm[3]).padStart(2,'0')}`;dateFmt=`${parseInt(dm[2])}/${parseInt(dm[3])}`}
-return{id:gid(),date,dateFmt,platform:'MO',orderNo:o.completeOrderNo||'',product:o.goodsName||'',specs:o.goodsDtInfo||'',name:o.receiver||'',phone:o.receiverMobile||o.receiverTel||'',address:o.newReceiverAddr||o.receiverAddr||'',install:'未確認',installFee:0,installDay:'',installTime:'',addon:'未確認',addonFee:0,amount:parseInt(o.salePrice)||parseInt(o.buyPrice)||0,qty:parseInt(o.syslast)||1,status:'未確認',note:o.newReceiverAddr?'⚠ 客戶申請改地址':''}}
+return{id:gid(),date,dateFmt,platform:'MO',orderNo:o.completeOrderNo||'',product:o.goodsName||'',specs:o.goodsDtInfo||'',goodsCode:o.goodsCode||'',name:o.receiver||'',phone:o.receiverMobile||o.receiverTel||'',address:o.newReceiverAddr||o.receiverAddr||'',install:'未確認',installFee:0,installDay:'',installTime:'',addon:'未確認',addonFee:0,amount:parseInt(o.salePrice)||parseInt(o.buyPrice)||0,qty:parseInt(o.syslast)||1,status:'未確認',note:o.newReceiverAddr?'⚠ 客戶申請改地址':''}}
 
 function parseDateRangeInput(s){s=(s||'').trim().toLowerCase();if(!s)return{days:30};if(s==='today'||s==='今天')return{from:isoToday(),to:isoToday()};if(/^\d+$/.test(s))return{days:parseInt(s,10)};const range=s.match(/^(\d{4})[/\-](\d{1,2})[/\-](\d{1,2})\s*[-~至]\s*(\d{4})[/\-](\d{1,2})[/\-](\d{1,2})$/);if(range){return{from:`${range[1]}-${range[2].padStart(2,'0')}-${range[3].padStart(2,'0')}`,to:`${range[4]}-${range[5].padStart(2,'0')}-${range[6].padStart(2,'0')}`}}const single=s.match(/^(\d{4})[/\-](\d{1,2})[/\-](\d{1,2})$/);if(single){const d=`${single[1]}-${single[2].padStart(2,'0')}-${single[3].padStart(2,'0')}`;return{from:d,to:isoToday()}}return null}
 function isoToday(){return localDateISO()}
@@ -1664,18 +1664,25 @@ function buildOrderActions(o,variant){
   const camMobLabel=photoCnt>0?`📷 拍照 (${photoCnt})`:'📷 拍照';
   const cam=isMob?`<button onclick="capturePhoto('${oid}',this)" title="${photoCnt>0?'已有 '+photoCnt+' 張，點此再拍一張；點編輯看完整':'開相機拍照分享到 LINE'}" style="background:#fff7ed;color:#c2410c;border-color:#fed7aa">${camMobLabel}</button>`:`<button class="act" onclick="capturePhoto('${oid}',this)" title="${photoCnt>0?'已有 '+photoCnt+' 張，再拍一張':'開相機拍出貨照（手機）→ 分享到 LINE'}" style="border-color:#fb923c;color:#c2410c">${camLabel}</button>`;
   const del=isMob?`<button class="danger" onclick="delOrder('${oid}')">🗑 刪除</button>`:`<button class="act" onclick="delOrder('${oid}')">刪</button>`;
-  // 🔍 商品頁：用商品名稱去對應平台搜尋（MO→MOMO / PC→PChome / 其他→Google），開商品頁重複確認這筆訂單
+  // 🔍 商品頁：有商品編號→直接開精準商品頁；否則用商品名稱去對應平台搜尋。開網頁重複確認這筆訂單
   const _siteName=o.platform==='MO'?'MOMO':o.platform==='PC'?'PChome':'Google';
-  const prodLink=(o.product||'').trim()
+  const _exactProd=prodIsExact(o);
+  const _prodTitle=_exactProd?'用商品編號直接開官方商品頁（精準），重複確認這筆訂單':`用商品名稱去 ${_siteName} 搜尋商品頁，重複確認這筆訂單`;
+  const prodLink=prodSearchUrl(o)
     ?(isMob
-      ?`<button onclick="openProdPage('${oid}')" title="去 ${_siteName} 搜這個商品，開網頁重複確認這筆訂單" style="background:#eef6ff;color:#1657b5;border-color:#a8c4f0">🔍 商品頁</button>`
-      :`<button class="act" onclick="openProdPage('${oid}')" title="用商品名稱去 ${_siteName} 搜尋，開商品頁重複確認這筆訂單" style="border-color:#a8c4f0;color:#1657b5">🔍 商品</button>`)
+      ?`<button onclick="openProdPage('${oid}')" title="${_prodTitle}" style="background:${_exactProd?'#e8f7ee':'#eef6ff'};color:${_exactProd?'#15803d':'#1657b5'};border-color:${_exactProd?'#86efac':'#a8c4f0'}">${_exactProd?'🔗 商品頁':'🔍 商品頁'}</button>`
+      :`<button class="act" onclick="openProdPage('${oid}')" title="${_prodTitle}" style="border-color:${_exactProd?'#86efac':'#a8c4f0'};color:${_exactProd?'#15803d':'#1657b5'}">${_exactProd?'🔗 商品':'🔍 商品'}</button>`)
     :'';
   return{addrAck,ship,instPaid,addonPaid,quickAddInstall,quickAddAddon,edit,copy,cam,del,prodLink};
 }
 
-// 用商品名稱組出搜尋網址 — 重複確認訂單買的商品用
+// 商品頁網址 — 重複確認訂單買的商品用
+// 有商品編號（MOMO goodsCode=i_code / PChome Prod.Id）→ 直接連到精準商品頁；
+// 沒有編號（舊單 / 店內 / 學校）→ 退回用商品名稱搜尋。
+function prodIsExact(o){return (o.platform==='MO'&&o.goodsCode)||(o.platform==='PC'&&o.prodId)}
 function prodSearchUrl(o){
+  if(o.platform==='MO'&&o.goodsCode)return 'https://www.momoshop.com.tw/goods/GoodsDetail.jsp?i_code='+encodeURIComponent(String(o.goodsCode).trim());
+  if(o.platform==='PC'&&o.prodId)return 'https://24h.pchome.com.tw/prod/'+encodeURIComponent(String(o.prodId).trim());
   const q=encodeURIComponent((o.product||'').trim());
   if(!q)return '';
   if(o.platform==='MO')return 'https://www.momoshop.com.tw/search/searchShop.jsp?keyword='+q;
@@ -1685,7 +1692,7 @@ function prodSearchUrl(o){
 function openProdPage(oid){
   const o=findO(oid);if(!o)return;
   const url=prodSearchUrl(o);
-  if(!url){alert('這筆沒有商品名稱可以查');return}
+  if(!url){alert('這筆沒有商品編號也沒有商品名稱可以查');return}
   window.open(url,'_blank','noopener');
 }
 function logActivity(o,action){const d=new Date();const p=n=>String(n).padStart(2,'0');const ts=`${d.getFullYear()}-${p(d.getMonth()+1)}-${p(d.getDate())} ${p(d.getHours())}:${p(d.getMinutes())}`;const who=currentUser?` @${currentUser}`:'';let note=((o.note||'')+`\n[${ts}${who}] ${action}`).trim();const lines=note.split('\n');if(lines.length>60)note=lines.slice(-60).join('\n');o.note=note}
