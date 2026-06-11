@@ -681,42 +681,44 @@ async function _uploadPhotoToStorage(oid,blob){
 }
 let _photoBusy=false;
 function capturePhoto(oid,btn){
-  if(_photoBusy){showToast('⏳ 上一張處理中，請稍等再按');return}
+  if(_photoBusy){showToast('⏳ 上一批處理中，請稍等再按');return}
   const o=findO(oid);if(!o){alert('訂單已不存在');return}
   _photoBusy=true;
-  const input=document.createElement('input');input.type='file';input.accept='image/*';input.capture='environment';input.style.display='none';
+  // 不設 capture → 手機點下去會跳「拍照 / 從相簿選」兩種；multiple → 相簿可一次複選多張
+  const input=document.createElement('input');input.type='file';input.accept='image/*';input.multiple=true;input.style.display='none';
   // 用戶按取消（沒選檔案）也要釋放 busy flag
   input.addEventListener('cancel',()=>{_photoBusy=false;input.remove()});
   input.onchange=async()=>{
-    const file=input.files?.[0];input.remove();if(!file){_photoBusy=false;return}
-    // 30 秒 toast 涵蓋慢網路上傳；上傳完會被後面的「✅ 雲端已存」toast 取代
-    showToast('📤 上傳雲端中...',null,null,30000);
-    // 壓縮 + 上傳
-    let blob=file;try{const c=await _compressImage(file,1280,0.78);if(c&&c.size>0)blob=c}catch(e){console.warn('compress failed',e)}
-    let url=null,uploadErr=null;
-    try{url=await _uploadPhotoToStorage(oid,blob)}catch(e){uploadErr=e;console.error('upload failed:',e)}
-    if(url){
-      // 重新解析 o — await 期間 orders 可能被 applyRemoteOrders 換掉（e.g., 訂單被別裝置刪了）
-      // 不要 fallback 到原本的 stale o，否則 saveOne 找不到對應 id，照片就變孤兒（Storage 有，本地無連結）
+    const files=Array.from(input.files||[]);input.remove();if(!files.length){_photoBusy=false;return}
+    // 30 秒 toast 涵蓋慢網路上傳；上傳完會被後面的結果 toast 取代
+    showToast(`📤 上傳 ${files.length} 張雲端中...`,null,null,30000);
+    let okCount=0,failCount=0,lastErr=null,orderGone=false,totalBytes=0;
+    for(const file of files){
+      let blob=file;try{const c=await _compressImage(file,1280,0.78);if(c&&c.size>0)blob=c}catch(e){console.warn('compress failed',e)}
+      let url=null;
+      try{url=await _uploadPhotoToStorage(oid,blob)}catch(e){lastErr=e;console.error('upload failed:',e)}
+      if(!url){failCount++;continue}
+      // 重新解析 o — await 期間 orders 可能被 applyRemoteOrders 換掉（訂單被別裝置刪了）
       const oNow=findO(oid);
       if(oNow){
         oNow.photos=[...(oNow.photos||[]),{url,ts:Date.now(),size:blob.size}];
-        logActivity(oNow,`📷 出貨拍照（${(blob.size/1024).toFixed(0)}KB → ☁️ 已存）`);
-        saveOne(oNow);renderList();
+        saveOne(oNow);okCount++;totalBytes+=blob.size;
       }else{
         // 訂單已被刪 — 清掉剛上傳的孤兒，避免 Storage 累積垃圾
         console.warn(`[capturePhoto] order ${oid} disappeared during upload, removing orphan photo`);
         ensureStorage().then(s=>{const m=url.match(/\/o\/([^?]+)/);if(m)return s.ref(decodeURIComponent(m[1])).delete()}).catch(()=>{});
-        showToast('⚠️ 訂單在上傳途中被刪除，照片未連結',null,null,4000);
-        return;
+        orderGone=true;break;
       }
     }
+    if(orderGone){showToast('⚠️ 訂單在上傳途中被刪除，剩餘照片未連結',null,null,4000);_photoBusy=false;renderList();return}
+    const oNow=findO(oid);
+    if(oNow&&okCount>0){logActivity(oNow,`📷 出貨照片 ${okCount} 張（${(totalBytes/1024).toFixed(0)}KB → ☁️ 已存）`);saveOne(oNow);}
+    renderList();
     // 用 toast action button 觸發 share — 用戶點按鈕 = 全新 gesture，iOS 一定放行
-    // （之前直接從 input.onchange 呼 share，iOS 不認 onchange 是 user activation 就擋）
-    const baseMsg=url?'✅ 雲端已存':('⚠️ 雲端失敗：'+(uploadErr?.message||'未知'));
-    if(navigator.share&&navigator.canShare&&navigator.canShare({files:[file]})){
+    const baseMsg=failCount?`✅ ${okCount} 張已存，⚠️ ${failCount} 張失敗${lastErr?'：'+(lastErr.message||''):''}`:`✅ ${okCount} 張雲端已存`;
+    if(navigator.share&&navigator.canShare&&navigator.canShare({files})){
       showToast(baseMsg+' — 點右邊分享給 LINE','📤 分享',()=>{
-        navigator.share({files:[file],text:fmtShipping(o),title:`📦 ${o.name||''} ${o.orderNo||''}`})
+        navigator.share({files,text:fmtShipping(o),title:`📦 ${o.name||''} ${o.orderNo||''}`})
           .then(()=>showToast('✅ 已分享'))
           .catch(e=>{
             if(e.name==='AbortError'){showToast('已取消');return}
@@ -724,9 +726,9 @@ function capturePhoto(oid,btn){
           });
       },15000);
     }else{
-      // 桌面 fallback：直接下載
-      const dl=URL.createObjectURL(file);const a=document.createElement('a');a.href=dl;a.download=`${(o.orderNo||o.id).replace(/[^\w-]/g,'_')}_${localDateISO()}.jpg`;a.click();setTimeout(()=>URL.revokeObjectURL(dl),1000);
-      showToast(baseMsg+' + 已下載照片',null,null,5000);
+      // 桌面 fallback：逐張下載
+      files.forEach((file,i)=>{const dl=URL.createObjectURL(file);const a=document.createElement('a');a.href=dl;a.download=`${(o.orderNo||o.id).replace(/[^\w-]/g,'_')}_${localDateISO()}_${i+1}.jpg`;a.click();setTimeout(()=>URL.revokeObjectURL(dl),1000)});
+      showToast(baseMsg+' + 已下載'+files.length+' 張',null,null,5000);
     }
     _photoBusy=false;
   };
@@ -1696,12 +1698,12 @@ function buildOrderActions(o,variant){
   // 編輯 / 複製 / 拍照 / 刪
   const edit=isMob?`<button onclick="openEdit('${oid}')">✏️ 編輯</button>`:`<button class="act" onclick="openEdit('${oid}')">編輯</button>`;
   const copy=isMob?`<button onclick="copyShipping('${oid}',this)">📋 複製</button>`:`<button class="act" onclick="copyShipping('${oid}',this)" title="複製出貨資料（姓名/電話/地址/商品/單號）">📋</button>`;
-  // 出貨拍照：手機點下去開相機 → 拍完直接 share 到 LINE 等 app（含照片+單號資料）
+  // 出貨照片：一顆按鈕 → 拍照或從相簿選（可多張）→ 上傳雲端 + 分享到 LINE
   // 有照片時顯示張數，提示用戶可以從編輯 modal 看
   const photoCnt=(o.photos||[]).length;
   const camLabel=photoCnt>0?`📷 ${photoCnt}`:'📷';
-  const camMobLabel=photoCnt>0?`📷 拍照 (${photoCnt})`:'📷 拍照';
-  const cam=isMob?`<button onclick="capturePhoto('${oid}',this)" title="${photoCnt>0?'已有 '+photoCnt+' 張，點此再拍一張；點編輯看完整':'開相機拍照分享到 LINE'}" style="background:#fff7ed;color:#c2410c;border-color:#fed7aa">${camMobLabel}</button>`:`<button class="act" onclick="capturePhoto('${oid}',this)" title="${photoCnt>0?'已有 '+photoCnt+' 張，再拍一張':'開相機拍出貨照（手機）→ 分享到 LINE'}" style="border-color:#fb923c;color:#c2410c">${camLabel}</button>`;
+  const camMobLabel=photoCnt>0?`📷 照片 (${photoCnt})`:'📷 照片';
+  const cam=isMob?`<button onclick="capturePhoto('${oid}',this)" title="${photoCnt>0?'已有 '+photoCnt+' 張，點此再加（拍照或從相簿選，可多張）；點編輯看完整':'拍照或從相簿選（可多張）→ 上傳並分享到 LINE'}" style="background:#fff7ed;color:#c2410c;border-color:#fed7aa">${camMobLabel}</button>`:`<button class="act" onclick="capturePhoto('${oid}',this)" title="${photoCnt>0?'已有 '+photoCnt+' 張，再加（拍照/相簿，可多張）':'拍照或從相簿選（可多張）→ 上傳並分享到 LINE'}" style="border-color:#fb923c;color:#c2410c">${camLabel}</button>`;
   const del=isMob?`<button class="danger" onclick="delOrder('${oid}')">🗑 刪除</button>`:`<button class="act" onclick="delOrder('${oid}')">刪</button>`;
   // 🔍 商品頁：有商品編號→直接開精準商品頁；否則用商品名稱去對應平台搜尋。開網頁重複確認這筆訂單
   const _siteName=(o.platform==='MO'||o.platform==='MO3')?'MOMO':o.platform==='PC'?'PChome':'Google';
