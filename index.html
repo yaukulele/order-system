@@ -1843,7 +1843,7 @@ function stCls(s){return s==='已確認'?'st-btn st-confirmed':s==='交涉中'?'
 // - 否：點 → cycle 回 未確認
 function renderInstallCell(o,oid){
   if(o.install==='是')return `<div style="display:flex;flex-direction:column;align-items:center;gap:2px"><button class="toggle-on" onclick="installCellClick('${oid}',event)" title="要安裝（點擊變未確認）" style="white-space:nowrap">安裝</button><input type="text" inputmode="numeric" value="${o.installFee||''}" placeholder="$" oninput="this.value=cn(this.value);setInstFee('${oid}',this.value)" class="fee-input" style="width:50px"></div>`;
-  if(o.install==='配送')return `<div style="display:flex;flex-direction:column;align-items:center;gap:2px"><button onclick="installCellClick('${oid}',event)" title="自己配送（點擊變未確認）" style="white-space:nowrap;background:#dbeafe;color:#1d4ed8;border:2px solid #93c5fd;border-radius:5px;padding:3px 10px;font-size:10px;font-weight:700;cursor:pointer">配送</button><input type="text" inputmode="numeric" value="${o.installFee||''}" placeholder="$" oninput="this.value=cn(this.value);setInstFee('${oid}',this.value)" class="fee-input" style="width:50px"></div>`;
+  if(o.install==='配送')return `<button onclick="installCellClick('${oid}',event)" title="自己配送（點擊變未確認）" style="white-space:nowrap;background:#fce7f3;color:#be185d;border:2px solid #f9a8d4;border-radius:5px;padding:3px 10px;font-size:10px;font-weight:700;cursor:pointer">配送</button>`;
   if(o.install==='否')return `<button class="toggle-off" onclick="installCellClick('${oid}',event)" title="不安裝（點擊變未確認）" style="white-space:nowrap">不安裝</button>`;
   return `<button class="toggle-unknown" onclick="installCellClick('${oid}',event)" title="未確認（點擊選要/不要）" style="white-space:nowrap">待確認</button>`;
 }
@@ -1935,13 +1935,20 @@ function pickInstall(oid,kind,ev){
   const o=findO(oid);if(!o)return;
   if(kind==='否'){
     o.install='否';o.installFee=0;o.installDay='';o.installTime='';o.installPaidAmount=0;o.installDate='';o.installSlot='';o.installer='';o.installDone=false;
-    logActivity(o,'安裝服務 → 不安裝');
-  }else{
-    const kindLabel=kind==='配送'?'自送':'安裝';
-    o.install=kind;
-    if(!o.installer)o.installer=(installers[0]||'阿淵');
-    logActivity(o,`安裝服務 → ${kindLabel}（費用/日期可在編輯或排程頁設定）`);
+    logActivity(o,'安裝服務 → 不安裝');saveOne(o);renderList();updateCnt();return;
   }
+  if(kind==='配送'){
+    // 自己配送：不收安裝費，不問金額、不顯示金額
+    o.install='配送';o.installFee=0;o.installPaidAmount=0;
+    if(!o.installer)o.installer=(installers[0]||'阿淵');
+    logActivity(o,'安裝服務 → 自送');saveOne(o);renderList();updateCnt();return;
+  }
+  // 要安裝：設「是」後跳出視窗問安裝費（空白、不預設 0，可直接打數字）
+  o.install='是';
+  if(!o.installer)o.installer=(installers[0]||'阿淵');
+  const v=prompt('安裝費用（直接輸入數字，可留空之後再填）：', o.installFee?String(o.installFee):'');
+  if(v!==null){const s=String(v).trim();if(s!==''){const n=parseAmt(s);if(!isNaN(n)&&n>=0)o.installFee=n;}}
+  logActivity(o,`安裝服務 → 安裝${o.installFee?` $${o.installFee}`:''}`);
   saveOne(o);renderList();updateCnt();
 }
 function openAddonMenu(oid,ev){
@@ -2142,7 +2149,7 @@ if(bucket!==lastBucket){h+=`<div class="ord-bucket-h">${bucket} <span class="buc
 const r=prepareOrderRow(o);const a=buildOrderActions(o,'mobile');
 const checked=selectedIds.has(o.id);
 // pill 點擊 → 開編輯 modal（mobile 沒有行內 fee input，這樣可快速跳到編輯）
-const installPill=isServiceActive(o)?`<span class="qty-pill" style="color:${isSelfDeliver(o)?'#1d4ed8':'var(--blu)'};border-color:${isSelfDeliver(o)?'#93c5fd':'var(--blu)'};cursor:pointer" onclick="openEdit('${oid}')" title="${r.installInfo?esc(r.installInfo):'未排日期 — 點擊編輯'}">${isSelfDeliver(o)?'🚚 配送':'🔧 安裝'}${o.installFee?' +$'+o.installFee:''}${r.installInfo?' '+esc(r.installInfo):''}</span>`:'';
+const installPill=isServiceActive(o)?`<span class="qty-pill" style="color:${isSelfDeliver(o)?'#be185d':'var(--blu)'};border-color:${isSelfDeliver(o)?'#f9a8d4':'var(--blu)'};cursor:pointer" onclick="openEdit('${oid}')" title="${r.installInfo?esc(r.installInfo):'未排日期 — 點擊編輯'}">${isSelfDeliver(o)?'配送':'安裝'+(o.installFee?' +$'+o.installFee:'')}${r.installInfo?' '+esc(r.installInfo):''}</span>`:'';
 const addonPill=o.addon==='是'?`<span class="qty-pill" style="color:var(--mo);border-color:var(--mo);cursor:pointer" onclick="openEdit('${oid}')" title="${r.addonInfo?esc(r.addonInfo):''} — 點擊編輯">加購${o.addonFee?' +$'+o.addonFee:''}${r.addonInfo?' '+esc(r.addonInfo):''}</span>`:'';
 h+=`<div class="ord-card" data-oid="${oid}">
 <div class="ord-card-h">
