@@ -102,13 +102,13 @@ td{padding:7px 10px;border-bottom:1px solid #f0ede6}tr:hover td{background:var(-
 .name-cell{min-width:70px;white-space:nowrap}
 .qty-cell{width:48px;text-align:center;padding:6px 2px}
 .qty-input{width:34px!important;text-align:center;padding:3px 4px}
-.acc-cell{width:52px;text-align:center;padding:6px 2px}
-.acc-cell .toggle-off,.acc-cell .toggle-on{padding:2px 4px!important;font-size:9px!important;min-width:0!important}
+.acc-cell{width:68px;text-align:center;padding:6px 2px;white-space:nowrap}
+.acc-cell .toggle-off,.acc-cell .toggle-on{padding:3px 8px!important;font-size:10px!important;min-width:0!important}
 .acc-cell .fee-input{width:42px!important;padding:2px 3px}
 .act{padding:3px 5px;border:1px solid var(--bd);border-radius:4px;background:var(--sf);font-size:10px;cursor:pointer;font-family:var(--sans);color:var(--dm);font-weight:600;margin-right:2px;white-space:nowrap}.act:hover{border-color:var(--blu);color:var(--blu)}
 /* 操作欄：flex wrap 容器 — 按鈕太多時自動換行不會把右邊撐爆 */
-.act-cell{padding:4px 4px;vertical-align:middle;width:212px;max-width:212px}
-.act-wrap{display:flex;flex-wrap:wrap;gap:3px;justify-content:flex-end;align-items:center}
+.act-cell{padding:4px 4px;vertical-align:middle;width:248px;max-width:248px}
+.act-wrap{display:flex;flex-wrap:wrap;gap:2px;justify-content:flex-end;align-items:center}
 .act-wrap .act{margin:0}
 .st-btn{padding:4px 12px;border-radius:6px;border:2px solid;font-size:11px;font-weight:700;cursor:pointer;font-family:var(--sans);min-width:70px;text-align:center}.st-btn:hover{opacity:.8}
 /* 桌面列表的狀態鈕縮小（精簡但「一行不換行」，省空間給操作欄） */
@@ -1841,69 +1841,21 @@ function stCls(s){return s==='已確認'?'st-btn st-confirmed':s==='交涉中'?'
 // - 未確認：點 → 跳小選單 [要安裝][不安裝]
 // - 是：點 → cycle 回 未確認（要清資料先 confirm）
 // - 否：點 → cycle 回 未確認
+// 安裝/加購 cell 都做成「單行小徽章」(費用 inline)，跟狀態/待確認 同尺寸 — 不再上下堆疊撐高列高
 function renderInstallCell(o,oid){
-  if(o.install==='是')return `<div style="display:flex;flex-direction:column;align-items:center;gap:2px"><button class="toggle-on" onclick="installCellClick('${oid}',event)" title="要安裝（點擊變未確認）" style="white-space:nowrap">安裝</button><input type="text" inputmode="numeric" value="${o.installFee||''}" placeholder="$" oninput="this.value=cn(this.value);setInstFee('${oid}',this.value)" class="fee-input" style="width:50px"></div>`;
-  if(o.install==='配送')return `<button onclick="installCellClick('${oid}',event)" title="自己配送（點擊變未確認）" style="white-space:nowrap;background:#fce7f3;color:#be185d;border:2px solid #f9a8d4;border-radius:5px;padding:3px 10px;font-size:10px;font-weight:700;cursor:pointer">配送</button>`;
-  if(o.install==='否')return `<button class="toggle-off" onclick="installCellClick('${oid}',event)" title="不安裝（點擊變未確認）" style="white-space:nowrap">不安裝</button>`;
-  return `<button class="toggle-unknown" onclick="installCellClick('${oid}',event)" title="未確認（點擊選要/不要）" style="white-space:nowrap">待確認</button>`;
+  if(o.install==='是')return `<button onclick="installCellClick('${oid}',event)" title="要安裝（點擊改）" style="white-space:nowrap;background:#cffafe;color:#0e7490;border:2px solid #67e8f9;border-radius:5px;padding:3px 9px;font-size:10px;font-weight:700;cursor:pointer">安裝${o.installFee?' $'+Number(o.installFee).toLocaleString():''}</button>`;
+  if(o.install==='配送')return `<button onclick="installCellClick('${oid}',event)" title="自己配送（點擊改）" style="white-space:nowrap;background:#fce7f3;color:#be185d;border:2px solid #f9a8d4;border-radius:5px;padding:3px 9px;font-size:10px;font-weight:700;cursor:pointer">自己配</button>`;
+  if(o.install==='否')return `<button class="toggle-off" onclick="installCellClick('${oid}',event)" title="不安裝（點擊改）" style="white-space:nowrap">不安裝</button>`;
+  return `<button class="toggle-unknown" onclick="installCellClick('${oid}',event)" title="點擊選 要安裝 / 自己配 / 不安裝" style="white-space:nowrap">待確認</button>`;
 }
 function renderAddonCell(o,oid){
-  if(o.addon==='是')return `<div style="display:flex;flex-direction:column;align-items:center;gap:2px"><button class="toggle-on" onclick="addonCellClick('${oid}',event)" title="要加購（點擊變未確認）" style="white-space:nowrap">加購</button><input type="text" inputmode="numeric" value="${o.addonFee||''}" placeholder="$" oninput="this.value=cn(this.value);setAddonFee('${oid}',this.value)" class="fee-input" style="width:50px"></div>`;
-  if(o.addon==='否')return `<button class="toggle-off" onclick="addonCellClick('${oid}',event)" title="不加購（點擊變未確認）" style="white-space:nowrap">不加購</button>`;
-  return `<button class="toggle-unknown" onclick="addonCellClick('${oid}',event)" title="未確認（點擊選要/不要）" style="white-space:nowrap">待確認</button>`;
+  if(o.addon==='是')return `<button class="toggle-on" onclick="addonCellClick('${oid}',event)" title="要加購（點擊改）" style="white-space:nowrap">加購${o.addonFee?' $'+Number(o.addonFee).toLocaleString():''}</button>`;
+  if(o.addon==='否')return `<button class="toggle-off" onclick="addonCellClick('${oid}',event)" title="不加購（點擊改）" style="white-space:nowrap">不加購</button>`;
+  return `<button class="toggle-unknown" onclick="addonCellClick('${oid}',event)" title="點擊選 要加購 / 不加購" style="white-space:nowrap">待確認</button>`;
 }
-// 點擊路由：未確認 → 跳選單；是/否 → cycle 回未確認（有資料先 confirm 清掉）
-function installCellClick(oid,ev){
-  const o=findO(oid);if(!o)return;
-  if(o.install==='未確認'||!o.install){openInstallMenu(oid,ev);return}
-  const prevState=o.install;
-  // 預先擷取要清掉的資訊 — 進 log 給未來查（用戶常常想知道改前金額是多少）
-  const prevSegs=[];
-  if(prevState==='是'||prevState==='配送'){
-    if(o.installFee)prevSegs.push(`費用 $${o.installFee}`);
-    if(o.installPaidAmount)prevSegs.push(`已收 $${o.installPaidAmount}`);
-    if(o.installDate)prevSegs.push(o.installDate);
-    if(o.installSlot)prevSegs.push(o.installSlot);
-    if(o.installer)prevSegs.push('師傅 '+o.installer);
-    if(o.installDay)prevSegs.push(o.installDay);
-    if(o.installTime)prevSegs.push(o.installTime);
-  }
-  if(prevState==='是'||prevState==='配送'){
-    const kindLabel=prevState==='配送'?'自送':'安裝';
-    const hasData=(o.installFee||0)>0||(o.installPaidAmount||0)>0||o.installDay||o.installTime;
-    if(hasData){
-      const summary=[`費用 $${o.installFee||0}`,o.installPaidAmount?`已收 $${o.installPaidAmount}`:'',o.installDay||'',o.installTime||''].filter(Boolean).join(' / ');
-      if(!confirm(`改成 未確認 會清掉：\n${kindLabel}：${summary}\n\n確定？`))return;
-    }
-    o.install='未確認';o.installFee=0;o.installDay='';o.installTime='';o.installPaidAmount=0;o.installDate='';o.installSlot='';o.installer='';o.installDone=false;
-  }else{o.install='未確認';o.installDate='';o.installSlot='';o.installer='';o.installDone=false}
-  // 在 log 保留改前的金額/日期/師傅，避免用戶誤觸後找不回來
-  const tail=prevSegs.length?`（原 ${prevSegs.join(' / ')}）`:'';
-  logActivity(o,`安裝 ${prevState} → 未確認${tail}`);saveOne(o);renderList();updateCnt();
-}
-function addonCellClick(oid,ev){
-  const o=findO(oid);if(!o)return;
-  if(o.addon==='未確認'||!o.addon){openAddonMenu(oid,ev);return}
-  const prevState=o.addon;
-  // 預先擷取要清掉的資訊
-  const prevSegs=[];
-  if(prevState==='是'){
-    if(o.addonFee)prevSegs.push(`金額 $${o.addonFee}`);
-    if(o.addonPaidAmount)prevSegs.push(`已收 $${o.addonPaidAmount}`);
-    if((o.addonItems||'').trim())prevSegs.push(o.addonItems.trim());
-  }
-  if(prevState==='是'){
-    const hasData=(o.addonFee||0)>0||(o.addonPaidAmount||0)>0||(o.addonItems||'').trim();
-    if(hasData){
-      const summary=[`費用 $${o.addonFee||0}`,o.addonPaidAmount?`已收 $${o.addonPaidAmount}`:'',o.addonItems||''].filter(Boolean).join(' / ');
-      if(!confirm(`改成 未確認 會清掉：\n${summary}\n\n確定？`))return;
-    }
-    o.addon='未確認';o.addonFee=0;o.addonPaidAmount=0;o.addonItems='';
-  }else{o.addon='未確認'}
-  const tail=prevSegs.length?`（原 ${prevSegs.join(' / ')}）`:'';
-  logActivity(o,`加購 ${prevState} → 未確認${tail}`);saveOne(o);renderList();
-}
-// inline 小選單 — 3 階段 confirm 鏈：要服務嗎？→ 安裝 / 配送？→ 費用 / 日期
+// 點擊任何安裝/加購徽章 → 直接開選單（要安裝/自己配/不安裝 等），由選單處理切換 + 問費用
+function installCellClick(oid,ev){openInstallMenu(oid,ev)}
+function addonCellClick(oid,ev){openAddonMenu(oid,ev)}
 // 安裝服務：直白三選一 popup（要安裝 / 自己配 / 不安裝），不再走多層 confirm。
 // 費用/日期/師傅 改在 編輯 modal 或 安裝排程頁設定（保持選單乾淨）。
 function openInstallMenu(oid,ev){
@@ -1933,6 +1885,11 @@ function pickInstall(oid,kind,ev){
   ev&&ev.stopPropagation();
   closeStatusMenu();
   const o=findO(oid);if(!o)return;
+  // 從「要安裝(有費用)」切到 自己配/不安裝 會清掉費用 — 先確認，避免誤觸
+  if(kind!=='是'&&o.install==='是'&&(Number(o.installFee)>0||Number(o.installPaidAmount)>0)){
+    const seg=[`費用 $${o.installFee||0}`,o.installPaidAmount?`已收 $${o.installPaidAmount}`:''].filter(Boolean).join(' / ');
+    if(!confirm(`目前安裝：${seg}\n改成「${kind==='配送'?'自己配':'不安裝'}」會清掉，確定？`))return;
+  }
   if(kind==='否'){
     o.install='否';o.installFee=0;o.installDay='';o.installTime='';o.installPaidAmount=0;o.installDate='';o.installSlot='';o.installer='';o.installDone=false;
     logActivity(o,'安裝服務 → 不安裝');saveOne(o);renderList();updateCnt();return;
@@ -1961,10 +1918,11 @@ function openAddonMenu(oid,ev){
     const note=prompt('加購內容備註（例：加譜架+收線器）：',o.addonItems||'');
     if(note===null)return;
     o.addon='是';o.addonFee=n;o.addonItems=note.trim();
-    logActivity(o,`加購 ✓ 要加購 $${n}${note?' ('+note.slice(0,20)+')':''}`);saveOne(o);renderList();
+    logActivity(o,`加購 → 要加購 $${n}${note?' ('+note.slice(0,20)+')':''}`);saveOne(o);renderList();
   }else{
+    if((Number(o.addonFee)>0||Number(o.addonPaidAmount)>0||(o.addonItems||'').trim())&&!confirm(`目前有加購 $${o.addonFee||0}${o.addonItems?'（'+o.addonItems+'）':''}，改成不加購會清掉，確定？`))return;
     o.addon='否';o.addonFee=0;o.addonPaidAmount=0;o.addonItems='';
-    logActivity(o,`加購 ✗ 不加購`);saveOne(o);renderList();
+    logActivity(o,`加購 → 不加購`);saveOne(o);renderList();
   }
 }
 // 舊版 toggleInstall / toggleAddon 移除（已改用 installCellClick / addonCellClick 三段）
@@ -2149,7 +2107,7 @@ if(bucket!==lastBucket){h+=`<div class="ord-bucket-h">${bucket} <span class="buc
 const r=prepareOrderRow(o);const a=buildOrderActions(o,'mobile');
 const checked=selectedIds.has(o.id);
 // pill 點擊 → 開編輯 modal（mobile 沒有行內 fee input，這樣可快速跳到編輯）
-const installPill=isServiceActive(o)?`<span class="qty-pill" style="color:${isSelfDeliver(o)?'#be185d':'var(--blu)'};border-color:${isSelfDeliver(o)?'#f9a8d4':'var(--blu)'};cursor:pointer" onclick="openEdit('${oid}')" title="${r.installInfo?esc(r.installInfo):'未排日期 — 點擊編輯'}">${isSelfDeliver(o)?'配送':'安裝'+(o.installFee?' +$'+o.installFee:'')}${r.installInfo?' '+esc(r.installInfo):''}</span>`:'';
+const installPill=isServiceActive(o)?`<span class="qty-pill" style="color:${isSelfDeliver(o)?'#be185d':'var(--blu)'};border-color:${isSelfDeliver(o)?'#f9a8d4':'var(--blu)'};cursor:pointer" onclick="openEdit('${oid}')" title="${r.installInfo?esc(r.installInfo):'未排日期 — 點擊編輯'}">${isSelfDeliver(o)?'自己配':'安裝'+(o.installFee?' +$'+o.installFee:'')}${r.installInfo?' '+esc(r.installInfo):''}</span>`:'';
 const addonPill=o.addon==='是'?`<span class="qty-pill" style="color:var(--mo);border-color:var(--mo);cursor:pointer" onclick="openEdit('${oid}')" title="${r.addonInfo?esc(r.addonInfo):''} — 點擊編輯">加購${o.addonFee?' +$'+o.addonFee:''}${r.addonInfo?' '+esc(r.addonInfo):''}</span>`:'';
 h+=`<div class="ord-card" data-oid="${oid}">
 <div class="ord-card-h">
