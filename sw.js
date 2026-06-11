@@ -3,7 +3,7 @@
 //   有差異就 postMessage 通知頁面跳「有新版本」toast。兼顧「開頁快」+「拿得到最新」。
 // 其他 shell asset: stale-while-revalidate
 // Bumps cache version on every release; old caches cleaned up on activate.
-const CACHE = "order-system-v194";
+const CACHE = "order-system-v195";
 const SHELL = ["./", "./index.html", "./manifest.json", "./icon.svg"];
 
 self.addEventListener("install", (event) => {
@@ -68,7 +68,9 @@ self.addEventListener("fetch", (event) => {
         const cached = (await cache.match(req)) || (await cache.match("./index.html"));
         // 比對用 clone — return cached 會消耗 body，背景再讀就失敗。先 clone 留著比對。
         const cachedForCompare = cached ? cached.clone() : null;
-        const networkUpdate = fetch(req)
+        // cache:'reload' 強制略過瀏覽器 HTTP cache 抓真正最新的 index.html
+        // （否則 GitHub Pages 的 max-age 會讓「背景更新」也拿到舊版，新版永遠進不來）
+        const networkUpdate = fetch(req.url, { cache: "reload" })
           .then(async (res) => {
             if (res && res.status === 200) {
               let changed = false;
