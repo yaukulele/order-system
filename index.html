@@ -111,8 +111,8 @@ td{padding:7px 10px;border-bottom:1px solid #f0ede6}tr:hover td{background:var(-
 .act-wrap{display:flex;flex-wrap:wrap;gap:3px;justify-content:flex-end;align-items:center}
 .act-wrap .act{margin:0}
 .st-btn{padding:4px 12px;border-radius:6px;border:2px solid;font-size:11px;font-weight:700;cursor:pointer;font-family:var(--sans);min-width:70px;text-align:center}.st-btn:hover{opacity:.8}
-/* 桌面列表的狀態鈕縮小（跟行動版一樣精簡，省下空間給操作欄） */
-#tab-list table .st-btn{min-width:0;padding:2px 8px;font-size:10px;border-width:1px}
+/* 桌面列表的狀態鈕縮小（精簡但「一行不換行」，省空間給操作欄） */
+#tab-list table .st-btn{min-width:0;padding:3px 9px;font-size:10px;border-width:1px;white-space:nowrap}
 .st-wait{background:#fef9ec;color:var(--amb);border-color:#f0d68a}.st-confirmed{background:#dbeafe;color:#1d4ed8;border-color:#93c5fd}.st-negotiate{background:#fef9c3;color:#854d0e;border-color:#fde047}.st-noanswer{background:#fed7aa;color:#9a3412;border-color:#fdba74}.st-ship{background:#fde68a;color:#854d0e;border-color:#f59e0b}.st-done{background:var(--grn-bg);color:var(--grn);border-color:#8cc4a0}.st-restock{background:#fee2e2;color:#b91c1c;border-color:#fecaca}.st-cancel{background:#e5e7eb;color:#6b7280;border-color:#d1d5db}.st-offline{background:#f3e8ff;color:#7e22ce;border-color:#d8b4fe}.st-direct{background:#ecfccb;color:#3f6212;border-color:#a3e635}.st-needinstall{background:#cffafe;color:#0e7490;border-color:#67e8f9}.st-selfdeliver{background:#fce7f3;color:#be185d;border-color:#f9a8d4}.st-unpaid{background:#fee2e2;color:#b91c1c;border-color:#fca5a5}.st-paid{background:#dcfce7;color:#15803d;border-color:#86efac}
 /* 待收費 = 飽和紅底白字 — 跟 st-restock（淺粉紅）視覺上完全分開 */
 .st-pending-pay{background:#dc2626;color:#fff;border-color:#7f1d1d;font-weight:800;box-shadow:0 0 0 1px #fca5a5}
@@ -1671,7 +1671,8 @@ function buildOrderActions(o,variant){
   const _iFee=Number(o.installFee)||0,_iPaid=Number(o.installPaidAmount)||0;
   const _iPartial=_iPaid>0&&_iFee>0&&_iPaid<_iFee;
   const _iFull=_iFee>0&&_iPaid>=_iFee;
-  const instPaid=isServiceActive(o)
+  // 只有「有安裝費」才顯示收款鈕 — 三選一快速設定後 fee=0 不會誤跳「未收 ⚠」
+  const instPaid=(isServiceActive(o)&&_iFee>0)
     ?(_iFull
       ?(isMob
         ?`<button class="success" onclick="togInstallPaid('${oid}')">🔧 已收 $${_iPaid}</button>`
@@ -1903,37 +1904,44 @@ function addonCellClick(oid,ev){
   logActivity(o,`加購 ${prevState} → 未確認${tail}`);saveOne(o);renderList();
 }
 // inline 小選單 — 3 階段 confirm 鏈：要服務嗎？→ 安裝 / 配送？→ 費用 / 日期
+// 安裝服務：直白三選一 popup（要安裝 / 自己配 / 不安裝），不再走多層 confirm。
+// 費用/日期/師傅 改在 編輯 modal 或 安裝排程頁設定（保持選單乾淨）。
 function openInstallMenu(oid,ev){
+  ev&&ev.stopPropagation();
   const o=findO(oid);if(!o)return;
-  const r=window.confirm('需要服務嗎？\n\n確定 = 要（下一步選 安裝 / 自送）\n取消 = 不安裝');
-  let kind;
-  if(!r){
-    // 選「不安裝」→ 再問要不要自行配送
-    const self=window.confirm('不安裝。\n\n那要不要「自行配送」？\n\n確定 = 🚚 要自己配送\n取消 = 不用，純不安裝');
-    if(!self){
-      o.install='否';o.installFee=0;o.installDay='';o.installTime='';o.installPaidAmount=0;o.installDate='';o.installSlot='';o.installer='';o.installDone=false;
-      logActivity(o,`安裝服務 不安裝`);saveOne(o);renderList();updateCnt();
-      return;
-    }
-    kind='配送';
+  let ov=document.getElementById('status-menu-ov');
+  if(!ov){ov=document.createElement('div');ov.id='status-menu-ov';ov.onclick=closeStatusMenu;document.body.appendChild(ov)}
+  let menu=document.getElementById('status-menu');
+  if(!menu){menu=document.createElement('div');menu.id='status-menu';document.body.appendChild(menu)}
+  const cur=o.install;
+  const opts=[
+    {kind:'是',label:'要安裝',cls:'st-btn st-needinstall'},
+    {kind:'配送',label:'自己配',cls:'st-btn st-selfdeliver'},
+    {kind:'否',label:'不安裝',cls:'st-btn st-cancel'},
+  ];
+  menu.innerHTML='<div class="status-menu-h">安裝服務</div>'+opts.map(op=>`<button type="button" class="${op.cls} status-menu-item${op.kind===cur?' cur':''}" onclick="pickInstall('${oid}','${op.kind}',event)">${op.kind===cur?'✓ ':''}${op.label}</button>`).join('');
+  ov.style.display='block';menu.style.display='block';
+  const mw=menu.offsetWidth||172,mh=menu.offsetHeight||180;
+  const cx=(ev&&ev.clientX)||window.innerWidth/2,cy=(ev&&ev.clientY)||window.innerHeight/2;
+  let x=cx-mw/2,y=cy+14;
+  if(y+mh>window.innerHeight-8)y=Math.max(8,cy-mh-14);
+  x=Math.max(8,Math.min(x,window.innerWidth-mw-8));
+  y=Math.max(8,Math.min(y,window.innerHeight-mh-8));
+  menu.style.left=x+'px';menu.style.top=y+'px';
+}
+function pickInstall(oid,kind,ev){
+  ev&&ev.stopPropagation();
+  closeStatusMenu();
+  const o=findO(oid);if(!o)return;
+  if(kind==='否'){
+    o.install='否';o.installFee=0;o.installDay='';o.installTime='';o.installPaidAmount=0;o.installDate='';o.installSlot='';o.installer='';o.installDone=false;
+    logActivity(o,'安裝服務 → 不安裝');
   }else{
-    // 哪種服務？安裝 vs 自送
-    const isSelf=window.confirm('哪種服務？\n\n確定 = 🚚 自己配送（路線跟安裝合排）\n取消 = 🔧 要安裝');
-    kind=isSelf?'配送':'是';
+    const kindLabel=kind==='配送'?'自送':'安裝';
+    o.install=kind;
+    if(!o.installer)o.installer=(installers[0]||'阿淵');
+    logActivity(o,`安裝服務 → ${kindLabel}（費用/日期可在編輯或排程頁設定）`);
   }
-  const kindLabel=kind==='配送'?'自送':'安裝';
-  const v=prompt(`${kindLabel}費用（直接輸入數字，可留空 = 0）：`,o.installFee||'');
-  if(v===null)return;
-  const n=(String(v).trim()==='')?0:parseAmt(v);if(isNaN(n)||n<0){alert('金額無效');return}
-  const dateDefault=o.installDate||localDateISO();
-  const d=prompt(`${kindLabel}日期（格式 YYYY-MM-DD，例：2026-05-20，留空 = 尚未排日）：`,dateDefault);
-  if(d===null)return;
-  const dTrim=(d||'').trim();
-  if(dTrim&&!/^\d{4}-\d{2}-\d{2}$/.test(dTrim)){alert('日期格式錯誤！需要 YYYY-MM-DD（例：2026-05-20）');return}
-  const inst=(installers[0]||'阿淵');
-  o.install=kind;o.installFee=n;o.installDate=dTrim;
-  if(!o.installer)o.installer=inst;
-  logActivity(o,`${kindLabel}服務 $${n}${o.installDate?` ${o.installDate}`:''} 師傅:${o.installer}`);
   saveOne(o);renderList();updateCnt();
 }
 function openAddonMenu(oid,ev){
@@ -2114,7 +2122,7 @@ const checked=selectedIds.has(o.id);
 // 規格併入品名 cell — 用小 pill 顯示，省一整欄寬度給操作欄
 // 規格放最前面 — 之前放品名後面，品名太長會被 truncate 切掉，看不到規格要點編輯。
 const prodSpecCombined=`${r.ps.specs?`<span class="spec-pill" title="${esc(r.ps.specs)}" style="margin-right:6px;flex-shrink:0">${esc(r.ps.specs)}</span>`:''}${escWithHL(r.ps.name)}`;
-h+=`<tr><td class="batch-cell"><input type="checkbox" data-oid="${o.id}" ${checked?'checked':''} onclick="toggleRowSelected('${o.id}')"></td><td class="mono" style="width:56px">${fmtD(o.date)}${r.newBadge?' '+r.newBadge:''}</td><td style="width:44px;text-align:center">${platformPill(o.platform)}${r.addrBadge?' '+r.addrBadge:''}</td><td class="prod-cell" onclick="openEdit('${oid}')" style="cursor:pointer" title="點擊編輯：${esc(o.product)}">${prodSpecCombined}</td><td class="tab-list-mobile-hide qty-cell"><input type="text" inputmode="numeric" value="${r.qty}" oninput="this.value=cn(this.value);setQty('${oid}',this.value)" class="fee-input qty-input" style="width:34px${r.qty>1?';border-color:var(--mo);background:var(--mo-bg);color:var(--mo);font-weight:800':''}"></td><td class="name-cell" title="${r.ph?'電話 '+esc(r.ph):''}${o.address?'\n地址 '+esc(o.address):''}${r.noteShort?'\n備註 '+esc(r.noteShort):''}"><span style="white-space:nowrap">${o.name?`<span style="cursor:pointer;text-decoration:underline;text-decoration-style:dotted;text-decoration-color:var(--ht);text-underline-offset:2px" onclick="event.stopPropagation();searchCustomerOrders(${JSON.stringify(o.name).replace(/"/g,'&quot;')})" title="🔒 鎖定看「${esc(o.name)}」的所有訂單">${escWithHL(o.name)}</span>`:'(無姓名)'}${r.region?`<span style="font-size:9px;color:#1657b5;background:#e8eef9;border-radius:3px;padding:1px 5px;margin-left:5px;font-weight:700" title="${esc(o.address||'')}">${esc(r.region)}</span>`:''}${r.remoteBadge?`<span style="margin-left:4px">${r.remoteBadge}</span>`:''}</span>${r.ph?`<div style="font-size:9px;color:var(--dm);font-family:var(--mono);margin-top:1px;max-width:140px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${phoneTel(r.ph)}</div>`:''}${r.noteShort?`<div style="font-size:9px;color:#b45309;background:#fef9ec;border-radius:3px;padding:2px 5px;margin-top:2px;max-width:190px;white-space:normal;line-height:1.3;overflow:hidden;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical" title="${esc(r.noteShort)}">${escWithHL(r.noteShort)}</div>`:''}</td><td class="tab-list-mobile-hide acc-cell">${ib}</td><td class="tab-list-mobile-hide acc-cell">${ab}</td><td class="total-cell" id="tot-${oid}" style="width:78px">${$(tot(o))}${r.trackInfo}</td><td style="width:60px"><button class="${stCls(o.status)}" onclick="openStatusMenu('${oid}',event)" title="點擊選擇狀態">${o.status} ▾</button></td><td class="act-cell"><div class="act-wrap">${a.addrAck}${a.ship}${a.instPaid}${a.addonPaid}${a.prodLink}${a.edit}${a.copy}${a.cam}${a.del}</div></td></tr>`});
+h+=`<tr><td class="batch-cell"><input type="checkbox" data-oid="${o.id}" ${checked?'checked':''} onclick="toggleRowSelected('${o.id}')"></td><td class="mono" style="width:56px">${fmtD(o.date)}${r.newBadge?' '+r.newBadge:''}</td><td style="width:44px;text-align:center">${platformPill(o.platform)}${r.addrBadge?' '+r.addrBadge:''}</td><td class="prod-cell" onclick="openEdit('${oid}')" style="cursor:pointer" title="點擊編輯：${esc(o.product)}">${prodSpecCombined}</td><td class="tab-list-mobile-hide qty-cell"><input type="text" inputmode="numeric" value="${r.qty}" oninput="this.value=cn(this.value);setQty('${oid}',this.value)" class="fee-input qty-input" style="width:34px${r.qty>1?';border-color:var(--mo);background:var(--mo-bg);color:var(--mo);font-weight:800':''}"></td><td class="name-cell" title="${r.ph?'電話 '+esc(r.ph):''}${o.address?'\n地址 '+esc(o.address):''}${r.noteShort?'\n備註 '+esc(r.noteShort):''}"><span style="white-space:nowrap">${o.name?`<span style="cursor:pointer;text-decoration:underline;text-decoration-style:dotted;text-decoration-color:var(--ht);text-underline-offset:2px" onclick="event.stopPropagation();searchCustomerOrders(${JSON.stringify(o.name).replace(/"/g,'&quot;')})" title="🔒 鎖定看「${esc(o.name)}」的所有訂單">${escWithHL(o.name)}</span>`:'(無姓名)'}${r.region?`<span style="font-size:9px;color:#1657b5;background:#e8eef9;border-radius:3px;padding:1px 5px;margin-left:5px;font-weight:700" title="${esc(o.address||'')}">${esc(r.region)}</span>`:''}${r.remoteBadge?`<span style="margin-left:4px">${r.remoteBadge}</span>`:''}</span>${r.ph?`<div style="font-size:9px;color:var(--dm);font-family:var(--mono);margin-top:1px;max-width:140px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${phoneTel(r.ph)}</div>`:''}${r.noteShort?`<div style="font-size:9px;color:#b45309;background:#fef9ec;border-radius:3px;padding:2px 5px;margin-top:2px;max-width:190px;white-space:normal;line-height:1.3;overflow:hidden;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical" title="${esc(r.noteShort)}">${escWithHL(r.noteShort)}</div>`:''}</td><td class="tab-list-mobile-hide acc-cell">${ib}</td><td class="tab-list-mobile-hide acc-cell">${ab}</td><td class="total-cell" id="tot-${oid}" style="width:78px">${$(tot(o))}${r.trackInfo}</td><td style="width:64px;white-space:nowrap"><button class="${stCls(o.status)}" onclick="openStatusMenu('${oid}',event)" title="點擊選擇狀態">${o.status} ▾</button></td><td class="act-cell"><div class="act-wrap">${a.addrAck}${a.ship}${a.instPaid}${a.addonPaid}${a.prodLink}${a.edit}${a.copy}${a.cam}${a.del}</div></td></tr>`});
 h+='</tbody></table></div></div>';document.getElementById('list-area').innerHTML=h;renderBatchBar(fl)}
 
 // 勾單一行：不重 render 整個列表（避免幾百筆訂單時點 checkbox 卡頓）
