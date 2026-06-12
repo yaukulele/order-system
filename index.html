@@ -1279,9 +1279,16 @@ async function fetchMomoThirdAuto(){
     const nw=transformed.filter(o=>o.orderNo&&!ex.has(o.orderNo));
     const dup=transformed.length-nw.length;
     if(!nw.length){st.textContent=`✅ 抓到 ${fetched.length} 筆，全部已存在（${dup} 筆重複）`;st.style.color='var(--grn)';alert(`第三方 ${fetched.length} 筆，全部已在系統內`);return}
+    // 第三方單個資遮罩、無電話 → 逐筆補抓託運單 PDF 解出電話/完整地址/姓名/宅配單號（鏡像後端 poller）
+    const gbByNo={};for(const f of fetched){if(f.completeOrderNo&&!gbByNo[f.completeOrderNo])gbByNo[f.completeOrderNo]=f._thirdDelyGb||''}
+    let enr=0;for(let i=0;i<nw.length;i++){const o=nw[i];const gb=gbByNo[o.orderNo]||'';st.textContent=`🔎 補抓託運單電話/地址 ${i+1}/${nw.length}...`;if(!gb)continue;
+      try{const lr=await fetch(`${api}/api/orders/momo/third/label?orderNo=${encodeURIComponent(o.orderNo)}&delyGb=${encodeURIComponent(gb)}`,{headers:{'X-API-Token':token}});
+        if(lr.ok){const ld=await lr.json().catch(()=>null);if(ld&&ld.ok&&(ld.phone||ld.address)){if(ld.name)o.name=ld.name;if(ld.phone)o.phone=ld.phone;if(ld.address)o.address=ld.address;if(ld.trackingNo)o.trackingNo=ld.trackingNo;if(!/託運單/.test(o.note||''))o.note=(o.note?o.note+'\n':'')+'（電話/地址自動取自託運單）';enr++}}
+      }catch(e){}
+    }
     orders.push(...nw);const upd={};for(const o of nw)upd[o.id]=o;_setSavingBadge();db.ref('orders').update(upd).catch(_saveError);
     updateCnt();const _at=document.querySelector('.tab.active')?.textContent||'';if(_at.includes('列表'))renderList();
-    st.textContent=`✅ 新增 ${nw.length} 筆第三方${dup?`（${dup} 筆已存在跳過）`:''}，最後同步 ${new Date().toLocaleTimeString('zh-TW',{hour:'2-digit',minute:'2-digit',hour12:false})}`;st.style.color='var(--grn)';
+    st.textContent=`✅ 新增 ${nw.length} 筆第三方${enr?`（已補 ${enr} 筆電話/地址）`:''}${dup?`（${dup} 筆已存在跳過）`:''}，最後同步 ${new Date().toLocaleTimeString('zh-TW',{hour:'2-digit',minute:'2-digit',hour12:false})}`;st.style.color='var(--grn)';
     if(nw.length>0){const titles=nw.slice(0,3).map(o=>`${o.name||'?'} ${o.product||''}`).join(' / ');notifyDesktop(`🚚 ${nw.length} 筆新 MOMO 第三方訂單`,nw.length<=3?titles:`${titles}（共 ${nw.length} 筆）`)}
     alert(`🎉 第三方抓取成功！\n\n新增訂單：${nw.length} 筆${dup?`\n已存在略過：${dup} 筆`:''}\n區間：${data.window?.from} ~ ${data.window?.to}`);
   }catch(err){st.textContent='❌ 網路錯誤：'+err.message;st.style.color='var(--pc)';alert(`網路錯誤：${err.message}\n\n檢查 API 網址 / 網路 / Railway service`)}finally{btn.disabled=false;btn.textContent=oldText}
