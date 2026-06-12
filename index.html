@@ -1282,7 +1282,8 @@ async function fetchMomoThirdAuto(){
     // 第三方單個資遮罩、無電話 → 逐筆補抓託運單 PDF 解出電話/完整地址/姓名/宅配單號（鏡像後端 poller）
     const gbByNo={};for(const f of fetched){if(f.completeOrderNo&&!gbByNo[f.completeOrderNo])gbByNo[f.completeOrderNo]=f._thirdDelyGb||''}
     let enr=0;for(let i=0;i<nw.length;i++){const o=nw[i];const gb=gbByNo[o.orderNo]||'';st.textContent=`🔎 補抓託運單電話/地址 ${i+1}/${nw.length}...`;if(!gb)continue;
-      try{const lr=await fetch(`${api}/api/orders/momo/third/label?orderNo=${encodeURIComponent(o.orderNo)}&delyGb=${encodeURIComponent(gb)}`,{headers:{'X-API-Token':token}});
+      try{const ac=new AbortController();const to=setTimeout(()=>ac.abort(),25000);
+        const lr=await fetch(`${api}/api/orders/momo/third/label?orderNo=${encodeURIComponent(o.orderNo)}&delyGb=${encodeURIComponent(gb)}`,{headers:{'X-API-Token':token},signal:ac.signal}).finally(()=>clearTimeout(to));
         if(lr.ok){const ld=await lr.json().catch(()=>null);if(ld&&ld.ok&&(ld.phone||ld.address)){if(ld.name)o.name=ld.name;if(ld.phone)o.phone=ld.phone;if(ld.address)o.address=ld.address;if(ld.trackingNo)o.trackingNo=ld.trackingNo;if(!/託運單/.test(o.note||''))o.note=(o.note?o.note+'\n':'')+'（電話/地址自動取自託運單）';enr++}}
       }catch(e){}
     }
