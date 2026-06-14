@@ -390,6 +390,11 @@ function isPending(s){return s==='未確認'||s==='已確認'||s==='交涉中'||
 function isServiceActive(o){return o&&(o.install==='是'||o.install==='配送')}
 function isSelfDeliver(o){return o&&o.install==='配送'}
 function migrateStatus(o){if(!o)return;if(o.status==='待出貨')o.status='未確認';if(o.status==='已轉線下')o.status='轉線下';if(o.status==='壓SP')o.status='補貨中'}
+// 訂單唯一身份 key — 用「單號＋商品＋規格」，不能只用單號。
+// MO3(第三方) 多品項訂單共用同一 completeOrderNo、PChome 多品項也可能同單號 →
+// 只用單號當 key 會把同一張單的不同品項誤判重複、匯入時漏掉/覆蓋錯品項（資料遺失）。
+// 全站 dedup（載入清理 / 匯入 / 覆蓋匯入）統一用這支，行為一致。
+function _orderKey(o){return (o.orderNo||'')+'|'+(o.goodsCode||o.prodId||o.product||'')+'|'+(o.specs||'')}
 
 // Realtime listener — 模態視窗開著時暫存遠端更新，關閉再套用，避免覆蓋本地編輯
 let pendingRemoteOrders=null;
@@ -404,11 +409,8 @@ if(selectedIds.size){const valid=new Set(orders.map(o=>o.id));for(const id of [.
 if(wasLoaded){const newOnes=orders.filter(o=>!prevIds.has(o.id));if(newOnes.length){const titles=newOnes.slice(0,3).map(o=>(o.name||'?')+' '+(o.product||'').slice(0,12)).join('、');const toastMsg=newOnes.length<=3?`📦 收到 ${newOnes.length} 筆新訂單：${titles}`:`📦 收到 ${newOnes.length} 筆新訂單（其他裝置匯入）`;showToast(toastMsg,'📋 看列表',()=>{showTab('list');cStatus=['未確認'];persistFilters();restoreFilterUI();renderList()},newOnes.length<=3?7000:5500);if(typeof notifyDesktop==='function')notifyDesktop(`📦 ${newOnes.length} 筆新訂單`,newOnes.length<=3?titles:`${titles}（共 ${newOnes.length} 筆）`)}}
 // 第一次載入檢測同 orderNo 多筆 — 只自動刪「未編輯過」的重複（保留有改過的）；兩筆都改過則提示人工
 if(!window._dupChecked){window._dupChecked=true;const dupGroups=new Map();
-  // 用「單號＋商品＋規格」當 key，不是只用單號 —— MO3(第三方) 多品項訂單會共用同一個 completeOrderNo，
-  // 只用單號當 key 會把同一張單的不同品項誤判成重複、自動刪掉其中一行（資料遺失）。
-  // 加上商品/規格後：真正的重複匯入（同單號同品項）仍會被抓到，多品項（同單號不同品項）則保留。
-  const _dupKey=o=>o.orderNo+'|'+(o.goodsCode||o.prodId||o.product||'')+'|'+(o.specs||'');
-  orders.forEach(o=>{if(!o.orderNo)return;const k=_dupKey(o);if(!dupGroups.has(k))dupGroups.set(k,[]);dupGroups.get(k).push(o)});const dupSets=[...dupGroups.values()].filter(arr=>arr.length>1);if(dupSets.length){console.warn('Duplicate orders detected:',dupSets);
+  // 用 _orderKey（單號＋商品＋規格）分組，不是只用單號 —— 多品項同單號才不會被誤判重複刪掉。
+  orders.forEach(o=>{if(!o.orderNo)return;const k=_orderKey(o);if(!dupGroups.has(k))dupGroups.set(k,[]);dupGroups.get(k).push(o)});const dupSets=[...dupGroups.values()].filter(arr=>arr.length>1);if(dupSets.length){console.warn('Duplicate orders detected:',dupSets);
   // 自動清理重複單：每組保留「最舊」+「使用者改過最多」的那筆，其他刪掉。
   // 標準：先 sort by hasUserData (install/addon/status 不是初始值 / 有 trackingNo / 有 note)，再 sort by id timestamp（舊優先）
   const _initial=(o)=>o.install==='未確認'&&o.addon==='未確認'&&o.status==='未確認'&&!o.trackingNo&&!o.note&&!o.installPaidAmount&&!o.addonPaidAmount;
@@ -1156,9 +1158,9 @@ function toggleSpecial(kind,btn){_mobileExpand=false;if(cSpecial===kind){cSpecia
 // ===== IMPORT =====
 function runParse(){const r=document.getElementById('raw-input').value;if(!r.trim())return;const p=parseAll(r);if(!p.length){document.getElementById('preview-area').innerHTML='<div class="card"><div class="card-b" style="color:var(--pc)">⚠ 無法辨識</div></div>';return}const txt=p.map(fmtS).join('\n---\n');const pl=p[0]?.platform||'';document.getElementById('preview-area').innerHTML=`<div class="card"><div class="card-h"><div style="display:flex;align-items:center;gap:8px"><h3>預覽</h3><span class="badge">${p.length} 筆</span>${platformPill(pl)}</div><button class="btn btn-g" onclick="copyText(document.getElementById('pv').textContent,'已複製！')">複製</button></div><div class="card-b"><div class="result" id="pv">${esc(txt)}</div></div></div>`}
 function doImport(){const r=document.getElementById('raw-input').value;const p=parseAll(r);if(!p.length){alert('沒有解析到任何訂單');return}
-// 解析結果內部 dedup（同 orderNo 只取第一筆，避免某些 parser bug 重複）
-const seenInBatch=new Set();const dedup=p.filter(o=>{if(!o.orderNo||seenInBatch.has(o.orderNo))return false;seenInBatch.add(o.orderNo);return true});
-const ex=new Set(orders.map(o=>o.orderNo));const nw=dedup.filter(o=>!ex.has(o.orderNo));const dupExisting=dedup.length-nw.length;const dupInBatch=p.length-dedup.length;if(!nw.length){alert(`訂單都已存在（${dupExisting} 筆已在系統${dupInBatch?'，'+dupInBatch+' 筆解析重複':''}）`);return}
+// 解析結果內部 dedup（用 單號+商品+規格 當 key，不能只用單號 — 多品項同單號會被誤刪，見 _orderKey）
+const seenInBatch=new Set();const dedup=p.filter(o=>{if(!o.orderNo)return false;const k=_orderKey(o);if(seenInBatch.has(k))return false;seenInBatch.add(k);return true});
+const ex=new Set(orders.map(_orderKey));const nw=dedup.filter(o=>!ex.has(_orderKey(o)));const dupExisting=dedup.length-nw.length;const dupInBatch=p.length-dedup.length;if(!nw.length){alert(`訂單都已存在（${dupExisting} 筆已在系統${dupInBatch?'，'+dupInBatch+' 筆解析重複':''}）`);return}
 // 只寫入新筆 — 不要 saveAll 整包（500 訂單 ×50 byte = 25KB 不必要的網路流量）
 // 也避免 saveAll 把其他人正在編輯但還沒 sync 的東西沖掉
 orders.push(...nw);const updates={};for(const o of nw)updates[o.id]=o;_setSavingBadge();db.ref('orders').update(updates).catch(_saveError);
@@ -1167,13 +1169,13 @@ showToast(`✅ 匯入 ${nw.length} 筆${dupExisting?`（${dupExisting} 筆已存
 // 同單號自動覆蓋 — 給修壞舊資料用（保留 status/install/addon/note 等使用者改過的欄位）
 function doReimport(){
   const r=document.getElementById('raw-input').value;const p=parseAll(r);if(!p.length){alert('沒有解析到訂單');return}
-  // 同批 dedup（同 orderNo 只取第一筆）
-  const seen=new Set();const dedup=p.filter(o=>{if(!o.orderNo||seen.has(o.orderNo))return false;seen.add(o.orderNo);return true});
-  if(!confirm(`要用新解析結果覆蓋這 ${dedup.length} 筆訂單嗎？\n\n• 同單號 → 用新資料覆蓋品名/規格/姓名/電話/地址/金額/數量\n• 保留你改過的：狀態、安裝、加購、物流單號、備註\n• 沒見過的單號 → 直接新增`))return;
-  const byNo=new Map(orders.map(o=>[o.orderNo,o]));
+  // 同批 dedup（用 單號+商品+規格 當 key，多品項同單號才不會被誤併，見 _orderKey）
+  const seen=new Set();const dedup=p.filter(o=>{if(!o.orderNo)return false;const k=_orderKey(o);if(seen.has(k))return false;seen.add(k);return true});
+  if(!confirm(`要用新解析結果覆蓋這 ${dedup.length} 筆訂單嗎？\n\n• 同單號同品項 → 用新資料覆蓋品名/規格/姓名/電話/地址/金額/數量\n• 保留你改過的：狀態、安裝、加購、物流單號、備註\n• 沒見過的 → 直接新增`))return;
+  const byNo=new Map(orders.map(o=>[_orderKey(o),o]));
   let updated=0,added=0;const affected=[];
   for(const np of dedup){
-    const old=byNo.get(np.orderNo);
+    const old=byNo.get(_orderKey(np));
     if(old){
       // 覆蓋資料欄位，但保留使用者狀態
       affected.push(old);
