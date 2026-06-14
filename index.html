@@ -403,7 +403,12 @@ if(selectedIds.size){const valid=new Set(orders.map(o=>o.id));for(const id of [.
 // 偵測其他裝置剛加進來的新訂單 — toast 提示（自己 import 的不會觸發，因為 self-echo 在 line 287 已 skip）
 if(wasLoaded){const newOnes=orders.filter(o=>!prevIds.has(o.id));if(newOnes.length){const titles=newOnes.slice(0,3).map(o=>(o.name||'?')+' '+(o.product||'').slice(0,12)).join('、');const toastMsg=newOnes.length<=3?`📦 收到 ${newOnes.length} 筆新訂單：${titles}`:`📦 收到 ${newOnes.length} 筆新訂單（其他裝置匯入）`;showToast(toastMsg,'📋 看列表',()=>{showTab('list');cStatus=['未確認'];persistFilters();restoreFilterUI();renderList()},newOnes.length<=3?7000:5500);if(typeof notifyDesktop==='function')notifyDesktop(`📦 ${newOnes.length} 筆新訂單`,newOnes.length<=3?titles:`${titles}（共 ${newOnes.length} 筆）`)}}
 // 第一次載入檢測同 orderNo 多筆 — 只自動刪「未編輯過」的重複（保留有改過的）；兩筆都改過則提示人工
-if(!window._dupChecked){window._dupChecked=true;const dupGroups=new Map();orders.forEach(o=>{if(!o.orderNo)return;if(!dupGroups.has(o.orderNo))dupGroups.set(o.orderNo,[]);dupGroups.get(o.orderNo).push(o)});const dupSets=[...dupGroups.values()].filter(arr=>arr.length>1);if(dupSets.length){console.warn('Duplicate orderNos detected:',dupSets);
+if(!window._dupChecked){window._dupChecked=true;const dupGroups=new Map();
+  // 用「單號＋商品＋規格」當 key，不是只用單號 —— MO3(第三方) 多品項訂單會共用同一個 completeOrderNo，
+  // 只用單號當 key 會把同一張單的不同品項誤判成重複、自動刪掉其中一行（資料遺失）。
+  // 加上商品/規格後：真正的重複匯入（同單號同品項）仍會被抓到，多品項（同單號不同品項）則保留。
+  const _dupKey=o=>o.orderNo+'|'+(o.goodsCode||o.prodId||o.product||'')+'|'+(o.specs||'');
+  orders.forEach(o=>{if(!o.orderNo)return;const k=_dupKey(o);if(!dupGroups.has(k))dupGroups.set(k,[]);dupGroups.get(k).push(o)});const dupSets=[...dupGroups.values()].filter(arr=>arr.length>1);if(dupSets.length){console.warn('Duplicate orders detected:',dupSets);
   // 自動清理重複單：每組保留「最舊」+「使用者改過最多」的那筆，其他刪掉。
   // 標準：先 sort by hasUserData (install/addon/status 不是初始值 / 有 trackingNo / 有 note)，再 sort by id timestamp（舊優先）
   const _initial=(o)=>o.install==='未確認'&&o.addon==='未確認'&&o.status==='未確認'&&!o.trackingNo&&!o.note&&!o.installPaidAmount&&!o.addonPaidAmount;
@@ -492,6 +497,11 @@ db.ref('orders').on('value',snap=>{
     if(typeof showToast==='function')showToast('⚠️ 同步出錯：'+(e.message||'未知'),null,null,6000);
   }
 });
+
+// users 即時監聽 — 讓 _usersCache 永遠是最新（自己或別台改密碼/角色/刪帳號都即時反映），
+// 這樣 doLogin 快路徑不會用到過期憑證（改過的舊密碼會落到比對失敗、被刪帳號會消失、降級角色即時生效）。
+// users node 很小（~6KB）、reads 本來就公開，加這條沒有額外風險。
+db.ref('users').on('value',snap=>{_usersCache=snap.val()||null;},()=>{/* 離線/權限錯誤忽略；doLogin 會 fallback live 讀 */});
 
 // Debounced save (300ms) — 避免快速打字 fee/qty 時 spam Firebase + 引發 echo re-render
 // 兩條路徑分開：saveAll / saveOne 都走 update（不用 set，避免沖掉其他裝置剛加的訂單）
@@ -938,7 +948,9 @@ async function doLogin(){
 }
 async function doLogout(){
   if(!confirm('確定要登出？'))return;
-  await logUserAction('logout','');
+  // fire-and-forget — 不能 await：離線時 RTDB write 永遠 pending（不 reject），會卡住整個登出流程、
+  // 後面清狀態/開登入框都跑不到。logUserAction 在第一個 await 前已同步讀到 currentUser，紀錄人不會錯。
+  logUserAction('logout','').catch(()=>{});
   currentUser=null;currentRole='';
   localStorage.removeItem('orderSysUser');
   localStorage.removeItem('orderSysRole');
