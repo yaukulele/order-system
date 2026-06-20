@@ -2218,7 +2218,7 @@ ${a.cam}
 ${a.del}
 </div></div>`});
 h+='</div>';if(truncated){h+=`<div class="card" style="margin-top:8px"><div class="card-b" style="text-align:center;padding:14px"><div style="color:var(--dm);font-size:12px;margin-bottom:8px">顯示 ${LIMIT} / ${fl.length} 筆 — 用搜尋或篩選找特定訂單較快</div><button class="btn" onclick="_mobileExpand=true;renderList()">📋 載入全部 ${fl.length} 筆</button></div></div>`}document.getElementById('list-area').innerHTML=h;renderBatchBar(fl)}
-function renderBatchBar(fl){let bar=document.getElementById('batch-bar');const selOrders=orders.filter(o=>selectedIds.has(o.id));if(selOrders.length===0){if(bar)bar.classList.add('hidden');document.body.classList.remove('has-batch-bar');return}if(!bar){bar=document.createElement('div');bar.id='batch-bar';bar.className='batch-bar';document.body.appendChild(bar)}bar.classList.remove('hidden');document.body.classList.add('has-batch-bar');const total=selOrders.reduce((s,o)=>s+tot(o),0);bar.innerHTML=`<span style="font-size:13px;font-weight:700">已選 ${selOrders.length} 筆 ｜ 合計 $${total.toLocaleString()}</span><span style="flex:1"></span><button onclick="batchSetStatus('已確認')">已確認</button><button onclick="batchSetStatus('已出貨')">已出貨</button><button onclick="batchSetStatus('已完成')">已完成</button><button onclick="batchCopyShipping()">📋 複製</button><button onclick="batchPrintShipping()" title="A4 紙張">🖨 A4</button><button onclick="batchPrintShipping4x6()" title="4×6 熱感應標籤">🏷 4×6</button><button onclick="batchPickingList()" title="按商品分組產生揀貨清單">🛒 揀貨</button><button class="danger" onclick="batchDelete()">🗑 刪</button><button onclick="selectedIds.clear();renderList()">取消</button>`}
+function renderBatchBar(fl){let bar=document.getElementById('batch-bar');const selOrders=orders.filter(o=>selectedIds.has(o.id));if(selOrders.length===0){if(bar)bar.classList.add('hidden');document.body.classList.remove('has-batch-bar');return}if(!bar){bar=document.createElement('div');bar.id='batch-bar';bar.className='batch-bar';document.body.appendChild(bar)}bar.classList.remove('hidden');document.body.classList.add('has-batch-bar');const total=selOrders.reduce((s,o)=>s+tot(o),0);bar.innerHTML=`<span style="font-size:13px;font-weight:700">已選 ${selOrders.length} 筆 ｜ 合計 $${total.toLocaleString()}</span><span style="flex:1"></span><button onclick="batchSetStatus('已確認')">已確認</button><button onclick="batchSetStatus('已出貨')">已出貨</button><button onclick="batchSetStatus('已完成')">已完成</button><button onclick="batchCopyShipping()">📋 複製</button><button onclick="batchPrintShipping()" title="A4 紙張">🖨 A4</button><button onclick="batchPrintShipping4x6()" title="4×6 熱感應標籤">🏷 4×6</button><button onclick="batchPickingList()" title="按商品分組產生揀貨清單">🛒 揀貨</button><button onclick="batchExportShipping()" title="勾選的訂單匯出成貨運託運單 Excel（備註自動帶品名）">📦 託運單</button><button class="danger" onclick="batchDelete()">🗑 刪</button><button onclick="selectedIds.clear();renderList()">取消</button>`}
 function batchSetStatus(s){
   const sel=orders.filter(o=>selectedIds.has(o.id));if(!sel.length)return;
   // 防呆：批次標記「已完成」前 → 找出未收款的，列出來再確認一次
@@ -2872,6 +2872,24 @@ const headers=['日期','平台','訂單編號','商品','規格','數量','姓�
 const rows=list.map(o=>[o.date||'',o.platform||'',o.orderNo||'',o.product||'',o.specs||'',o.qty||1,o.name||'',o.phone||'',o.realPhone||'',o.address||'',o.addrMgmt||'',o.addrElev||'',o.amount||0,o.install||'否',o.installFee||0,o.installPaidAmount||0,o.installDay||'',o.installTime||'',o.installDate||'',o.installSlot||'',o.installer||'',o.installDone?'已完成':'',o.addon||'否',o.addonFee||0,o.addonItems||'',o.addonPaidAmount||0,tot(o),o.delyGbStr||'',o.trackingNo||'',o.status||'',o.note||'',(o.photos||[]).length]);
 const csv='﻿'+[headers,...rows].map(r=>r.map(csvCell).join(',')).join('\n');
 const blob=new Blob([csv],{type:'text/csv;charset=utf-8'});const url=URL.createObjectURL(blob);const a=document.createElement('a');const ts=new Date().toLocaleTimeString('zh-TW',{hour:'2-digit',minute:'2-digit',hour12:false}).replace(':','');const scopeLbl=scope==='filtered'?'已篩選':scope==='output'?'此區間':'全部';const fname=`訂單匯出_${scopeLbl}_${localDateISO()}_${ts}.csv`;a.href=url;a.download=fname;a.click();setTimeout(()=>URL.revokeObjectURL(url),1000)}
+
+// ===== 貨運託運單匯出（勾選訂單 → 範本 9 欄 .xls，備註自動帶品名）=====
+// 欄位對齊貨運託運單範本：出貨日期/收貨人/收貨人電話1/收貨人地址/件數/才數/指送日期/希望配送時段/備註
+function loadXLSX(){return new Promise((res,rej)=>{if(window.XLSX)return res(window.XLSX);const s=document.createElement('script');s.src='https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js';s.onload=()=>window.XLSX?res(window.XLSX):rej(new Error('XLSX undefined'));s.onerror=()=>rej(new Error('load fail'));document.head.appendChild(s)})}
+async function batchExportShipping(){
+  const sel=orders.filter(o=>selectedIds.has(o.id));
+  if(!sel.length){alert('請先勾選要匯出的訂單');return}
+  let XLSX;try{XLSX=await loadXLSX()}catch(e){alert('Excel 元件載入失敗，請確認網路後再試一次');return}
+  const today=localDateISO();
+  const header=['出貨日期','收貨人','收貨人電話1','收貨人地址','件數','才數','指送日期','希望配送時段','備註'];
+  // 備註直接帶品名（杰哥需求）；多品項訂單一筆一列
+  const rows=sel.map(o=>[today,(o.name||''),(o.phone||o.realPhone||''),(o.address||''),(o.qty||1),'','','',(o.product||'')]);
+  const ws=XLSX.utils.aoa_to_sheet([header,...rows]);
+  ws['!cols']=[{wch:11},{wch:9},{wch:14},{wch:34},{wch:5},{wch:5},{wch:11},{wch:14},{wch:30}];
+  const wb=XLSX.utils.book_new();XLSX.utils.book_append_sheet(wb,ws,'SHEET');
+  XLSX.writeFile(wb,`託運單_${today.replace(/-/g,'')}.xls`);
+  if(typeof showToast==='function')showToast(`📦 已匯出 ${sel.length} 筆託運單（備註帶品名）`)
+}
 
 // ===== 同意/拒絕 改址 =====
 async function changeAddrAck(oid,agree){const o=findO(oid);if(!o||o.platform!=='MO'){alert('只有 MOMO 訂單可用');return}if(!(o.note||'').includes('改地址')){if(!confirm('這筆訂單看起來沒有改址申請，仍要送出 同意/拒絕？'))return}await momoConfigReady;const api=getMomoApi();const token=getMomoToken();if(!api||!token){alert('需先設定 API URL + Token');return}const word=agree?'同意改地址':'拒絕改地址';if(!confirm(`確定對訂單 ${o.orderNo} 送出「${word}」？\n\n（這會立即更新到 MOMO，無法復原）`))return;
