@@ -44,6 +44,7 @@
 [data-theme="dark"] .st-direct{background:#1a2e05;color:#a3e635;border-color:#3f6212}
 [data-theme="dark"] .st-needinstall{background:#083344;color:#67e8f9;border-color:#155e75}
 [data-theme="dark"] .st-selfdeliver{background:#3f1d2e;color:#f9a8d4;border-color:#831843}
+[data-theme="dark"] .st-packed{background:#1e1b4b;color:#a5b4fc;border-color:#3730a3}
 body{font-family:var(--sans);background:var(--bg);color:var(--tx);min-height:100vh;transition:background .2s,color .2s}
 .hdr{background:var(--sf);border-bottom:1px solid var(--bd);padding:12px 20px;padding-top:max(12px,env(safe-area-inset-top));display:flex;align-items:center;justify-content:space-between;position:sticky;top:0;z-index:100}
 .hdr h1{font-size:16px;font-weight:800}.hdr h1 small{font-weight:400;color:var(--dm);font-size:11px;margin-left:6px}
@@ -113,7 +114,7 @@ td{padding:7px 10px;border-bottom:1px solid #f0ede6}tr:hover td{background:var(-
 .st-btn{padding:4px 12px;border-radius:6px;border:2px solid;font-size:11px;font-weight:700;cursor:pointer;font-family:var(--sans);min-width:70px;text-align:center}.st-btn:hover{opacity:.8}
 /* 桌面列表的狀態鈕縮小（精簡但「一行不換行」，省空間給操作欄） */
 #tab-list table .st-btn{min-width:0;padding:3px 9px;font-size:10px;border-width:1px;white-space:nowrap}
-.st-wait{background:#fef9ec;color:var(--amb);border-color:#f0d68a}.st-confirmed{background:#dbeafe;color:#1d4ed8;border-color:#93c5fd}.st-negotiate{background:#fef9c3;color:#854d0e;border-color:#fde047}.st-noanswer{background:#fed7aa;color:#9a3412;border-color:#fdba74}.st-ship{background:#fde68a;color:#854d0e;border-color:#f59e0b}.st-done{background:var(--grn-bg);color:var(--grn);border-color:#8cc4a0}.st-restock{background:#fee2e2;color:#b91c1c;border-color:#fecaca}.st-cancel{background:#e5e7eb;color:#6b7280;border-color:#d1d5db}.st-offline{background:#f3e8ff;color:#7e22ce;border-color:#d8b4fe}.st-direct{background:#ecfccb;color:#3f6212;border-color:#a3e635}.st-needinstall{background:#cffafe;color:#0e7490;border-color:#67e8f9}.st-selfdeliver{background:#fce7f3;color:#be185d;border-color:#f9a8d4}.st-unpaid{background:#fee2e2;color:#b91c1c;border-color:#fca5a5}.st-paid{background:#dcfce7;color:#15803d;border-color:#86efac}
+.st-wait{background:#fef9ec;color:var(--amb);border-color:#f0d68a}.st-confirmed{background:#dbeafe;color:#1d4ed8;border-color:#93c5fd}.st-negotiate{background:#fef9c3;color:#854d0e;border-color:#fde047}.st-noanswer{background:#fed7aa;color:#9a3412;border-color:#fdba74}.st-ship{background:#fde68a;color:#854d0e;border-color:#f59e0b}.st-done{background:var(--grn-bg);color:var(--grn);border-color:#8cc4a0}.st-restock{background:#fee2e2;color:#b91c1c;border-color:#fecaca}.st-cancel{background:#e5e7eb;color:#6b7280;border-color:#d1d5db}.st-offline{background:#f3e8ff;color:#7e22ce;border-color:#d8b4fe}.st-direct{background:#ecfccb;color:#3f6212;border-color:#a3e635}.st-needinstall{background:#cffafe;color:#0e7490;border-color:#67e8f9}.st-selfdeliver{background:#fce7f3;color:#be185d;border-color:#f9a8d4}.st-packed{background:#e0e7ff;color:#4338ca;border-color:#a5b4fc}.st-unpaid{background:#fee2e2;color:#b91c1c;border-color:#fca5a5}.st-paid{background:#dcfce7;color:#15803d;border-color:#86efac}
 /* 待收費 = 飽和紅底白字 — 跟 st-restock（淺粉紅）視覺上完全分開 */
 .st-pending-pay{background:#dc2626;color:#fff;border-color:#7f1d1d;font-weight:800;box-shadow:0 0 0 1px #fca5a5}
 /* 狀態下拉選單 — 點狀態按鈕跳出，直接選任一狀態 */
@@ -384,8 +385,8 @@ let cStatus=(()=>{const raw=localStorage.getItem('cStatus');if(!raw||raw==='all'
 function persistFilters(){localStorage.setItem('cFilter',cFilter);localStorage.setItem('cStatus',JSON.stringify(cStatus));localStorage.setItem('sortOrder',sortOrder);if(cSpecial)localStorage.setItem('cSpecial',cSpecial);else localStorage.removeItem('cSpecial')}
 const selectedIds=new Set();
 // 待收費 = 已出貨後安裝/加購款還沒收 — 紅色強烈提醒。也可自動偵測（isPendingPayment）
-const ST=['未確認','已確認','交涉中','要安裝','自己配','未接電','直接出','待收費','補貨中','已出貨','未收錢','已收錢','已完成','已取消','轉線下'],DAYS=['週一','週二','週三','週四','週五','週六','週日'],TIMES=['早上','下午','晚上'];
-function isPending(s){return s==='未確認'||s==='已確認'||s==='交涉中'||s==='要安裝'||s==='自己配'||s==='未接電'||s==='補貨中'||s==='待出貨'||s==='待收費'||s==='直接出'||s==='未收錢'||s==='已收錢'}
+const ST=['未確認','已確認','交涉中','要安裝','自己配','未接電','直接出','待收費','補貨中','已包裝','已出貨','未收錢','已收錢','已完成','已取消','轉線下'],DAYS=['週一','週二','週三','週四','週五','週六','週日'],TIMES=['早上','下午','晚上'];
+function isPending(s){return s==='未確認'||s==='已確認'||s==='交涉中'||s==='要安裝'||s==='自己配'||s==='未接電'||s==='補貨中'||s==='已包裝'||s==='待出貨'||s==='待收費'||s==='直接出'||s==='未收錢'||s==='已收錢'}
 // 服務（安裝 或 自送配送）— 兩者都進排程
 function isServiceActive(o){return o&&(o.install==='是'||o.install==='配送')}
 function isSelfDeliver(o){return o&&o.install==='配送'}
@@ -1122,7 +1123,7 @@ function setSF(f,b,e){
   syncStatusChips();updateStatCycleBtn();persistFilters();renderList();
 }
 // 「進行中」一鍵全選：排除終態（已完成 / 已取消 / 轉線下），其他全進
-const ACTIVE_STATUSES=['未確認','已確認','交涉中','要安裝','自己配','未接電','已出貨','直接出','待收費','補貨中','未收錢','已收錢'];
+const ACTIVE_STATUSES=['未確認','已確認','交涉中','要安裝','自己配','未接電','已包裝','已出貨','直接出','待收費','補貨中','未收錢','已收錢'];
 function isActivePreset(){return cStatus.length===ACTIVE_STATUSES.length&&ACTIVE_STATUSES.every(s=>cStatus.includes(s))}
 // 每次開頁/登入 → 列表預設篩選「進行中」（用戶要求；不記上次 cStatus）
 cStatus=[...ACTIVE_STATUSES];persistFilters();
@@ -1142,7 +1143,7 @@ function syncStatusChips(){
 }
 // 手機板用單顆按鈕循環切換狀態篩選；desktop 隱藏，照常用 status chips
 // 含已完成 — 移除成交 tab 後，已完成單留在列表，cycle 也要能循環到
-const STAT_CYCLE=['all','未確認','已確認','交涉中','要安裝','自己配','未接電','已出貨','待收費','未收錢','已收錢','已完成','補貨中','已取消','轉線下'];
+const STAT_CYCLE=['all','未確認','已確認','交涉中','要安裝','自己配','未接電','已包裝','已出貨','待收費','未收錢','已收錢','已完成','補貨中','已取消','轉線下'];
 function cycleStatus(){const cur=cStatus.length===1?cStatus[0]:'all';const i=STAT_CYCLE.indexOf(cur);const next=STAT_CYCLE[(i+1)%STAT_CYCLE.length];setSF(next,null,null)}
 function updateStatCycleBtn(){const btn=document.getElementById('mob-stat-cycle');if(!btn)return;
   // label 緊湊：全=狀態 / 單=狀態名 / 多=「篩N」（之前「未確認+6」太長會撐爆 row 1 wrap）
@@ -1915,7 +1916,7 @@ function setOrderStatus(oid,next){
   // 找不到按鈕 → fallback full render
   renderList();
 }
-function stCls(s){return s==='已確認'?'st-btn st-confirmed':s==='交涉中'?'st-btn st-negotiate':s==='要安裝'?'st-btn st-needinstall':s==='自己配'?'st-btn st-selfdeliver':s==='未接電'?'st-btn st-noanswer':(s==='未確認'||s==='待出貨')?'st-btn st-wait':s==='已出貨'?'st-btn st-ship':s==='直接出'?'st-btn st-direct':s==='待收費'?'st-btn st-pending-pay':s==='未收錢'?'st-btn st-unpaid':s==='已收錢'?'st-btn st-paid':s==='已完成'?'st-btn st-done':s==='補貨中'?'st-btn st-restock':(s==='轉線下'||s==='已轉線下')?'st-btn st-offline':'st-btn st-cancel'}
+function stCls(s){return s==='已確認'?'st-btn st-confirmed':s==='交涉中'?'st-btn st-negotiate':s==='要安裝'?'st-btn st-needinstall':s==='自己配'?'st-btn st-selfdeliver':s==='未接電'?'st-btn st-noanswer':(s==='未確認'||s==='待出貨')?'st-btn st-wait':s==='已出貨'?'st-btn st-ship':s==='直接出'?'st-btn st-direct':s==='待收費'?'st-btn st-pending-pay':s==='未收錢'?'st-btn st-unpaid':s==='已收錢'?'st-btn st-paid':s==='已完成'?'st-btn st-done':s==='補貨中'?'st-btn st-restock':s==='已包裝'?'st-btn st-packed':(s==='轉線下'||s==='已轉線下')?'st-btn st-offline':'st-btn st-cancel'}
 // 三段安裝狀態：未確認 / 是 / 否
 // - 未確認：點 → 跳小選單 [要安裝][不安裝]
 // - 是：點 → cycle 回 未確認（要清資料先 confirm）
@@ -2881,9 +2882,13 @@ async function batchExportShipping(){
   if(!sel.length){alert('請先勾選要匯出的訂單');return}
   let XLSX;try{XLSX=await loadXLSX()}catch(e){alert('Excel 元件載入失敗，請確認網路後再試一次');return}
   const today=localDateISO();
+  // 出貨日期預設今天、指送日期=出貨日期+1天，皆 YYYYMMDD 格式（杰哥需求：例 20260622 / 20260623）；才數預設 1
+  const ymd=s=>s.replace(/-/g,'');
+  const shipYmd=ymd(today);
+  const arriveYmd=ymd(localDateISO(new Date(Date.now()+86400000)));
   const header=['出貨日期','收貨人','收貨人電話1','收貨人地址','件數','才數','指送日期','希望配送時段','備註'];
   // 備註直接帶品名（杰哥需求）；多品項訂單一筆一列
-  const rows=sel.map(o=>[today,(o.name||''),(o.phone||o.realPhone||''),(o.address||''),(o.qty||1),'','','',(o.product||'')]);
+  const rows=sel.map(o=>[shipYmd,(o.name||''),(o.phone||o.realPhone||''),(o.address||''),(o.qty||1),1,arriveYmd,'',(o.product||'')]);
   const ws=XLSX.utils.aoa_to_sheet([header,...rows]);
   ws['!cols']=[{wch:11},{wch:9},{wch:14},{wch:34},{wch:5},{wch:5},{wch:11},{wch:14},{wch:30}];
   const wb=XLSX.utils.book_new();XLSX.utils.book_append_sheet(wb,ws,'SHEET');
