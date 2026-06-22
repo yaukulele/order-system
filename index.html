@@ -2888,7 +2888,8 @@ async function batchExportShipping(){
   const arriveYmd=ymd(localDateISO(new Date(Date.now()+86400000)));
   const header=['出貨日期','收貨人','收貨人電話1','收貨人地址','件數','才數','指送日期','希望配送時段','備註'];
   // 備註直接帶品名（杰哥需求）；多品項訂單一筆一列
-  const rows=sel.map(o=>[shipYmd,(o.name||''),(o.phone||o.realPhone||''),(o.address||''),(o.qty||1),1,arriveYmd,'',(o.product||'')]);
+  // 電話：優先帶真實電話 realPhone，空白才退回一般 phone（杰哥需求；MOMO 第三方 phone 常是遮罩號）
+  const rows=sel.map(o=>[shipYmd,(o.name||''),(o.realPhone||o.phone||''),(o.address||''),(o.qty||1),1,arriveYmd,'',(o.product||'')]);
   const ws=XLSX.utils.aoa_to_sheet([header,...rows]);
   ws['!cols']=[{wch:11},{wch:9},{wch:14},{wch:34},{wch:5},{wch:5},{wch:11},{wch:14},{wch:30}];
   const wb=XLSX.utils.book_new();XLSX.utils.book_append_sheet(wb,ws,'SHEET');
