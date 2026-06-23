@@ -2440,7 +2440,7 @@ document.getElementById('modal-body').innerHTML=`<h3>編輯訂單${customerHisto
 <div class="fg full"><div class="fi"><label>地址</label><input id="e-addr" value="${esc(o.address)}"></div></div>
 <div class="fg" style="margin-bottom:8px"><div class="fi"><label>🏢 管理室</label><div class="sched-row" id="e-mgmt"><button class="sched-btn ${o.addrMgmt==='有'?'picked':''}" onclick="pickRadio('e-mgmt','有',this)">有</button><button class="sched-btn ${o.addrMgmt==='無'?'picked':''}" onclick="pickRadio('e-mgmt','無',this)">無</button><button class="sched-btn ${(!o.addrMgmt||o.addrMgmt==='')?'picked':''}" onclick="pickRadio('e-mgmt','',this)">未填</button></div></div><div class="fi"><label>🛗 電梯（2 樓以上）</label><div class="sched-row" id="e-elev"><button class="sched-btn ${o.addrElev==='有'?'picked':''}" onclick="pickRadio('e-elev','有',this)">有</button><button class="sched-btn ${o.addrElev==='無'?'picked':''}" onclick="pickRadio('e-elev','無',this)">無</button><button class="sched-btn ${o.addrElev==='不適用'?'picked':''}" onclick="pickRadio('e-elev','不適用',this)">不適用</button><button class="sched-btn ${(!o.addrElev||o.addrElev==='')?'picked':''}" onclick="pickRadio('e-elev','',this)">未填</button></div></div></div>
 <div class="fg"><div class="fi"><label>數量</label><input type="text" inputmode="numeric" id="e-qty" value="${o.qty||1}" oninput="this.value=cn(this.value)"></div><div class="fi"><label>商品金額</label><input type="text" inputmode="numeric" id="e-amt" value="${o.amount||''}" oninput="this.value=cn(this.value);calcT()"></div></div>
-<div style="border:1px solid var(--bd);border-radius:8px;padding:12px;margin:8px 0;background:var(--sf2)"><div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px"><span style="font-size:12px;font-weight:700">安裝/配送</span><button class="${o.install==='是'?'toggle-on':(o.install==='配送'?'toggle-on':(o.install==='否'?'toggle-off':'toggle-unknown'))}" onclick="togEI()" id="ei-btn" data-kind="${o.install||'未確認'}" title="點擊循環：未確認 → 要安裝 → 要配送 → 不安裝"${o.install==='配送'?' style="background:#dbeafe;color:#1d4ed8;border-color:#93c5fd"':''}>${o.install==='是'?'🔧 要安裝':(o.install==='配送'?'🚚 要配送':(o.install==='否'?'不安裝':'待確認'))}</button></div>
+<div style="border:1px solid var(--bd);border-radius:8px;padding:12px;margin:8px 0;background:var(--sf2)"><div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px"><span style="font-size:12px;font-weight:700">安裝/配送</span><select id="ei-sel" onchange="togEISel()" title="直接選：待確認 / 要安裝 / 要配送 / 不安裝" style="font-size:12px;font-weight:700;padding:6px 10px;border:1px solid var(--bd);border-radius:6px;background:var(--sf);cursor:pointer"><option value="未確認" ${(!o.install||o.install==='未確認')?'selected':''}>待確認</option><option value="是" ${o.install==='是'?'selected':''}>要安裝</option><option value="配送" ${o.install==='配送'?'selected':''}>要配送</option><option value="否" ${o.install==='否'?'selected':''}>不安裝</option></select></div>
 <div id="ei-panel" class="${isServiceActive(o)?'':'hidden'}"><div class="fg"><div class="fi"><label>安裝費用</label><input type="text" inputmode="numeric" id="e-instf" value="${o.installFee||''}" oninput="this.value=cn(this.value);calcT();updateInstallPaidHint()"></div><div class="fi"><label>安裝已收 <span style="font-weight:400;color:var(--ht);font-size:10px">（0=未收，可填部分）</span></label><input type="text" inputmode="numeric" id="e-instpaid" value="${o.installPaidAmount||''}" oninput="this.value=cn(this.value);updateInstallPaidHint()" placeholder="0"></div></div>
 <div id="ei-paid-hint" style="font-size:11px;color:var(--dm);margin-top:-4px;margin-bottom:6px;padding:4px 8px;background:var(--sf2);border-radius:4px;display:none"></div>
 <div class="fg"><div class="fi"><label>安裝日期 <span style="font-weight:400;color:var(--ht);font-size:10px">（實際排程）</span></label><input type="date" id="e-installDate" value="${o.installDate||''}" onchange="updateInstallMismatchHint()"></div><div class="fi"></div></div>
@@ -2450,7 +2450,7 @@ document.getElementById('modal-body').innerHTML=`<h3>編輯訂單${customerHisto
 <div><span style="font-size:10px;font-weight:600;color:var(--dm)">時段 <span style="font-weight:400;color:var(--ht)">（可複選）</span></span><div class="sched-row">${TIMES.map(t=>`<button class="sched-btn${((o.installTime||'').split(/[、,\/]/).map(x=>x.trim()).includes(t))?' picked':''}" onclick="pickT('${t}',this)">${t}</button>`).join('')}</div></div>
 <div id="ei-mismatch-hint" style="font-size:10px;color:#b45309;background:#fef9ec;padding:4px 8px;border-radius:4px;margin-top:8px;display:none"></div>
 <div style="margin-top:10px;padding-top:8px;border-top:1px dashed var(--bd);display:flex;align-items:center;justify-content:space-between"><span style="font-size:11px;font-weight:700;color:var(--dm)">安裝完成狀態</span><button type="button" class="${o.installDone?'toggle-on':'toggle-off'}" id="ei-done-btn" onclick="togEIDone()" title="切換安裝是否完成">${o.installDone?'✓ 已完成安裝':'未完成（仍在排程中）'}</button></div></div></div>
-<div style="border:1px solid var(--bd);border-radius:8px;padding:12px;margin:8px 0;background:var(--sf2)"><div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px"><span style="font-size:12px;font-weight:700">加購</span><button class="${o.addon==='是'?'toggle-on':(o.addon==='否'?'toggle-off':'toggle-unknown')}" onclick="togEA()" id="ea-btn" title="點擊循環：未確認 → 要加購 → 不加購">${o.addon==='是'?'要加購':(o.addon==='否'?'不加購':'待確認')}</button></div>
+<div style="border:1px solid var(--bd);border-radius:8px;padding:12px;margin:8px 0;background:var(--sf2)"><div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px"><span style="font-size:12px;font-weight:700">加購</span><select id="ea-sel" onchange="togEASel()" title="直接選：待確認 / 要加購 / 不加購" style="font-size:12px;font-weight:700;padding:6px 10px;border:1px solid var(--bd);border-radius:6px;background:var(--sf);cursor:pointer"><option value="未確認" ${(!o.addon||o.addon==='未確認')?'selected':''}>待確認</option><option value="是" ${o.addon==='是'?'selected':''}>要加購</option><option value="否" ${o.addon==='否'?'selected':''}>不加購</option></select></div>
 <div id="ea-panel" class="${o.addon==='是'?'':'hidden'}"><div class="fg" style="margin-bottom:6px"><div class="fi"><label>加購金額</label><input type="text" inputmode="numeric" id="e-addonf" value="${o.addonFee||''}" oninput="this.value=cn(this.value);calcT();updateAddonPaidHint()"></div><div class="fi"><label>加購已收 <span style="font-weight:400;color:var(--ht);font-size:10px">（0=未收，可填部分）</span></label><input type="text" inputmode="numeric" id="e-addonpaid" value="${o.addonPaidAmount||''}" oninput="this.value=cn(this.value);updateAddonPaidHint()" placeholder="0"></div></div>
 <div id="ea-paid-hint" style="font-size:11px;color:var(--dm);margin:-2px 0 6px;padding:4px 8px;background:var(--sf2);border-radius:4px;display:none"></div>
 <div class="fi"><label>加購內容（例如：琴架、變壓器、調音器…）</label><input type="text" id="e-addonitems" value="${esc(o.addonItems||'')}" placeholder="加購了什麼" list="addon-items-suggestions"></div></div></div>
@@ -2522,22 +2522,13 @@ function _paidHint(feeId,paidId,hintId){
 function updateInstallPaidHint(){_modalDirty=true;_paidHint('e-instf','e-instpaid','ei-paid-hint')}
 function updateAddonPaidHint(){_modalDirty=true;_paidHint('e-addonf','e-addonpaid','ea-paid-hint')}
 // 三段循環：未確認 → 是（要安裝） → 否（不安裝） → 未確認
-function togEI(){_modalDirty=true;
-  const b=document.getElementById('ei-btn'),p=document.getElementById('ei-panel');
-  // 4-state cycle：未確認 → 是 → 配送 → 否 → 未確認
-  const cur=b.dataset.kind||'未確認';
-  const next=cur==='未確認'?'是':(cur==='是'?'配送':(cur==='配送'?'否':'未確認'));
-  b.dataset.kind=next;
-  if(next==='是'){b.className='toggle-on';b.textContent='🔧 要安裝';b.style.cssText='';p.classList.remove('hidden');
+// 安裝/配送 改用下拉選單直接選（取代原本的循環點擊按鈕）：未確認 / 是 / 配送 / 否
+function togEISel(){_modalDirty=true;
+  const sel=document.getElementById('ei-sel'),p=document.getElementById('ei-panel');
+  const v=sel?sel.value:'未確認';
+  if(v==='是'||v==='配送'){p.classList.remove('hidden');
     if(typeof updateInstallMismatchHint==='function')setTimeout(updateInstallMismatchHint,0);
-  }
-  else if(next==='配送'){b.className='toggle-on';b.textContent='🚚 要配送';b.style.cssText='background:#dbeafe;color:#1d4ed8;border-color:#93c5fd';p.classList.remove('hidden');
-    if(typeof updateInstallMismatchHint==='function')setTimeout(updateInstallMismatchHint,0);
-  }
-  else if(next==='否'||next==='未確認'){
-    b.className=next==='否'?'toggle-off':'toggle-unknown';
-    b.textContent=next==='否'?'不安裝':'待確認';
-    b.style.cssText='';
+  }else{
     p.classList.add('hidden');
     // 切到「不安裝/未確認」→ 清掉所有安裝/配送欄位保持資料一致
     const fee=document.getElementById('e-instf');if(fee)fee.value='';
@@ -2555,17 +2546,12 @@ function togEIDone(){_modalDirty=true;const b=document.getElementById('ei-done-b
   if(b.classList.contains('toggle-on')){b.className='toggle-off';b.textContent='未完成（仍在排程中）'}
   else{b.className='toggle-on';b.textContent='✓ 已完成安裝'}
 }
-function togEA(){_modalDirty=true;
-  const b=document.getElementById('ea-btn'),p=document.getElementById('ea-panel');
-  const cur=b.classList.contains('toggle-on')?'是':(b.classList.contains('toggle-off')?'否':'未確認');
-  const next=cur==='未確認'?'是':(cur==='是'?'否':'未確認');
-  if(next==='是'){b.className='toggle-on';b.textContent='要加購';p.classList.remove('hidden')}
-  else if(next==='否'){b.className='toggle-off';b.textContent='不加購';p.classList.add('hidden');
-    const fee=document.getElementById('e-addonf');if(fee)fee.value='';
-    const paid=document.getElementById('e-addonpaid');if(paid)paid.value='';
-    const phint=document.getElementById('ea-paid-hint');if(phint)phint.style.display='none';
-    const it=document.getElementById('e-addonitems');if(it)it.value='';
-  }else{b.className='toggle-unknown';b.textContent='待確認';p.classList.add('hidden');
+// 加購 改用下拉選單直接選（取代原本的循環點擊按鈕）：未確認 / 是 / 否
+function togEASel(){_modalDirty=true;
+  const sel=document.getElementById('ea-sel'),p=document.getElementById('ea-panel');
+  const v=sel?sel.value:'未確認';
+  if(v==='是'){p.classList.remove('hidden')}
+  else{p.classList.add('hidden');
     const fee=document.getElementById('e-addonf');if(fee)fee.value='';
     const paid=document.getElementById('e-addonpaid');if(paid)paid.value='';
     const phint=document.getElementById('ea-paid-hint');if(phint)phint.style.display='none';
@@ -2586,8 +2572,8 @@ const newDate=document.getElementById('e-date').value;
 if(newDate!==o.date){o.date=newDate;o.dateFmt=fmtD(newDate)}
 o.platform=document.getElementById('e-plat').value;o.orderNo=document.getElementById('e-no').value.trim();o.product=document.getElementById('e-prod').value.trim();o.specs=document.getElementById('e-specs').value.trim();o.name=document.getElementById('e-name').value.trim();o.phone=document.getElementById('e-phone').value.trim();o.realPhone=(document.getElementById('e-realPhone')?.value||'').trim();o.address=document.getElementById('e-addr').value.trim();o.addrMgmt=document.getElementById('e-mgmt')?.dataset.value??(o.addrMgmt||'');o.addrElev=document.getElementById('e-elev')?.dataset.value??(o.addrElev||'');o.amount=parseInt(document.getElementById('e-amt').value)||0;o.qty=parseInt(document.getElementById('e-qty').value)||1;
 // 4-state 從 button dataset.kind 讀：未確認 / 是 / 配送 / 否
-const _ibtn=document.getElementById('ei-btn');
-o.install=_ibtn.dataset.kind||(_ibtn.classList.contains('toggle-on')?'是':(_ibtn.classList.contains('toggle-unknown')?'未確認':'否'));
+const _isel=document.getElementById('ei-sel');
+o.install=_isel?_isel.value:(o.install||'未確認');
 // 改前 → 改後不同且原本要服務（安裝/配送）有資料 → 在 log 保留原金額/日期/師傅
 if((_snap.install==='是'||_snap.install==='配送')&&o.install!==_snap.install){const segs=[];if(_snap.installFee)segs.push(`費用 $${_snap.installFee}`);if(_snap.installPaidAmount)segs.push(`已收 $${_snap.installPaidAmount}`);if(_snap.installDate)segs.push(_snap.installDate);if(_snap.installSlot)segs.push(_snap.installSlot);if(_snap.installer)segs.push('師傅 '+_snap.installer);if(_snap.installDay)segs.push(_snap.installDay);if(_snap.installTime)segs.push(_snap.installTime);logActivity(o,`${_snap.install==='配送'?'配送':'安裝'} ${_snap.install} → ${o.install}${segs.length?'（原 '+segs.join(' / ')+'）':''}（編輯視窗）`)}
 if(o.install==='否'||o.install==='未確認'){o.installFee=0;o.installDay='';o.installTime='';o.installPaidAmount=0;o.installDate='';o.installSlot='';o.installer='';o.installDone=false}
@@ -2609,8 +2595,8 @@ else{o.installFee=parseInt(document.getElementById('e-instf').value)||0;o.instal
   if(days.length){days.sort((a,b)=>DAYS.indexOf(a)-DAYS.indexOf(b));o.installDay=days.join('、')}
   if(times.length){times.sort((a,b)=>TIMES.indexOf(a)-TIMES.indexOf(b));o.installTime=times.join('、')}else o.installTime='';
 }
-const _abtn=document.getElementById('ea-btn');
-o.addon=_abtn.classList.contains('toggle-on')?'是':(_abtn.classList.contains('toggle-unknown')?'未確認':'否');
+const _asel=document.getElementById('ea-sel');
+o.addon=_asel?_asel.value:(o.addon||'未確認');
 // 同樣：加購從「是」改掉前，把原本金額/已收/品項記到 log
 if(_snap.addon==='是'&&o.addon!=='是'){const segs=[];if(_snap.addonFee)segs.push(`金額 $${_snap.addonFee}`);if(_snap.addonPaidAmount)segs.push(`已收 $${_snap.addonPaidAmount}`);if((_snap.addonItems||'').trim())segs.push(_snap.addonItems.trim());logActivity(o,`加購 是 → ${o.addon}${segs.length?'（原 '+segs.join(' / ')+'）':''}（編輯視窗）`)}
 if(o.addon==='否'||o.addon==='未確認'){o.addonFee=0;o.addonItems='';o.addonPaidAmount=0}
