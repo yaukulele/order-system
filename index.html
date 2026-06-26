@@ -1254,7 +1254,7 @@ function resetMomoApi(){
 // ===== 三竹簡訊：一鍵發簡訊給客戶（邀請加 LINE / 聯絡後續安裝）=====
 // 範本存 Firebase（sms_config.template）所有裝置共用；帳密只在後端，前端只送 phone + message。
 // 目標電話一律用 realPhone（客戶真實手機），絕不用 MOMO/PChome 的加密轉接 phone。
-const DEFAULT_SMS_TEMPLATE='YA 感謝訂購樂器！請在LINE搜尋電話0958252108 加入，以利後續保固。留言購買平台跟姓名，謝謝！會跟你聯絡配送時間。';
+const DEFAULT_SMS_TEMPLATE='【樂器客服】感謝訂購！\n保固與安裝請在LINE搜尋電話:\n0958252108\n加後請主動傳送：購買平台及訂購人姓名，謝謝！';
 let _smsTemplate=null;
 db.ref('sms_config').once('value').then(s=>{const c=s.val();if(c&&typeof c.template==='string')_smsTemplate=c.template;if(c&&c.accountPoint!=null)_renderSmsBalance(c.accountPoint)}).catch(()=>{});
 function getSmsTemplate(){return (_smsTemplate!=null?_smsTemplate:DEFAULT_SMS_TEMPLATE)}
