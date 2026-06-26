@@ -1255,7 +1255,7 @@ function resetMomoApi(){
 // 共用內文存 Firebase（sms_config.body）所有裝置共用；帳密只在後端，前端只送 phone + message。
 // 目標電話一律用 realPhone（客戶真實手機），絕不用 MOMO/PChome 的加密轉接 phone。
 // 6 個廠商版本：發送時點選，會記錄這筆用哪個版本送的（o.smsVendor + note log）。
-const SMS_VENDORS=['電吉他廠商','木吉他廠商','音箱廠商','電鋼琴廠商','電子鼓廠商','樂器廠商'];
+const SMS_VENDORS=['電吉他廠商','木吉他廠商','貝斯廠商','音箱廠商','電鋼琴廠商','電子鼓廠商','樂器廠商'];
 // 內文（廠商名稱由發送時點選自動加在【】開頭，不寫在這）。換行直接送（不再經過 prompt 被吃掉）。
 const DEFAULT_SMS_BODY='感謝訂購！\n保固與安裝請在LINE搜尋電話:\n0958252108\n加後請主動傳送：購買平台及訂購人姓名，謝謝！';
 let _smsBody=null;
