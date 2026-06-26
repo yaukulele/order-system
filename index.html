@@ -1258,12 +1258,12 @@ const DEFAULT_SMS_TEMPLATE='YA 感謝訂購樂器！請在LINE搜尋電話095825
 let _smsTemplate=null;
 db.ref('sms_config').once('value').then(s=>{const c=s.val();if(c&&typeof c.template==='string')_smsTemplate=c.template;if(c&&c.accountPoint!=null)_renderSmsBalance(c.accountPoint)}).catch(()=>{});
 function getSmsTemplate(){return (_smsTemplate!=null?_smsTemplate:DEFAULT_SMS_TEMPLATE)}
-function buildSmsMessage(o){return getSmsTemplate().replace(/\{name\}/g,(o.name||'').trim())}
+function buildSmsMessage(o){return getSmsTemplate().replace(/\{name\}/g,(o.name||'').trim()).replace(/\{product\}/g,(o.product||'').trim())}
 function _smsSegs(t){const len=(t||'').length;if(/[^\x00-\x7F]/.test(t||''))return len<=70?1:Math.ceil(len/67);return len<=160?1:Math.ceil(len/153)}
 function _renderSmsBalance(pt){const el=document.getElementById('sms-balance');if(el&&pt!=null)el.textContent='剩餘點數：'+pt+' 點'}
 function editSmsTemplate(){
   const cur=getSmsTemplate();
-  const t=prompt('編輯發給客戶的簡訊範本：\n\n• 可用 {name} 代入客戶姓名（不填也行）\n• 含中文 70 字以內 = 1 點（約 NT$0.85）\n• 記得 LINE 搜尋的電話/帳號要正確',cur);
+  const t=prompt('編輯發給客戶的簡訊「預設範本」（每次發送前還能再個別微調）：\n\n• {name} 代入客戶姓名、{product} 代入商品名（可不用）\n• 含中文 70 字以內 = 1 點（約 NT$0.85）\n• 記得 LINE 搜尋的電話/帳號要正確',cur);
   if(t===null)return;
   const v=t.trim();
   if(!v){alert('範本不可空白');return}
@@ -1282,10 +1282,14 @@ async function sendSmsForOrder(oid){
     alert('⚠ 這筆沒有「客戶真實手機」可發簡訊。\n\nMOMO／PChome 的電話是加密轉接號，不能直接發。\n請先問到客戶手機，填進「編輯 → 真實手機」欄位（09 開頭 10 碼）後再發。');
     openEdit(oid);return;
   }
-  const msg=buildSmsMessage(o);
+  let msg=buildSmsMessage(o);
   if(!msg){alert('簡訊範本是空的，請先到「📩 簡訊設定 → 改範本」設定');return;}
-  const already=o.smsSent?`\n\n⚠ 這筆已在 ${o.smsTime||'先前'} 發過簡訊，確定要再發一次（會再扣點）？`:'';
-  if(!confirm(`發簡訊給：${o.name||''} ${raw}\n\n內容（${msg.length} 字 ≈ ${_smsSegs(msg)} 點）：\n${msg}${already}`))return;
+  // 每次發送都可微調這封內容（例如註明：您購買的數位鋼琴 / 電子鼓），按確定才送
+  const edited=prompt(`發簡訊給 ${o.name||''}（${raw}）\n\n可直接修改下面內容再送 — 例如註明購買的是「鋼琴」還是「電子鼓」。\n含中文 70 字內 = 1 點（約 0.85 元）。`,msg);
+  if(edited===null)return; // 取消
+  msg=edited.trim();
+  if(!msg){alert('簡訊內容不可空白');return;}
+  if(o.smsSent&&!confirm(`這筆已在 ${o.smsTime||'先前'} 發過簡訊。\n確定再發一次（${msg.length} 字 ≈ ${_smsSegs(msg)} 點，會再扣點）？`))return;
   _smsSending.add(oid);
   await momoConfigReady;
   const api=getMomoApi(),token=getMomoToken();
