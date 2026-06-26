@@ -1251,58 +1251,83 @@ function resetMomoApi(){
   alert('✅ Token 已更新（已同步到雲端，所有裝置共用）');
 }
 
-// ===== 三竹簡訊：一鍵發簡訊給客戶（邀請加 LINE / 聯絡後續安裝）=====
-// 範本存 Firebase（sms_config.template）所有裝置共用；帳密只在後端，前端只送 phone + message。
+// ===== 三竹簡訊：每張訂單點選「廠商版本」發簡訊給客戶（邀請加 LINE / 聯絡安裝）=====
+// 共用內文存 Firebase（sms_config.body）所有裝置共用；帳密只在後端，前端只送 phone + message。
 // 目標電話一律用 realPhone（客戶真實手機），絕不用 MOMO/PChome 的加密轉接 phone。
-const DEFAULT_SMS_TEMPLATE='【樂器客服】感謝訂購！\n保固與安裝請在LINE搜尋電話:\n0958252108\n加後請主動傳送：購買平台及訂購人姓名，謝謝！';
-let _smsTemplate=null;
-db.ref('sms_config').once('value').then(s=>{const c=s.val();if(c&&typeof c.template==='string')_smsTemplate=c.template;if(c&&c.accountPoint!=null)_renderSmsBalance(c.accountPoint)}).catch(()=>{});
-function getSmsTemplate(){return (_smsTemplate!=null?_smsTemplate:DEFAULT_SMS_TEMPLATE)}
-function buildSmsMessage(o){return getSmsTemplate().replace(/\{name\}/g,(o.name||'').trim()).replace(/\{product\}/g,(o.product||'').trim())}
+// 6 個廠商版本：發送時點選，會記錄這筆用哪個版本送的（o.smsVendor + note log）。
+const SMS_VENDORS=['電吉他廠商','木吉他廠商','音箱廠商','電鋼琴廠商','電子鼓廠商','樂器廠商'];
+// 內文（廠商名稱由發送時點選自動加在【】開頭，不寫在這）。換行直接送（不再經過 prompt 被吃掉）。
+const DEFAULT_SMS_BODY='感謝訂購！\n保固與安裝請在LINE搜尋電話:\n0958252108\n加後請主動傳送：購買平台及訂購人姓名，謝謝！';
+let _smsBody=null;
+db.ref('sms_config').once('value').then(s=>{const c=s.val();if(c&&typeof c.body==='string')_smsBody=c.body;if(c&&c.accountPoint!=null)_renderSmsBalance(c.accountPoint)}).catch(()=>{});
+function getSmsBody(){return (_smsBody!=null?_smsBody:DEFAULT_SMS_BODY)}
+function buildVendorMsg(vendor){return '【'+vendor+'】'+getSmsBody()}
 function _smsSegs(t){const len=(t||'').length;if(/[^\x00-\x7F]/.test(t||''))return len<=70?1:Math.ceil(len/67);return len<=160?1:Math.ceil(len/153)}
 function _renderSmsBalance(pt){const el=document.getElementById('sms-balance');if(el&&pt!=null)el.textContent='剩餘點數：'+pt+' 點'}
 function editSmsTemplate(){
-  const cur=getSmsTemplate();
-  const t=prompt('編輯發給客戶的簡訊「預設範本」（每次發送前還能再個別微調）：\n\n• {name} 代入客戶姓名、{product} 代入商品名（可不用）\n• 含中文 70 字以內 = 1 點（約 NT$0.85）\n• 記得 LINE 搜尋的電話/帳號要正確',cur);
+  const cur=getSmsBody();
+  const t=prompt('編輯簡訊「共用內文」（廠商名稱發送時點選，不用寫在這）：\n\n• 顯示時自動加上【廠商】開頭\n• 換行會原樣送出\n• 含中文 70 字以內 = 1 點（約 NT$0.85）',cur);
   if(t===null)return;
   const v=t.trim();
-  if(!v){alert('範本不可空白');return}
-  _smsTemplate=v;
-  db.ref('sms_config').update({template:v,updatedAt:new Date().toISOString()}).catch(()=>{});
-  alert('✅ 範本已更新（已同步雲端，所有裝置共用）\n\n字數：'+v.length+' 字 ≈ '+_smsSegs(v)+' 點/通');
+  if(!v){alert('內文不可空白');return}
+  _smsBody=v;
+  db.ref('sms_config').update({body:v,updatedAt:new Date().toISOString()}).catch(()=>{});
+  const sample=buildVendorMsg(SMS_VENDORS[0]);
+  alert('✅ 已更新（同步雲端，所有裝置共用）\n\n範例（'+SMS_VENDORS[0]+'）：\n'+sample+'\n\n'+sample.length+' 字 ≈ '+_smsSegs(sample)+' 點');
 }
-const _smsSending=new Set();
-function _smsNow(){const d=new Date();const p=n=>String(n).padStart(2,'0');return `${d.getFullYear()}-${p(d.getMonth()+1)}-${p(d.getDate())} ${p(d.getHours())}:${p(d.getMinutes())}`}
-async function sendSmsForOrder(oid){
+// 發簡訊選單：點 📩 → 跳出 6 個廠商版本，點一個就送
+function openSmsMenu(oid,ev){
+  ev&&ev.stopPropagation();
   const o=findO(oid);if(!o)return;
-  if(_smsSending.has(oid))return; // 防連點：發送中直接擋
-  // 只用客戶真實手機 realPhone，加密/轉接的 phone 一律不發（避免誤發白扣點）
+  // 先驗證真實手機，沒有就不開選單（加密轉接號絕不發）
   const raw=String(o.realPhone||'').replace(/[\s\-()]/g,'');
   if(!/^09\d{8}$/.test(raw)){
     alert('⚠ 這筆沒有「客戶真實手機」可發簡訊。\n\nMOMO／PChome 的電話是加密轉接號，不能直接發。\n請先問到客戶手機，填進「編輯 → 真實手機」欄位（09 開頭 10 碼）後再發。');
     openEdit(oid);return;
   }
-  let msg=buildSmsMessage(o);
-  if(!msg){alert('簡訊範本是空的，請先到「📩 簡訊設定 → 改範本」設定');return;}
-  // 每次發送都可微調這封內容（例如註明：您購買的數位鋼琴 / 電子鼓），按確定才送
-  const edited=prompt(`發簡訊給 ${o.name||''}（${raw}）\n\n可直接修改下面內容再送 — 例如註明購買的是「鋼琴」還是「電子鼓」。\n含中文 70 字內 = 1 點（約 0.85 元）。`,msg);
-  if(edited===null)return; // 取消
-  msg=edited.trim();
-  if(!msg){alert('簡訊內容不可空白');return;}
-  if(o.smsSent&&!confirm(`這筆已在 ${o.smsTime||'先前'} 發過簡訊。\n確定再發一次（${msg.length} 字 ≈ ${_smsSegs(msg)} 點，會再扣點）？`))return;
+  let ov=document.getElementById('sms-menu-ov');
+  if(!ov){ov=document.createElement('div');ov.id='sms-menu-ov';ov.style.cssText='display:none;position:fixed;inset:0;z-index:9000;background:rgba(0,0,0,.10)';ov.onclick=closeSmsMenu;document.body.appendChild(ov)}
+  let menu=document.getElementById('sms-menu');
+  if(!menu){menu=document.createElement('div');menu.id='sms-menu';menu.style.cssText='display:none;position:fixed;z-index:9001;background:var(--sf);border:1px solid var(--bd);border-radius:12px;box-shadow:0 10px 32px rgba(0,0,0,.26);padding:8px;width:188px;max-height:82vh;overflow:auto';document.body.appendChild(menu)}
+  menu.innerHTML='<div class="status-menu-h">選廠商版本發送<br><span style="font-weight:400;color:var(--dm)">'+esc(o.name||'')+' '+raw+'</span></div>'+SMS_VENDORS.map(v=>{
+    const cur=o.smsVendor===v;
+    return `<button type="button" class="btn status-menu-item${cur?' cur':''}" style="border-color:#c4b5fd;color:#7c3aed;font-weight:700" onclick="pickSmsVendor('${oid}','${v}',event)">${cur?'✓ ':''}${v}</button>`;
+  }).join('');
+  ov.style.display='block';menu.style.display='block';
+  const mw=menu.offsetWidth||188,mh=menu.offsetHeight||360;
+  const cx=(ev&&ev.clientX)||window.innerWidth/2,cy=(ev&&ev.clientY)||window.innerHeight/2;
+  let x=cx-mw/2,y=cy+14;
+  if(y+mh>window.innerHeight-8)y=Math.max(8,cy-mh-14);
+  x=Math.max(8,Math.min(x,window.innerWidth-mw-8));
+  y=Math.max(8,Math.min(y,window.innerHeight-mh-8));
+  menu.style.left=x+'px';menu.style.top=y+'px';
+}
+function closeSmsMenu(){const ov=document.getElementById('sms-menu-ov');if(ov)ov.style.display='none';const menu=document.getElementById('sms-menu');if(menu)menu.style.display='none';}
+function pickSmsVendor(oid,vendor,ev){ev&&ev.stopPropagation();closeSmsMenu();sendSmsVendor(oid,vendor);}
+const _smsSending=new Set();
+function _smsNow(){const d=new Date();const p=n=>String(n).padStart(2,'0');return `${d.getFullYear()}-${p(d.getMonth()+1)}-${p(d.getDate())} ${p(d.getHours())}:${p(d.getMinutes())}`}
+async function sendSmsVendor(oid,vendor){
+  const o=findO(oid);if(!o)return;
+  if(_smsSending.has(oid))return; // 防連點：發送中直接擋
+  const raw=String(o.realPhone||'').replace(/[\s\-()]/g,'');
+  if(!/^09\d{8}$/.test(raw)){alert('⚠ 沒有客戶真實手機，無法發送');openEdit(oid);return;}
+  const msg=buildVendorMsg(vendor);
+  const already=o.smsSent?`\n\n⚠ 這筆已在 ${o.smsTime||'先前'} 發過（${o.smsVendor||''}），確定再發一次（會再扣點）？`:'';
+  // confirm 會原樣顯示換行 → 你可以先看清楚排版再送
+  if(!confirm(`用【${vendor}】版本發給 ${o.name||''}（${raw}）\n${msg.length} 字 ≈ ${_smsSegs(msg)} 點\n\n${msg}${already}`))return;
   _smsSending.add(oid);
   await momoConfigReady;
   const api=getMomoApi(),token=getMomoToken();
   if(!api||!token){_smsSending.delete(oid);return;}
   try{
-    const r=await fetch(`${api}/api/sms/send`,{method:'POST',headers:{'Content-Type':'application/json','X-API-Token':token},body:JSON.stringify({phone:raw,message:msg,orderNo:o.orderNo||''})});
+    const r=await fetch(`${api}/api/sms/send`,{method:'POST',headers:{'Content-Type':'application/json','X-API-Token':token},body:JSON.stringify({phone:raw,message:msg,orderNo:o.orderNo||'',vendor})});
     const d=await r.json().catch(()=>({}));
     if(r.ok&&d.ok){
-      o.smsSent=true;o.smsTime=_smsNow();o.smsMsgId=d.msgid||'';
+      o.smsSent=true;o.smsTime=_smsNow();o.smsMsgId=d.msgid||'';o.smsVendor=vendor;
       if(d.accountPoint!=null){o.smsPoint=d.accountPoint;db.ref('sms_config').update({accountPoint:d.accountPoint,updatedAt:new Date().toISOString()}).catch(()=>{});_renderSmsBalance(d.accountPoint)}
-      logActivity(o,`發簡訊→${raw}${d.accountPoint!=null?`（剩 ${d.accountPoint} 點）`:''}`);
+      logActivity(o,`發簡訊[${vendor}]→${raw}${d.accountPoint!=null?`（剩 ${d.accountPoint} 點）`:''}`);
       saveOne(o);renderList();
-      alert('✅ 簡訊已送出'+(d.accountPoint!=null?`\n\n剩餘點數：${d.accountPoint} 點`:''));
+      alert(`✅ 已用【${vendor}】版本送出`+(d.accountPoint!=null?`\n剩餘點數：${d.accountPoint} 點`:''));
     }else{
       alert('❌ 簡訊發送失敗：\n'+(d.error||('HTTP '+r.status)));
     }
@@ -1867,9 +1892,10 @@ function buildOrderActions(o,variant){
     :'';
   // 📩 發簡訊：邀請客戶加 LINE / 聯絡後續安裝。只用 realPhone（加密轉接電話不發）。已發過 → 變綠 + 可重發
   const _smsDone=!!o.smsSent;
+  const _smsTip=_smsDone?('已發簡訊 '+esc(o.smsVendor||'')+' '+esc(o.smsTime||'')+'（點擊可重發）'):'發簡訊邀客戶加 LINE — 點選廠商版本（用客戶真實手機 09 開頭）';
   const sms=isMob
-    ?`<button onclick="sendSmsForOrder('${oid}')" style="${_smsDone?'color:#15803d;border-color:#86efac;background:#e8f7ee':'color:#7c3aed;border-color:#c4b5fd'}" title="${_smsDone?'已發簡訊 '+esc(o.smsTime||'')+'（點擊可重發）':'發簡訊邀請客戶加 LINE（用客戶真實手機）'}">📩 ${_smsDone?'已發':'發簡訊'}</button>`
-    :`<button class="act" onclick="sendSmsForOrder('${oid}')" title="${_smsDone?'已發簡訊 '+esc(o.smsTime||'')+'（點擊可重發）':'發簡訊邀請客戶加 LINE（用客戶真實手機 09 開頭）'}" style="${_smsDone?'border-color:#86efac;color:#15803d':'border-color:#c4b5fd;color:#7c3aed'}">📩${_smsDone?'✓':''}</button> `;
+    ?`<button onclick="openSmsMenu('${oid}',event)" style="${_smsDone?'color:#15803d;border-color:#86efac;background:#e8f7ee':'color:#7c3aed;border-color:#c4b5fd'}" title="${_smsTip}">📩 ${_smsDone?'已發':'發簡訊'}</button>`
+    :`<button class="act" onclick="openSmsMenu('${oid}',event)" title="${_smsTip}" style="${_smsDone?'border-color:#86efac;color:#15803d':'border-color:#c4b5fd;color:#7c3aed'}">📩${_smsDone?'✓':''}</button> `;
   return{addrAck,ship,instPaid,addonPaid,quickAddInstall,quickAddAddon,edit,copy,cam,del,prodLink,sms};
 }
 
