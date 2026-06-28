@@ -1292,7 +1292,9 @@ function openSmsMenu(oid,ev){
   menu.innerHTML='<div class="status-menu-h">選廠商版本發送<br><span style="font-weight:400;color:var(--dm)">'+esc(o.name||'')+' '+raw+'</span></div>'+SMS_VENDORS.map(v=>{
     const cur=o.smsVendor===v;
     return `<button type="button" class="btn status-menu-item${cur?' cur':''}" style="border-color:#c4b5fd;color:#7c3aed;font-weight:700" onclick="pickSmsVendor('${oid}','${v}',event)">${cur?'✓ ':''}${v}</button>`;
-  }).join('');
+  }).join('')
+  +'<div style="height:1px;background:var(--bd);margin:6px 4px"></div>'
+  +`<button type="button" class="btn status-menu-item${o.smsVendor==='自訂'?' cur':''}" style="border-color:#fbbf24;color:#b45309;font-weight:700" onclick="pickSmsCustom('${oid}',event)">${o.smsVendor==='自訂'?'✓ ':''}✏️ 自訂內容…</button>`;
   ov.style.display='block';menu.style.display='block';
   const mw=menu.offsetWidth||188,mh=menu.offsetHeight||360;
   const cx=(ev&&ev.clientX)||window.innerWidth/2,cy=(ev&&ev.clientY)||window.innerHeight/2;
@@ -1304,17 +1306,64 @@ function openSmsMenu(oid,ev){
 }
 function closeSmsMenu(){const ov=document.getElementById('sms-menu-ov');if(ov)ov.style.display='none';const menu=document.getElementById('sms-menu');if(menu)menu.style.display='none';}
 function pickSmsVendor(oid,vendor,ev){ev&&ev.stopPropagation();closeSmsMenu();sendSmsVendor(oid,vendor);}
+function pickSmsCustom(oid,ev){ev&&ev.stopPropagation();closeSmsMenu();openSmsCustom(oid);}
 const _smsSending=new Set();
 function _smsNow(){const d=new Date();const p=n=>String(n).padStart(2,'0');return `${d.getFullYear()}-${p(d.getMonth()+1)}-${p(d.getDate())} ${p(d.getHours())}:${p(d.getMinutes())}`}
+// 自訂內容：textarea 彈窗（不能用 prompt，換行會被吃掉），預填共用模板可即時調整後發送
+function openSmsCustom(oid){
+  const o=findO(oid);if(!o)return;
+  const raw=String(o.realPhone||'').replace(/[\s\-()]/g,'');
+  if(!/^09\d{8}$/.test(raw)){alert('⚠ 這筆沒有客戶真實手機，無法發送');openEdit(oid);return;}
+  let ov=document.getElementById('sms-custom-ov');
+  if(!ov){
+    ov=document.createElement('div');ov.id='sms-custom-ov';
+    ov.style.cssText='display:none;position:fixed;inset:0;z-index:9100;background:rgba(0,0,0,.32);align-items:center;justify-content:center;padding:16px';
+    ov.onclick=e=>{if(e.target===ov)closeSmsCustom()};
+    ov.innerHTML='<div style="background:var(--sf);border-radius:14px;box-shadow:0 16px 48px rgba(0,0,0,.3);width:100%;max-width:440px;padding:16px;box-sizing:border-box">'
+      +'<div style="font-weight:700;margin-bottom:4px">✏️ 自訂簡訊內容</div>'
+      +'<div id="sms-custom-to" style="font-size:13px;color:var(--dm);margin-bottom:10px"></div>'
+      +'<textarea id="sms-custom-ta" rows="6" style="width:100%;box-sizing:border-box;border:1px solid var(--bd);border-radius:10px;padding:10px;font-size:14px;line-height:1.6;resize:vertical;font-family:inherit;color:var(--tx);background:var(--bg)"></textarea>'
+      +'<div id="sms-custom-cnt" style="font-size:12px;color:var(--dm);margin:6px 2px"></div>'
+      +'<div style="display:flex;gap:8px;margin-top:8px">'
+      +'<button type="button" class="btn" style="flex:1" onclick="closeSmsCustom()">取消</button>'
+      +'<button type="button" class="btn" style="flex:2;border-color:#fbbf24;color:#b45309;font-weight:700" onclick="sendSmsCustom()">確認發送</button>'
+      +'</div></div>';
+    document.body.appendChild(ov);
+  }
+  ov._oid=oid;
+  const ta=document.getElementById('sms-custom-ta');
+  ta.value=getSmsBody(); // 預設模板（共用內文）→ 可即時調整
+  document.getElementById('sms-custom-to').textContent='發給 '+(o.name||'')+'（'+raw+'）'+(o.smsSent?'　⚠ 已發過 '+(o.smsTime||''):'');
+  const upd=()=>{const t=ta.value;document.getElementById('sms-custom-cnt').textContent=t.length+' 字 ≈ '+_smsSegs(t)+' 點（含中文 70 字／則）';};
+  ta.oninput=upd;upd();
+  ov.style.display='flex';setTimeout(()=>{ta.focus();},30);
+}
+function closeSmsCustom(){const ov=document.getElementById('sms-custom-ov');if(ov)ov.style.display='none';}
+function sendSmsCustom(){
+  const ov=document.getElementById('sms-custom-ov');if(!ov)return;
+  const oid=ov._oid;const ta=document.getElementById('sms-custom-ta');
+  const msg=(ta.value||'').replace(/[\s]+$/,''); // 去尾端空白/換行
+  if(!msg.trim()){alert('內容不可空白');return}
+  closeSmsCustom();
+  sendSmsCore(oid,'自訂',msg,{noPreview:true}); // 編輯框本身就是預覽，不再二次 confirm（已發過仍會提醒）
+}
 async function sendSmsVendor(oid,vendor){
+  const o=findO(oid);if(!o)return;
+  sendSmsCore(oid,vendor,buildVendorMsg(vendor));
+}
+async function sendSmsCore(oid,vendor,msg,opts){
+  opts=opts||{};
   const o=findO(oid);if(!o)return;
   if(_smsSending.has(oid))return; // 防連點：發送中直接擋
   const raw=String(o.realPhone||'').replace(/[\s\-()]/g,'');
   if(!/^09\d{8}$/.test(raw)){alert('⚠ 沒有客戶真實手機，無法發送');openEdit(oid);return;}
-  const msg=buildVendorMsg(vendor);
   const already=o.smsSent?`\n\n⚠ 這筆已在 ${o.smsTime||'先前'} 發過（${o.smsVendor||''}），確定再發一次（會再扣點）？`:'';
-  // confirm 會原樣顯示換行 → 你可以先看清楚排版再送
-  if(!confirm(`用【${vendor}】版本發給 ${o.name||''}（${raw}）\n${msg.length} 字 ≈ ${_smsSegs(msg)} 點\n\n${msg}${already}`))return;
+  // confirm 會原樣顯示換行 → 你可以先看清楚排版再送；自訂內容已在編輯框預覽，只在「已發過」時再確認
+  if(opts.noPreview){
+    if(already&&!confirm(`發給 ${o.name||''}（${raw}）\n${msg.length} 字 ≈ ${_smsSegs(msg)} 點${already}`))return;
+  }else{
+    if(!confirm(`用【${vendor}】版本發給 ${o.name||''}（${raw}）\n${msg.length} 字 ≈ ${_smsSegs(msg)} 點\n\n${msg}${already}`))return;
+  }
   _smsSending.add(oid);
   await momoConfigReady;
   const api=getMomoApi(),token=getMomoToken();
