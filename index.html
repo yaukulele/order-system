@@ -1608,8 +1608,11 @@ async function _runAutoPoll(){
   try{
     // 共用一次 live orderNo set fetch（兩個 silent fetch 之前各 fetch 一次 /orders.json，省一次 ~100KB 流量）
     const sharedLiveSet=await _liveOrderNoSet().catch(()=>null);
-    const m=await _silentFetchMomo(1,sharedLiveSet).catch(()=>({ok:false,added:0}));
-    const p=await _silentFetchPchome(1,sharedLiveSet).catch(()=>({ok:false,added:0}));
+    // MOMO / PChome 平行抓 — 兩者單號格式互斥、又都對 sharedLiveSet 去重，同時跑不會撞單，省一趟往返延遲
+    const [m,p]=await Promise.all([
+      _silentFetchMomo(1,sharedLiveSet).catch(()=>({ok:false,added:0})),
+      _silentFetchPchome(1,sharedLiveSet).catch(()=>({ok:false,added:0}))
+    ]);
     _autoPollLast=new Date();_renderAutoPollStatus();
     const added=(m.added||0)+(p.added||0);
     if(added>0){
@@ -3041,7 +3044,7 @@ refreshNotifBtn();
 // CSV cell：跳脫雙引號 + CSV injection 防護
 // 以 =/+/@/tab/CR 開頭，或非數字的「-」開頭 → 前綴一個 ' 讓 Excel/Sheets 當純文字（防 formula 注入）
 // 「-100」這種純負數保留原樣（讀回來還是數字）。
-function csvCell(v){let s=String(v??'');if(/^[=+@\t\r]/.test(s)||(/^-/.test(s)&&!/^-\d/.test(s)))s="'"+s;if(/[",\n]/.test(s))return'"'+s.replace(/"/g,'""')+'"';return s}
+function csvCell(v){let s=String(v??'');if(/^[=+@\t\r]/.test(s)||(/^-/.test(s)&&!/^-\d/.test(s)))s="'"+s;if(/[",\n\r]/.test(s))return'"'+s.replace(/"/g,'""')+'"';return s}
 function exportCSV(scope){
   // scope: 'filtered' (列表頁 filter) | 'all' | 'output' (輸出頁 filter)
   const list=scope==='filtered'?filterListOrders():(scope==='output'?filterOutputOrders():orders.slice());
@@ -3067,7 +3070,10 @@ async function batchExportShipping(){
   // 備註帶品名，並依平台加抬頭：MOMO(含第三方)→MO_品名、PChome→PC_品名（杰哥需求）；多品項訂單一筆一列
   // 電話：優先帶真實電話 realPhone，空白才退回一般 phone（杰哥需求；MOMO 第三方 phone 常是遮罩號）
   const platPrefix=p=>(p==='MO'||p==='MO3')?'MO_':(p==='PC'?'PC_':'');
-  const rows=sel.map(o=>[shipYmd,(o.name||''),(o.realPhone||o.phone||''),(o.address||''),(o.qty||1),1,arriveYmd,'',platPrefix(o.platform)+(o.product||'')]);
+  // 貨運託運單只帶「撥得通」的號碼：realPhone 優先；退回 phone 前先擋掉 MOMO 代撥/遮罩號（含 # 分機 或 0971191888 代撥前綴），
+  // 免得大榮拿到打不通的代撥號 → 到站電話驗證失敗 / 無法配送。擋掉時留空，讓店家看得出要補電話。
+  const shipPhone=o=>{const rp=(o.realPhone||'').trim();if(rp)return rp;const p=(o.phone||'').trim();return(p&&!p.includes('#')&&!p.startsWith('0971191888'))?p:''};
+  const rows=sel.map(o=>[shipYmd,(o.name||''),shipPhone(o),(o.address||''),(o.qty||1),1,arriveYmd,'',platPrefix(o.platform)+(o.product||'')]);
   const ws=XLSX.utils.aoa_to_sheet([header,...rows]);
   ws['!cols']=[{wch:11},{wch:9},{wch:14},{wch:34},{wch:5},{wch:5},{wch:11},{wch:14},{wch:30}];
   const wb=XLSX.utils.book_new();XLSX.utils.book_append_sheet(wb,ws,'SHEET');
@@ -3282,7 +3288,9 @@ db.ref('installers').on('value',snap=>{
   try{localStorage.setItem(INSTALLERS_CACHE_KEY,JSON.stringify(installers))}catch(e){}
   // Re-render 相關 UI（在排程頁 / 帳號頁時）
   const at=document.querySelector('.tab.active')?.textContent||'';
-  if(at.includes('安裝'))renderSchedule();
+  // 拖曳進行中不要 re-render 排程頁（會砍掉拖曳中的 DOM 導致 drop 遺失）— 對齊 orders listener 的防護
+  const _dragging=(typeof _schedDragOid!=='undefined'&&_schedDragOid)||(typeof _touchDragOid!=='undefined'&&_touchDragOid);
+  if(at.includes('安裝')&&!_dragging)renderSchedule();
   if(at.includes('帳號')&&typeof isAdmin==='function'&&isAdmin())renderAccount();
 });
 // 第一次：如果 Firebase 沒種子過，種一個 ['阿淵']
@@ -3367,7 +3375,7 @@ function schedBatchAssignInstaller(){
   const upd={};let count=0;
   for(const oid of _schedBatch){
     const o=findO(oid);if(!o)continue;
-    if(o.install!=='是'){o.install='是'}
+    if(!isServiceActive(o)){o.install='是'}
     o.installer=n;
     logActivity(o,`批次指派師傅 → ${n}`);
     upd[oid]=o;count++;
@@ -3391,7 +3399,7 @@ function schedBatchSchedule(){
   const upd={};let count=0;
   for(const oid of _schedBatch){
     const o=findO(oid);if(!o)continue;
-    if(o.install!=='是'){o.install='是';if(!o.installer)o.installer=installers[0]||'阿淵'}
+    if(!isServiceActive(o)){o.install='是';if(!o.installer)o.installer=installers[0]||'阿淵'}
     o.installDate=dTrim;
     o.installSlot=sTrim;
     logActivity(o,`批次排程 → ${dTrim} ${sTrim||'未排時段'}`);
@@ -3882,8 +3890,8 @@ function scheduleOrderToSlot(oid,dateIso,slot){
   const oldDate=o.installDate||'';
   const oldSlot=o.installSlot||'';
   // No-op：拖到原本的格子，省一次 save + render
-  if(o.install==='是'&&oldDate===dateIso&&oldSlot===(slot||'')){return}
-  if(o.install!=='是'){
+  if(isServiceActive(o)&&oldDate===dateIso&&oldSlot===(slot||'')){return}
+  if(!isServiceActive(o)){
     if(!confirm('這筆訂單目前不是「要安裝」狀態，要設定為要安裝並排程到此時段嗎？'))return;
     o.install='是';if(!o.installer)o.installer=installers[0]||'阿淵';
   }
@@ -3950,7 +3958,7 @@ async function setWarehouseAddress(){
 // openSchedRoute / copySchedCurrentView 移除 — 簡化只剩週表後沒有 caller
 // 複製當日清單給司機/師傅（純文字格式，貼 LINE 用）
 function copySchedDay(dateIso){
-  const target=orders.filter(o=>o.install==='是'&&!o.installDone&&o.installDate===dateIso&&(schedInstaller==='all'||o.installer===schedInstaller)&&o.status!=='已取消'&&o.status!=='轉線下');
+  const target=orders.filter(o=>isServiceActive(o)&&!o.installDone&&o.installDate===dateIso&&(schedInstaller==='all'||o.installer===schedInstaller)&&o.status!=='已取消'&&o.status!=='轉線下');
   if(!target.length){alert(`${dateIso} 沒有安裝行程可複製`);return}
   // 按師傅分組（如 schedInstaller=all 多人）+ 同師傅內按時段 + ZIP
   const slotOrder={'早上':0,'下午':1,'晚上':2,'':3};
@@ -3988,7 +3996,7 @@ function copySchedDay(dateIso){
 }
 function openSchedRouteForDate(dateIso,opts){
   opts=opts||{};
-  const target=orders.filter(o=>o.install==='是'&&!o.installDone&&o.installDate===dateIso&&(schedInstaller==='all'||o.installer===schedInstaller)&&o.status!=='已取消'&&o.status!=='轉線下');
+  const target=orders.filter(o=>isServiceActive(o)&&!o.installDone&&o.installDate===dateIso&&(schedInstaller==='all'||o.installer===schedInstaller)&&o.status!=='已取消'&&o.status!=='轉線下');
   if(!target.length){alert(`${dateIso} 沒有安裝行程可以規劃`);return}
   // 多師傅警告：schedInstaller='all' 且有 ≥2 位師傅的單 → 路線會混合
   if(schedInstaller==='all'){
