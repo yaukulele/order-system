@@ -2446,8 +2446,8 @@ function batchPickingList(){let sel=orders.filter(o=>selectedIds.has(o.id));if(!
 
 function openPrintWindow(orders,format){const w=window.open('','_blank');if(!w){alert('請允許彈出視窗才能列印');return}const today=localDateISO();const is4x6=format==='4x6';
 const pageRule=is4x6?'@page{size:4in 6in;margin:0}':'';
-const labelStyle=is4x6?'.label{page-break-inside:avoid;page-break-after:always;padding:8mm;margin:0;font-size:11px;line-height:1.4;width:101.6mm;height:152.4mm;box-sizing:border-box;display:flex;flex-direction:column}.label h2{font-size:14px;margin:0 0 6mm;padding-bottom:4mm;border-bottom:1.5px solid #111}.label .row{display:flex;gap:4px;margin:2mm 0}.label .lbl{width:40px;color:#666;font-size:9px;font-weight:700}.label .val{flex:1;font-weight:600}.label .footer{margin-top:auto;padding-top:3mm;border-top:1px dashed #ccc;font-size:9px;color:#999}@media print{.no-print{display:none}}':'.label{page-break-inside:avoid;page-break-after:always;padding:24px;border:2px dashed #999;margin:8px;font-size:14px;line-height:1.7}.label:last-child{page-break-after:auto}.label h2{font-size:22px;margin:0 0 12px;border-bottom:2px solid #111;padding-bottom:6px}.label .row{display:flex;gap:8px;margin:4px 0}.label .lbl{width:60px;color:#666;font-size:12px;font-weight:700}.label .val{flex:1;font-weight:600}.label .footer{margin-top:14px;padding-top:8px;border-top:1px dashed #ccc;font-size:11px;color:#999}@media print{.label{margin:0;border:0;padding:18px}.no-print{display:none}}';
-const html=`<!doctype html><html><head><meta charset="utf-8"><title>出貨單 ${today} ${is4x6?'4×6':'A4'}</title><style>${pageRule}body{font-family:-apple-system,'Microsoft JhengHei',sans-serif;color:#111;margin:0;padding:0}${labelStyle}.no-print{padding:14px;background:#f0f0f0;text-align:center}</style></head><body><div class="no-print"><h3>共 ${orders.length} 筆出貨單（${is4x6?'4×6 標籤':'A4'}）</h3><button onclick="window.print()" style="padding:10px 20px;font-size:14px;cursor:pointer">🖨 列印</button> <button onclick="window.close()" style="padding:10px 20px;font-size:14px;cursor:pointer">關閉</button></div>${orders.map(o=>{const q=(o.qty||1)>1?' × '+o.qty:'';const pr=(o.product||'')+(o.specs?'（'+o.specs+'）':'')+q;return`<div class="label"><h2>📦 出貨單</h2><div class="row"><span class="lbl">姓名</span><span class="val" style="font-size:${is4x6?'13px':'18px'}">${esc(o.name||'')}</span></div><div class="row"><span class="lbl">電話</span><span class="val" style="font-size:${is4x6?'12px':'16px'}">${phoneTel(bestPhone(o))}</span></div><div class="row"><span class="lbl">地址</span><span class="val" style="font-size:${is4x6?'10px':'14px'}">${esc(o.address||'')}</span></div><div class="row"><span class="lbl">商品</span><span class="val">${esc(pr)}</span></div><div class="row"><span class="lbl">單號</span><span class="val" style="font-family:'Menlo',monospace;font-size:${is4x6?'9px':'11px'}">${esc(o.orderNo||'')}</span></div>${(()=>{const cn=cleanNote(o.note);const noteParts=[];if(o.addrMgmt||o.addrElev){noteParts.push([o.addrMgmt?(o.addrMgmt==='有'?'有':'無')+'管':'',(o.addrElev&&o.addrElev!=='不適用')?(o.addrElev==='有'?'有':'無')+'梯':''].filter(Boolean).join('+'))}if(o.install==='是'){const _f=Number(o.installFee)||0,_p=Number(o.installPaidAmount)||0;const _ps=_f===0?'':(_p>=_f?' 已收':(_p>0?` 缺$${_f-_p}`:' 未收'));noteParts.push('🔧 安裝'+(o.installDay?' '+o.installDay+(o.installTime?' '+o.installTime:''):'')+(_f?' $'+_f:'')+_ps)}if(o.addon==='是'){const _f=Number(o.addonFee)||0,_p=Number(o.addonPaidAmount)||0;const _ps=_f===0?'':(_p>=_f?' 已收':(_p>0?` 缺$${_f-_p}`:' 未收'));noteParts.push('🛒 加購'+(o.addonItems?' '+o.addonItems:'')+(_f?' $'+_f:'')+_ps)}if(cn)noteParts.push(cn);const noteText=noteParts.join(' ｜ ');return noteText?`<div class="row"><span class="lbl">備註</span><span class="val" style="font-size:${is4x6?'9px':'12px'}">${esc(noteText).slice(0,is4x6?160:9999)}</span></div>`:''})()}<div class="footer">${platName(o.platform)} ｜ 印於 ${new Date().toLocaleString('zh-TW')}</div></div>`}).join('')}</body></html>`;w.document.write(html);w.document.close()}
+const labelStyle=is4x6?'.label{page-break-inside:avoid;page-break-after:always;padding:8mm;margin:0;font-size:11px;line-height:1.4;width:101.6mm;height:152.4mm;box-sizing:border-box;display:flex;flex-direction:column}.label h2{font-size:14px;margin:0 0 6mm;padding-bottom:4mm;border-bottom:1.5px solid #111}.label .row{display:flex;gap:4px;margin:2mm 0}.label .lbl{width:40px;color:#666;font-size:9px;font-weight:700}.label .val{flex:1;font-weight:600;word-break:break-word;overflow-wrap:anywhere}.label .footer{margin-top:auto;padding-top:3mm;border-top:1px dashed #ccc;font-size:9px;color:#999}@media print{.no-print{display:none}}':'.label{page-break-inside:avoid;page-break-after:always;padding:24px;border:2px dashed #999;margin:8px;font-size:14px;line-height:1.7}.label:last-child{page-break-after:auto}.label h2{font-size:22px;margin:0 0 12px;border-bottom:2px solid #111;padding-bottom:6px}.label .row{display:flex;gap:8px;margin:4px 0}.label .lbl{width:60px;color:#666;font-size:12px;font-weight:700}.label .val{flex:1;font-weight:600;word-break:break-word;overflow-wrap:anywhere}.label .footer{margin-top:14px;padding-top:8px;border-top:1px dashed #ccc;font-size:11px;color:#999}@media print{.label{margin:0;border:0;padding:18px}.no-print{display:none}}';
+const html=`<!doctype html><html><head><meta charset="utf-8"><title>出貨單 ${today} ${is4x6?'4×6':'A4'}</title><style>${pageRule}body{font-family:-apple-system,'Microsoft JhengHei',sans-serif;color:#111;margin:0;padding:0}${labelStyle}.no-print{padding:14px;background:#f0f0f0;text-align:center}</style></head><body><div class="no-print"><h3>共 ${orders.length} 筆出貨單（${is4x6?'4×6 標籤':'A4'}）</h3><button onclick="window.print()" style="padding:10px 20px;font-size:14px;cursor:pointer">🖨 列印</button> <button onclick="window.close()" style="padding:10px 20px;font-size:14px;cursor:pointer">關閉</button></div>${orders.map(o=>{const q=(o.qty||1)>1?' × '+o.qty:'';const pr=(o.product||'')+(o.specs?'（'+o.specs+'）':'')+q;return`<div class="label"><h2>📦 出貨單</h2><div class="row"><span class="lbl">姓名</span><span class="val" style="font-size:${is4x6?'13px':'18px'}">${esc(o.name||'')}</span></div><div class="row"><span class="lbl">電話</span><span class="val" style="font-size:${is4x6?'12px':'16px'}">${phoneTel(bestPhone(o))}</span></div><div class="row"><span class="lbl">地址</span><span class="val" style="font-size:${is4x6?'10px':'14px'}">${esc(o.address||'')}</span></div><div class="row"><span class="lbl">商品</span><span class="val">${esc(pr)}</span></div><div class="row"><span class="lbl">單號</span><span class="val" style="font-family:'Menlo',monospace;font-size:${is4x6?'9px':'11px'}">${esc(o.orderNo||'')}</span></div>${(()=>{const cn=cleanNote(o.note);const noteParts=[];if(o.addrMgmt||o.addrElev){noteParts.push([o.addrMgmt?(o.addrMgmt==='有'?'有':'無')+'管':'',(o.addrElev&&o.addrElev!=='不適用')?(o.addrElev==='有'?'有':'無')+'梯':''].filter(Boolean).join('+'))}if(o.install==='是'){const _f=Number(o.installFee)||0,_p=Number(o.installPaidAmount)||0;const _ps=_f===0?'':(_p>=_f?' 已收':(_p>0?` 缺$${_f-_p}`:' 未收'));noteParts.push('🔧 安裝'+(o.installDay?' '+o.installDay+(o.installTime?' '+o.installTime:''):'')+(_f?' $'+_f:'')+_ps)}if(o.addon==='是'){const _f=Number(o.addonFee)||0,_p=Number(o.addonPaidAmount)||0;const _ps=_f===0?'':(_p>=_f?' 已收':(_p>0?` 缺$${_f-_p}`:' 未收'));noteParts.push('🛒 加購'+(o.addonItems?' '+o.addonItems:'')+(_f?' $'+_f:'')+_ps)}if(cn)noteParts.push(cn);const noteText=noteParts.join(' ｜ ');return noteText?`<div class="row"><span class="lbl">備註</span><span class="val" style="font-size:${is4x6?'9px':'12px'}">${esc(noteText.slice(0,is4x6?160:9999))}</span></div>`:''})()}<div class="footer">${platName(o.platform)} ｜ 印於 ${new Date().toLocaleString('zh-TW')}</div></div>`}).join('')}</body></html>`;w.document.write(html);w.document.close()}
 function delOrder(oid){const i=findIdx(oid);if(i<0)return;const o=orders[i];if(!confirm(`確定刪除？\n\n${o.name||''} ｜ ${o.product||''}\n\n（8 秒內可按 Undo 還原）`))return;pushUndo({kind:'delete-one',order:JSON.parse(JSON.stringify(o))});orders.splice(i,1);selectedIds.delete(oid);deleteOrderId(oid);renderList();showToast(`已刪除「${o.name||o.product||'訂單'}」`,'↩️ 還原',undoLast,8000)}
 
 
@@ -3101,7 +3101,7 @@ alert(`✅ ${word} 已送 MOMO${data.successCnt?`\n成功 ${data.successCnt}/${d
 // ===== MOMO 出貨確認 =====
 const MOMO_DELY_COMPANIES=['宅配通','新竹貨運','統一速達','大榮貨運','宅配通大電','順豐速運','全球快遞','通盈貨運','新航貨運','郵局','便利袋','其他宅配','其他'];
 const MOMO_SHIP_TYPES=['原箱','momo制式包材-紙箱(袋)','momo制式包材-破壞袋','自有包材','循環箱'];
-function openShipMomo(oid){const o=findO(oid);if(!o)return;if(o.platform!=='MO'){alert('只有 MOMO 訂單可用此功能');return}shipId=oid;editId=null;_modalDirty=false;
+function openShipMomo(oid){const o=findO(oid);if(!o)return;if(o.platform!=='MO'){alert('只有 MOMO 訂單可用此功能');return}shipId=oid;editId=null;_modalDirty=false;_shipBusy=false;
 document.getElementById('modal-body').innerHTML=`<h3>📤 MOMO 出貨確認 / 物流單號回填</h3>
 <div style="background:#fef9ec;border:1px solid #f0e4b8;border-radius:8px;padding:10px 14px;font-size:11px;color:#8a6d0b;margin-bottom:12px;line-height:1.6">
 <b>⚠️ 安全機制：</b><br>
@@ -3133,6 +3133,7 @@ function onShipStatusChange(){const s=document.getElementById('s-status').value;
   document.getElementById('ship-other').classList.toggle('hidden',s==='已配送'||s==='已確認指定配送日');
   document.getElementById('ship-result').innerHTML='';document.getElementById('ship-real-btn').style.display='none'}
 
+let _shipBusy=false;
 async function submitShip(force){
   await momoConfigReady;
   const o=findO(shipId);if(!o){alert('訂單已不存在');closeModal();return}
@@ -3165,6 +3166,11 @@ async function submitShip(force){
     if(!item.msgNote){alert('配送訊息必填（非已配送）');return}
   }
   const api=getMomoApi();const token=getMomoToken();if(!api||!token){alert('需先設定 API URL + Token');return}
+  // 防重入：出貨確認是不可逆動作，手機連點兩下會送兩次 → 鎖住並停用按鈕（比照其他網路 handler）
+  if(_shipBusy)return;_shipBusy=true;
+  const _dryBtn=document.getElementById('ship-dry-btn'),_realBtn=document.getElementById('ship-real-btn');
+  if(_dryBtn)_dryBtn.disabled=true;if(_realBtn)_realBtn.disabled=true;
+  const _unlock=()=>{_shipBusy=false;if(_dryBtn)_dryBtn.disabled=false;if(_realBtn)_realBtn.disabled=false};
   const result=document.getElementById('ship-result');
   result.innerHTML='<div style="color:var(--blu);font-size:12px">處理中...</div>';
   try{
@@ -3172,14 +3178,15 @@ async function submitShip(force){
     const data=await r.json();
     if(!r.ok||!data.ok){
       result.innerHTML=`<div style="background:var(--pc-bg);border:1px solid var(--pc);color:var(--pc);padding:10px;border-radius:6px;font-size:12px"><b>❌ 失敗</b><br>${esc(data.error||'HTTP '+r.status)}<br><pre style="white-space:pre-wrap;font-size:10px;margin-top:6px">${esc(JSON.stringify(data,null,2).slice(0,500))}</pre></div>`;
-      return;
+      _unlock();return;
     }
     if(data.dryRun){
       result.innerHTML=`<div style="background:#eff6ff;border:1px solid #93c5fd;color:#1e3a8a;padding:10px;border-radius:6px;font-size:12px"><b>🧪 DRY RUN — 沒有送到 MOMO</b><br>下面這份 payload 是按「真送」會送出的內容：<pre style="white-space:pre-wrap;font-size:10px;margin-top:6px;background:#fff;padding:8px;border-radius:4px">${esc(JSON.stringify(data.wouldSend,null,2))}</pre>確認沒問題就按「⚠️ 確認真送 MOMO」</div>`;
       document.getElementById('ship-real-btn').style.display='inline-block';
-      return;
+      _unlock();return;
     }
-    // Real submit succeeded
+    // Real submit succeeded — 保持鎖住/隱藏真送鈕直到 modal 關閉，避免 800ms 窗內重點造成重複真送
+    if(_realBtn)_realBtn.style.display='none';
     result.innerHTML=`<div style="background:var(--grn-bg);border:1px solid var(--grn);color:var(--grn);padding:10px;border-radius:6px;font-size:12px"><b>✅ MOMO 已收到出貨確認</b><br>HTTP ${data.status} ｜ 重試次數 ${data.attempts||1}<br><pre style="white-space:pre-wrap;font-size:10px;margin-top:6px;background:#fff;padding:8px;border-radius:4px;color:#000">${esc(JSON.stringify(data.data,null,2).slice(0,400))}</pre></div>`;
     // Update local order
     if(status==='已配送'){o.trackingNo=item.slipNo;o.delyGbStr=item.delyGbStr;o.shipTypeStr=item.shipTypeStr;o.packTypeStr=item.packTypeStr;o.packUnit=item.packUnit;o.status='已出貨'}
@@ -3194,6 +3201,7 @@ async function submitShip(force){
     setTimeout(()=>{closeModal();alert(`✅ 出貨確認完成，訂單狀態已更新為「${localMsg}」`)},800);
   }catch(err){
     result.innerHTML=`<div style="background:var(--pc-bg);border:1px solid var(--pc);color:var(--pc);padding:10px;border-radius:6px;font-size:12px"><b>❌ 網路錯誤</b><br>${esc(err.message)}</div>`;
+    _unlock();
   }
 }
 
