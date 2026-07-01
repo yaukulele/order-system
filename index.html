@@ -3042,7 +3042,7 @@ function toggleFullscreenMode(){const cur=document.body.classList.contains('full
 if(window.matchMedia('(max-width:768px)').matches&&localStorage.getItem('fullscreenMode')==='1'){applyFullscreenMode(true)}
 
 function refreshNotifBtn(){const btn=document.getElementById('notif-btn');if(!('Notification' in window)){btn.style.display='none';return}const enabled=localStorage.getItem('notif-enabled')==='1'&&Notification.permission==='granted';btn.textContent=enabled?'🔔':'🔕';btn.title=enabled?'桌面通知已開啟':'桌面通知已關閉'}
-async function toggleNotifications(){if(!('Notification' in window)){alert('你的瀏覽器不支援桌面通知');return}let perm=Notification.permission;if(perm!=='granted')perm=await Notification.requestPermission();if(perm!=='granted'){alert('權限被拒，請到瀏覽器設定開啟通知權限');refreshNotifBtn();return}const cur=localStorage.getItem('notif-enabled')==='1';localStorage.setItem('notif-enabled',cur?'0':'1');refreshNotifBtn();if(!cur)new Notification('🔔 桌面通知已啟用',{body:'之後 自動抓 MOMO 抓到新訂單會在這裡跳出'})}
+async function toggleNotifications(){if(!('Notification' in window)){alert('你的瀏覽器不支援桌面通知');return}let perm=Notification.permission;if(perm!=='granted')perm=await Notification.requestPermission();if(perm!=='granted'){alert('權限被拒，請到瀏覽器設定開啟通知權限');refreshNotifBtn();return}const cur=localStorage.getItem('notif-enabled')==='1';localStorage.setItem('notif-enabled',cur?'0':'1');refreshNotifBtn();if(!cur){try{new Notification('🔔 桌面通知已啟用',{body:'之後 自動抓 MOMO 抓到新訂單會在這裡跳出'})}catch(e){/* Android Chrome new Notification() 會丟 Illegal constructor，忽略即可 */}}}
 function notifyDesktop(title,body){if(localStorage.getItem('notif-enabled')!=='1')return;if(Notification.permission!=='granted')return;try{const n=new Notification(title,{body,icon:'data:image/svg+xml,%3Csvg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100"%3E%3Ctext y="78" font-size="80"%3E📦%3C/text%3E%3C/svg%3E'});n.onclick=()=>{window.focus();showTab('list');n.close()}}catch(e){}}
 refreshNotifBtn();
 
@@ -3335,7 +3335,7 @@ async function renameInstaller(oldName){
   const next=installers.map(x=>x===oldName?n:x);
   try{
     await db.ref('installers').set(next);
-    if(affected.length){const upd={};for(const o of affected){o.installer=n;upd[o.id+'/installer']=n}await db.ref('orders').update(upd);for(const o of affected)logActivity(o,`安裝師傅 ${oldName} → ${n}`)}
+    if(affected.length){const upd={};for(const o of affected){o.installer=n;logActivity(o,`安裝師傅 ${oldName} → ${n}`);upd[o.id+'/installer']=n;upd[o.id+'/note']=o.note||''}_setSavingBadge();await db.ref('orders').update(upd)}
     await logUserAction('rename-installer',`${oldName} → ${n}（連動 ${affected.length} 筆訂單）`);
     showToast(`已改名 ${oldName} → ${n}（連動 ${affected.length} 單）`);
   }catch(e){alert('改名失敗：'+e.message)}
