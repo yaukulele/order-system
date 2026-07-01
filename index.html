@@ -415,7 +415,7 @@ function isModalOpen(){return !document.getElementById('modal-overlay').classLis
 function isInputFocused(){const a=document.activeElement;return a&&['INPUT','TEXTAREA','SELECT'].includes(a.tagName)&&!['q','cq','oq','of-from','of-to','raw-input'].includes(a.id)}
 let _lastSyncAt=null;
 function setSyncOn(){const sb=document.getElementById('sync-badge');if(sb){_lastSyncAt=new Date();const ts=_lastSyncAt.toLocaleTimeString('zh-TW',{hour:'2-digit',minute:'2-digit',hour12:false});sb.className='sync-dot sync-on';sb.title=`最後同步：${ts}`;sb.innerHTML=`<span class="dot dot-on"></span>${ts}`}}
-function applyRemoteOrders(val){const sc=window.scrollY;const wasLoaded=ordersLoaded;const prevIds=new Set(orders.map(o=>o.id));pendingRemoteOrders=null;orders=val?Object.values(val):[];orders.forEach(migrateStatus);
+function applyRemoteOrders(val){const sc=window.scrollY;const wasLoaded=ordersLoaded;const prevIds=new Set(orders.map(o=>o.id));pendingRemoteOrders=null;orders=val?Object.values(val):[];orders.forEach(migrateStatus);_invalidateOrderCaches();
 // 清掉 selectedIds 裡已不存在的 ids（其他裝置刪掉的）— 避免 batch bar 顯示假筆數
 if(selectedIds.size){const valid=new Set(orders.map(o=>o.id));for(const id of [...selectedIds])if(!valid.has(id))selectedIds.delete(id)}
 // 偵測其他裝置剛加進來的新訂單 — toast 提示（自己 import 的不會觸發，因為 self-echo 在 line 287 已 skip）
@@ -529,9 +529,9 @@ function _snapshotJson(){const d={};orders.forEach(o=>{d[o.id]=o});return JSON.s
 function _doSaveAll(){_saveAllTimer=null;const d={};orders.forEach(o=>{d[o.id]=o});_pendingOneIds.clear();db.ref('orders').update(d).catch(_saveError)}
 function _doSaveOnes(){_saveOneTimer=null;if(_pendingOneIds.size===0)return;const updates={};for(const id of _pendingOneIds){const o=findO(id);if(o)updates[id]=o}_pendingOneIds.clear();db.ref('orders').update(updates).catch(_saveError)}
 // saveAll = update 整包 orders（不用 set，避免 multi-device wipe）— 取消 pending saveOne，由 saveAll 統一處理
-function saveAll(immediate){_setSavingBadge();_pendingOneIds.clear();if(_saveOneTimer){clearTimeout(_saveOneTimer);_saveOneTimer=null}if(_saveAllTimer)clearTimeout(_saveAllTimer);if(immediate)_doSaveAll();else _saveAllTimer=setTimeout(_doSaveAll,200)}
+function saveAll(immediate){_invalidateOrderCaches();_setSavingBadge();_pendingOneIds.clear();if(_saveOneTimer){clearTimeout(_saveOneTimer);_saveOneTimer=null}if(_saveAllTimer)clearTimeout(_saveAllTimer);if(immediate)_doSaveAll();else _saveAllTimer=setTimeout(_doSaveAll,200)}
 // saveOne = single order update — 如果 saveAll 已 pending，等 saveAll 處理（包括這個 order）
-function saveOne(o){if(!o||!o.id)return;_setSavingBadge();if(_saveAllTimer)return;_pendingOneIds.add(o.id);if(_saveOneTimer)clearTimeout(_saveOneTimer);_saveOneTimer=setTimeout(_doSaveOnes,200)}
+function saveOne(o){if(!o||!o.id)return;_invalidateOrderCaches();_setSavingBadge();if(_saveAllTimer)return;_pendingOneIds.add(o.id);if(_saveOneTimer)clearTimeout(_saveOneTimer);_saveOneTimer=setTimeout(_doSaveOnes,200)}
 // 刪除單筆 — 必須顯式 remove，不能靠 saveAll（現在用 update 不會自動清舊 keys）
 function deleteOrderId(id){_setSavingBadge();db.ref('orders/'+id).remove().catch(_saveError)}
 function deleteOrderIds(ids){if(!ids||!ids.length)return;_setSavingBadge();const updates={};for(const id of ids)updates[id]=null;db.ref('orders').update(updates).catch(_saveError)}
@@ -2247,7 +2247,12 @@ function statusMatchList(o){
 // 搜尋容錯：去掉橫線/空白/底線/斜線/點 → P-225 = P225 = p 225 = 225 互通；多詞以空白分隔 = AND（每詞都要命中）
 // 命中規則：每個詞「原字串子字串命中」或「去符號後子字串命中」其一即可
 const _SEARCH_STRIP=/[\s\-_/.]+/g;
-function _searchHay(o){return [o.orderNo,o.product,o.name,o.phone,o.realPhone,o.address,o.note,o.specs].join(' ').toLowerCase()}
+// 🚀 hay 快取：搜尋乾草堆字串按訂單 id 記憶，避免每次 keystroke（renderList → updateFilterCounts + filterListOrders）
+// 對每筆訂單重複 join 8 欄 + toLowerCase。新增訂單自動 miss→重算（正確）；就地改欄位都走 saveOne/saveAll → 清快取。
+const _hayCache=new Map();
+function _searchHay(o){let h=_hayCache.get(o.id);if(h===undefined){h=[o.orderNo,o.product,o.name,o.phone,o.realPhone,o.address,o.note,o.specs].join(' ').toLowerCase();_hayCache.set(o.id,h)}return h}
+// 訂單內容/成員變動時呼叫 — 清掉衍生快取（hay + 客戶彙總），避免顯示舊資料
+function _invalidateOrderCaches(){_hayCache.clear();_custAggCache=null}
 function _matchSearch(hay,q){
   // hay：已 lowercase 的乾草堆字串；q：已 fwToHw + lowercase 的查詢
   if(!q)return true;
@@ -2386,7 +2391,7 @@ ${a.cam}
 ${a.del}
 </div></div>`});
 h+='</div>';if(truncated){h+=`<div class="card" style="margin-top:8px"><div class="card-b" style="text-align:center;padding:14px"><div style="color:var(--dm);font-size:12px;margin-bottom:8px">顯示 ${LIMIT} / ${fl.length} 筆 — 用搜尋或篩選找特定訂單較快</div><button class="btn" onclick="_mobileExpand=true;renderList()">📋 載入全部 ${fl.length} 筆</button></div></div>`}document.getElementById('list-area').innerHTML=h;renderBatchBar(fl)}
-function renderBatchBar(fl){let bar=document.getElementById('batch-bar');const selOrders=orders.filter(o=>selectedIds.has(o.id));if(selOrders.length===0){if(bar)bar.classList.add('hidden');document.body.classList.remove('has-batch-bar');return}if(!bar){bar=document.createElement('div');bar.id='batch-bar';bar.className='batch-bar';document.body.appendChild(bar)}bar.classList.remove('hidden');document.body.classList.add('has-batch-bar');const total=selOrders.reduce((s,o)=>s+tot(o),0);bar.innerHTML=`<span style="font-size:13px;font-weight:700">已選 ${selOrders.length} 筆 ｜ 合計 $${total.toLocaleString()}</span><span style="flex:1"></span><button onclick="batchSetStatus('已確認')">已確認</button><button onclick="batchSetStatus('已出貨')">已出貨</button><button onclick="batchSetStatus('已完成')">已完成</button><button onclick="batchCopyShipping()">📋 複製</button><button onclick="batchPrintShipping()" title="A4 紙張">🖨 A4</button><button onclick="batchPrintShipping4x6()" title="4×6 熱感應標籤">🏷 4×6</button><button onclick="batchPickingList()" title="按商品分組產生揀貨清單">🛒 揀貨</button><button onclick="batchExportShipping()" title="勾選的訂單匯出成貨運託運單 Excel（備註自動帶品名）">📦 託運單</button><button class="danger" onclick="batchDelete()">🗑 刪</button><button onclick="selectedIds.clear();renderList()">取消</button>`}
+function renderBatchBar(fl){let bar=document.getElementById('batch-bar');if(!selectedIds.size){if(bar)bar.classList.add('hidden');document.body.classList.remove('has-batch-bar');return}const selOrders=orders.filter(o=>selectedIds.has(o.id));if(selOrders.length===0){if(bar)bar.classList.add('hidden');document.body.classList.remove('has-batch-bar');return}if(!bar){bar=document.createElement('div');bar.id='batch-bar';bar.className='batch-bar';document.body.appendChild(bar)}bar.classList.remove('hidden');document.body.classList.add('has-batch-bar');const total=selOrders.reduce((s,o)=>s+tot(o),0);bar.innerHTML=`<span style="font-size:13px;font-weight:700">已選 ${selOrders.length} 筆 ｜ 合計 $${total.toLocaleString()}</span><span style="flex:1"></span><button onclick="batchSetStatus('已確認')">已確認</button><button onclick="batchSetStatus('已出貨')">已出貨</button><button onclick="batchSetStatus('已完成')">已完成</button><button onclick="batchCopyShipping()">📋 複製</button><button onclick="batchPrintShipping()" title="A4 紙張">🖨 A4</button><button onclick="batchPrintShipping4x6()" title="4×6 熱感應標籤">🏷 4×6</button><button onclick="batchPickingList()" title="按商品分組產生揀貨清單">🛒 揀貨</button><button onclick="batchExportShipping()" title="勾選的訂單匯出成貨運託運單 Excel（備註自動帶品名）">📦 託運單</button><button class="danger" onclick="batchDelete()">🗑 刪</button><button onclick="selectedIds.clear();renderList()">取消</button>`}
 function batchSetStatus(s){
   const sel=orders.filter(o=>selectedIds.has(o.id));if(!sel.length)return;
   // 防呆：批次標記「已完成」前 → 找出未收款的，列出來再確認一次
@@ -2572,13 +2577,18 @@ function customerKey(o){
   if(phone&&!isMomoMasked)return 'p:'+phone;
   return 'na:'+(o.name||'').trim()+'||'+(o.address||'').trim().slice(0,8);
 }
-function aggregateCustomers(){const m=new Map();const src=customerPlatform==='all'?orders:orders.filter(o=>o.platform===customerPlatform);src.forEach(o=>{const key=customerKey(o);if(!key||key==='na:||')return;const cur=m.get(key)||{name:o.name||'',phone:o.phone||'',realPhone:'',addresses:new Set(),orders:[],total:0,platforms:new Set(),lastDate:''};cur.orders.push(o);
+let _custAggCache=null,_custAggLen=-1,_custAggKey='';
+function aggregateCustomers(){
+// 🚀 客戶彙總快取：只在平台/排序或訂單筆數變動時重算（就地改欄位走 saveOne → _invalidateOrderCaches 清）
+const _ck=customerPlatform+'|'+customerSort;
+if(_custAggCache&&_custAggKey===_ck&&_custAggLen===orders.length)return _custAggCache;
+const m=new Map();const src=customerPlatform==='all'?orders:orders.filter(o=>o.platform===customerPlatform);src.forEach(o=>{const key=customerKey(o);if(!key||key==='na:||')return;const cur=m.get(key)||{name:o.name||'',phone:o.phone||'',realPhone:'',addresses:new Set(),orders:[],total:0,platforms:new Set(),lastDate:''};cur.orders.push(o);
 // 已取消 / 轉線下都不算線上總消費（跟 renderStats 的 sales 一致）
 if(o.status!=='已取消'&&o.status!=='轉線下')cur.total+=tot(o);
 cur.platforms.add(o.platform);if(o.address)cur.addresses.add(o.address);if(o.realPhone&&!cur.realPhone)cur.realPhone=o.realPhone;
 // 顯示用的 phone 優先存「不是 MOMO 代撥」的；如果都是 MOMO 代撥就保留最新一筆（因為都會跑掉）
 if(o.phone){const isM=o.phone.includes('#')||o.phone.startsWith('0971191888');if(!cur.phone||(!isM&&(cur.phone.includes('#')||cur.phone.startsWith('0971191888'))))cur.phone=o.phone}
-if(o.date>cur.lastDate)cur.lastDate=o.date;m.set(key,cur)});const arr=[...m.values()];const sorters={lastDate:(a,b)=>(b.lastDate||'').localeCompare(a.lastDate||''),total:(a,b)=>b.total-a.total,cnt:(a,b)=>b.orders.length-a.orders.length,name:(a,b)=>a.name.localeCompare(b.name,'zh-TW')};arr.sort(sorters[customerSort]||sorters.lastDate);return arr}
+if(o.date>cur.lastDate)cur.lastDate=o.date;m.set(key,cur)});const arr=[...m.values()];const sorters={lastDate:(a,b)=>(b.lastDate||'').localeCompare(a.lastDate||''),total:(a,b)=>b.total-a.total,cnt:(a,b)=>b.orders.length-a.orders.length,name:(a,b)=>a.name.localeCompare(b.name,'zh-TW')};arr.sort(sorters[customerSort]||sorters.lastDate);_custAggCache=arr;_custAggKey=_ck;_custAggLen=orders.length;return arr}
 // 客戶一筆的衍生資料 — desktop/mobile 共用
 function prepareCustomerRow(c){
   const cnJS=JSON.stringify(c.name).replace(/"/g,'&quot;');
@@ -2755,7 +2765,7 @@ if((_snap.install==='是'||_snap.install==='配送')&&o.install!==_snap.install)
 if(o.install==='否'||o.install==='未確認'){o.installFee=0;o.installDay='';o.installTime='';o.installPaidAmount=0;o.installDate='';o.installSlot='';o.installer='';o.installDone=false}
 else{o.installFee=parseInt(document.getElementById('e-instf').value)||0;o.installDay='';o.installTime='';
   // 安裝已收金額（新增 — 可填部分）
-  {const _pInp=document.getElementById('e-instpaid');if(_pInp){const _pNew=parseInt((_pInp.value||'').replace(/[^\d]/g,''))||0;const _pOld=Number(o.installPaidAmount||0);if(_pNew!==_pOld)logActivity(o,`安裝款 ${_pOld===0?'未收':'$'+_pOld} → ${_pNew===0?'未收':'$'+_pNew}（編輯視窗）`);o.installPaidAmount=_pNew}}
+  {const _pInp=document.getElementById('e-instpaid');if(_pInp){const _pNew=parseAmt(_pInp.value)||0;const _pOld=Number(o.installPaidAmount||0);if(_pNew!==_pOld)logActivity(o,`安裝款 ${_pOld===0?'未收':'$'+_pOld} → ${_pNew===0?'未收':'$'+_pNew}（編輯視窗）`);o.installPaidAmount=_pNew}}
   o.installDate=document.getElementById('e-installDate')?.value||'';
   o.installSlot=document.getElementById('e-installSlot')?.value||'';
   // 安裝完成狀態（從 ei-done-btn 讀）— 新標完成時記時間戳
@@ -2778,12 +2788,12 @@ if(_snap.addon==='是'&&o.addon!=='是'){const segs=[];if(_snap.addonFee)segs.pu
 if(o.addon==='否'||o.addon==='未確認'){o.addonFee=0;o.addonItems='';o.addonPaidAmount=0}
 else{o.addonFee=parseInt(document.getElementById('e-addonf').value)||0;o.addonItems=(document.getElementById('e-addonitems')?.value||'').trim();
   // 加購已收金額（新增 — 可填部分）
-  {const _pInp=document.getElementById('e-addonpaid');if(_pInp){const _pNew=parseInt((_pInp.value||'').replace(/[^\d]/g,''))||0;const _pOld=Number(o.addonPaidAmount||0);if(_pNew!==_pOld)logActivity(o,`加購款 ${_pOld===0?'未收':'$'+_pOld} → ${_pNew===0?'未收':'$'+_pNew}（編輯視窗）`);o.addonPaidAmount=_pNew}}}
+  {const _pInp=document.getElementById('e-addonpaid');if(_pInp){const _pNew=parseAmt(_pInp.value)||0;const _pOld=Number(o.addonPaidAmount||0);if(_pNew!==_pOld)logActivity(o,`加購款 ${_pOld===0?'未收':'$'+_pOld} → ${_pNew===0?'未收':'$'+_pNew}（編輯視窗）`);o.addonPaidAmount=_pNew}}}
 o.status=document.getElementById('e-st').value;
 // 防呆：狀態從非「已完成」改成「已完成」且有未收款 → confirm；取消就回滾 + 中止 save
 if(prevStatus!=='已完成'&&o.status==='已完成'){
   const warn=[];
-  if(o.install==='是'&&Number(o.installFee)>0){const need=Number(o.installFee)-Number(o.installPaidAmount||0);if(need>0)warn.push(`🔧 安裝費 還缺 $${need}（應 $${o.installFee} / 已收 $${Number(o.installPaidAmount||0)}）`)}
+  if(isServiceActive(o)&&Number(o.installFee)>0){const need=Number(o.installFee)-Number(o.installPaidAmount||0);if(need>0)warn.push(`${isSelfDeliver(o)?'🚚 配送':'🔧 安裝'}費 還缺 $${need}（應 $${o.installFee} / 已收 $${Number(o.installPaidAmount||0)}）`)}
   if(o.addon==='是'&&Number(o.addonFee)>0){const need=Number(o.addonFee)-Number(o.addonPaidAmount||0);if(need>0)warn.push(`🛒 加購費 還缺 $${need}（應 $${o.addonFee} / 已收 $${Number(o.addonPaidAmount||0)}）`)}
   if(warn.length&&!confirm(`⚠ 這筆訂單還有款項沒收：\n\n${warn.join('\n')}\n\n仍要把狀態存成「已完成」？\n（按取消可改回原狀態或先收費）`)){
     // 回滾所有 in-memory mutation 回到開啟 modal 時的狀態
