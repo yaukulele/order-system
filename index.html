@@ -390,6 +390,11 @@ async function ensureStorage(){
   return _storageReadyPromise;
 }
 const db=firebase.database();
+// 🚀 衍生資料快取（搜尋乾草堆 + 客戶彙總）— 宣告在前，讓 _setSavingBadge 能安全清快取（避免 TDZ）
+// 不變量：任何寫入 orders 到 DB 前都會呼叫 _setSavingBadge()，那裡統一清快取 → 就地改/直寫/匯入/刪除全涵蓋
+const _hayCache=new Map();
+let _custAggCache=null,_custAggLen=-1,_custAggKey='',_custAggLastId='';
+function _invalidateOrderCaches(){_hayCache.clear();_custAggCache=null}
 let orders=[],ordersLoaded=false,cFilter=localStorage.getItem('cFilter')||'all',editId=null,shipId=null,sortOrder=localStorage.getItem('sortOrder')||'date-desc',cSpecial=localStorage.getItem('cSpecial')||null,statsPeriod=localStorage.getItem('statsPeriod')||'30',customerSort=localStorage.getItem('customerSort')||'lastDate',customerPlatform=localStorage.getItem('customerPlatform')||'all',outputPlatform=localStorage.getItem('outputPlatform')||'all';
 // cStatus 改為陣列：[] = 狀態；多元素 = 多選（desktop only）；單元素 = 對應狀態
 // 兼容舊版 localStorage 字串（'已確認'）跟新版 JSON 陣列
@@ -522,16 +527,16 @@ db.ref('users').on('value',snap=>{_usersCache=snap.val()||null;},()=>{/* 離線/
 // 兩條路徑分開：saveAll / saveOne 都走 update（不用 set，避免沖掉其他裝置剛加的訂單）
 // 刪除訂單要走 deleteOrderId / deleteOrderIds（顯式 remove），不能靠「不在 orders 就消失」
 let _saveAllTimer=null,_saveOneTimer=null,_pendingOneIds=new Set();
-function _setSavingBadge(){const sb=document.getElementById('sync-badge');if(sb){sb.className='sync-dot sync-on';sb.innerHTML='<span class="dot dot-on"></span>💾 同步中...';sb.title='本地已存，正在同步雲端'}}
+function _setSavingBadge(){_invalidateOrderCaches();const sb=document.getElementById('sync-badge');if(sb){sb.className='sync-dot sync-on';sb.innerHTML='<span class="dot dot-on"></span>💾 同步中...';sb.title='本地已存，正在同步雲端'}}
 function _saveError(err){console.error('save failed',err);const sb=document.getElementById('sync-badge');if(sb){sb.className='sync-dot sync-off';sb.innerHTML='<span class="dot dot-off"></span>❌ 儲存失敗'}}
 function _snapshotJson(){const d={};orders.forEach(o=>{d[o.id]=o});return JSON.stringify(d)}
 // 之前用 set 會把其他裝置剛新增的訂單沖掉。現在 update — 安全多裝置同時操作
 function _doSaveAll(){_saveAllTimer=null;const d={};orders.forEach(o=>{d[o.id]=o});_pendingOneIds.clear();db.ref('orders').update(d).catch(_saveError)}
 function _doSaveOnes(){_saveOneTimer=null;if(_pendingOneIds.size===0)return;const updates={};for(const id of _pendingOneIds){const o=findO(id);if(o)updates[id]=o}_pendingOneIds.clear();db.ref('orders').update(updates).catch(_saveError)}
 // saveAll = update 整包 orders（不用 set，避免 multi-device wipe）— 取消 pending saveOne，由 saveAll 統一處理
-function saveAll(immediate){_invalidateOrderCaches();_setSavingBadge();_pendingOneIds.clear();if(_saveOneTimer){clearTimeout(_saveOneTimer);_saveOneTimer=null}if(_saveAllTimer)clearTimeout(_saveAllTimer);if(immediate)_doSaveAll();else _saveAllTimer=setTimeout(_doSaveAll,200)}
+function saveAll(immediate){_setSavingBadge();_pendingOneIds.clear();if(_saveOneTimer){clearTimeout(_saveOneTimer);_saveOneTimer=null}if(_saveAllTimer)clearTimeout(_saveAllTimer);if(immediate)_doSaveAll();else _saveAllTimer=setTimeout(_doSaveAll,200)}
 // saveOne = single order update — 如果 saveAll 已 pending，等 saveAll 處理（包括這個 order）
-function saveOne(o){if(!o||!o.id)return;_invalidateOrderCaches();_setSavingBadge();if(_saveAllTimer)return;_pendingOneIds.add(o.id);if(_saveOneTimer)clearTimeout(_saveOneTimer);_saveOneTimer=setTimeout(_doSaveOnes,200)}
+function saveOne(o){if(!o||!o.id)return;_setSavingBadge();if(_saveAllTimer)return;_pendingOneIds.add(o.id);if(_saveOneTimer)clearTimeout(_saveOneTimer);_saveOneTimer=setTimeout(_doSaveOnes,200)}
 // 刪除單筆 — 必須顯式 remove，不能靠 saveAll（現在用 update 不會自動清舊 keys）
 function deleteOrderId(id){_setSavingBadge();db.ref('orders/'+id).remove().catch(_saveError)}
 function deleteOrderIds(ids){if(!ids||!ids.length)return;_setSavingBadge();const updates={};for(const id of ids)updates[id]=null;db.ref('orders').update(updates).catch(_saveError)}
@@ -2255,12 +2260,9 @@ function statusMatchList(o){
 // 搜尋容錯：去掉橫線/空白/底線/斜線/點 → P-225 = P225 = p 225 = 225 互通；多詞以空白分隔 = AND（每詞都要命中）
 // 命中規則：每個詞「原字串子字串命中」或「去符號後子字串命中」其一即可
 const _SEARCH_STRIP=/[\s\-_/.]+/g;
-// 🚀 hay 快取：搜尋乾草堆字串按訂單 id 記憶，避免每次 keystroke（renderList → updateFilterCounts + filterListOrders）
-// 對每筆訂單重複 join 8 欄 + toLowerCase。新增訂單自動 miss→重算（正確）；就地改欄位都走 saveOne/saveAll → 清快取。
-const _hayCache=new Map();
+// 🚀 hay 快取：搜尋乾草堆字串按訂單 id 記憶（_hayCache 宣告在頂部）— 搜尋 keystroke 不再對每筆重複 join 8 欄。
+// 快取失效統一在 _setSavingBadge()（任何寫 DB 前都會呼叫）。新增訂單自動 miss→重算。
 function _searchHay(o){let h=_hayCache.get(o.id);if(h===undefined){h=[o.orderNo,o.product,o.name,o.phone,o.realPhone,o.address,o.note,o.specs].join(' ').toLowerCase();_hayCache.set(o.id,h)}return h}
-// 訂單內容/成員變動時呼叫 — 清掉衍生快取（hay + 客戶彙總），避免顯示舊資料
-function _invalidateOrderCaches(){_hayCache.clear();_custAggCache=null}
 function _matchSearch(hay,q){
   // hay：已 lowercase 的乾草堆字串；q：已 fwToHw + lowercase 的查詢
   if(!q)return true;
@@ -2585,18 +2587,19 @@ function customerKey(o){
   if(phone&&!isMomoMasked)return 'p:'+phone;
   return 'na:'+(o.name||'').trim()+'||'+(o.address||'').trim().slice(0,8);
 }
-let _custAggCache=null,_custAggLen=-1,_custAggKey='';
 function aggregateCustomers(){
-// 🚀 客戶彙總快取：只在平台/排序或訂單筆數變動時重算（就地改欄位走 saveOne → _invalidateOrderCaches 清）
+// 🚀 客戶彙總快取：只在 平台/排序/訂單成員(筆數+最後一筆id) 變動時重算。
+// 就地改欄位(名稱/金額/狀態)由 _setSavingBadge 清快取；用「筆數+末筆id」擋掉「一加一刪筆數不變」的漏網。
 const _ck=customerPlatform+'|'+customerSort;
-if(_custAggCache&&_custAggKey===_ck&&_custAggLen===orders.length)return _custAggCache;
+const _lastId=orders.length?orders[orders.length-1].id:'';
+if(_custAggCache&&_custAggKey===_ck&&_custAggLen===orders.length&&_custAggLastId===_lastId)return _custAggCache;
 const m=new Map();const src=customerPlatform==='all'?orders:orders.filter(o=>o.platform===customerPlatform);src.forEach(o=>{const key=customerKey(o);if(!key||key==='na:||')return;const cur=m.get(key)||{name:o.name||'',phone:o.phone||'',realPhone:'',addresses:new Set(),orders:[],total:0,platforms:new Set(),lastDate:''};cur.orders.push(o);
 // 已取消 / 轉線下都不算線上總消費（跟 renderStats 的 sales 一致）
 if(o.status!=='已取消'&&o.status!=='轉線下')cur.total+=tot(o);
 cur.platforms.add(o.platform);if(o.address)cur.addresses.add(o.address);if(o.realPhone&&!cur.realPhone)cur.realPhone=o.realPhone;
 // 顯示用的 phone 優先存「不是 MOMO 代撥」的；如果都是 MOMO 代撥就保留最新一筆（因為都會跑掉）
 if(o.phone){const isM=o.phone.includes('#')||o.phone.startsWith('0971191888');if(!cur.phone||(!isM&&(cur.phone.includes('#')||cur.phone.startsWith('0971191888'))))cur.phone=o.phone}
-if(o.date>cur.lastDate)cur.lastDate=o.date;m.set(key,cur)});const arr=[...m.values()];const sorters={lastDate:(a,b)=>(b.lastDate||'').localeCompare(a.lastDate||''),total:(a,b)=>b.total-a.total,cnt:(a,b)=>b.orders.length-a.orders.length,name:(a,b)=>a.name.localeCompare(b.name,'zh-TW')};arr.sort(sorters[customerSort]||sorters.lastDate);_custAggCache=arr;_custAggKey=_ck;_custAggLen=orders.length;return arr}
+if(o.date>cur.lastDate)cur.lastDate=o.date;m.set(key,cur)});const arr=[...m.values()];const sorters={lastDate:(a,b)=>(b.lastDate||'').localeCompare(a.lastDate||''),total:(a,b)=>b.total-a.total,cnt:(a,b)=>b.orders.length-a.orders.length,name:(a,b)=>a.name.localeCompare(b.name,'zh-TW')};arr.sort(sorters[customerSort]||sorters.lastDate);_custAggCache=arr;_custAggKey=_ck;_custAggLen=orders.length;_custAggLastId=_lastId;return arr}
 // 客戶一筆的衍生資料 — desktop/mobile 共用
 function prepareCustomerRow(c){
   const cnJS=JSON.stringify(c.name).replace(/"/g,'&quot;');
