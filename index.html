@@ -432,7 +432,7 @@ if(!window._dupChecked){window._dupChecked=true;const dupGroups=new Map();
   // 自動清理重複單：每組保留「最舊」+「使用者改過最多」的那筆，其他刪掉。
   // 標準：先 sort by hasUserData (install/addon/status 不是初始值 / 有 trackingNo / 有 note)，再 sort by id timestamp（舊優先）
   const _initial=(o)=>o.install==='未確認'&&o.addon==='未確認'&&o.status==='未確認'&&!o.trackingNo&&!o.note&&!o.installPaidAmount&&!o.addonPaidAmount;
-  const toDelete=[];let conflictGroups=0;
+  const toDelete=[],toDeleteObjs=[];let conflictGroups=0;
   for(const grp of dupSets){
     // 排序：使用者改過的排前面，同樣狀態下 id 字典序小（早建立）排前面
     grp.sort((a,b)=>{const aV=_initial(a)?1:0,bV=_initial(b)?1:0;if(aV!==bV)return aV-bV;return String(a.id)<String(b.id)?-1:1});
@@ -440,7 +440,7 @@ if(!window._dupChecked){window._dupChecked=true;const dupGroups=new Map();
     // 若要刪的那筆其實有人改過（兩裝置各自編輯同單號）→ 不自動刪，避免靜默吃掉編輯，改提示人工處理。
     let grpConflict=false;
     for(let i=1;i<grp.length;i++){
-      if(_initial(grp[i]))toDelete.push(grp[i].id);
+      if(_initial(grp[i])){toDelete.push(grp[i].id);toDeleteObjs.push(grp[i])}
       else grpConflict=true;
     }
     if(grpConflict)conflictGroups++;
@@ -448,10 +448,12 @@ if(!window._dupChecked){window._dupChecked=true;const dupGroups=new Map();
   if(toDelete.length){
     console.log('[dedup] auto-cleaning duplicate orders:',toDelete);
     const upd={};for(const id of toDelete)upd[id]=null;
+    // 推 undo（阿淵要求可還原）— 萬一誤判把不同品項當重複刪了，可按還原救回
+    try{pushUndo({kind:'delete-batch',orders:toDeleteObjs.map(o=>JSON.parse(JSON.stringify(o)))})}catch(_){}
     // 從 in-memory orders 移除
     orders=orders.filter(o=>!toDelete.includes(o.id));
     _setSavingBadge();db.ref('orders').update(upd).catch(_saveError);
-    if(typeof showToast==='function')showToast(`✅ 自動清理 ${toDelete.length} 筆未編輯的重複訂單 — 保留最舊 + 有改過的`,null,null,6000);
+    if(typeof showToast==='function')showToast(`✅ 自動清理 ${toDelete.length} 筆未編輯的重複訂單 — 保留最舊+有改過的`,'↩️ 還原',undoLast,8000);
   }
   if(conflictGroups&&typeof showToast==='function')showToast(`⚠️ ${conflictGroups} 組重複單號「兩筆都被編輯過」，沒自動刪以免吃掉資料 — 請到列表人工確認`,null,null,9000);
   else if(!toDelete.length&&typeof showToast==='function')showToast(`⚠️ 偵測到 ${dupSets.length} 組重複單號（${dupSets.reduce((s,a)=>s+a.length,0)} 筆），到帳號頁開 console 看詳情`,null,null,8000)
@@ -798,6 +800,19 @@ function removeOrderPhoto(oid,idx){
   if(editId===oid){const cur=findO(oid);if(cur){closeModal();setTimeout(()=>openEdit(oid),50)}}
   showToast('🗑 已刪除照片');
 }
+// 刪單後清雲端孤兒照片：等 undo 視窗(8s)過 + 確認該單真的沒被還原才刪，避免還原後照片失聯。照片路徑含 oid，各單獨立可安全刪。
+function _scheduleOrphanPhotoCleanup(deletedOrders){
+  const withPhotos=(deletedOrders||[]).filter(o=>o&&o.photos&&o.photos.length);
+  if(!withPhotos.length)return;
+  setTimeout(()=>{
+    withPhotos.forEach(o=>{
+      if(orders.some(x=>x.id===o.id))return; // 已被還原 → 保留照片，不刪
+      const paths=o.photos.map(p=>{const m=p&&p.url&&p.url.match(/\/o\/([^?]+)/);return m?decodeURIComponent(m[1]):null}).filter(Boolean);
+      if(!paths.length)return;
+      ensureStorage().then(s=>{paths.forEach(pt=>s.ref(pt).delete().catch(e=>console.warn('orphan photo delete failed:',e?.message)))}).catch(()=>{});
+    });
+  },9000);
+}
 function localDateISO(d){d=d||new Date();const p=n=>String(n).padStart(2,'0');return `${d.getFullYear()}-${p(d.getMonth()+1)}-${p(d.getDate())}`}
 function isNewOrder(o){if(!o.date)return false;return o.date===localDateISO()}
 function fmtD(d){if(!d)return'';const p=d.split('-');return parseInt(p[1])+'/'+parseInt(p[2])}
@@ -1124,12 +1139,12 @@ async function deleteUser(u){
   }catch(e){alert('刪除失敗：'+e.message);return}
   renderAccount();
 }
-function setF(f,b){cFilter=f;_mobileExpand=false;document.querySelectorAll('.filter-row .fbtn[data-fg="plat"]').forEach(x=>x.classList.remove('on'));if(b)b.classList.add('on');else{const auto=document.querySelector(`.fbtn[data-fg="plat"][onclick*="setF('${f}'"]`);if(auto)auto.classList.add('on')}updateStatCycleBtn();persistFilters();renderList()}
+function setF(f,b){cFilter=f;_mobileExpand=false;selectedIds.clear();document.querySelectorAll('.filter-row .fbtn[data-fg="plat"]').forEach(x=>x.classList.remove('on'));if(b)b.classList.add('on');else{const auto=document.querySelector(`.fbtn[data-fg="plat"][onclick*="setF('${f}'"]`);if(auto)auto.classList.add('on')}updateStatCycleBtn();persistFilters();renderList()}
 // 狀態篩選：
 // - desktop：按住 Ctrl/Cmd 點 = 多選 toggle；直接點 = 單選（或點「狀態」清空）
 // - mobile（cycleStatus）：總是單選替換
 function setSF(f,b,e){
-  _mobileExpand=false;
+  _mobileExpand=false;selectedIds.clear();
   const multi=e&&(e.ctrlKey||e.metaKey||e.shiftKey)&&!isMobile()&&f!=='all';
   if(f==='all'){cStatus=[]}
   else if(multi){
@@ -1144,7 +1159,7 @@ const ACTIVE_STATUSES=['未確認','已確認','交涉中','要安裝','自己�
 function isActivePreset(){return cStatus.length===ACTIVE_STATUSES.length&&ACTIVE_STATUSES.every(s=>cStatus.includes(s))}
 // 每次開頁/登入 → 列表預設篩選「進行中」（用戶要求；不記上次 cStatus）
 cStatus=[...ACTIVE_STATUSES];persistFilters();
-function setActiveStatuses(btn){_mobileExpand=false;
+function setActiveStatuses(btn){_mobileExpand=false;selectedIds.clear();
   // 已是 active preset → 再點 = 清空回「全部」
   if(isActivePreset())cStatus=[];
   else cStatus=[...ACTIVE_STATUSES];
@@ -1171,7 +1186,7 @@ function updateStatCycleBtn(){const btn=document.getElementById('mob-stat-cycle'
   const tail=(all||cStatus.length>1)?'':` ${stCls(cStatus[0]).replace('st-btn ','')}`;
   btn.className='fbtn st-cycle'+(all?' on':'')+tail;
 }
-function toggleSpecial(kind,btn){_mobileExpand=false;if(cSpecial===kind){cSpecial=null;btn?.classList.remove('on')}else{document.querySelectorAll('.filter-row .fbtn[data-fg="special"]').forEach(x=>x.classList.remove('on'));cSpecial=kind;btn?.classList.add('on')}persistFilters();renderList()}
+function toggleSpecial(kind,btn){_mobileExpand=false;selectedIds.clear();if(cSpecial===kind){cSpecial=null;btn?.classList.remove('on')}else{document.querySelectorAll('.filter-row .fbtn[data-fg="special"]').forEach(x=>x.classList.remove('on'));cSpecial=kind;btn?.classList.add('on')}persistFilters();renderList()}
 
 // ===== IMPORT =====
 function runParse(){const r=document.getElementById('raw-input').value;if(!r.trim())return;const p=parseAll(r);if(!p.length){document.getElementById('preview-area').innerHTML='<div class="card"><div class="card-b" style="color:var(--pc)">⚠ 無法辨識</div></div>';return}const txt=p.map(fmtS).join('\n---\n');const pl=p[0]?.platform||'';document.getElementById('preview-area').innerHTML=`<div class="card"><div class="card-h"><div style="display:flex;align-items:center;gap:8px"><h3>預覽</h3><span class="badge">${p.length} 筆</span>${platformPill(pl)}</div><button class="btn btn-g" onclick="copyText(document.getElementById('pv').textContent,'已複製！')">複製</button></div><div class="card-b"><div class="result" id="pv">${esc(txt)}</div></div></div>`}
@@ -2215,7 +2230,7 @@ function setAddonFee(oid,v){const o=findO(oid);if(!o)return;o.addonFee=parseInt(
 function setQty(oid,v){const o=findO(oid);if(!o)return;const n=parseInt(v);o.qty=n>=1?n:1;saveOne(o)}
 
 function toggleSort(){sortOrder=sortOrder==='date-desc'?'date-asc':'date-desc';persistFilters();renderList()}
-function resetAllFilters(){cFilter='all';cStatus=[];cSpecial=null;const q=document.getElementById('q');if(q)q.value='';document.querySelectorAll('#tab-list .fbtn').forEach(b=>b.classList.remove('on'));const fp=document.querySelector('#tab-list .fbtn[data-fg="plat"]');if(fp)fp.classList.add('on');const fs=document.querySelector('#tab-list .fbtn[data-fg="status"]');if(fs)fs.classList.add('on');persistFilters();renderList();showToast('已清除所有篩選')}
+function resetAllFilters(){cFilter='all';cStatus=[];cSpecial=null;selectedIds.clear();const q=document.getElementById('q');if(q)q.value='';document.querySelectorAll('#tab-list .fbtn').forEach(b=>b.classList.remove('on'));const fp=document.querySelector('#tab-list .fbtn[data-fg="plat"]');if(fp)fp.classList.add('on');const fs=document.querySelector('#tab-list .fbtn[data-fg="status"]');if(fs)fs.classList.add('on');persistFilters();renderList();showToast('已清除所有篩選')}
 function updateFilterIndicator(){const el=document.getElementById('filter-applied-info');if(!el)return;const count=(cFilter!=='all'?1:0)+(cStatus.length?1:0)+(cSpecial?1:0)+((document.getElementById('q')?.value||'').trim()?1:0);if(count>0){el.style.display='inline-block';el.innerHTML=`<button onclick="resetAllFilters()" style="background:#fef0f5;color:var(--mo);border:1px solid var(--mo);padding:4px 12px;border-radius:14px;font-weight:700;cursor:pointer;font-size:11px;margin-right:6px">${count} 個篩選 ↻ 清除</button>`}else{el.style.display='none'}}
 function restoreFilterUI(){document.querySelectorAll('#tab-list .fbtn[data-fg="plat"]').forEach(x=>x.classList.remove('on'));const fp=document.querySelector(`#tab-list .fbtn[data-fg="plat"][onclick*="'${cFilter}'"]`);if(fp)fp.classList.add('on');else document.querySelector('#tab-list .fbtn[data-fg="plat"]')?.classList.add('on');
   // status 多選：每個對應的 button 都標 on；狀態 button 在 cStatus 為空時亮起；🔥 進行中 看是否符合 preset
@@ -2429,7 +2444,7 @@ function batchSetStatus(s){
   showToast(`✅ 已更新 ${sel.length} 筆訂單為「${s}」`,'↩️ 還原',undoLast,8000)
 }
 function batchCopyShipping(){const sel=orders.filter(o=>selectedIds.has(o.id));if(!sel.length)return;copyText(sel.map(o=>fmtShipping(o)).join('\n\n========\n\n'),`✅ 已複製 ${sel.length} 筆出貨資料`)}
-function batchDelete(){const sel=orders.filter(o=>selectedIds.has(o.id));if(!sel.length)return;if(!confirm(`刪除選取的 ${sel.length} 筆訂單？\n\n（可按 Undo 還原）`))return;pushUndo({kind:'delete-batch',orders:sel.map(o=>JSON.parse(JSON.stringify(o)))});const ids=sel.map(o=>o.id);orders=orders.filter(o=>!selectedIds.has(o.id));selectedIds.clear();deleteOrderIds(ids);renderList();showToast(`已刪除 ${sel.length} 筆訂單`,'↩️ 還原',undoLast,8000)}
+function batchDelete(){const sel=orders.filter(o=>selectedIds.has(o.id));if(!sel.length)return;if(!confirm(`刪除選取的 ${sel.length} 筆訂單？\n\n（可按 Undo 還原）`))return;pushUndo({kind:'delete-batch',orders:sel.map(o=>JSON.parse(JSON.stringify(o)))});const ids=sel.map(o=>o.id);orders=orders.filter(o=>!selectedIds.has(o.id));selectedIds.clear();deleteOrderIds(ids);renderList();showToast(`已刪除 ${sel.length} 筆訂單`,'↩️ 還原',undoLast,8000);_scheduleOrphanPhotoCleanup(sel)}
 function batchPrintShipping(){const sel=orders.filter(o=>selectedIds.has(o.id));if(!sel.length)return;openPrintWindow(sel,'a4')}
 function batchPrintShipping4x6(){const sel=orders.filter(o=>selectedIds.has(o.id));if(!sel.length)return;openPrintWindow(sel,'4x6')}
 function batchPickingList(){let sel=orders.filter(o=>selectedIds.has(o.id));if(!sel.length){if(!confirm('沒選取任何訂單。要產生「今日待處理」的揀貨清單嗎？'))return;const today=localDateISO();sel=orders.filter(o=>o.date===today&&isPending(o.status))}if(!sel.length){alert('沒有訂單可產生揀貨清單');return}
@@ -2448,7 +2463,7 @@ function openPrintWindow(orders,format){const w=window.open('','_blank');if(!w){
 const pageRule=is4x6?'@page{size:4in 6in;margin:0}':'';
 const labelStyle=is4x6?'.label{page-break-inside:avoid;page-break-after:always;padding:8mm;margin:0;font-size:11px;line-height:1.4;width:101.6mm;height:152.4mm;box-sizing:border-box;display:flex;flex-direction:column}.label h2{font-size:14px;margin:0 0 6mm;padding-bottom:4mm;border-bottom:1.5px solid #111}.label .row{display:flex;gap:4px;margin:2mm 0}.label .lbl{width:40px;color:#666;font-size:9px;font-weight:700}.label .val{flex:1;font-weight:600;word-break:break-word;overflow-wrap:anywhere}.label .footer{margin-top:auto;padding-top:3mm;border-top:1px dashed #ccc;font-size:9px;color:#999}@media print{.no-print{display:none}}':'.label{page-break-inside:avoid;page-break-after:always;padding:24px;border:2px dashed #999;margin:8px;font-size:14px;line-height:1.7}.label:last-child{page-break-after:auto}.label h2{font-size:22px;margin:0 0 12px;border-bottom:2px solid #111;padding-bottom:6px}.label .row{display:flex;gap:8px;margin:4px 0}.label .lbl{width:60px;color:#666;font-size:12px;font-weight:700}.label .val{flex:1;font-weight:600;word-break:break-word;overflow-wrap:anywhere}.label .footer{margin-top:14px;padding-top:8px;border-top:1px dashed #ccc;font-size:11px;color:#999}@media print{.label{margin:0;border:0;padding:18px}.no-print{display:none}}';
 const html=`<!doctype html><html><head><meta charset="utf-8"><title>出貨單 ${today} ${is4x6?'4×6':'A4'}</title><style>${pageRule}body{font-family:-apple-system,'Microsoft JhengHei',sans-serif;color:#111;margin:0;padding:0}${labelStyle}.no-print{padding:14px;background:#f0f0f0;text-align:center}</style></head><body><div class="no-print"><h3>共 ${orders.length} 筆出貨單（${is4x6?'4×6 標籤':'A4'}）</h3><button onclick="window.print()" style="padding:10px 20px;font-size:14px;cursor:pointer">🖨 列印</button> <button onclick="window.close()" style="padding:10px 20px;font-size:14px;cursor:pointer">關閉</button></div>${orders.map(o=>{const q=(o.qty||1)>1?' × '+o.qty:'';const pr=(o.product||'')+(o.specs?'（'+o.specs+'）':'')+q;return`<div class="label"><h2>📦 出貨單</h2><div class="row"><span class="lbl">姓名</span><span class="val" style="font-size:${is4x6?'13px':'18px'}">${esc(o.name||'')}</span></div><div class="row"><span class="lbl">電話</span><span class="val" style="font-size:${is4x6?'12px':'16px'}">${phoneTel(bestPhone(o))}</span></div><div class="row"><span class="lbl">地址</span><span class="val" style="font-size:${is4x6?'10px':'14px'}">${esc(o.address||'')}</span></div><div class="row"><span class="lbl">商品</span><span class="val">${esc(pr)}</span></div><div class="row"><span class="lbl">單號</span><span class="val" style="font-family:'Menlo',monospace;font-size:${is4x6?'9px':'11px'}">${esc(o.orderNo||'')}</span></div>${(()=>{const cn=cleanNote(o.note);const noteParts=[];if(o.addrMgmt||o.addrElev){noteParts.push([o.addrMgmt?(o.addrMgmt==='有'?'有':'無')+'管':'',(o.addrElev&&o.addrElev!=='不適用')?(o.addrElev==='有'?'有':'無')+'梯':''].filter(Boolean).join('+'))}if(o.install==='是'){const _f=Number(o.installFee)||0,_p=Number(o.installPaidAmount)||0;const _ps=_f===0?'':(_p>=_f?' 已收':(_p>0?` 缺$${_f-_p}`:' 未收'));noteParts.push('🔧 安裝'+(o.installDay?' '+o.installDay+(o.installTime?' '+o.installTime:''):'')+(_f?' $'+_f:'')+_ps)}if(o.addon==='是'){const _f=Number(o.addonFee)||0,_p=Number(o.addonPaidAmount)||0;const _ps=_f===0?'':(_p>=_f?' 已收':(_p>0?` 缺$${_f-_p}`:' 未收'));noteParts.push('🛒 加購'+(o.addonItems?' '+o.addonItems:'')+(_f?' $'+_f:'')+_ps)}if(cn)noteParts.push(cn);const noteText=noteParts.join(' ｜ ');return noteText?`<div class="row"><span class="lbl">備註</span><span class="val" style="font-size:${is4x6?'9px':'12px'}">${esc(noteText.slice(0,is4x6?160:9999))}</span></div>`:''})()}<div class="footer">${platName(o.platform)} ｜ 印於 ${new Date().toLocaleString('zh-TW')}</div></div>`}).join('')}</body></html>`;w.document.write(html);w.document.close()}
-function delOrder(oid){const i=findIdx(oid);if(i<0)return;const o=orders[i];if(!confirm(`確定刪除？\n\n${o.name||''} ｜ ${o.product||''}\n\n（8 秒內可按 Undo 還原）`))return;pushUndo({kind:'delete-one',order:JSON.parse(JSON.stringify(o))});orders.splice(i,1);selectedIds.delete(oid);deleteOrderId(oid);renderList();showToast(`已刪除「${o.name||o.product||'訂單'}」`,'↩️ 還原',undoLast,8000)}
+function delOrder(oid){const i=findIdx(oid);if(i<0)return;const o=orders[i];if(!confirm(`確定刪除？\n\n${o.name||''} ｜ ${o.product||''}\n\n（8 秒內可按 Undo 還原）`))return;pushUndo({kind:'delete-one',order:JSON.parse(JSON.stringify(o))});orders.splice(i,1);selectedIds.delete(oid);deleteOrderId(oid);renderList();showToast(`已刪除「${o.name||o.product||'訂單'}」`,'↩️ 還原',undoLast,8000);_scheduleOrphanPhotoCleanup([o])}
 
 
 let outputDateMode='today',outputFrom='',outputTo='',outputQ='',_outputIncSkip=false,outputStatus=[];
@@ -2578,7 +2593,7 @@ function searchCustomerOrders(name){if(!name)return;
 }
 // 搜尋輸入防抖（150ms）— 大量訂單時打字不卡
 let _searchListTm=null,_searchCustTm=null;
-function searchListDebounced(){_mobileExpand=false;if(_searchListTm)clearTimeout(_searchListTm);_searchListTm=setTimeout(()=>{_searchListTm=null;renderList()},150)}
+function searchListDebounced(){_mobileExpand=false;if(_searchListTm)clearTimeout(_searchListTm);_searchListTm=setTimeout(()=>{_searchListTm=null;selectedIds.clear();renderList()},150)}
 function searchCustDebounced(){if(_searchCustTm)clearTimeout(_searchCustTm);_searchCustTm=setTimeout(()=>{_searchCustTm=null;renderCustomers()},150)}
 // 客戶聚合 key — 不能用 o.phone 因為 MOMO 代撥電話是 per-order 虛擬號（0971191888#XXXXX）
 // 優先序：realPhone > 真實 phone（PChome） > name + 地址前 8 字
@@ -3076,10 +3091,8 @@ async function batchExportShipping(){
   // 備註帶品名，並依平台加抬頭：MOMO(含第三方)→MO_品名、PChome→PC_品名（杰哥需求）；多品項訂單一筆一列
   // 電話：優先帶真實電話 realPhone，空白才退回一般 phone（杰哥需求；MOMO 第三方 phone 常是遮罩號）
   const platPrefix=p=>(p==='MO'||p==='MO3')?'MO_':(p==='PC'?'PC_':'');
-  // 貨運託運單只帶「撥得通」的號碼：realPhone 優先；退回 phone 前先擋掉 MOMO 代撥/遮罩號（含 # 分機 或 0971191888 代撥前綴），
-  // 免得大榮拿到打不通的代撥號 → 到站電話驗證失敗 / 無法配送。擋掉時留空，讓店家看得出要補電話。
-  const shipPhone=o=>{const rp=(o.realPhone||'').trim();if(rp)return rp;const p=(o.phone||'').trim();return(p&&!p.includes('#')&&!p.startsWith('0971191888'))?p:''};
-  const rows=sel.map(o=>[shipYmd,(o.name||''),shipPhone(o),(o.address||''),(o.qty||1),1,arriveYmd,'',platPrefix(o.platform)+(o.product||'')]);
+  // 電話：realPhone 優先，空白才退回一般 phone（含 MOMO 代撥號 — 阿淵確認社長可轉接，要保留）
+  const rows=sel.map(o=>[shipYmd,(o.name||''),(o.realPhone||o.phone||''),(o.address||''),(o.qty||1),1,arriveYmd,'',platPrefix(o.platform)+(o.product||'')]);
   const ws=XLSX.utils.aoa_to_sheet([header,...rows]);
   ws['!cols']=[{wch:11},{wch:9},{wch:14},{wch:34},{wch:5},{wch:5},{wch:11},{wch:14},{wch:30}];
   const wb=XLSX.utils.book_new();XLSX.utils.book_append_sheet(wb,ws,'SHEET');
