@@ -3131,7 +3131,7 @@ document.getElementById('modal-body').innerHTML=`<h3>📤 MOMO 出貨確認 / �
 <div><b>收件：</b>${esc(o.name)} ｜ ${phoneTel(o.phone)}</div>
 <div><b>地址：</b>${esc(o.address)}</div></div>
 <div class="fg"><div class="fi"><label>配送狀態 *</label><select id="s-status" onchange="onShipStatusChange()"><option>已配送</option><option>已確認指定配送日</option><option>已電聯，尚未確認配送日期</option><option>暫時電聯不上(無須momo協助)</option><option>多次電聯不上(2天3次以上)</option><option>需配送加價協調中</option><option>無貨取消訂單</option><option>收件資料有誤/不配送地區</option><option>無適當選項，momo請協助</option></select><div style="font-size:10px;color:var(--dm);margin-top:4px;line-height:1.5">💡 約配訂單需先選「已確認指定配送日」回押配送日，之後再切「已配送」回填單號。</div></div></div>
-<div id="ship-confirmDate" class="hidden"><div class="fg full"><div class="fi"><label>指定配送日 * <span style="font-size:10px;color:var(--mo)">（約配訂單必填，格式 yyyy/MM/dd）</span></label><input id="s-scmDate" type="text" placeholder="2026/05/10" style="font-family:var(--mono)"></div></div></div>
+<div id="ship-confirmDate" class="hidden"><div class="fg full"><div class="fi"><label>指定配送日 * <span style="font-size:10px;color:var(--mo)">（約配訂單必填，點選日期）</span></label><input id="s-scmDate" type="date" min="${localDateISO(new Date(Date.now()+86400000))}" style="font-family:var(--mono)"></div></div></div>
 <div id="ship-shipped"><div class="fg"><div class="fi"><label>物流公司 *</label><select id="s-dely">${MOMO_DELY_COMPANIES.map(c=>`<option ${(o.delyGbStr||'大榮貨運')===c?'selected':''}>${c}</option>`).join('')}</select></div><div class="fi"><label>配送單號 *</label><input id="s-slip" placeholder="物流單號" style="font-family:var(--mono)" value="${esc(o.trackingNo||'')}"></div></div><div class="fg"><div class="fi"><label>出貨包材 *</label><select id="s-shipType">${MOMO_SHIP_TYPES.map(t=>`<option ${(o.shipTypeStr||'原箱')===t?'selected':''}>${t}</option>`).join('')}</select></div><div class="fi"><label>包材類型 / 重量 <span style="font-size:10px;color:var(--ht)">（可空）</span></label><div style="display:flex;gap:4px"><input id="s-packType" placeholder="包材類型" value="${esc(o.packTypeStr||'')}" style="flex:1"><input id="s-packUnit" placeholder="重量" value="${esc(o.packUnit||'')}" style="width:60px"></div></div></div></div>
 <div id="ship-other" class="hidden"><div class="fg full"><div class="fi"><label>配送訊息 *（非已配送必填）</label><textarea id="s-msg" placeholder="例：客戶來電要求改配送日，預計 3/15 配送"></textarea></div></div></div>
 <div id="ship-result" style="margin-top:12px"></div>
@@ -3169,9 +3169,10 @@ async function submitShip(force){
     // 約配訂單先回押配送日（V5.6 spec：scmDelyDate 必填，格式 yyyy/MM/dd 兩位數）
     let d=(document.getElementById('s-scmDate')?.value||'').trim();
     if(!d){alert('指定配送日必填');return}
-    const m=d.match(/^(\d{4})\/(\d{1,2})\/(\d{1,2})$/);
-    if(!m){alert('指定配送日格式錯誤，請填 yyyy/MM/dd（例 2026/05/10）');return}
-    // Zero-pad 月日 — MOMO 嚴格要求兩位數
+    // 日期選擇器回傳 ISO（yyyy-MM-dd）；相容舊手打 yyyy/MM/dd
+    const m=d.match(/^(\d{4})[-\/](\d{1,2})[-\/](\d{1,2})$/);
+    if(!m){alert('指定配送日格式錯誤，請重新點選日期');return}
+    // Zero-pad 月日 → yyyy/MM/dd — MOMO 嚴格要求兩位數
     d=`${m[1]}/${m[2].padStart(2,'0')}/${m[3].padStart(2,'0')}`;
     // 配送日必須是「未來」 — 至少明天（MOMO 不接受今天/過去）
     const today=localDateISO();
