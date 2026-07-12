@@ -1892,7 +1892,8 @@ const _remoteCache=new Map();
 function isRemoteAddress(addr){
   if(!addr)return null;
   if(_remoteCache.has(addr))return _remoteCache.get(addr);
-  const a=String(addr).replace(/\s+/g,'');
+  // 去空白 + 臺→台 正規化（官方地址常寫「臺北/臺中/臺南/臺東」，清單用「台」，不正規化會漏亮偏遠）
+  const a=String(addr).replace(/\s+/g,'').replace(/臺/g,'台');
   let hit=null;
   for(const r of DALI_REMOTE_AREAS){
     if(!a.includes(r.city))continue;
