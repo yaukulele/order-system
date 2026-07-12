@@ -1415,6 +1415,16 @@ async function sendSmsCore(oid,vendor,msg,opts){
   }catch(e){alert('❌ 連線失敗：'+e.message);}
   finally{_smsSending.delete(oid);}
 }
+// 從「編輯訂單」視窗直接發簡訊：讀「真實電話」輸入框當下值（免先儲存），同步進訂單後開廠商選單
+function smsFromEdit(oid,ev){
+  ev&&ev.stopPropagation();
+  const inp=document.getElementById('e-realPhone');
+  const raw=String(inp?inp.value:'').replace(/[\s\-()]/g,'');
+  if(!/^09\d{8}$/.test(raw)){alert('⚠ 請先在「真實電話」欄填入客戶手機（09 開頭 10 碼）再發簡訊。\n\nMOMO／PChome 的電話是加密轉接號，不能直接發。');inp&&inp.focus();return;}
+  const o=findO(oid);if(!o)return;
+  o.realPhone=raw; // 同步當下輸入值；發送成功後 sendSmsCore 會 saveOne 持久化
+  openSmsMenu(oid,ev);
+}
 
 function transformMomoOrder(o){let date=localDateISO(),dateFmt='';const dm=(o.lastPricDate||'').match(/(\d{4})\/(\d{1,2})\/(\d{1,2})/);if(dm){date=`${dm[1]}-${String(dm[2]).padStart(2,'0')}-${String(dm[3]).padStart(2,'0')}`;dateFmt=`${parseInt(dm[2])}/${parseInt(dm[3])}`}
 return{id:gid(),date,dateFmt,platform:'MO',orderNo:o.completeOrderNo||'',product:o.goodsName||'',specs:o.goodsDtInfo||'',goodsCode:o.goodsCode||'',name:o.receiver||'',phone:o.receiverMobile||o.receiverTel||'',address:o.newReceiverAddr||o.receiverAddr||'',install:'未確認',installFee:0,installDay:'',installTime:'',addon:'未確認',addonFee:0,amount:parseInt(o.salePrice)||parseInt(o.buyPrice)||0,qty:parseInt(o.syslast)||1,status:'未確認',note:o.newReceiverAddr?'⚠ 客戶申請改地址':''}}
@@ -2656,7 +2666,7 @@ document.getElementById('modal-body').innerHTML=`<h3>編輯訂單${customerHisto
 <div class="fg full"><div class="fi"><label>品名</label><input id="e-prod" value="${esc(o.product)}"></div></div>
 <div class="fg full"><div class="fi"><label>規格</label><input id="e-specs" value="${esc(o.specs||'')}"></div></div>
 <div class="fg"><div class="fi"><label>姓名</label><input id="e-name" value="${esc(o.name)}"></div><div class="fi"><label>電話（Momo / PC 代撥）</label><input id="e-phone" value="${esc(o.phone||'')}" onpaste="setTimeout(()=>formatDispatchPhone(this),0)"></div></div>
-<div class="fg full"><div class="fi"><label>📱 真實電話（手動填入，例如客戶 LINE 或來電留下的）</label><input id="e-realPhone" value="${esc(o.realPhone||'')}" placeholder="客戶真實手機，留空表示沒有" inputmode="tel" style="border-color:var(--grn);background:var(--grn-bg)"></div></div>
+<div class="fg full"><div class="fi"><label>📱 真實電話（手動填入，例如客戶 LINE 或來電留下的）</label><div style="display:flex;gap:8px;align-items:center"><input id="e-realPhone" value="${esc(o.realPhone||'')}" placeholder="客戶真實手機，留空表示沒有" inputmode="tel" style="flex:1;min-width:0;border-color:var(--grn);background:var(--grn-bg)"><button type="button" class="btn" onclick="smsFromEdit('${o.id}',event)" title="用此電話發簡訊邀客戶加 LINE（09 開頭）" style="white-space:nowrap;border-color:#c4b5fd;color:#7c3aed;font-weight:700">📩 發訊息</button></div></div></div>
 <div class="fg full"><div class="fi"><label>地址</label><input id="e-addr" value="${esc(o.address)}"></div></div>
 <div class="fg" style="margin-bottom:8px"><div class="fi"><label>🏢 管理室</label><div class="sched-row" id="e-mgmt"><button class="sched-btn ${o.addrMgmt==='有'?'picked':''}" onclick="pickRadio('e-mgmt','有',this)">有</button><button class="sched-btn ${o.addrMgmt==='無'?'picked':''}" onclick="pickRadio('e-mgmt','無',this)">無</button><button class="sched-btn ${(!o.addrMgmt||o.addrMgmt==='')?'picked':''}" onclick="pickRadio('e-mgmt','',this)">未填</button></div></div><div class="fi"><label>🛗 電梯（2 樓以上）</label><div class="sched-row" id="e-elev"><button class="sched-btn ${o.addrElev==='有'?'picked':''}" onclick="pickRadio('e-elev','有',this)">有</button><button class="sched-btn ${o.addrElev==='無'?'picked':''}" onclick="pickRadio('e-elev','無',this)">無</button><button class="sched-btn ${o.addrElev==='不適用'?'picked':''}" onclick="pickRadio('e-elev','不適用',this)">不適用</button><button class="sched-btn ${(!o.addrElev||o.addrElev==='')?'picked':''}" onclick="pickRadio('e-elev','',this)">未填</button></div></div></div>
 <div class="fg"><div class="fi"><label>數量</label><input type="text" inputmode="numeric" id="e-qty" value="${o.qty||1}" oninput="this.value=cn(this.value)"></div><div class="fi"><label>商品金額</label><input type="text" inputmode="numeric" id="e-amt" value="${o.amount||''}" oninput="this.value=cn(this.value);calcT()"></div></div>
@@ -3119,6 +3129,17 @@ alert(`✅ ${word} 已送 MOMO${data.successCnt?`\n成功 ${data.successCnt}/${d
 // ===== MOMO 出貨確認 =====
 const MOMO_DELY_COMPANIES=['宅配通','新竹貨運','統一速達','大榮貨運','宅配通大電','順豐速運','全球快遞','通盈貨運','新航貨運','郵局','便利袋','其他宅配','其他'];
 const MOMO_SHIP_TYPES=['原箱','momo制式包材-紙箱(袋)','momo制式包材-破壞袋','自有包材','循環箱'];
+// 配送狀態 →「配送訊息」標準文字：選到「其他」類狀態時自動帶入 s-msg 並複製到剪貼簿，方便貼回 MOMO
+const MOMO_STATUS_MSG={
+  '已電聯，尚未確認配送日期':'已電聯，尚未確認配送日期',
+  '暫時電聯不上(無須momo協助)':'暫時電聯不上(無須momo協助)',
+  '多次電聯不上(2天3次以上)':'多次電聯不上(2天3次以上)',
+  '需配送加價協調中':'需配送加價協調中',
+  '無貨取消訂單':'無貨取消訂單',
+  '收件資料有誤/不配送地區':'收件資料有誤/不配送地區',
+  '無適當選項，momo請協助':'無適當選項，momo請協助'
+};
+const _MOMO_STATUS_MSG_VALS=new Set(Object.values(MOMO_STATUS_MSG));
 function openShipMomo(oid){const o=findO(oid);if(!o)return;if(o.platform!=='MO'){alert('只有 MOMO 訂單可用此功能');return}shipId=oid;editId=null;_modalDirty=false;_shipBusy=false;
 document.getElementById('modal-body').innerHTML=`<h3>📤 MOMO 出貨確認 / 物流單號回填</h3>
 <div style="background:#fef9ec;border:1px solid #f0e4b8;border-radius:8px;padding:10px 14px;font-size:11px;color:#8a6d0b;margin-bottom:12px;line-height:1.6">
@@ -3149,7 +3170,14 @@ function onShipStatusChange(){const s=document.getElementById('s-status').value;
   document.getElementById('ship-shipped').classList.toggle('hidden',s!=='已配送');
   document.getElementById('ship-confirmDate').classList.toggle('hidden',s!=='已確認指定配送日');
   document.getElementById('ship-other').classList.toggle('hidden',s==='已配送'||s==='已確認指定配送日');
-  document.getElementById('ship-result').innerHTML='';document.getElementById('ship-real-btn').style.display='none'}
+  document.getElementById('ship-result').innerHTML='';document.getElementById('ship-real-btn').style.display='none';
+  // 選到「其他」類狀態 → 自動把標準配送訊息帶入欄位 + 複製到剪貼簿（保留手打的自訂訊息不覆蓋）
+  const msg=MOMO_STATUS_MSG[s];
+  if(msg){
+    const ta=document.getElementById('s-msg');
+    if(ta){const cur=(ta.value||'').trim();if(!cur||_MOMO_STATUS_MSG_VALS.has(cur))ta.value=msg;}
+    copyText(msg,'已複製配送訊息：'+msg);
+  }}
 
 let _shipBusy=false;
 async function submitShip(force){
