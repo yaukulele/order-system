@@ -335,6 +335,7 @@ body.has-batch-bar .main{padding-bottom:140px}
 
 <div class="main" id="tab-import"><div id="today-summary" style="display:none"></div><div class="card" style="background:linear-gradient(135deg,#f3e8ff,#fff);border:1px solid #d8b4fe"><div class="card-h" style="background:transparent"><h3>🏪 店內銷售</h3><div class="btn-row" style="justify-content:flex-end"><button class="btn" onclick="openStoreSaleModal()" style="background:#7e22ce;border-color:#7e22ce;color:#fff;font-weight:700;flex:0 0 auto;min-width:130px" title="櫃台現金/刷卡直購用">+ 新增訂單</button></div></div></div>
 <div class="card" style="background:linear-gradient(135deg,#ccfbf1,#fff);border:1px solid #5eead4"><div class="card-h" style="background:transparent"><h3>🎓 學校團購</h3><div class="btn-row" style="justify-content:flex-end"><button class="btn" onclick="openSchoolModal()" style="background:#0d9488;border-color:#0d9488;color:#fff;font-weight:700;flex:0 0 auto;min-width:130px" title="學校班級團購建單（學生 / 團購學校 / 年級班級）">+ 新增訂單</button></div></div></div>
+<div class="card" style="background:linear-gradient(135deg,#fff1e8,#fff);border:1px solid #fdba74"><div class="card-h" style="background:transparent"><h3>🎪 展場</h3><div class="btn-row" style="justify-content:flex-end"><button class="btn" onclick="openExpoModal()" style="background:#ea580c;border-color:#ea580c;color:#fff;font-weight:700;flex:0 0 auto;min-width:130px" title="樂器展現場收單建單（型錄帶價／訂金找零自動算）">+ 新增訂單</button></div></div></div>
 <div class="card" style="background:var(--card-momo-bg);border:1px solid var(--card-momo-bd)"><div class="card-h" style="background:transparent"><h3>🚀 自動抓 MOMO</h3><div class="btn-row" style="justify-content:flex-end"><button class="btn btn-g" id="momo-auto-btn" onclick="fetchMomoAuto()" style="background:var(--mo);border-color:var(--mo);flex:0 0 auto;min-width:130px" title="自動抓 MOMO 未出貨訂單">🔄 抓取</button></div></div><div class="card-b" style="padding:8px 16px"><div id="momo-auto-status" style="font-size:11px;color:var(--dm);font-family:var(--mono)"></div></div></div>
 <div class="card" style="background:#fff1f2;border:1px solid #fda4af"><div class="card-h" style="background:transparent"><h3>🚚 自動抓 MOMO 第三方</h3><div class="btn-row" style="justify-content:flex-end"><button class="btn btn-g" id="momo3-auto-btn" onclick="fetchMomoThirdAuto()" style="background:#f43f5e;border-color:#f43f5e;flex:0 0 auto;min-width:130px" title="抓 MOMO 第三方物流 未出貨訂單（跑遍物流商合併）">🔄 抓取</button></div></div><div class="card-b" style="padding:8px 16px"><div id="momo3-auto-status" style="font-size:11px;color:var(--dm);font-family:var(--mono)"></div></div></div>
 <div class="card" style="background:var(--card-pc-bg);border:1px solid var(--card-pc-bd)"><div class="card-h" style="background:transparent"><h3>🛒 自動抓 PChome</h3><div class="btn-row" style="justify-content:flex-end"><button class="btn btn-g" id="pchome-auto-btn" onclick="fetchPchomeAuto()" style="background:var(--pc);border-color:var(--pc);flex:0 0 auto;min-width:130px" title="自動抓 PChome 未出貨訂單（共用 MOMO API Token）">🔄 抓取</button></div></div><div class="card-b" style="padding:8px 16px"><div id="pchome-auto-status" style="font-size:11px;color:var(--dm);font-family:var(--mono)"></div></div></div><div class="card" style="background:#f5f3ff;border:1px solid #c4b5fd"><div class="card-h" style="background:transparent"><h3>📩 簡訊設定</h3><div class="btn-row" style="justify-content:flex-end"><button class="btn" onclick="editSmsTemplate()" style="border-color:#a78bfa;color:#7c3aed;flex:0 0 auto;min-width:130px" title="編輯發給客戶的簡訊範本">✏️ 改範本</button></div></div><div class="card-b" style="padding:8px 16px"><div id="sms-balance" style="font-size:11px;color:var(--dm);font-family:var(--mono)">剩餘點數：發送後自動更新</div></div></div></div>
@@ -3013,6 +3014,67 @@ function saveStoreSale(){
   _setSavingBadge();db.ref('orders/'+o.id).set(o).catch(_saveError);
   _modalDirty=false;closeModal();updateCnt();
   showToast(`✅ 已加入：${name} ｜ ${mainProd}${otherItems.length?` +${otherItems.length} 項`:''} ｜ $${amount.toLocaleString()}`,null,null,4000);
+  showTab('list');
+}
+
+// ===== 展場 modal =====
+// 樂器展現場收單 — platform='EXPO'。內容同展場收單系統：型錄下拉自動帶價 / 售價+安裝+實收 → 自動判斷 付清(找零)/訂金(尚欠)/未收款。
+// 欄位對應與展場 app 自動串進來的一致：amount=售價、installFee=安裝、status 付清→已完成/訂金→待收費/未收款→未確認。
+const EXPO_PRODUCTS=[["Yamaha FS400C 缺角民謠木吉他",5299],["Yamaha F400 民謠木吉他",4899],["aNueNue Clint 36吋面單旅行吉他",14299],["aNueNue L100 41吋全單吉他",25499],["aNueNue LMGT LION聯名薄桶面單",10599],["Singer GA01 面單民謠吉他",7499],["Singer GA03 面單民謠吉他",10899],["Singer GA04 全單民謠吉他",19399],["aNueNue US10 21吋面單烏克",2599],["aNueNue UC10 23吋面單烏克",3099],["aNueNue Lyra 玻纖烏克",3599],["NUX DM-110 電子鼓",10999],["NUX DM-210 電子鼓",15199],["NUX DM-310H 電子鼓",22899],["NUX DM-7X 電子鼓",33199],["NUX DM-8 電子鼓",42399],["Yamaha DTX6K5-M 電子鼓",50799],["Roland TD-02K 電子鼓",11599],["Roland TD-07DMK 電子鼓",27199],["Roland TD-313 電子鼓",49099],["Roland TD-316 電子鼓",50999],["Roland VAD-316 電子鼓",91399],["Roland VAD-516 電子鼓",166199],["Yamaha YDP-105R 數位鋼琴",28099],["Yamaha YDP-146 數位鋼琴",35999],["Yamaha YDP-S36 數位鋼琴",36799],["Yamaha YDP-S56 數位鋼琴",44999],["Yamaha CLP-835 數位鋼琴",60799],["Yamaha CLP-845 數位鋼琴",72899],["Yamaha P-145 數位鋼琴",17299],["Yamaha P-225 數位鋼琴",27899],["Yamaha P-525 數位鋼琴",54699],["Roland FP-30X 數位鋼琴",18299],["Roland FP-60X 數位鋼琴",38899],["Roland FP-90X 數位鋼琴",50999],["Roland RP-107 數位鋼琴",26799],["Roland F-107 數位鋼琴",27199],["Roland RP-701 數位鋼琴",42299],["Roland F-701 數位鋼琴",42299]];
+function openExpoModal(){
+  editId=null;shipId=null;_modalDirty=false;
+  const today=localDateISO();
+  const opts=EXPO_PRODUCTS.map(p=>`<option value="${p[1]}" data-n="${p[0]}">${p[0]}（NT$${p[1].toLocaleString()}）</option>`).join('');
+  document.getElementById('modal-body').innerHTML=`<h3>新增展場訂單</h3>
+<div style="background:#fff1e8;border:1px solid #fdba74;border-radius:8px;padding:10px 14px;font-size:11px;color:#c2410c;margin-bottom:12px;line-height:1.6">樂器展現場收單用：選型錄自動帶價、或自己填品項；實收金額會自動判斷 付清（找零）/ 訂金（尚欠），平台掛「展場」。</div>
+<div class="fg"><div class="fi"><label>日期</label><input type="date" id="ex-date" value="${today}"></div><div class="fi"><label>選型錄自動帶價</label><select id="ex-psel" onchange="exPick()"><option value="__free" selected>其他（自己輸入品項）</option>${opts}</select></div></div>
+<div class="fg full"><div class="fi"><label>品項 <span style="color:var(--pc)">*</span></label><input id="ex-product" placeholder="請輸入品項名稱（或上面選型錄）"></div></div>
+<div class="fg"><div class="fi"><label>售價 <span style="color:var(--pc)">*</span></label><input type="text" inputmode="numeric" id="ex-price" placeholder="0" oninput="this.value=cn(this.value);exCalc()"></div><div class="fi"><label>安裝費 <span style="font-size:10px;color:var(--ht)">（沒有留空）</span></label><input type="text" inputmode="numeric" id="ex-install" placeholder="0" oninput="this.value=cn(this.value);exCalc()"></div></div>
+<div class="fg full"><div class="fi"><label>實收金額</label><input type="text" inputmode="numeric" id="ex-received" placeholder="0" oninput="this.value=cn(this.value);exCalc()"><div class="hint" id="ex-calc" style="margin-top:6px"></div></div></div>
+<div class="fg"><div class="fi"><label>姓名</label><input id="ex-name" placeholder="客戶姓名（現場客可寫「現場客」）"></div><div class="fi"><label>電話</label><input id="ex-phone" inputmode="tel" placeholder="聯絡電話（可空）"></div></div>
+<div class="fg full"><div class="fi"><label>收件地址 <span style="font-size:10px;color:var(--ht)">（要寄送才填）</span></label><input id="ex-addr" placeholder="留空 = 現場取走"></div></div>
+<div class="fg full"><div class="fi"><label>備註</label><input id="ex-note" placeholder="選填"></div></div>
+<div class="modal-ft"><button class="btn" onclick="closeModal()">取消</button><button class="btn" onclick="saveExpoSale()" style="background:#ea580c;border-color:#ea580c;color:#fff">儲存</button></div>`;
+  document.getElementById('modal-overlay').classList.remove('hidden');document.body.style.overflow='hidden';
+  setTimeout(()=>document.getElementById('ex-product')?.focus(),50);
+}
+function exPick(){
+  const s=document.getElementById('ex-psel'),v=s.value,o=s.options[s.selectedIndex];
+  const pr=document.getElementById('ex-product');
+  if(v==='__free'){pr.value='';document.getElementById('ex-price').value='';pr.focus();exCalc();return;}
+  pr.value=o.getAttribute('data-n')||'';document.getElementById('ex-price').value=(+v).toLocaleString();exCalc();
+}
+function _exNum(id){return parseInt((document.getElementById(id).value||'').replace(/[^\d]/g,''))||0}
+function exCalc(){
+  const p=_exNum('ex-price'),i=_exNum('ex-install'),r=_exNum('ex-received'),t=p+i;
+  const el=document.getElementById('ex-calc');if(!el)return;
+  if(!r){el.textContent='';el.style.color='';return;}
+  if(r>=t&&t>0){el.style.color='#15803d';const ch=r-t;el.textContent='✓ 已付清（合計 NT$'+t.toLocaleString()+'）'+(ch>0?'　找零 NT$'+ch.toLocaleString():'');}
+  else{el.style.color='#c2410c';el.textContent='訂金：已付 NT$'+r.toLocaleString()+'，尚欠 NT$'+(t-r).toLocaleString()+'（合計 NT$'+t.toLocaleString()+'）';}
+}
+function saveExpoSale(){
+  const product=document.getElementById('ex-product').value.trim();
+  const price=_exNum('ex-price'),install=_exNum('ex-install'),received=_exNum('ex-received');
+  if(!product){alert('品項必填（選型錄或自己輸入）');return}
+  if(!price||price<=0){alert('售價需大於 0');return}
+  const date=document.getElementById('ex-date').value||localDateISO();
+  const name=document.getElementById('ex-name').value.trim()||'展場客';
+  const phone=document.getElementById('ex-phone').value.trim();
+  const addr=document.getElementById('ex-addr').value.trim();
+  const userNote=document.getElementById('ex-note').value.trim();
+  const total=price+install;
+  let status,payLine;
+  if(received>=total&&total>0){status='已完成';const ch=received-total;payLine='實收 '+received.toLocaleString()+(ch>0?'／找零 '+ch.toLocaleString():'');}
+  else if(received>0){status='待收費';payLine='訂金已收 '+received.toLocaleString()+'／尚欠 '+(total-received).toLocaleString();}
+  else{status='未確認';payLine='未收款／應收 '+total.toLocaleString();}
+  const noteParts=['🎪 展場（現場建單）','售價 '+price.toLocaleString()+(install?'／安裝 '+install.toLocaleString():'')+'／合計 '+total.toLocaleString(),payLine];
+  if(userNote)noteParts.push(userNote);
+  const o={id:gid(),date,dateFmt:fmtD(date),platform:'EXPO',orderNo:'EXPO-'+Date.now().toString().slice(-9),product,specs:'',name,phone,realPhone:phone,address:addr,addrMgmt:'',addrElev:'',install:install>0?'是':'否',installFee:install,installDay:'',installTime:'',installPaidAmount:install,addon:'否',addonFee:0,addonItems:'',addonPaidAmount:0,amount:price,qty:1,status,note:noteParts.join('\n'),delyGbStr:'',trackingNo:''};
+  logActivity(o,'展場現場建單');
+  orders.push(o);
+  _setSavingBadge();db.ref('orders/'+o.id).set(o).catch(_saveError);
+  _modalDirty=false;closeModal();updateCnt();
+  showToast(`✅ 已加入展場單：${name} ｜ ${product} ｜ $${total.toLocaleString()}`,null,null,4000);
   showTab('list');
 }
 
