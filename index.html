@@ -400,7 +400,7 @@ function _invalidateOrderCaches(){_hayCache.clear();_custAggCache=null}
 let orders=[],ordersLoaded=false,cFilter=localStorage.getItem('cFilter')||'all',editId=null,shipId=null,sortOrder=localStorage.getItem('sortOrder')||'date-desc',cSpecial=localStorage.getItem('cSpecial')||null,statsPeriod=localStorage.getItem('statsPeriod')||'30',statsPlatform=localStorage.getItem('statsPlatform')||'all',customerSort=localStorage.getItem('customerSort')||'lastDate',customerPlatform=localStorage.getItem('customerPlatform')||'all',outputPlatform=localStorage.getItem('outputPlatform')||'all';
 // cStatus 改為陣列：[] = 狀態；多元素 = 多選（desktop only）；單元素 = 對應狀態
 // 兼容舊版 localStorage 字串（'已確認'）跟新版 JSON 陣列
-let cStatus=(()=>{const raw=localStorage.getItem('cStatus');if(!raw||raw==='all')return[];try{const p=JSON.parse(raw);if(Array.isArray(p))return p;if(typeof p==='string')return p==='all'?[]:[p];return[]}catch(e){return[raw]}})();
+let cStatus=(()=>{const raw=localStorage.getItem('cStatus');if(!raw||raw==='all')return[];try{const p=JSON.parse(raw);if(Array.isArray(p))return p;if(typeof p==='string')return p==='all'?[]:[p];return[]}catch(e){return[]}})();
 function persistFilters(){localStorage.setItem('cFilter',cFilter);localStorage.setItem('cStatus',JSON.stringify(cStatus));localStorage.setItem('sortOrder',sortOrder);if(cSpecial)localStorage.setItem('cSpecial',cSpecial);else localStorage.removeItem('cSpecial')}
 const selectedIds=new Set();
 // 待收費 = 已出貨後安裝/加購款還沒收 — 紅色強烈提醒。也可自動偵測（isPendingPayment）
@@ -535,8 +535,8 @@ function _setSavingBadge(){_invalidateOrderCaches();const sb=document.getElement
 function _saveError(err){console.error('save failed',err);const sb=document.getElementById('sync-badge');if(sb){sb.className='sync-dot sync-off';sb.innerHTML='<span class="dot dot-off"></span>❌ 儲存失敗'}}
 function _snapshotJson(){const d={};orders.forEach(o=>{d[o.id]=o});return JSON.stringify(d)}
 // 之前用 set 會把其他裝置剛新增的訂單沖掉。現在 update — 安全多裝置同時操作
-function _doSaveAll(){_saveAllTimer=null;const d={};orders.forEach(o=>{d[o.id]=o});_pendingOneIds.clear();db.ref('orders').update(d).catch(_saveError)}
-function _doSaveOnes(){_saveOneTimer=null;if(_pendingOneIds.size===0)return;const updates={};for(const id of _pendingOneIds){const o=findO(id);if(o)updates[id]=o}_pendingOneIds.clear();db.ref('orders').update(updates).catch(_saveError)}
+function _doSaveAll(){_saveAllTimer=null;const d={};orders.forEach(o=>{d[o.id]=o});_pendingOneIds.clear();db.ref('orders').update(d).catch(_saveError);pendingRemoteOrders=null}
+function _doSaveOnes(){_saveOneTimer=null;if(_pendingOneIds.size===0)return;const updates={};for(const id of _pendingOneIds){const o=findO(id);if(o)updates[id]=o}_pendingOneIds.clear();db.ref('orders').update(updates).catch(_saveError);pendingRemoteOrders=null}
 // saveAll = update 整包 orders（不用 set，避免 multi-device wipe）— 取消 pending saveOne，由 saveAll 統一處理
 function saveAll(immediate){_setSavingBadge();_pendingOneIds.clear();if(_saveOneTimer){clearTimeout(_saveOneTimer);_saveOneTimer=null}if(_saveAllTimer)clearTimeout(_saveAllTimer);if(immediate)_doSaveAll();else _saveAllTimer=setTimeout(_doSaveAll,200)}
 // saveOne = single order update — 如果 saveAll 已 pending，等 saveAll 處理（包括這個 order）
@@ -2528,6 +2528,7 @@ function onOutputDateChange(){outputFrom=document.getElementById('of-from').valu
 if(outputFrom&&outputTo&&outputFrom>outputTo){const _t=outputFrom;outputFrom=outputTo;outputTo=_t;const ff=document.getElementById('of-from'),ft=document.getElementById('of-to');if(ff)ff.value=outputFrom;if(ft)ft.value=outputTo}
 outputDateMode='custom';document.querySelectorAll('#tab-output .fbtn[data-fg="odate"]').forEach(x=>x.classList.remove('on'));renderOutput()}
 function _outputLbl(){const dlbl=outputDateMode==='all'?'全部':outputDateMode==='today'?'今天':outputDateMode==='yesterday'?'昨天':outputDateMode==='week'?'本週':outputDateMode==='month'?'本月':`${outputFrom||'…'} → ${outputTo||'…'}`;const plbl=outputPlatform&&outputPlatform!=='all'?platName(outputPlatform):'';return plbl?`${plbl}・${dlbl}`:dlbl}
+let _outExpand=false,_outSig='';
 function renderOutput(){
   const list=filterOutputOrders();
   const cntEl=document.getElementById('ocnt');if(cntEl)cntEl.textContent=list.length;
@@ -2536,7 +2537,9 @@ function renderOutput(){
   if(!orders.length){el.innerHTML='<div class="result">尚無訂單</div>';return}
   if(!list.length){el.innerHTML='<div class="result">⚠️ 此條件下沒有訂單，請調整日期/平台/搜尋字</div>';return}
   // 每筆訂單一張卡片，旁邊「📋 複製這筆」按鈕。卡片內容用 .result 樣式（mono 文字 + user-select），可複製單筆貼 LINE。
-  const html=list.map(o=>{
+  const _osig=list.length+'|'+((list[0]||{}).id||'')+'|'+((list[list.length-1]||{}).id||'');if(_osig!==_outSig){_outExpand=false;_outSig=_osig}
+  const OLIMIT=200;const otrunc=!_outExpand&&list.length>OLIMIT;const _orows=otrunc?list.slice(0,OLIMIT):list;
+  const html=_orows.map(o=>{
     const txt=fmtS(o);
     const pPill=platformPill(o.platform);
     const stCls2=stCls(o.status);
@@ -2546,7 +2549,7 @@ function renderOutput(){
 <div class="result" style="margin:0;border:0;border-radius:0;max-height:none">${esc(txt)}</div>
 </div>`;
   }).join('');
-  el.innerHTML=html;
+  el.innerHTML=html+(otrunc?`<div style="text-align:center;padding:10px"><button class="btn" onclick="_outExpand=true;renderOutput()">顯示全部 ${list.length} 筆（先顯示前 ${OLIMIT} 筆避免卡頓；複製 / CSV 仍是全部）</button></div>`:'');
 }
 function copyOutput(){const list=filterOutputOrders();if(!list.length){alert('沒有訂單可複製');return}copyText(list.map(fmtS).join('\n---\n'),`✅ 已複製 ${list.length} 筆訂單（${_outputLbl()}）`)}
 async function shareOutput(){const list=filterOutputOrders();if(!list.length){alert('沒有訂單可分享');return}if(!navigator.share){return copyOutput()}const lbl=_outputLbl();const txt=list.map(fmtS).join('\n---\n');try{await navigator.share({title:`訂單 ${lbl} ${list.length} 筆`,text:txt})}catch(e){if(e.name!=='AbortError')alert('分享失敗：'+e.message)}}
@@ -2650,17 +2653,21 @@ function prepareCustomerRow(c){
   const platforms=[...c.platforms].map(p=>platformPill(p)).join(' ');
   return{cnJS,repeat,addr,moreAddrs,platforms};
 }
+let _custExpand=false,_custSig='';
+function _custMore(n){return `<div style="text-align:center;padding:10px"><button class="btn" onclick="_custExpand=true;renderCustomers()">顯示全部 ${n} 位客戶</button></div>`}
 function renderCustomers(){
 if(!ordersLoaded){document.getElementById('cust-area').innerHTML='<div class="card"><div class="card-b" style="text-align:center;padding:40px 20px;color:var(--dm)">⏳ 載入中...</div></div>';const ccnt=document.getElementById('ccnt');if(ccnt)ccnt.textContent='—';return}
 const q=fwToHw((document.getElementById('cq')?.value||'')).toLowerCase().trim();const all=aggregateCustomers();const fl=q?all.filter(c=>(c.name+c.phone+(c.realPhone||'')+[...c.addresses].join(' ')).toLowerCase().includes(q)):all;document.getElementById('ccnt').textContent=fl.length;
+const _csig=fl.length+'|'+((fl[0]||{}).name||'')+'|'+((fl[fl.length-1]||{}).name||'');if(_csig!==_custSig){_custExpand=false;_custSig=_csig}
+const CLIMIT=200;const ctrunc=!_custExpand&&fl.length>CLIMIT;const _crows=ctrunc?fl.slice(0,CLIMIT):fl;
 if(!fl.length){const hasQ=q.trim();document.getElementById('cust-area').innerHTML=`<div class="card"><div class="card-b empty-state"><div class="es-icon">${hasQ?'🔍':'👥'}</div><div class="es-title">${hasQ?'沒有符合搜尋的客戶':'沒有客戶資料'}</div><div class="es-hint">${hasQ?'試試其他關鍵字':'匯入訂單後客戶會自動出現'}</div></div></div>`;return}
 if(isMobile()){
   // 手機 → 卡片版（不橫滑），點姓名跳到列表搜尋此客戶
-  const html=`<div class="ord-cards">${fl.map(c=>{const r=prepareCustomerRow(c);return`<div class="ord-card" style="padding:12px"><div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:6px"><div><strong style="font-size:15px;cursor:pointer;color:var(--blu)" onclick="searchCustomerOrders(${r.cnJS})">${esc(c.name)}</strong>${r.repeat}</div><div class="total-cell" style="font-size:16px">$${c.total.toLocaleString()}</div></div><div style="display:flex;gap:8px;flex-wrap:wrap;font-size:11px;color:var(--dm);margin-bottom:6px"><span class="qty-pill">${c.orders.length} 次</span>${r.platforms}<span class="mono" style="font-size:10px">最後 ${c.lastDate||'-'}</span></div>${c.phone?`<div style="font-size:13px;font-family:var(--mono);margin-bottom:2px">📞 ${phoneTel(c.phone)}</div>`:''}${c.realPhone?`<div style="font-size:13px;font-family:var(--mono);color:var(--grn);margin-bottom:2px">📱 ${phoneTel(c.realPhone)}</div>`:''}${r.addr?`<div style="font-size:11px;color:var(--dm);line-height:1.4">📍 ${mapsLink(r.addr)}</div>`:''}${r.moreAddrs?`<div style="font-size:10px;color:var(--ht);margin-top:2px">${r.moreAddrs}</div>`:''}</div>`}).join('')}</div>`;
-  document.getElementById('cust-area').innerHTML=html;return;
+  const html=`<div class="ord-cards">${_crows.map(c=>{const r=prepareCustomerRow(c);return`<div class="ord-card" style="padding:12px"><div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:6px"><div><strong style="font-size:15px;cursor:pointer;color:var(--blu)" onclick="searchCustomerOrders(${r.cnJS})">${esc(c.name)}</strong>${r.repeat}</div><div class="total-cell" style="font-size:16px">$${c.total.toLocaleString()}</div></div><div style="display:flex;gap:8px;flex-wrap:wrap;font-size:11px;color:var(--dm);margin-bottom:6px"><span class="qty-pill">${c.orders.length} 次</span>${r.platforms}<span class="mono" style="font-size:10px">最後 ${c.lastDate||'-'}</span></div>${c.phone?`<div style="font-size:13px;font-family:var(--mono);margin-bottom:2px">📞 ${phoneTel(c.phone)}</div>`:''}${c.realPhone?`<div style="font-size:13px;font-family:var(--mono);color:var(--grn);margin-bottom:2px">📱 ${phoneTel(c.realPhone)}</div>`:''}${r.addr?`<div style="font-size:11px;color:var(--dm);line-height:1.4">📍 ${mapsLink(r.addr)}</div>`:''}${r.moreAddrs?`<div style="font-size:10px;color:var(--ht);margin-top:2px">${r.moreAddrs}</div>`:''}</div>`}).join('')}</div>`;
+  document.getElementById('cust-area').innerHTML=html+(ctrunc?_custMore(fl.length):'');return;
 }
-const html=`<div class="card"><div style="overflow-x:auto"><table><thead><tr><th>姓名</th><th>電話（代撥/真實）</th><th style="width:60px;text-align:right">次數</th><th style="width:110px;text-align:right">總消費</th><th style="width:80px">最後訂購</th><th style="width:80px">平台</th><th>地址</th></tr></thead><tbody>${fl.map(c=>{const r=prepareCustomerRow(c);return`<tr><td><strong style="cursor:pointer;color:var(--blu)" onclick="searchCustomerOrders(${r.cnJS})" title="點此搜尋此客戶的所有訂單">${esc(c.name)}</strong>${r.repeat}</td><td class="mono">${phoneTel(c.phone)}${c.realPhone?`<br><span style="color:var(--grn);font-size:10px">📱 ${phoneTel(c.realPhone)}</span>`:''}</td><td class="mono" style="text-align:right">${c.orders.length}</td><td class="mono total-cell" style="text-align:right">$${c.total.toLocaleString()}</td><td class="mono" style="font-size:10px;color:var(--dm)">${c.lastDate||'-'}</td><td>${r.platforms}</td><td class="trunc" style="max-width:240px" title="${[...c.addresses].map(esc).join(' / ')}">${esc(r.addr)}${r.moreAddrs?` <span style="color:var(--ht);font-size:10px">${r.moreAddrs}</span>`:''}</td></tr>`}).join('')}</tbody></table></div></div>`;
-document.getElementById('cust-area').innerHTML=html}
+const html=`<div class="card"><div style="overflow-x:auto"><table><thead><tr><th>姓名</th><th>電話（代撥/真實）</th><th style="width:60px;text-align:right">次數</th><th style="width:110px;text-align:right">總消費</th><th style="width:80px">最後訂購</th><th style="width:80px">平台</th><th>地址</th></tr></thead><tbody>${_crows.map(c=>{const r=prepareCustomerRow(c);return`<tr><td><strong style="cursor:pointer;color:var(--blu)" onclick="searchCustomerOrders(${r.cnJS})" title="點此搜尋此客戶的所有訂單">${esc(c.name)}</strong>${r.repeat}</td><td class="mono">${phoneTel(c.phone)}${c.realPhone?`<br><span style="color:var(--grn);font-size:10px">📱 ${phoneTel(c.realPhone)}</span>`:''}</td><td class="mono" style="text-align:right">${c.orders.length}</td><td class="mono total-cell" style="text-align:right">$${c.total.toLocaleString()}</td><td class="mono" style="font-size:10px;color:var(--dm)">${c.lastDate||'-'}</td><td>${r.platforms}</td><td class="trunc" style="max-width:240px" title="${[...c.addresses].map(esc).join(' / ')}">${esc(r.addr)}${r.moreAddrs?` <span style="color:var(--ht);font-size:10px">${r.moreAddrs}</span>`:''}</td></tr>`}).join('')}</tbody></table></div></div>`;
+document.getElementById('cust-area').innerHTML=html+(ctrunc?_custMore(fl.length):'')}
 
 // ===== EDIT MODAL =====
 function customerHistoryBadge(o){if(!o.name)return'';const key=customerKey(o);const same=orders.filter(x=>x.id!==o.id&&customerKey(x)===key);if(!same.length)return'';const total=same.filter(x=>x.status!=='已取消'&&x.status!=='轉線下').reduce((s,x)=>s+tot(x),0);const lastDate=same.map(x=>x.date).filter(Boolean).sort().pop();const cnJS=JSON.stringify(o.name).replace(/"/g,'&quot;');return`<span style="display:inline-block;background:#fef0f5;color:var(--mo);font-size:10px;padding:3px 8px;border-radius:10px;font-weight:700;margin-left:6px;cursor:pointer" title="點此查看此客戶所有訂單" onclick="if(closeModal())searchCustomerOrders(${cnJS})">回頭客 ｜ ${same.length} 筆 ｜ $${total.toLocaleString()} ｜ 最後 ${lastDate||'?'}</span>`}
@@ -3073,7 +3080,7 @@ function saveExpoSale(){
   else{status='未確認';payLine='未收款／應收 '+total.toLocaleString();}
   const noteParts=['🎪 展場（現場建單）','售價 '+price.toLocaleString()+(install?'／安裝 '+install.toLocaleString():'')+'／合計 '+total.toLocaleString(),payLine];
   if(userNote)noteParts.push(userNote);
-  const o={id:gid(),date,dateFmt:fmtD(date),platform:'EXPO',orderNo:'EXPO-'+Date.now().toString().slice(-9),product,specs:'',name,phone,realPhone:phone,address:addr,addrMgmt:'',addrElev:'',install:install>0?'是':'否',installFee:install,installDay:'',installTime:'',installPaidAmount:install,addon:'否',addonFee:0,addonItems:'',addonPaidAmount:0,amount:price,qty:1,status,note:noteParts.join('\n'),delyGbStr:'',trackingNo:''};
+  const o={id:gid(),date,dateFmt:fmtD(date),platform:'EXPO',orderNo:'EXPO-'+Date.now().toString().slice(-9),product,specs:'',name,phone,realPhone:phone,address:addr,addrMgmt:'',addrElev:'',install:install>0?'是':'否',installFee:install,installDay:'',installTime:'',installPaidAmount:(status==='已完成'?install:0),addon:'否',addonFee:0,addonItems:'',addonPaidAmount:0,amount:price,qty:1,status,note:noteParts.join('\n'),delyGbStr:'',trackingNo:''};
   logActivity(o,'展場現場建單');
   orders.push(o);
   _setSavingBadge();db.ref('orders/'+o.id).set(o).catch(_saveError);
@@ -4201,7 +4208,7 @@ let _wasMobile=isMobile();window.addEventListener('resize',()=>{const now=isMobi
 setInterval(()=>{
   // 拖曳中也不能套用遠端更新 — re-render 會砍掉拖曳中的 DOM
   const _dragging=(typeof _schedDragOid!=='undefined'&&_schedDragOid)||(typeof _touchDragOid!=='undefined'&&_touchDragOid);
-  if(pendingRemoteOrders!==null&&!isModalOpen()&&!isInputFocused()&&!_saveOneTimer&&!_saveAllTimer&&!_dragging){const v=pendingRemoteOrders;applyRemoteOrders(v)}
+  if(pendingRemoteOrders!==null&&!isModalOpen()&&!isInputFocused()&&!_saveOneTimer&&!_saveAllTimer&&!_dragging){const v=pendingRemoteOrders;try{applyRemoteOrders(v)}catch(e){console.error('flush apply failed:',e)}}
 },2000);
 // Register service worker (PWA support)
 if('serviceWorker' in navigator){
