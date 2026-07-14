@@ -2101,11 +2101,15 @@ function setOrderStatus(oid,next){
   logActivity(o,`狀態：${prev} → ${o.status}`);
   saveOne(o);
   updateCnt();
-  // 如果有篩選狀態，狀態變了可能會讓這筆消失或進入 → 還是要 full render
-  if(cStatus.length){renderList();return}
-  // 快速路徑：只更新這顆按鈕，不重建整個列表（避免 200+ 筆訂單卡頓）
+  // 同步所有顯示此單狀態的按鈕（列表 + 安裝排程卡共用 st-btn）— 一次更新兩處，避免各自 stale
   const btns=document.querySelectorAll(`button.st-btn[onclick*="openStatusMenu('${oid}'"]`);
-  if(btns.length){btns.forEach(btn=>{btn.className=stCls(o.status);btn.textContent=o.status+' ▾'});updateFilterCounts();return}
+  btns.forEach(btn=>{btn.className=stCls(o.status);btn.textContent=o.status+' ▾'});
+  // 改成排程排除的狀態（已取消/轉線下）→ 安裝排程頁要把這張卡移除，不能只留 stale 按鈕
+  if(next==='已取消'||next==='轉線下')renderSchedule();
+  // 如果有篩選狀態，狀態變了可能會讓這筆在列表消失或進入 → full render（排程卡已於上方同步）
+  if(cStatus.length){renderList();return}
+  // 快速路徑：按鈕已就地更新，不重建整個列表（避免 200+ 筆訂單卡頓）
+  if(btns.length){updateFilterCounts();return}
   // 找不到按鈕 → fallback full render
   renderList();
 }
@@ -3615,7 +3619,10 @@ function renderSchedRow(o,opts){
     </div>
     <div style="font-size:12px;color:var(--tx);margin-bottom:2px">${esc(ps.name||o.product||'')}${ps.specs?` <span class="spec-pill" style="font-size:10px">${esc(ps.specs)}</span>`:''} × ${o.qty||1} ｜ ${feeChip}</div>
     <div style="font-size:11px;color:var(--dm);margin-bottom:6px">${esc(o.address||'—')}</div>
-    <button onclick="event.stopPropagation();markInstallDone('${o.id}')" style="font-size:11px;font-weight:700;padding:4px 12px;border-radius:5px;border:1px solid var(--grn);background:var(--grn-bg);color:var(--grn);cursor:pointer">✓ 完成${isSelfDeliver(o)?'配送':'安裝'}</button>
+    <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap">
+      <button class="${stCls(o.status)}" onclick="event.stopPropagation();openStatusMenu('${o.id}',event)" title="目前訂單狀態（點擊修改，跟列表同步）">${esc(o.status||'?')} ▾</button>
+      <button onclick="event.stopPropagation();markInstallDone('${o.id}')" style="font-size:11px;font-weight:700;padding:4px 12px;border-radius:5px;border:1px solid var(--grn);background:var(--grn-bg);color:var(--grn);cursor:pointer">✓ 完成${isSelfDeliver(o)?'配送':'安裝'}</button>
+    </div>
   </div>`;
 }
 // 安裝排程的「待處理」訂單 — 要安裝、還沒按「完成安裝」確認鍵、且訂單沒取消/轉線下
