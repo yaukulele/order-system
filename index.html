@@ -706,7 +706,11 @@ const cn=cleanNote(o.note);if(cn)parts.push(cn.replace(/\n/g,' / '));return part
 function fmtS(o){const d=o.dateFmt||fmtD(o.date),q=(o.qty||1)>1?' x '+o.qty:'',pr=(o.product||'')+q,ph=bestPhone(o);const noteLine=buildNoteLine(o);const platLabel=o.platform==='PC'?'PC':o.platform==='ST'?'店':o.platform==='MO'?'MO':o.platform==='SCH'?'校':o.platform==='MO3'?'三方':o.platform==='EXPO'?'展':(o.platform||'?');return[d+' '+platLabel,o.orderNo,pr,o.specs,o.name,ph,o.address,noteLine].filter(Boolean).join('\n')}
 // fmtShipping：複製到 LINE 用的格式。依用戶偏好不帶「姓名：」「電話：」這類標題前綴 — context 看得出來什麼是什麼
 // 順序：單號 / 商品 / 姓名 / 電話 / 地址 / 備註（空欄自動省略）
-function fmtShipping(o){const d=o.dateFmt||fmtD(o.date);const q=(o.qty||1)>1?' × '+o.qty:'',pr=(o.product||'')+(o.specs?'（'+o.specs+'）':'')+q,ph=bestPhone(o);const noteLine=buildNoteLine(o);return[d?('日期 '+d):'',o.orderNo||'',pr,o.name||'',ph||'',o.address||'',noteLine].filter(Boolean).join('\n')}
+function fmtShipping(o){const d=o.dateFmt||fmtD(o.date);const q=(o.qty||1)>1?' × '+o.qty:'',pr=(o.product||'')+(o.specs?'（'+o.specs+'）':'')+q,ph=bestPhone(o);const noteLine=buildNoteLine(o);
+  // 抬頭標平台，方便貼上時一眼分辨來源（PC／MO／店內／展場…）
+  const platLabel=o.platform==='PC'?'PC':o.platform==='MO'?'MO':o.platform==='MO3'?'MO三方':o.platform==='ST'?'店內':o.platform==='EXPO'?'展場':o.platform==='SCH'?'學校':(o.platform||'');
+  const head=(platLabel?'【'+platLabel+'】':'')+(d?' 日期 '+d:'');
+  return[head.trim(),o.orderNo||'',pr,o.name||'',ph||'',o.address||'',noteLine].filter(Boolean).join('\n')}
 function copyShipping(oid,btn){const o=findO(oid);if(!o)return;const txt=fmtShipping(o);navigator.clipboard.writeText(txt).then(()=>{if(!btn)return;const old=btn.textContent;btn.textContent='✓';btn.style.color='var(--grn)';setTimeout(()=>{if(btn){btn.textContent=old;btn.style.color=''}},1300)}).catch(err=>alert('複製失敗：'+err.message))}
 // 出貨拍照：
 // 1. 開後鏡頭拍照
