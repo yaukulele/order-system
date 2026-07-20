@@ -183,6 +183,28 @@ td{padding:7px 10px;border-bottom:1px solid #f0ede6}tr:hover td{background:var(-
 .fb-divider{color:var(--ht);margin:0 2px}
 /* Mobile card layout for order list */
 .ord-cards{display:flex;flex-direction:column;gap:10px}
+/* 區域頁：左選單 + 右訂單 兩欄 */
+.rgn-wrap{display:flex;gap:16px;align-items:flex-start}
+.rgn-nav{flex:0 0 188px;position:sticky;top:12px;max-height:calc(100vh - 96px);overflow-y:auto;background:var(--sf);border:1px solid var(--bd);border-radius:10px;padding:8px}
+.rgn-nav-region{display:flex;align-items:center;gap:6px;font-size:11px;font-weight:800;letter-spacing:.5px;padding:9px 9px 5px;margin-top:4px;cursor:pointer;border-radius:7px}
+.rgn-nav-region:first-child{margin-top:0}
+.rgn-nav-region:hover{background:var(--sf2)}
+.rgn-nav-region.on{outline:1.5px solid currentColor;outline-offset:-1.5px}
+.rgn-city{display:flex;align-items:center;gap:6px;padding:7px 9px;border-radius:7px;cursor:pointer;font-size:12.5px;color:var(--tx);font-weight:600}
+.rgn-city:hover{background:var(--sf2)}
+.rgn-city.on{background:var(--blu);color:#fff}
+.rgn-c-cnt{margin-left:auto;font-size:10px;font-weight:700;color:var(--dm);background:var(--bg);padding:0 6px;border-radius:8px;line-height:1.6}
+.rgn-nav-region .rgn-c-cnt{margin-left:auto}
+.rgn-city.on .rgn-c-cnt{color:#fff;background:rgba(255,255,255,.22)}
+.rgn-panel{flex:1;min-width:0}
+@media(max-width:768px){
+ .rgn-wrap{flex-direction:column;gap:10px}
+ .rgn-nav{flex:none;width:100%;position:static;max-height:220px;display:flex;flex-wrap:wrap;gap:6px;padding:10px}
+ .rgn-nav-region{width:100%;margin-top:2px;padding:4px 4px 2px}
+ .rgn-nav-region:first-child{margin-top:0}
+ .rgn-city{flex:0 1 auto;padding:6px 11px}
+ .rgn-c-cnt{margin-left:4px}
+}
 .ord-card{background:var(--sf);border:1px solid var(--bd);border-radius:12px;padding:12px;box-shadow:0 1px 2px rgba(0,0,0,.04);position:relative;transition:transform .15s,box-shadow .15s;content-visibility:auto;contain-intrinsic-size:240px}
 [data-theme="dark"] .ord-card{box-shadow:0 1px 3px rgba(0,0,0,.4)}
 .ord-card:active{transform:scale(.99)}
@@ -3815,6 +3837,12 @@ function copyRegionCity(city){
   });
   copyText(`【${city}】共 ${list.length} 筆\n`+lines.join('\n'),`✅ 已複製 ${city} ${list.length} 筆名單`);
 }
+// 左邊選到的地區：'ALL'=全部；'R:北'=整個大區；'C:台北市'=單一縣市（跨 render 記住）
+let regionSel='ALL';
+function selectRegion(key){regionSel=key;renderRegion();
+  // 手機版：選完捲到訂單區，方便直接看
+  if(window.matchMedia&&window.matchMedia('(max-width:768px)').matches){const p=document.querySelector('#region-area .rgn-panel');if(p)p.scrollIntoView({behavior:'smooth',block:'start'})}
+}
 function renderRegion(){
   const area=document.getElementById('region-area');if(!area)return;
   const cntEl=document.getElementById('region-show-cnt');
@@ -3825,20 +3853,41 @@ function renderRegion(){
   // region -> city -> [orders]
   const g={};pool.forEach(o=>{const rk=regionOf(o.address);const c=addrCity(o.address)||'（無地址）';(g[rk]||(g[rk]={}));(g[rk][c]||(g[rk][c]=[])).push(o)});
   const RCFG={'北':{label:'北部',bg:'#e8eef9',fg:'#1657b5'},'中':{label:'中部',bg:'#dcfce7',fg:'#15803d'},'南':{label:'南部',bg:'#ffedd5',fg:'#c2410c'},'東':{label:'東部',bg:'#ccfbf1',fg:'#0f766e'},'離島':{label:'離島',bg:'#f3e8ff',fg:'#7e22ce'},'?':{label:'未分類（地址無法辨識）',bg:'#f1f5f9',fg:'#64748b'}};
-  let h='';
-  ['北','中','南','東','離島','?'].forEach(rk=>{
-    const cities=g[rk];if(!cities)return;
-    const cityNames=Object.keys(cities).sort((a,b)=>cities[b].length-cities[a].length||a.localeCompare(b,'zh-TW'));
-    const regionCnt=cityNames.reduce((s,c)=>s+cities[c].length,0);
-    const cfg=RCFG[rk];
-    h+=`<div style="margin:18px 0 6px;padding:9px 14px;background:${cfg.bg};color:${cfg.fg};border-radius:8px;font-weight:800;font-size:15px;display:flex;align-items:center;gap:10px"><span>${cfg.label}</span><span style="font-weight:600;font-size:12px;opacity:.85">${regionCnt} 筆・${cityNames.length} 縣市</span></div>`;
-    cityNames.forEach(c=>{
-      const list=cities[c].slice().sort((a,b)=>(a.date<b.date?1:-1));
-      h+=`<div style="display:flex;align-items:center;gap:8px;margin:12px 2px 6px;padding-bottom:4px;border-bottom:2px solid ${cfg.bg}"><span style="font-weight:700;font-size:13.5px;color:var(--tx)">${esc(c)}</span><span style="font-size:11px;color:var(--dm)">${list.length} 筆</span><span style="flex:1"></span><button class="btn" style="font-size:10px;padding:4px 10px" onclick='copyRegionCity(${JSON.stringify(c)})' title="複製本縣市整批名單（姓名／電話／地址／品項）">📋 複製名單</button></div>`;
-      h+='<div class="ord-cards">'+list.map(_regionCard).join('')+'</div>';
+  const ORDER=['北','中','南','東','離島','?'];
+  const cityNamesOf=rk=>Object.keys(g[rk]).sort((a,b)=>g[rk][b].length-g[rk][a].length||a.localeCompare(b,'zh-TW'));
+  // 選取狀態失效（切換過濾後該縣市/大區不存在）→ 退回全部
+  if(regionSel.startsWith('C:')&&!ORDER.some(rk=>g[rk]&&g[rk][regionSel.slice(2)]))regionSel='ALL';
+  if(regionSel.startsWith('R:')&&!g[regionSel.slice(2)])regionSel='ALL';
+  // 右邊：單一縣市區塊（含複製名單）
+  const cityBlock=(c,list,cfg)=>{
+    const sorted=list.slice().sort((a,b)=>(a.date<b.date?1:-1));
+    return `<div style="display:flex;align-items:center;gap:8px;margin:12px 2px 6px;padding-bottom:4px;border-bottom:2px solid ${cfg.bg}"><span style="font-weight:700;font-size:13.5px;color:var(--tx)">${esc(c)}</span><span style="font-size:11px;color:var(--dm)">${sorted.length} 筆</span><span style="flex:1"></span><button class="btn" style="font-size:10px;padding:4px 10px" onclick='copyRegionCity(${JSON.stringify(c)})' title="複製本縣市整批名單（姓名／電話／地址／品項）">📋 複製名單</button></div>`
+      +'<div class="ord-cards">'+sorted.map(_regionCard).join('')+'</div>';
+  };
+  // 右邊：整個大區（大標 + 各縣市）
+  const regionBlock=rk=>{
+    const cfg=RCFG[rk];const cns=cityNamesOf(rk);
+    const regionCnt=cns.reduce((s,c)=>s+g[rk][c].length,0);
+    let h=`<div style="margin:0 0 6px;padding:9px 14px;background:${cfg.bg};color:${cfg.fg};border-radius:8px;font-weight:800;font-size:15px;display:flex;align-items:center;gap:10px"><span>${cfg.label}</span><span style="font-weight:600;font-size:12px;opacity:.85">${regionCnt} 筆・${cns.length} 縣市</span></div>`;
+    cns.forEach(c=>h+=cityBlock(c,g[rk][c],cfg));
+    return h;
+  };
+  // 左邊選單
+  let nav=`<div class="rgn-city${regionSel==='ALL'?' on':''}" onclick="selectRegion('ALL')"><span>全部地區</span><span class="rgn-c-cnt">${pool.length}</span></div>`;
+  ORDER.forEach(rk=>{
+    if(!g[rk])return;const cfg=RCFG[rk];const cns=cityNamesOf(rk);
+    const regionCnt=cns.reduce((s,c)=>s+g[rk][c].length,0);
+    nav+=`<div class="rgn-nav-region${regionSel==='R:'+rk?' on':''}" style="color:${cfg.fg}" onclick="selectRegion('R:${rk}')" title="看整個${cfg.label}"><span>${cfg.label}</span><span class="rgn-c-cnt">${regionCnt}</span></div>`;
+    cns.forEach(c=>{
+      nav+=`<div class="rgn-city${regionSel==='C:'+c?' on':''}" onclick='selectRegion(${JSON.stringify('C:'+c)})'><span>${esc(c)}</span><span class="rgn-c-cnt">${g[rk][c].length}</span></div>`;
     });
   });
-  area.innerHTML=h;
+  // 右邊面板
+  let panel='';
+  if(regionSel==='ALL'){ORDER.forEach(rk=>{if(g[rk])panel+='<div style="margin-bottom:10px">'+regionBlock(rk)+'</div>'})}
+  else if(regionSel.startsWith('R:')){panel=regionBlock(regionSel.slice(2))}
+  else if(regionSel.startsWith('C:')){const c=regionSel.slice(2);const rk=ORDER.find(k=>g[k]&&g[k][c]);panel=cityBlock(c,g[rk][c],RCFG[rk])}
+  area.innerHTML=`<div class="rgn-wrap"><div class="rgn-nav">${nav}</div><div class="rgn-panel">${panel}</div></div>`;
 }
 
 // ===== 週表 grid 視圖 =====
