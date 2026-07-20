@@ -3455,10 +3455,11 @@ async function quickShipPchomeSelf(oid){
     const r=await fetch(`${api}/api/orders/pchome/shipinfo`,{method:'POST',headers:{'Content-Type':'application/json','X-API-Token':token},body:JSON.stringify(payload)});
     const data=await r.json();
     if(!r.ok||!data.ok){alert(`❌ 自行出貨失敗\n\n${data.error||'HTTP '+r.status}\n\n${JSON.stringify(data.detail||data,null,2).slice(0,400)}`);return}
-    o.trackingNo=slip;o.delyGbStr='廠商自行出貨';o.status='已出貨';
-    logActivity(o,`PChome 一鍵自行出貨：單號 ${slip} ｜ ${qty} 件`);
+    // 只記配送方式，不動訂單狀態 —— 可能先壓自行出貨回報 PChome，貨還沒到，狀態等實際到貨再手動改
+    o.delyGbStr='廠商自行出貨';
+    logActivity(o,`PChome 一鍵自行出貨（已回報 PChome，狀態未變）：${qty} 件`);
     saveOne(o);renderList();
-    alert(`✅ 已用「廠商自行出貨」出貨\n訂單 ${o.orderNo} 狀態已更新為「已出貨」`);
+    alert(`✅ 已送出「廠商自行出貨」給 PChome\n訂單 ${o.orderNo} 狀態維持不動（等實際到貨你再自己改）`);
   }catch(err){alert('❌ 網路錯誤：'+err.message)}
 }
 document.getElementById('raw-input')?.addEventListener('paste',()=>setTimeout(runParse,200));
