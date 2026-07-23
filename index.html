@@ -695,13 +695,15 @@ function platformPill(p){if(p==='MO')return '<span class="brand-pill brand-mo" t
 // 比原本的 3 次 .filter() chain 快約 2-3 倍（長備註訂單在 list render 上有感）
 const _RE_ACT=/^\[\d{4}-\d{2}-\d{2}\s\d{2}:\d{2}(?:\s@[^\]]+)?\]/;
 const _RE_META=/^【(?:安裝|加購)】/;
+// 備註署名標記 ⟨@誰 · 時間⟩ — 客戶備註行結尾記「誰key的」；出貨/列表顯示時要剝掉只留正文
+const _RE_ATTR=/\s*⟨@[^⟩]*⟩\s*$/;
 // cleanNote 加快取 — 同 note 內容 → 同結果，list render 每筆都呼叫一次省得重算
 const _cleanNoteCache=new Map();
 function cleanNote(n){
   const key=n||'';
   if(_cleanNoteCache.has(key))return _cleanNoteCache.get(key);
   const lines=String(key).split('\n');const out=[];
-  for(const ln of lines){const t=ln.trim();if(!t||_RE_ACT.test(t)||_RE_META.test(t))continue;out.push(t)}
+  for(const ln of lines){const t=ln.trim();if(!t||_RE_ACT.test(t)||_RE_META.test(t))continue;const c=t.replace(_RE_ATTR,'').trim();if(c)out.push(c)}
   const result=out.join('\n');
   if(_cleanNoteCache.size<4000)_cleanNoteCache.set(key,result);
   return result;
@@ -2738,7 +2740,7 @@ document.getElementById('modal-body').innerHTML=`<h3>編輯訂單${customerHisto
 ${o.platform==='ST'?`<div style="border:1px solid var(--bd);border-radius:8px;padding:12px;margin:8px 0;background:var(--sf2)"><div style="font-size:12px;font-weight:700;margin-bottom:8px">📦 物流 <span style="font-weight:400;color:var(--dm);font-size:10px">（外送/寄送才需填）</span></div><div class="fg"><div class="fi"><label>物流公司</label><select id="e-dely"><option value="">— 未填（現場取走） —</option>${MOMO_DELY_COMPANIES.map(c=>`<option ${o.delyGbStr===c?'selected':''}>${c}</option>`).join('')}</select></div><div class="fi"><label>物流單號</label><input id="e-tracking" value="${esc(o.trackingNo||'')}" placeholder="(可空)" style="font-family:var(--mono)"></div></div><div style="margin-top:6px;font-size:10px;color:var(--dm)">店內訂單通常現場取走，物流可空</div></div>`:`<div style="border:1px solid var(--bd);border-radius:8px;padding:12px;margin:8px 0;background:var(--sf2)"><div style="font-size:12px;font-weight:700;margin-bottom:8px">📦 物流</div><div class="fg"><div class="fi"><label>物流公司</label><select id="e-dely"><option value="">— 未填 —</option>${(o.platform==='PC'?[...MOMO_DELY_COMPANIES,'廠商自行出貨']:MOMO_DELY_COMPANIES).map(c=>`<option ${o.delyGbStr===c?'selected':''}>${c}</option>`).join('')}</select></div><div class="fi"><label>物流單號</label><input id="e-tracking" value="${esc(o.trackingNo||'')}" placeholder="物流單號" style="font-family:var(--mono)"></div></div>${o.platform==='MO'?`<div style="margin-top:8px;display:flex;gap:8px;align-items:center;flex-wrap:wrap"><button type="button" class="btn" onclick="syncShipFromEdit()" style="background:var(--mo);color:#fff;border-color:var(--mo);font-size:11px;font-weight:700">📤 同步到 MOMO 後台</button><span style="font-size:10px;color:var(--dm)">用上面的單號開「出貨確認」回填到 MOMO（會跳 DRY RUN 預覽）</span></div>`:o.platform==='MO3'?`<div style="margin-top:8px;display:flex;gap:8px;align-items:center;flex-wrap:wrap"><button type="button" class="btn" onclick="fetchThirdLabelForEdit(this)" style="background:var(--mo);color:#fff;border-color:var(--mo);font-size:11px;font-weight:700">📥 補抓託運單電話/地址</button><span style="font-size:10px;color:var(--dm)">第三方單個資遮罩 → 從 MOMO 託運單解出代撥電話＋完整地址</span></div>`:o.platform==='PC'?`<div style="margin-top:8px;display:flex;gap:8px;align-items:center;flex-wrap:wrap"><button type="button" class="btn" onclick="syncShipPchomeFromEdit()" style="background:var(--pc);color:#fff;border-color:var(--pc);font-size:11px;font-weight:700">📤 回填到 PChome 後台</button><span style="font-size:10px;color:var(--dm)">用上面的單號開「出貨回填」送到 PChome</span></div>`:''}</div>`}
 <div class="fg" style="margin-top:10px"><div class="fi"><label>狀態</label><select id="e-st">${ST.map(s=>`<option ${o.status===s?'selected':''}>${s}</option>`).join('')}</select></div></div>
 ${(o.photos&&o.photos.length)?`<div class="fg full"><div class="fi"><label>📷 出貨照片（${o.photos.length} 張，點圖放大）</label><div style="display:flex;gap:6px;flex-wrap:wrap;padding:8px;background:var(--sf2);border:1px solid var(--bd);border-radius:8px">${o.photos.map((p,i)=>`<div style="position:relative"><a href="${esc(p.url)}" target="_blank" rel="noopener" style="display:block;width:88px;height:88px;border-radius:6px;overflow:hidden;border:1px solid var(--bd);background:#fff"><img src="${esc(p.url)}" style="width:100%;height:100%;object-fit:cover;display:block" loading="lazy"></a><button onclick="removeOrderPhoto('${o.id}',${i})" style="position:absolute;top:-6px;right:-6px;width:22px;height:22px;border-radius:50%;background:var(--pc);color:#fff;border:0;font-size:12px;cursor:pointer;font-weight:700;line-height:1" title="刪除此照片">×</button><div style="font-size:9px;color:var(--dm);text-align:center;margin-top:2px;font-family:var(--mono)">${new Date(p.ts).toLocaleString('zh-TW',{month:'2-digit',day:'2-digit',hour:'2-digit',minute:'2-digit'})}</div></div>`).join('')}</div></div></div>`:''}
-${activityTimelineHTML(o.note)}<div class="fg full"><div class="fi"><label>備註（含活動紀錄）</label><div class="note-presets">${['不安裝不加購-直接出貨！','壓SP.貨到直接出！','日期壓後面一點，貨到出貨。','已加line交涉中','要到電話！'].map(t=>`<button type="button" class="note-preset-chip" data-preset="${esc(t)}" onclick="insertNotePreset(this.dataset.preset)">${esc(t)}</button>`).join('')}</div><textarea id="e-note">${esc(o.note)}</textarea></div></div>
+<div class="fg full"><div class="fi"><label>備註（新增即時同步・自動記錄誰＋時間）</label><div class="note-presets">${['不安裝不加購-直接出貨！','壓SP.貨到直接出！','日期壓後面一點，貨到出貨。','已加line交涉中','要到電話！'].map(t=>`<button type="button" class="note-preset-chip" data-preset="${esc(t)}" onclick="noteQuickAdd(this.dataset.preset)">${esc(t)}</button>`).join('')}</div><div style="display:flex;gap:6px;margin-top:2px"><input id="e-note-add" placeholder="輸入備註，Enter 或按新增（即時同步）" onkeydown="if(event.key==='Enter'){event.preventDefault();noteAddFromInput()}" style="flex:1;padding:6px 10px;border:1px solid var(--bd);border-radius:6px;font-size:12px;font-family:var(--sans);outline:none"><button type="button" class="btn btn-g" onclick="noteAddFromInput()" style="white-space:nowrap">＋ 新增</button></div><div id="e-note-timeline" style="margin-top:8px;max-height:230px;overflow:auto;background:var(--sf2);border:1px solid var(--bd);border-radius:8px;padding:4px 10px">${noteHistoryHTML(o.note)}</div><div style="margin-top:6px"><button type="button" class="btn" style="font-size:11px" onclick="toggleNoteRaw(this)">✎ 編輯／刪除舊備註（整段覆蓋）</button></div><textarea id="e-note" data-dirty="0" oninput="this.dataset.dirty='1';_modalDirty=true" style="display:none;margin-top:6px" placeholder="直接改整段（含舊紀錄）；儲存會覆蓋整段，請小心">${esc(o.note)}</textarea></div></div>
 <div class="modal-ft"><button class="btn" onclick="closeModal()">取消</button><button class="btn btn-g" onclick="saveEdit()">儲存</button></div>`;
 document.getElementById('modal-overlay').classList.remove('hidden');document.body.style.overflow='hidden';
 // 初始化 mismatch hint（如果開啟編輯的單已經有客戶希望 + 實際排程不符 → 馬上顯示提示）
@@ -2750,14 +2752,56 @@ if(typeof updateAddonPaidHint==='function')updateAddonPaidHint();
 // 但初始化呼叫不算用戶 dirty — reset 一下
 _modalDirty=false;}
 
-// 編輯備註的快捷詞插入 — 點 chip 把預設文字追加到 #e-note 末尾（已存在就 focus 不重複）
-function insertNotePreset(text){
-  const ta=document.getElementById('e-note');if(!ta||!text)return;
-  const cur=ta.value||'';
-  if(cur.split('\n').some(l=>l.trim()===text.trim())){ta.focus();return}
-  ta.value=cur?cur.replace(/\s+$/,'')+'\n'+text:text;
-  _modalDirty=true;
-  ta.focus();ta.scrollTop=ta.scrollHeight;
+// ===== 備註：即時追加（transaction）+ 署名 =====
+// 為什麼用 transaction：多人／多裝置同時加備註時，整段覆蓋(saveOne 寫整包 o)會互相洗掉。
+// 改成對 orders/{id}/note 做 transaction 追加單行 → 原子操作，永不吃掉別人剛加的行。
+// 而且「點 chip / 按新增」當下就寫進雲端，不用等按儲存，也不怕按了取消 → 符合「取消後也要同步」。
+function _noteShortStamp(){const d=new Date();const p=n=>String(n).padStart(2,'0');return `${p(d.getMonth()+1)}-${p(d.getDate())} ${p(d.getHours())}:${p(d.getMinutes())}`}
+// 把 note 每一行拆成 {ts, who, msg} — 支援兩種格式：[YYYY-MM-DD HH:MM @誰] 紀錄行、正文 ⟨@誰 · 時間⟩
+function parseNoteLine(ln){
+  let ts='',who='',msg=ln;
+  const a=ln.match(/^\[(\d{4}-\d{2}-\d{2}(?:\s\d{2}:\d{2})?)(?:\s@([^\]]+))?\]\s*(.+)$/);
+  if(a){ts=a[1];who=a[2]||'';msg=a[3]}
+  else{const b=ln.match(/^(.*?)\s*⟨@([^·⟩]+?)(?:\s*·\s*([^⟩]+))?⟩\s*$/);if(b){msg=(b[1]||'').trim();who=(b[2]||'').trim();ts=(b[3]||'').trim()}}
+  return {ts,who,msg};
+}
+// 模態內備註時間軸（新到舊，每行標誰／何時）
+function noteHistoryHTML(note){
+  const raw=String(note||'').split('\n').map(l=>l.trim()).filter(Boolean).filter(l=>!/^【(?:安裝|加購)】/.test(l));
+  if(!raw.length)return '<div style="font-size:11px;color:var(--ht);padding:6px 2px">尚無備註或紀錄</div>';
+  return raw.map(ln=>{const {ts,who,msg}=parseNoteLine(ln);return `<div style="display:flex;gap:8px;font-size:12px;line-height:1.5;padding:5px 0;border-bottom:1px dashed var(--bd)"><span style="color:var(--ht);font-family:var(--mono);font-size:10px;white-space:nowrap;flex-shrink:0">${ts?esc(ts):'—'}${who?` <span style="color:var(--mo);font-weight:700">@${esc(who)}</span>`:''}</span><span style="flex:1;word-break:break-word">${esc(msg)}</span></div>`}).reverse().join('');
+}
+// 原子追加備註行（可多行），寫完更新本地 + 刷新模態時間軸 + 列表
+function noteAppendCommit(oid,lines){
+  const o=findO(oid);if(!o)return;
+  const add=(lines||[]).map(s=>String(s).trim()).filter(Boolean);
+  if(!add.length)return;
+  _setSavingBadge();
+  // optimistic：先本地追加 + 立刻刷新時間軸（離線也有反應），transaction 回來再以雲端為準
+  {let base=String(o.note||'').replace(/\s+$/,'');for(const ln of add){if(!base.split('\n').some(x=>x.trim()===ln.trim()))base=base?base+'\n'+ln:ln}o.note=base;_invalidateOrderCaches();if(editId===oid)refreshModalNoteUI(oid);try{renderList()}catch(_){}}
+  db.ref('orders/'+oid+'/note').transaction(cur=>{
+    let base=String(cur||'').replace(/\s+$/,'');
+    for(const ln of add){if(!base.split('\n').some(x=>x.trim()===ln.trim()))base=base?base+'\n'+ln:ln}
+    return base;
+  },(err,committed,snap)=>{
+    if(err){if(typeof _saveError==='function')_saveError(err);return}
+    if(committed&&snap){const val=snap.val()||'';o.note=val;if(pendingRemoteOrders&&pendingRemoteOrders[oid])pendingRemoteOrders[oid].note=val;_invalidateOrderCaches();if(editId===oid)refreshModalNoteUI(oid);try{renderList()}catch(_){}}
+  });
+}
+// 點快選 chip / 手動新增 → 追加一行「正文 ⟨@誰 · 時間⟩」（客戶備註仍會出現在出貨/列表，署名記在後面）
+function noteQuickAdd(text){
+  if(!editId){if(typeof showToast==='function')showToast('請先開啟訂單再新增備註');return}
+  text=String(text||'').replace(/\s*⟨@[^⟩]*⟩\s*/g,'').trim();if(!text)return;
+  const who=currentUser||'?';
+  noteAppendCommit(editId,[`${text} ⟨@${who} · ${_noteShortStamp()}⟩`]);
+  if(typeof showToast==='function')showToast(`已記備註 @${who}（即時同步）`);
+}
+function noteAddFromInput(){const inp=document.getElementById('e-note-add');if(!inp)return;const v=inp.value.trim();if(!v)return;noteQuickAdd(v);inp.value='';inp.focus()}
+function toggleNoteRaw(btn){const ta=document.getElementById('e-note');if(!ta)return;const show=ta.style.display==='none';ta.style.display=show?'block':'none';if(btn)btn.textContent=show?'▲ 收合全文編輯':'✎ 編輯／刪除舊備註（整段覆蓋）';if(show){ta.focus();ta.scrollTop=ta.scrollHeight}}
+function refreshModalNoteUI(oid){
+  const o=findO(oid);if(!o)return;
+  const tl=document.getElementById('e-note-timeline');if(tl)tl.innerHTML=noteHistoryHTML(o.note);
+  const raw=document.getElementById('e-note');if(raw&&raw.dataset.dirty!=='1')raw.value=o.note||'';
 }
 
 // 編輯 modal 內客戶希望 vs 實際排程 mismatch 提示（live update）
@@ -2904,9 +2948,17 @@ if(newDely!==(o.delyGbStr||'')||newTracking!==(o.trackingNo||'')){
   logActivity(o,`物流手動編輯：${old} → ${fresh}`);
 }
 o.delyGbStr=newDely;o.trackingNo=newTracking;
-let note=document.getElementById('e-note').value.trim().replace(/【安裝】[^\n]*/g,'').trim();
-if(o.install==='是'&&(o.installDay||o.installTime)){note='【安裝】'+o.installDay+(o.installTime?' '+o.installTime:'')+(o.installFee?' $'+o.installFee:'')+(note?'\n'+note:'')}
-o.note=note;saveOne(o);pendingRemoteOrders=null;closeModal();renderList();
+// 備註：平常靠 chip／新增鈕 即時 transaction 追加（不經這裡）。
+// 這裡只在「編輯全文」模式(dataset.dirty=1)才以整段覆蓋為準；其餘沿用 o.note（含本次 logActivity 追加的行）。
+{
+  const rawTa=document.getElementById('e-note');
+  let note=(rawTa&&rawTa.dataset.dirty==='1')?rawTa.value.trim():(o.note||'');
+  // 合併模態開著時「其他裝置」剛追加的備註行 → 避免整段覆蓋洗掉別人剛 key 的
+  const remoteNote=(pendingRemoteOrders&&pendingRemoteOrders[o.id]&&typeof pendingRemoteOrders[o.id].note==='string')?pendingRemoteOrders[o.id].note:'';
+  if(remoteNote){const seen=new Set(note.split('\n').map(l=>l.trim()));for(const ln of remoteNote.split('\n')){const t=ln.trim();if(t&&!seen.has(t)){note=note?note+'\n'+ln:ln;seen.add(t)}}}
+  o.note=note.trim();
+}
+saveOne(o);pendingRemoteOrders=null;closeModal();renderList();
 // 如果用戶在排程 tab 開的 edit，存完也要 refresh 排程
 if(document.querySelector('.tab.active')?.textContent?.includes('安裝')&&typeof renderSchedule==='function')renderSchedule();
 updateCnt();}
