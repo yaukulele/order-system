@@ -2617,11 +2617,12 @@ function parseReconCSV(text){
   const rows=lines.map(l=>_reconCells(l,delim));
   const meta={item:'',range:'',total:null};
   let curPay=false,orderCol=-1,amtCol=-1,sawItem=false;const map=new Map();let n=0;
-  const pushRow=(r)=>{if(orderCol<0||amtCol<0||r.length<=amtCol)return;const base=((r[orderCol]||'').replace(/[^\d-]/g,'').split('-')[0]);if(!/^\d{10,}$/.test(base))return;const amt=parseInt((r[amtCol]||'').replace(/[^\d-]/g,''),10)||0;const cur=map.get(base)||{amt:0,name:(r[2]||r[1]||'').slice(0,26)};cur.amt+=amt;map.set(base,cur);n++};
+  const sections=[];let sec=null;
+  const pushRow=(r)=>{if(orderCol<0||amtCol<0||r.length<=amtCol)return;const base=((r[orderCol]||'').replace(/[^\d-]/g,'').split('-')[0]);if(!/^\d{10,}$/.test(base))return;const amt=parseInt((r[amtCol]||'').replace(/[^\d-]/g,''),10)||0;if(sec){sec.n++}const cur=map.get(base)||{amt:0,name:(r[2]||r[1]||'').slice(0,26)};cur.amt+=amt;map.set(base,cur);n++};
   for(const r of rows){const c0=r[0]||'';
-    if(/^對帳項目/.test(c0)){sawItem=true;const it=r[1]||'';curPay=/貨款明細/.test(it)&&!/退貨/.test(it);orderCol=-1;amtCol=-1;if(curPay&&!meta.item)meta.item=it;continue}
+    if(/^對帳項目/.test(c0)){sawItem=true;const it=r[1]||'';sec={item:it,total:0,n:0};sections.push(sec);curPay=/貨款明細/.test(it)&&!/退貨/.test(it);orderCol=-1;amtCol=-1;if(curPay&&!meta.item)meta.item=it;continue}
     if(/^(列帳)?日期區間/.test(c0)){if(!meta.range)meta.range=r[1]||'';continue}
-    if(/^總額/.test(c0)){const m=(r[1]||'').replace(/[^\d]/g,'');if(curPay&&m)meta.total=(meta.total||0)+parseInt(m,10);continue}
+    if(/^總額/.test(c0)){const neg=/^-|^\("?-|\(/.test((r[1]||''));const m=(r[1]||'').replace(/[^\d]/g,'');const t=m?parseInt(m,10)*(neg?-1:1):0;if(sec)sec.total=t;if(curPay&&m)meta.total=(meta.total||0)+t;continue}
     if(curPay&&/訂單編號|訂單序號/.test(c0)){orderCol=r.findIndex(x=>/訂單編號|訂單序號/.test(x));amtCol=r.findIndex(x=>/應付金額/.test(x));if(amtCol<0)amtCol=r.findIndex(x=>/金額/.test(x)&&!/折扣|成本/.test(x));continue}
     if(curPay)pushRow(r);
   }
@@ -2629,7 +2630,7 @@ function parseReconCSV(text){
     let hi=rows.findIndex(r=>r.some(c=>/訂單編號|訂單序號/.test(c))&&r.some(c=>/金額/.test(c)));
     if(hi>=0){const H=rows[hi];orderCol=H.findIndex(c=>/訂單編號|訂單序號/.test(c));amtCol=H.findIndex(c=>/應付金額/.test(c));if(amtCol<0)amtCol=H.findIndex(c=>/(撥款|實付|貨款)/.test(c)&&/金額/.test(c));if(amtCol<0)amtCol=H.findIndex(c=>/金額/.test(c)&&!/折扣|成本/.test(c));for(let i=hi+1;i<rows.length;i++)pushRow(rows[i]);const tr=rows.slice(0,6).find(c=>/^總額/.test(c[0]||''));if(tr){const m=(tr[1]||'').replace(/[^\d]/g,'');if(m)meta.total=parseInt(m,10)}}}
   if(!map.size)return{ok:false,err:'解析不到貨款訂單列（確認是平台後台的對帳單 CSV）'};
-  return{ok:true,map,meta,lineItems:n}
+  return{ok:true,map,meta,lineItems:n,sections}
 }
 function runRecon(text){
   const area=document.getElementById('recon-area');
@@ -2654,6 +2655,14 @@ function renderReconResult(r){
   if(r.p.meta.total!=null&&r.p.meta.total!==r.csvTotal)h+=`<div style="font-size:11px;color:#c0392b;margin-top:8px">⚠️ 對帳單標示總額 ${M(r.p.meta.total)} 與解析加總 ${M(r.csvTotal)} 不同（可能含非訂單列）</div>`;
   h+=clean?`<div style="margin-top:10px;padding:10px;background:#eafaf0;border-radius:8px;color:#1e824c;font-weight:700">✅ 全部對上！${r.p.map.size} 筆訂單金額 100% 相符，撈單帳沒問題。</div>`:`<div style="margin-top:10px;padding:10px;background:#fdecea;border-radius:8px;color:#c0392b;font-weight:700">⚠️ ${r.mism.length} 筆金額不符、${r.miss.length} 筆漏單，往下看紅字。</div>`;
   h+=`</div></div>`;
+  // 對帳單所有項目明細（貨款/退貨/罰金/費用/獎勵）+ 估算淨額
+  const secs=(r.p.sections||[]).filter(s=>s.total!==0);
+  if(secs.length){
+    const sign=it=>(/退貨貨款明細/.test(it)||/罰金|物流費|運費|安裝費|退出/.test(it))?-1:1;
+    const cat=it=>/退貨貨款明細/.test(it)?'退款':(/罰金/.test(it)?'罰金':(/物流費|運費|安裝費|退出/.test(it)?'費用':(/獎勵金/.test(it)?'獎勵':(/貨款明細/.test(it)?'貨款':'其他'))));
+    let net=0;const rowsH=secs.map(s=>{const sg=sign(s.item);net+=s.total*sg;const c=cat(s.item);const col=sg<0?'#c0392b':(c==='貨款'?'#1e824c':'var(--dm)');return `<tr><td style="padding:4px 7px;border-bottom:1px solid #f4f4f4"><span style="display:inline-block;min-width:34px;font-size:10px;color:#fff;background:${sg<0?'#e08a8a':(c==='貨款'?'#7bc298':'#c9b6bf')};border-radius:8px;text-align:center;padding:1px 4px;margin-right:6px">${c}</span>${s.item}</td><td style="padding:4px 7px;border-bottom:1px solid #f4f4f4;text-align:right;color:${col};font-weight:${c==='貨款'||sg<0?700:400}">${sg<0?'-':'+'}$${Math.abs(s.total).toLocaleString()}</td></tr>`}).join('');
+    h+=`<div class="card"><div class="card-b"><div style="font-weight:700;margin-bottom:8px;font-size:13px">💰 對帳單所有項目明細</div><div style="overflow-x:auto"><table style="width:100%;border-collapse:collapse;font-size:12px"><thead><tr><th style="text-align:left;border-bottom:1px solid #eee;padding:5px 7px;color:var(--dm)">對帳項目</th><th style="text-align:right;border-bottom:1px solid #eee;padding:5px 7px;color:var(--dm)">金額</th></tr></thead><tbody>${rowsH}<tr><td style="padding:7px;border-top:2px solid #eee;font-weight:800">估算實際撥款（貨款−退貨−費用＋獎勵）</td><td style="padding:7px;border-top:2px solid #eee;text-align:right;font-weight:800;color:var(--mo)">$${net.toLocaleString()}</td></tr></tbody></table></div><div style="font-size:11px;color:var(--ht);margin-top:6px">※ 獎勵金若為「已開折讓單」屬抵稅、非現金撥入，淨額僅供快速核對參考，實際以 PChome 撥款單為準。</div></div></div>`;
+  }
   if(r.mism.length)h+=_recSec('⚠️ 金額不符（撈單 vs 對帳單）',r.mism.map(x=>`<tr><td style="padding:4px 7px;border-bottom:1px solid #f4f4f4">${x.b}</td><td style="padding:4px 7px;border-bottom:1px solid #f4f4f4">${x.prod}</td><td style="padding:4px 7px;border-bottom:1px solid #f4f4f4;text-align:right">${M(x.os)}</td><td style="padding:4px 7px;border-bottom:1px solid #f4f4f4;text-align:right">${M(x.csv)}</td><td style="padding:4px 7px;border-bottom:1px solid #f4f4f4;text-align:right;color:#c0392b;font-weight:700">${x.diff>0?'+':''}${x.diff.toLocaleString()}</td></tr>`).join(''),['訂單編號','商品','撈單','對帳單','差']);
   if(r.miss.length)h+=_recSec('❌ 漏單：對帳單有、撈單系統沒有',r.miss.map(x=>`<tr><td style="padding:4px 7px;border-bottom:1px solid #f4f4f4">${x.b}</td><td style="padding:4px 7px;border-bottom:1px solid #f4f4f4">${x.name}</td><td style="padding:4px 7px;border-bottom:1px solid #f4f4f4;text-align:right">${M(x.amt)}</td></tr>`).join(''),['訂單編號','商品','金額']);
   if(r.extra.length){const isOff=e=>e.status==='已取消'||e.status==='轉線下'||e.status==='線下完成';const cc=r.extra.filter(isOff).length;h+=_recSec(`➕ 撈單有、對帳單沒有（${r.extra.length} 筆：取消/轉線下 ${cc}、其餘通常是近期單下期才結）`,r.extra.sort((a,b)=>a.date<b.date?-1:1).map(e=>`<tr><td style="padding:4px 7px;border-bottom:1px solid #f4f4f4">${e.b}</td><td style="padding:4px 7px;border-bottom:1px solid #f4f4f4">${e.prod}</td><td style="padding:4px 7px;border-bottom:1px solid #f4f4f4">${e.date}</td><td style="padding:4px 7px;border-bottom:1px solid #f4f4f4;color:${isOff(e)?'#c0392b':'var(--dm)'}">${e.status}</td><td style="padding:4px 7px;border-bottom:1px solid #f4f4f4;text-align:right">${M(e.amt)}</td></tr>`).join(''),['訂單編號','商品','日期','狀態','金額'])}
