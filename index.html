@@ -1192,8 +1192,9 @@ function setSF(f,b,e){
 // 「進行中」一鍵全選：排除終態（已完成 / 已取消 / 轉線下），其他全進
 const ACTIVE_STATUSES=['未確認','已確認','交涉中','要安裝','自己配','未接電','已包裝','已出貨','直接出','待收費','補貨中','未收錢','已收錢'];
 function isActivePreset(){return cStatus.length===ACTIVE_STATUSES.length&&ACTIVE_STATUSES.every(s=>cStatus.includes(s))}
-// 每次開頁/登入 → 列表預設篩選「進行中」（用戶要求；不記上次 cStatus）
-cStatus=[...ACTIVE_STATUSES];persistFilters();
+// 第一次開頁（從沒選過狀態）→ 列表預設篩選「進行中」；之後記住用戶手選的狀態，重整不重置
+// （阿淵要求：選了某個狀態標籤，重新整理要停在那個篩選，不要每次跳回「進行中」）
+if(localStorage.getItem('cStatus')===null){cStatus=[...ACTIVE_STATUSES];}
 function setActiveStatuses(btn){_mobileExpand=false;selectedIds.clear();
   // 已是 active preset → 再點 = 清空回「全部」
   if(isActivePreset())cStatus=[];
@@ -2302,7 +2303,8 @@ function restoreFilterUI(){document.querySelectorAll('#tab-list .fbtn[data-fg="p
 }
 restoreFilterUI();
 // 記住上次所在分頁 — 重新整理（含右上 🔄）後回到當前畫面，不要每次都跳回「匯入」首頁
-try{const _savedTab=localStorage.getItem('orderSysTab');const _validTabs=['import','list','schedule','region','output','stats','recon','customers','account'];if(_savedTab&&_savedTab!=='import'&&_validTabs.includes(_savedTab)&&typeof showTab==='function'){showTab(_savedTab)}}catch(_){}
+// 用 rAF 延到整段 script 跑完再切：renderList 會用到後面才宣告的 _CITY_REGION 等（同步呼叫會 TDZ）
+try{const _savedTab=localStorage.getItem('orderSysTab');const _validTabs=['import','list','schedule','region','output','stats','recon','customers','account'];if(_savedTab&&_savedTab!=='import'&&_validTabs.includes(_savedTab)){requestAnimationFrame(()=>{try{if(typeof showTab==='function')showTab(_savedTab)}catch(_){}})}}catch(_){}
 // makeDateBucketer：一次算好今天/昨天/週/30 天邊界，回傳的函式每筆訂單呼叫只是字串比較
 // renderList/renderListMobile 都用這個避免 O(n*5 Date 物件) 的成本
 function makeDateBucketer(){const today=localDateISO();const yest=localDateISO(new Date(Date.now()-86400000));const now=new Date();const dow=now.getDay();const startOfWeek=localDateISO(new Date(now.getTime()-dow*86400000));const startOfLastWeek=localDateISO(new Date(now.getTime()-(dow+7)*86400000));const cutoff30=localDateISO(new Date(Date.now()-30*86400000));return function(d){if(!d)return'其他';if(d===today)return'🆕 今天';if(d===yest)return'昨天';if(d>=startOfWeek)return'本週';if(d>=startOfLastWeek)return'上週';if(d>=cutoff30)return'近 30 天';return'更早'}}
