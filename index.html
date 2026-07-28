@@ -2354,22 +2354,27 @@ let _liveUnsentSet=null;
 function needsDeliverAction(o){if(!o)return false;if(!['MO','MO3','PC'].includes(o.platform))return false;
   if(_liveUnsentSet){const no=String(o.orderNo||'');return _liveUnsentSet.has(no)||_liveUnsentSet.has(no.split('-')[0])}
   return !_DELIVER_DONE.includes(o.status||'')} // 線上清單載入前先用本機狀態墊著
+function _pickOrderNo(o){if(!o||typeof o!=='object')return '';
+  for(const k of ['completeOrderNo','orderNo','OrderId','Id','ORDER_NO','order_no','ORDERNO'])if(o[k])return String(o[k]).trim();
+  for(const k in o){const v=o[k];if(typeof v==='string'&&/^\d{12,}(-\d+)*$/.test(v.trim()))return v.trim()}return ''}
 async function fetchLiveUnsent(){
   const token=(typeof getMomoToken==='function')&&getMomoToken();if(!token){showToast&&showToast('需先設定 API Token 才能抓線上未出貨');return}
   const base=getMomoApi();const days=90;
   showToast&&showToast('抓取平台線上未出貨清單中…');
-  const eps=['/api/orders/momo/unsent?days='+days,'/api/orders/momo/third/unsent?days='+days,'/api/orders/pchome/unsent?days='+days];
-  const set=new Set();
-  await Promise.all(eps.map(async ep=>{
-    try{const r=await fetch(base+ep,{headers:{'X-API-Token':token}});const j=await r.json();
-      const arr=(j&&(j.orders||j.items||j.dataList))||[];
-      for(const o of arr){const no=String(o.completeOrderNo||o.orderNo||o.OrderId||o.Id||'').trim();if(no){set.add(no);set.add(no.split('-')[0])}}
-    }catch(e){}
+  const eps=[['MOMO廠配','/api/orders/momo/unsent?days='+days],['MOMO三方','/api/orders/momo/third/unsent?days='+days],['PChome','/api/orders/pchome/unsent?days='+days]];
+  const set=new Set();const diag=[];
+  await Promise.all(eps.map(async ([name,ep])=>{
+    try{const r=await fetch(base+ep,{headers:{'X-API-Token':token}});const j=await r.json().catch(()=>({}));
+      const arr=(j&&(j.orders||j.items||j.dataList||j.data))||[];const A=Array.isArray(arr)?arr:[];let n=0,sample='';
+      for(const o of A){const no=_pickOrderNo(o);if(no){set.add(no);set.add(no.split('-')[0]);n++;if(!sample)sample=no}}
+      diag.push(`${name}: HTTP${r.status} ok=${j&&j.ok} 回${A.length}筆 取到${n} ${sample||(j&&j.error?('錯誤:'+String(j.error).slice(0,45)):'')}`);
+    }catch(e){diag.push(`${name}: fetch失敗 ${String(e&&e.message||e).slice(0,55)}`)}
   }));
   _liveUnsentSet=set;
-  const cnt=[...set].filter(x=>x.includes('-')).length||set.size;
-  showToast&&showToast('線上未出貨清單已載入');
   if(cSpecial==='pendingDeliver')renderList();
+  const matched=orders.filter(o=>needsDeliverAction(o)).length;
+  if(set.size===0||matched===0){alert('🚚 線上未出貨診斷（截這張給我）：\n\n'+diag.join('\n\n')+`\n\n撈單比對到 ${matched} 筆`)}
+  else{showToast&&showToast(`線上未出貨 ${matched} 筆已載入`)}
 }
 function filterListOrders(){const q=_curQuery();return orders.filter(o=>{if(cFilter!=='all'&&o.platform!==cFilter)return false;
   if(!statusMatchList(o))return false;
