@@ -2359,7 +2359,7 @@ function _pickOrderNo(o){if(!o||typeof o!=='object')return '';
   for(const k in o){const v=o[k];if(typeof v==='string'&&/^\d{12,}(-\d+)*$/.test(v.trim()))return v.trim()}return ''}
 async function fetchLiveUnsent(){
   const token=(typeof getMomoToken==='function')&&getMomoToken();if(!token){showToast&&showToast('需先設定 API Token 才能抓線上未出貨');return}
-  const base=getMomoApi();const days=90;
+  const base=getMomoApi();const days=60;// MOMO 限查詢區間≤兩個月，60 天已涵蓋所有未出貨(未出貨單都是近期)
   showToast&&showToast('抓取平台線上未出貨清單中…');
   const eps=[['MOMO廠配','/api/orders/momo/unsent?days='+days],['MOMO三方','/api/orders/momo/third/unsent?days='+days],['PChome','/api/orders/pchome/unsent?days='+days]];
   const set=new Set();const diag=[];
