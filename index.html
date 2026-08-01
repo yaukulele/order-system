@@ -3229,7 +3229,7 @@ function saveStoreSale(){
 
 // ===== 展場 modal =====
 // 樂器展現場收單 — platform='EXPO'。內容同展場收單系統：型錄下拉自動帶價 / 售價+安裝+實收 → 自動判斷 付清(找零)/訂金(尚欠)/未收款。
-// 欄位對應與展場 app 自動串進來的一致：amount=售價、installFee=安裝、status 付清→已完成/訂金→待收費/未收款→未確認。
+// 欄位對應與展場 app 自動串進來的一致：amount=售價、installFee=安裝、status 付清→已確認(不自動完成，店內人工出貨)/訂金→待收費/未收款→未確認。
 const EXPO_PRODUCTS=[["Yamaha FS400C 缺角民謠木吉他",5299],["Yamaha F400 民謠木吉他",4899],["aNueNue Clint 36吋面單旅行吉他",14299],["aNueNue L100 41吋全單吉他",25499],["aNueNue LMGT LION聯名薄桶面單",10599],["Singer GA01 面單民謠吉他",7499],["Singer GA03 面單民謠吉他",10899],["Singer GA04 全單民謠吉他",19399],["aNueNue US10 21吋面單烏克",2599],["aNueNue UC10 23吋面單烏克",3099],["aNueNue Lyra 玻纖烏克",3599],["NUX DM-110 電子鼓",10999],["NUX DM-210 電子鼓",15199],["NUX DM-310H 電子鼓",22899],["NUX DM-7X 電子鼓",33199],["NUX DM-8 電子鼓",42399],["Yamaha DTX6K5-M 電子鼓",50799],["Roland TD-02K 電子鼓",11599],["Roland TD-07DMK 電子鼓",27199],["Roland TD-313 電子鼓",49099],["Roland TD-316 電子鼓",50999],["Roland VAD-316 電子鼓",91399],["Roland VAD-516 電子鼓",166199],["Yamaha YDP-105R 數位鋼琴",28099],["Yamaha YDP-146 數位鋼琴",35999],["Yamaha YDP-S36 數位鋼琴",36799],["Yamaha YDP-S56 數位鋼琴",44999],["Yamaha CLP-835 數位鋼琴",60799],["Yamaha CLP-845 數位鋼琴",72899],["Yamaha P-145 數位鋼琴",17299],["Yamaha P-225 數位鋼琴",27899],["Yamaha P-525 數位鋼琴",54699],["Roland FP-30X 數位鋼琴",18299],["Roland FP-60X 數位鋼琴",38899],["Roland FP-90X 數位鋼琴",50999],["Roland RP-107 數位鋼琴",26799],["Roland F-107 數位鋼琴",27199],["Roland RP-701 數位鋼琴",42299],["Roland F-701 數位鋼琴",42299]];
 function openExpoModal(){
   editId=null;shipId=null;_modalDirty=false;
@@ -3274,7 +3274,7 @@ function saveExpoSale(){
   const userNote=document.getElementById('ex-note').value.trim();
   const total=price+install;
   let status,payLine;
-  if(received>=total&&total>0){status='已完成';const ch=received-total;payLine='實收 '+received.toLocaleString()+(ch>0?'／找零 '+ch.toLocaleString():'');}
+  if(received>=total&&total>0){status='已確認';const ch=received-total;payLine='實收 '+received.toLocaleString()+(ch>0?'／找零 '+ch.toLocaleString():'');}
   else if(received>0){status='待收費';payLine='訂金已收 '+received.toLocaleString()+'／尚欠 '+(total-received).toLocaleString();}
   else{status='未確認';payLine='未收款／應收 '+total.toLocaleString();}
   const noteParts=['🎪 展場（現場建單）','售價 '+price.toLocaleString()+(install?'／安裝 '+install.toLocaleString():'')+'／合計 '+total.toLocaleString(),payLine];
