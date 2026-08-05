@@ -4126,7 +4126,15 @@ function _downloadOrderList(list,label){
   setTimeout(()=>URL.revokeObjectURL(url),1500);
   showToast(`⬇️ 已下載「${label}」${list.length} 筆（Excel／Numbers 可開）`);
 }
-// A4 直式列印（省紙、放大好讀、依縣市分組、雙欄）— 2026-08-05 杰哥要
+// A4 直式列印（分縣市・清楚又完整：狀態/安裝約定/電梯管理室/備註）— 2026-08-05 杰哥要
+function _printNoteLine(o){
+  const parts=[];
+  if(o.addrMgmt||o.addrElev){const m=[o.addrMgmt?((o.addrMgmt==='有'?'有':'無')+'管理室'):'',(o.addrElev&&o.addrElev!=='不適用')?((o.addrElev==='有'?'有':'無')+'電梯'):''].filter(Boolean).join('·');if(m)parts.push(m)}
+  if(o.install==='是'){const f=Number(o.installFee)||0,p=Number(o.installPaidAmount)||0;const ps=f===0?'':(p>=f?'已收':(p>0?('缺$'+(f-p)):'未收'));parts.push('🔧安裝'+(o.installDay?(' '+o.installDay+(o.installTime?(' '+o.installTime):'')):'')+(f?(' $'+f):'')+(ps?(' '+ps):''))}
+  if(o.addon==='是'){const f=Number(o.addonFee)||0,p=Number(o.addonPaidAmount)||0;const ps=f===0?'':(p>=f?'已收':(p>0?('缺$'+(f-p)):'未收'));parts.push('🛒加購'+(o.addonItems?(' '+o.addonItems):'')+(f?(' $'+f):'')+(ps?(' '+ps):''))}
+  const cn=cleanNote(o.note);if(cn)parts.push(cn);
+  return parts.join('　｜　');
+}
 function _printOrderList(list,label){
   if(!list||!list.length){showToast('這區目前沒有訂單');return}
   const w=window.open('','_blank');if(!w){alert('請允許彈出視窗才能列印');return}
@@ -4135,13 +4143,16 @@ function _printOrderList(list,label){
   const sec=keys.map(c=>{
     const rows=g[c].map((o,i)=>{
       const ph=o.realPhone||(o.phone&&!String(o.phone).includes('#')?o.phone:'')||'';
-      const svc=isServiceActive(o)?(isSelfDeliver(o)?'自配':'需裝'):'';
+      const svc=isServiceActive(o)?(isSelfDeliver(o)?'🚗自配':'🔧需裝'):'';
       const ad=String(o.address||'').replace(c,'').trim();
-      return `<div class="r"><span class="n">${i+1}</span><span class="nm">${esc(o.name||'')}</span><span class="ph">${esc(ph)}</span><span class="ad">${esc(ad)}</span><span class="pd">${esc(String(o.product||'').replace(/\s+/g,' ').slice(0,22))}</span>${svc?`<span class="sv">${svc}</span>`:''}</div>`;
+      const note=_printNoteLine(o);
+      return `<div class="r"><div class="l1"><span class="n">${i+1}</span><span class="nm">${esc(o.name||'')}</span>${o.status?`<span class="st">${esc(o.status)}</span>`:''}<span class="ph">${esc(ph)}</span>${svc?`<span class="sv">${svc}</span>`:''}</div>`
+        +`<div class="l2">📍 ${esc(ad)||'<span style=color:#c00>未填地址</span>'}</div>`
+        +`<div class="l3"><b>${esc(String(o.product||'').replace(/\s+/g,' '))}</b>${note?`<span class="nt">　📝 ${esc(note)}</span>`:''}</div></div>`;
     }).join('');
     return `<div class="grp"><div class="gh">${esc(c)} <span class="gc">${g[c].length}</span></div>${rows}</div>`;
   }).join('');
-  const html=`<!doctype html><html><head><meta charset="utf-8"><title>${esc(label)} 配送名單</title><style>@page{size:A4 portrait;margin:8mm}*{box-sizing:border-box}body{font-family:'Microsoft JhengHei',sans-serif;color:#111;margin:0;font-size:11px}h1{font-size:17px;margin:0 0 2px}.sub{font-size:11px;color:#666;margin-bottom:8px}.wrap{column-count:2;column-gap:8mm}.grp{break-inside:avoid;margin-bottom:9px}.gh{font-weight:800;background:#eee;padding:3px 7px;border-radius:4px;margin-bottom:3px;font-size:12.5px}.gc{color:#666;font-weight:400;font-size:10px}.r{display:flex;gap:6px;padding:2.5px 4px;border-bottom:1px solid #eee;align-items:baseline}.n{color:#aaa;min-width:16px;font-size:9px}.nm{font-weight:700;min-width:54px;font-size:11.5px}.ph{font-family:'Menlo',monospace;font-size:10.5px;white-space:nowrap}.ad{flex:1;font-size:10.5px;color:#333}.pd{font-size:10px;color:#555}.sv{font-size:9px;background:#fde;color:#a03;padding:0 5px;border-radius:6px;white-space:nowrap;font-weight:700}.no-print{padding:12px;background:#f0f0f0;text-align:center}@media print{.no-print{display:none}}</style></head><body><div class="no-print"><b>${esc(label)}・共 ${list.length} 筆</b>　<button onclick="window.print()" style="padding:8px 18px;font-size:14px;cursor:pointer">🖨 列印</button> <button onclick="window.close()" style="padding:8px 18px;font-size:14px;cursor:pointer">關閉</button></div><h1>${esc(label)} 配送名單</h1><div class="sub">共 ${list.length} 筆・印於 ${new Date().toLocaleString('zh-TW')}</div><div class="wrap">${sec}</div></body></html>`;
+  const html=`<!doctype html><html><head><meta charset="utf-8"><title>${esc(label)} 配送名單</title><style>@page{size:A4 portrait;margin:9mm}*{box-sizing:border-box}body{font-family:'Microsoft JhengHei',sans-serif;color:#111;margin:0;font-size:12px;line-height:1.35}h1{font-size:18px;margin:0 0 2px}.sub{font-size:11px;color:#666;margin-bottom:8px}.grp{break-inside:avoid;margin-bottom:10px}.gh{font-weight:800;background:#e8e8e8;padding:4px 9px;border-radius:5px;margin-bottom:4px;font-size:14px}.gc{color:#666;font-weight:400;font-size:11px}.r{padding:4px 6px;border-bottom:1px solid #e5e5e5;break-inside:avoid}.l1{display:flex;gap:8px;align-items:baseline;flex-wrap:wrap}.n{color:#aaa;min-width:18px;font-size:10px}.nm{font-weight:800;font-size:14px;min-width:60px}.st{font-size:10px;background:#eef;color:#446;padding:0 6px;border-radius:6px}.ph{font-family:'Menlo',monospace;font-size:12px}.sv{font-size:11px;background:#fde;color:#a03;padding:0 6px;border-radius:6px;font-weight:700}.l2{font-size:12px;color:#222;margin:1px 0 1px 24px}.l3{font-size:11.5px;color:#333;margin-left:24px}.l3 b{color:#111}.nt{color:#8a5a1a}.no-print{padding:12px;background:#f0f0f0;text-align:center}@media print{.no-print{display:none}}</style></head><body><div class="no-print"><b>${esc(label)}・共 ${list.length} 筆</b>　<button onclick="window.print()" style="padding:8px 18px;font-size:14px;cursor:pointer">🖨 列印</button> <button onclick="window.close()" style="padding:8px 18px;font-size:14px;cursor:pointer">關閉</button></div><h1>${esc(label)} 配送名單</h1><div class="sub">共 ${list.length} 筆・印於 ${new Date().toLocaleString('zh-TW')}</div>${sec}</body></html>`;
   w.document.write(html);w.document.close();
 }
 function printCurrentRegion(){
