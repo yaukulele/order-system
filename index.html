@@ -205,6 +205,31 @@ td{padding:7px 10px;border-bottom:1px solid #f0ede6}tr:hover td{background:var(-
  .rgn-city{flex:0 1 auto;padding:6px 11px}
  .rgn-c-cnt{margin-left:4px}
 }
+/* 區域頁：區(district)第三層 nav + 縣市/區 標題 + 迷你按鈕 */
+.rgn-dist{display:flex;align-items:center;gap:6px;padding:5px 9px 5px 22px;border-radius:7px;cursor:pointer;font-size:11.5px;color:var(--dm);font-weight:600}
+.rgn-dist:hover{background:var(--sf2)}
+.rgn-dist.on{background:var(--blu);color:#fff}
+.rgn-dist.on .rgn-c-cnt{color:#fff;background:rgba(255,255,255,.22)}
+.rgn-city-blk-hd{display:flex;align-items:center;gap:8px;margin:14px 2px 4px;padding-bottom:4px;border-bottom:2px solid var(--bd)}
+.rgn-city-blk-hd .nm{font-weight:800;font-size:14px;color:var(--tx)}
+.rgn-dist-hd{display:flex;align-items:center;gap:6px;margin:8px 2px 3px;padding:3px 9px;background:var(--sf2);border-radius:6px}
+.rgn-dist-hd .nm{font-weight:700;font-size:12.5px;color:var(--tx)}
+.rgn-dist-cnt{font-size:10px;font-weight:700;color:var(--dm);background:var(--bg);padding:0 6px;border-radius:8px;line-height:1.6}
+.rgn-mini{font-size:10px!important;padding:3px 8px!important;min-height:0!important}
+/* B：區域頁訂單卡片上下壓緊，一頁看更多（左右寬度不動） */
+.rgn-panel .ord-cards{gap:6px}
+.rgn-panel .ord-card{padding:8px 12px;border-radius:9px;contain-intrinsic-size:150px}
+.rgn-panel .ord-card-h{margin-bottom:3px}
+.rgn-panel .ord-card-h .ord-total{font-size:15px}
+.rgn-panel .ord-card-name{font-size:14px;margin-bottom:1px}
+.rgn-panel .ord-card-prod{font-size:12px;line-height:1.3;margin-bottom:3px}
+.rgn-panel .ord-card-meta{margin-bottom:3px;gap:6px}
+.rgn-panel .ord-card-meta .st-btn,.rgn-panel .ord-card-meta button{min-height:26px!important}
+.rgn-panel .ord-card-addr{margin-bottom:2px;line-height:1.3}
+.rgn-panel .ord-card-phone{margin-bottom:1px}
+.rgn-panel .ord-card-note{margin-top:3px;padding:3px 7px}
+.rgn-panel .ord-card-actions{margin-top:5px;padding-top:5px;gap:3px}
+.rgn-panel .ord-card-actions button{flex:0 1 auto;min-height:26px;padding:3px 9px}
 .ord-card{background:var(--sf);border:1px solid var(--bd);border-radius:12px;padding:12px;box-shadow:0 1px 2px rgba(0,0,0,.04);position:relative;transition:transform .15s,box-shadow .15s;content-visibility:auto;contain-intrinsic-size:240px}
 [data-theme="dark"] .ord-card{box-shadow:0 1px 3px rgba(0,0,0,.4)}
 .ord-card:active{transform:scale(.99)}
@@ -367,7 +392,7 @@ body.has-batch-bar .main{padding-bottom:140px}
 
 <div class="main hidden" id="tab-schedule"><div class="filter-row" style="flex-wrap:wrap;gap:6px;align-items:center"><span class="fg-grp"><span style="font-size:11px;color:var(--dm)">週次</span><select id="sched-week" onchange="setSchedWeek(this.value)" style="font-size:11px;padding:3px 6px;border:1px solid var(--bd);border-radius:6px;background:var(--sf)"></select></span><span class="fb-divider">｜</span><span class="fg-grp" id="sched-installer-row"><span style="font-size:11px;color:var(--dm)">師傅</span><button class="fbtn on" data-installer="all" onclick="setSchedInstaller('all',this)">全部</button></span><span style="flex:1"></span><span style="font-size:11px;color:var(--dm)">共 <strong id="sched-show-cnt">0</strong> 筆</span></div><div id="schedule-area"></div></div>
 
-<div class="main hidden" id="tab-region"><div class="filter-row" style="flex-wrap:wrap;gap:8px;align-items:center"><span class="fg-grp"><span style="font-size:11px;color:var(--dm)">顯示：</span><button class="fbtn on" data-fg="rmode" onclick="setRegionShowAll(false,this)" title="只看需安裝／自送且尚未完成的訂單 — 依地區統一安排安裝">🔧 需安裝／配送</button><button class="fbtn" data-fg="rmode" onclick="setRegionShowAll(true,this)" title="所有未取消的訂單，依地區分組">全部訂單</button></span><span class="fb-divider">｜</span><span class="fg-grp"><button class="fbtn on" data-fg="rdone" onclick="setRegionDone('all',this)" title="不分完成狀態">全部</button><button class="fbtn" data-fg="rdone" onclick="setRegionDone('undone',this)" title="只看還沒完成的（已完成以外都算未完成）">未完成</button><button class="fbtn" data-fg="rdone" onclick="setRegionDone('done',this)" title="只看已完成" style="color:var(--grn);border-color:#8cc4a0">已完成</button></span><span style="flex:1"></span><span style="font-size:11px;color:var(--dm)">共 <strong id="region-show-cnt">0</strong> 筆</span></div><div id="region-area"></div></div>
+<div class="main hidden" id="tab-region"><div class="filter-row" style="flex-wrap:wrap;gap:8px;align-items:center"><span class="fg-grp"><span style="font-size:11px;color:var(--dm)">顯示：</span><button class="fbtn on" data-fg="rmode" onclick="setRegionShowAll(false,this)" title="只看需安裝／自送且尚未完成的訂單 — 依地區統一安排安裝">🔧 需安裝／配送</button><button class="fbtn" data-fg="rmode" onclick="setRegionShowAll(true,this)" title="所有未取消的訂單，依地區分組">全部訂單</button></span><span class="fb-divider">｜</span><span class="fg-grp"><button class="fbtn" data-fg="rdone" onclick="setRegionDone('all',this)" title="不分完成狀態">全部</button><button class="fbtn on" data-fg="rdone" onclick="setRegionDone('undone',this)" title="只看還沒完成的（已完成以外都算未完成）— 預設">未完成</button><button class="fbtn" data-fg="rdone" onclick="setRegionDone('done',this)" title="只看已完成" style="color:var(--grn);border-color:#8cc4a0">已完成</button></span><span style="flex:1"></span><span style="font-size:11px;color:var(--dm)">共 <strong id="region-show-cnt">0</strong> 筆</span></div><div id="region-area"></div></div>
 
 <div class="main hidden" id="tab-output"><div class="card"><div class="card-h" style="flex-direction:column;align-items:stretch;gap:8px"><h3 style="margin:0">整理格式</h3><div style="display:grid;grid-template-columns:repeat(4,1fr);gap:6px"><button class="btn btn-g" onclick="copyOutput()" style="min-width:0">📋 複製</button><button class="btn" onclick="shareOutput()" title="手機原生分享（傳到 LINE/Telegram 等）" style="min-width:0">📤 分享</button><button class="btn" onclick="exportCSV('output')" title="此區間 CSV" style="min-width:0">🔍 區間 csv</button><button class="btn" onclick="exportCSV('all')" title="全部 CSV" style="min-width:0">📊 全 csv</button></div></div><div class="card-b"><div class="filter-row" style="margin-bottom:8px;align-items:center;flex-wrap:wrap;gap:6px"><span class="fg-grp"><span style="font-size:11px;color:var(--dm)">🛒 平台：</span><button class="fbtn on" data-fg="oplat" onclick="setOutputPlatform('all',this)">全部</button><button class="fbtn" data-fg="oplat" onclick="setOutputPlatform('MO',this)">Mo</button><button class="fbtn" data-fg="oplat" onclick="setOutputPlatform('PC',this)">Pc</button><button class="fbtn" data-fg="oplat" onclick="setOutputPlatform('MO3',this)" title="MOMO 第三方物流">三方</button><button class="fbtn" data-fg="oplat" onclick="setOutputPlatform('ST',this)">店內</button><button class="fbtn" data-fg="oplat" onclick="setOutputPlatform('SCH',this)">學校</button><button class="fbtn" data-fg="oplat" onclick="setOutputPlatform('EXPO',this)">展場</button></span></div><div class="filter-row" style="margin-bottom:8px;align-items:center;flex-wrap:wrap;gap:6px" title="Ctrl/Cmd + 點擊可多選"><span class="fg-grp"><span style="font-size:11px;color:var(--dm)">🏷️ 狀態：</span><button class="fbtn on" data-fg="ostatus" data-stat="all" onclick="setOutputStatus('all',this,event)">全部</button><button class="fbtn" data-fg="ostatus" data-stat="未確認" onclick="setOutputStatus('未確認',this,event)">未確認</button><button class="fbtn" data-fg="ostatus" data-stat="已確認" onclick="setOutputStatus('已確認',this,event)">已確認</button><button class="fbtn" data-fg="ostatus" data-stat="交涉中" onclick="setOutputStatus('交涉中',this,event)">交涉中</button><button class="fbtn" data-fg="ostatus" data-stat="未接電" onclick="setOutputStatus('未接電',this,event)">未接電</button><button class="fbtn" data-fg="ostatus" data-stat="已出貨" onclick="setOutputStatus('已出貨',this,event)">已出貨</button><button class="fbtn" data-fg="ostatus" data-stat="直接出" onclick="setOutputStatus('直接出',this,event)" style="color:#3f6212;border-color:#a3e635;font-weight:700">直接出</button><button class="fbtn" data-fg="ostatus" data-stat="待收費" onclick="setOutputStatus('待收費',this,event)" style="color:#dc2626;border-color:#dc2626;font-weight:700">💰 待收費</button><button class="fbtn" data-fg="ostatus" data-stat="補貨中" onclick="setOutputStatus('補貨中',this,event)">補貨中</button><button class="fbtn" data-fg="ostatus" data-stat="未收錢" onclick="setOutputStatus('未收錢',this,event)" style="color:#b91c1c;border-color:#fca5a5;font-weight:700">未收錢</button><button class="fbtn" data-fg="ostatus" data-stat="已收錢" onclick="setOutputStatus('已收錢',this,event)" style="color:#15803d;border-color:#86efac;font-weight:700">已收錢</button><button class="fbtn" data-fg="ostatus" data-stat="已完成" onclick="setOutputStatus('已完成',this,event)">已完成</button></span></div><div class="filter-row" style="margin-bottom:10px;align-items:center;flex-wrap:wrap;gap:6px"><span class="fg-grp"><span style="font-size:11px;color:var(--dm)">📅 日期：</span><button class="fbtn on" data-fg="odate" onclick="setOutputDate('today',this)">今天</button><button class="fbtn" data-fg="odate" onclick="setOutputDate('yesterday',this)">昨天</button><button class="fbtn" data-fg="odate" onclick="setOutputDate('week',this)">本週</button><button class="fbtn" data-fg="odate" onclick="setOutputDate('month',this)">本月</button><button class="fbtn" data-fg="odate" onclick="setOutputDate('all',this)">全部</button></span><span class="fg-grp"><span style="font-size:11px;color:var(--dm)">自訂區間：</span><input type="date" id="of-from" onchange="onOutputDateChange()" style="font-size:11px;padding:2px 6px"><span style="font-size:11px;color:var(--dm)">→</span><input type="date" id="of-to" onchange="onOutputDateChange()" style="font-size:11px;padding:2px 6px"></span><span style="flex:1"></span><span style="font-size:11px;color:var(--dm)">顯示 <strong id="ocnt">0</strong> 筆</span></div><div class="filter-row" style="margin-bottom:10px;align-items:center;flex-wrap:wrap;gap:8px"><input class="search" id="oq" placeholder="搜尋姓名/單號/商品/地址..." oninput="this.value=fwToHw(this.value);searchOutputDebounced()" style="flex:1;min-width:200px"><label style="font-size:11px;color:var(--dm);display:flex;align-items:center;gap:4px;cursor:pointer"><input type="checkbox" id="oinc-skip" onchange="toggleOutputIncSkip(this.checked)"> 顯示 已取消 / 轉線下</label></div><div class="hint">CSV 用 UTF-8 BOM 編碼，Excel 開啟中文不會亂碼。預設不顯示已取消 / 轉線下訂單（勾選右邊 checkbox 可看）。</div><div id="output-area">尚無訂單</div></div></div></div>
 <div class="main hidden" id="tab-stats"><div class="filter-row" style="margin-bottom:14px;flex-wrap:wrap;gap:6px"><span style="font-size:12px;color:var(--dm);font-weight:600">📅 期間：</span><button class="fbtn" data-fg="speriod" onclick="setStatsPeriod('today',this)">今日</button><button class="fbtn" data-fg="speriod" onclick="setStatsPeriod('7',this)">7 天</button><button class="fbtn on" data-fg="speriod" onclick="setStatsPeriod('30',this)">30 天</button><button class="fbtn" data-fg="speriod" onclick="setStatsPeriod('90',this)">3 個月</button><button class="fbtn" data-fg="speriod" onclick="setStatsPeriod('all',this)">全部</button><span style="margin-left:8px;color:var(--ht)">｜</span><span style="font-size:11px;color:var(--dm)">指定月份：</span><span id="stats-month-wrap" style="position:relative;display:inline-block;vertical-align:middle"><button type="button" id="stats-month-btn" class="fbtn" onclick="toggleMonthPicker(event)">選擇月份 ▾</button><div id="stats-month-pop" class="month-pop hidden"></div></span><span style="margin-left:8px;color:var(--ht)">｜</span><span style="font-size:11px;color:var(--dm)">自訂區間：</span><input type="date" id="stats-range-start" onchange="onStatsRangeChange()" style="padding:5px 8px;border:1px solid #e2cdd6;border-radius:14px;font-size:12px;color:var(--dm);background:#fff"><span style="color:var(--dm);margin:0 3px">～</span><input type="date" id="stats-range-end" onchange="onStatsRangeChange()" style="padding:5px 8px;border:1px solid #e2cdd6;border-radius:14px;font-size:12px;color:var(--dm);background:#fff"><button type="button" id="stats-range-btn" class="fbtn" onclick="applyStatsRange()">查詢</button></div><div class="filter-row" style="margin-bottom:14px;flex-wrap:wrap;gap:6px"><span style="font-size:12px;color:var(--dm);font-weight:600">🛒 平台：</span><button class="fbtn on" data-fg="splat" onclick="setStatsPlatform('all',this)">全部</button><button class="fbtn" data-fg="splat" onclick="setStatsPlatform('MO',this)">Mo</button><button class="fbtn" data-fg="splat" onclick="setStatsPlatform('PC',this)">Pc</button><button class="fbtn" data-fg="splat" onclick="setStatsPlatform('MO3',this)" title="MOMO 第三方物流">三方</button><button class="fbtn" data-fg="splat" onclick="setStatsPlatform('ST',this)">店內</button><button class="fbtn" data-fg="splat" onclick="setStatsPlatform('SCH',this)">學校</button><button class="fbtn" data-fg="splat" onclick="setStatsPlatform('EXPO',this)">展場</button><span style="margin-left:8px;color:var(--ht)">｜</span><button type="button" id="stats-pure-btn" class="fbtn" onclick="toggleStatsPure(this)" title="對帳用：營收只算訂單商品金額，不含加購/安裝費">🧾 對帳・不含加購安裝</button><button type="button" id="stats-done-btn" class="fbtn" onclick="toggleStatsDone(this)" title="對帳用：只統計「已完成」的訂單（排除還在處理中的）">✅ 只算已完成</button></span></div><div id="stats-area"></div></div><div class="main hidden" id="tab-recon"><div class="card"><div class="card-b"><div style="font-weight:800;font-size:15px;margin-bottom:6px">📑 平台對帳</div><div style="font-size:12px;color:var(--dm);line-height:1.7;margin-bottom:12px">把 PChome／MOMO 後台下載的「對帳單 CSV」丟進來，系統會逐筆用<strong>訂單編號</strong>跟撈單系統比對，直接標出 ⚠️金額不符、❌漏單、➕撈單多的（取消/下期結）。<br><span style="color:var(--ht)">※ 金額比對假設兩邊同一基礎（PChome 貨款 vs 撈單金額）。</span></div><input type="file" id="recon-file" accept=".csv,.txt" onchange="reconFile(event)" style="margin-bottom:6px;font-size:12px"><div style="font-size:11px;color:var(--dm);margin:8px 0 4px">或直接把內容整段貼上：</div><textarea id="recon-paste" placeholder="把對帳單內容貼這裡…" style="width:100%;min-height:80px;font-size:11px;font-family:monospace;border:1px solid #e2cdd6;border-radius:8px;padding:8px;box-sizing:border-box"></textarea><div style="margin-top:10px"><button type="button" onclick="runReconFromPaste()" style="background:var(--mo);color:#fff;border:none;padding:9px 22px;border-radius:16px;font-weight:800;cursor:pointer;font-size:13px">開始對帳</button></div></div></div><div id="recon-area"></div></div>
@@ -3996,8 +4021,22 @@ function addrCity(addr){
   return city;
 }
 function regionOf(addr){return _CITY_REGION[addrCity(addr)]||'?'}
+// 從地址抽「區/鄉/鎮/市」（縣市後的第一段行政區）→「板橋區」「淡水區」「羅東鎮」；抓不到回空字串
+const _addrDistrictCache=new Map();
+function addrDistrict(addr){
+  if(!addr)return '';
+  if(_addrDistrictCache.has(addr))return _addrDistrictCache.get(addr);
+  let a=String(addr).replace(/^\d{3,6}\s*/,'').replace(/臺/g,'台').trim();
+  const city=addrCity(addr);
+  if(city){const i=a.indexOf(city);if(i>=0)a=a.slice(i+city.length);}
+  a=a.trim();
+  const m=a.match(/^([^\d\s]{1,4}?[區鄉鎮市])/);
+  const d=m?m[1]:'';
+  if(_addrDistrictCache.size<3000)_addrDistrictCache.set(addr,d);
+  return d;
+}
 let regionShowAll=false;
-let regionDone='all'; // all | done(已完成/線下完成) | undone(其餘)
+let regionDone='undone'; // 預設只看未完成（阿淵：已完成要自己點才出現）；all | done | undone
 function setRegionShowAll(v,btn){regionShowAll=!!v;document.querySelectorAll('#tab-region .fbtn[data-fg="rmode"]').forEach(x=>x.classList.remove('on'));if(btn)btn.classList.add('on');renderRegion()}
 function setRegionDone(v,btn){regionDone=v;document.querySelectorAll('#tab-region .fbtn[data-fg="rdone"]').forEach(x=>x.classList.remove('on'));if(btn)btn.classList.add('on');renderRegion()}
 // 完成＝已完成 或 線下完成（阿淵：線下完成的狀態＝已完成）
@@ -4023,16 +4062,39 @@ ${r.noteShort?`<div class="ord-card-note">${esc(r.noteShort)}</div>`:''}
 <div class="ord-card-actions">${a.addrAck||''}${a.instPaid||''}${a.addonPaid||''}${a.prodLink||''}${a.edit}${a.copy}${a.cam}</div>
 </div>`;
 }
-// 複製某縣市整批名單（姓名／電話／地址／品項／安裝）— 方便統一安排安裝
-function copyRegionCity(city){
-  const list=_regionPool().filter(o=>(addrCity(o.address)||'（無地址）')===city).sort((a,b)=>(a.address||'').localeCompare(b.address||'','zh-TW'));
-  if(!list.length){showToast('此縣市目前沒有訂單');return}
+// 抓某縣市(+可選區)的訂單，依地址排序（同路線一起跑）
+function _regionOrders(city,district){
+  return _regionPool().filter(o=>{
+    if((addrCity(o.address)||'（無地址）')!==city)return false;
+    if(district!=null&&(addrDistrict(o.address)||'（其他）')!==district)return false;
+    return true;
+  }).sort((a,b)=>(a.address||'').localeCompare(b.address||'','zh-TW'));
+}
+function _regionLabel(city,district){return district?`${city} ${district}`:city}
+// 複製名單（縣市 或 縣市+區）— 方便統一安排安裝／配送
+function copyRegionList(city,district){
+  const list=_regionOrders(city,district);
+  if(!list.length){showToast('這區目前沒有訂單');return}
+  const label=_regionLabel(city,district);
   const lines=list.map(o=>{
     const ph=o.realPhone||(o.phone&&!o.phone.includes('#')?o.phone:'')||o.phone||'';
     const svc=isServiceActive(o)?(isSelfDeliver(o)?'｜自己配':'｜需安裝'+(o.installFee?' $'+o.installFee:'')):'';
     return `${o.name||'(無名)'}｜${ph}｜${o.address||''}｜${(o.product||'').replace(/\s+/g,' ').slice(0,40)}${svc}`;
   });
-  copyText(`【${city}】共 ${list.length} 筆\n`+lines.join('\n'),`✅ 已複製 ${city} ${list.length} 筆名單`);
+  copyText(`【${label}】共 ${list.length} 筆\n`+lines.join('\n'),`✅ 已複製 ${label} ${list.length} 筆名單`);
+}
+// 下載 Excel／Numbers（CSV + UTF-8 BOM，Excel/Numbers 直接開成表單，中文不亂碼）
+function downloadRegionList(city,district){
+  const list=_regionOrders(city,district);
+  if(!list.length){showToast('這區目前沒有訂單');return}
+  const label=_regionLabel(city,district);
+  const headers=['日期','平台','姓名','電話','手機','地址','品項','規格','數量','金額','狀態','安裝/配送','安裝費','安裝已收','備註'];
+  const rows=list.map(o=>[o.date||'',platName(o.platform),o.name||'',o.phone||'',o.realPhone||'',o.address||'',o.product||'',o.specs||'',o.qty||1,tot(o),o.status||'',isServiceActive(o)?(isSelfDeliver(o)?'自己配':'安裝'):'',o.installFee||0,o.installPaidAmount||0,cleanNote(o.note||'').replace(/\n/g,' ')]);
+  const csv='﻿'+[headers,...rows].map(r=>r.map(csvCell).join(',')).join('\n');
+  const blob=new Blob([csv],{type:'text/csv;charset=utf-8'});const url=URL.createObjectURL(blob);
+  const a=document.createElement('a');a.href=url;a.download=`區域名單_${label.replace(/\s+/g,'_')}_${localDateISO()}.csv`;document.body.appendChild(a);a.click();a.remove();
+  setTimeout(()=>URL.revokeObjectURL(url),1500);
+  showToast(`⬇️ 已下載「${label}」${list.length} 筆（Excel／Numbers 可開）`);
 }
 // 左邊選到的地區：'ALL'=全部；'R:北'=整個大區；'C:台北市'=單一縣市（跨 render 記住）
 let regionSel='ALL';
@@ -4047,43 +4109,56 @@ function renderRegion(){
   const pool=_regionPool();
   if(cntEl)cntEl.textContent=pool.length;
   if(!pool.length){area.innerHTML=`<div class="card"><div class="card-b empty-state"><div class="es-icon">🗺️</div><div class="es-title">${regionShowAll?'目前沒有訂單':'目前沒有待安裝／配送的訂單'}</div><div class="es-hint">${regionShowAll?'':'切到「全部訂單」可看所有地區的單'}</div></div></div>`;return}
-  // region -> city -> [orders]
-  const g={};pool.forEach(o=>{const rk=regionOf(o.address);const c=addrCity(o.address)||'（無地址）';(g[rk]||(g[rk]={}));(g[rk][c]||(g[rk][c]=[])).push(o)});
+  // region -> city -> district -> [orders]
+  const g={};pool.forEach(o=>{const rk=regionOf(o.address);const c=addrCity(o.address)||'（無地址）';const d=addrDistrict(o.address)||'（其他）';((g[rk]||(g[rk]={}))[c]||(g[rk][c]={}));(g[rk][c][d]||(g[rk][c][d]=[])).push(o)});
   const RCFG={'北':{label:'北部',bg:'#e8eef9',fg:'#1657b5'},'中':{label:'中部',bg:'#dcfce7',fg:'#15803d'},'南':{label:'南部',bg:'#ffedd5',fg:'#c2410c'},'東':{label:'東部',bg:'#ccfbf1',fg:'#0f766e'},'離島':{label:'離島',bg:'#f3e8ff',fg:'#7e22ce'},'?':{label:'未分類（地址無法辨識）',bg:'#f1f5f9',fg:'#64748b'}};
   const ORDER=['北','中','南','東','離島','?'];
-  const cityNamesOf=rk=>Object.keys(g[rk]).sort((a,b)=>g[rk][b].length-g[rk][a].length||a.localeCompare(b,'zh-TW'));
-  // 選取狀態失效（切換過濾後該縣市/大區不存在）→ 退回全部
-  if(regionSel.startsWith('C:')&&!ORDER.some(rk=>g[rk]&&g[rk][regionSel.slice(2)]))regionSel='ALL';
+  const cityCount=(rk,c)=>Object.values(g[rk][c]).reduce((s,a)=>s+a.length,0);
+  const cityNamesOf=rk=>Object.keys(g[rk]).sort((a,b)=>cityCount(rk,b)-cityCount(rk,a)||a.localeCompare(b,'zh-TW'));
+  const distNamesOf=(rk,c)=>Object.keys(g[rk][c]).sort((a,b)=>g[rk][c][b].length-g[rk][c][a].length||a.localeCompare(b,'zh-TW'));
+  const findRk=c=>ORDER.find(rk=>g[rk]&&g[rk][c]);
+  // 選取狀態失效（切換過濾後該縣市/區/大區不存在）→ 退回上層
+  if(regionSel.startsWith('C:')&&!findRk(regionSel.slice(2)))regionSel='ALL';
   if(regionSel.startsWith('R:')&&!g[regionSel.slice(2)])regionSel='ALL';
-  // 右邊：單一縣市區塊（含複製名單）
-  const cityBlock=(c,list,cfg)=>{
-    const sorted=list.slice().sort((a,b)=>(a.date<b.date?1:-1));
-    return `<div style="display:flex;align-items:center;gap:8px;margin:12px 2px 6px;padding-bottom:4px;border-bottom:2px solid ${cfg.bg}"><span style="font-weight:700;font-size:13.5px;color:var(--tx)">${esc(c)}</span><span style="font-size:11px;color:var(--dm)">${sorted.length} 筆</span><span style="flex:1"></span><button class="btn" style="font-size:10px;padding:4px 10px" onclick='copyRegionCity(${JSON.stringify(c)})' title="複製本縣市整批名單（姓名／電話／地址／品項）">📋 複製名單</button></div>`
-      +'<div class="ord-cards">'+sorted.map(_regionCard).join('')+'</div>';
+  if(regionSel.startsWith('D:')){const p=regionSel.slice(2).split('|');const c=p[0],d=p[1];const rk=findRk(c);if(!(rk&&g[rk][c]&&g[rk][c][d]))regionSel=findRk(c)?'C:'+c:'ALL';}
+  // 右邊：單一「區」區塊（區小標 + 複製/下載 + 卡片）
+  const distBlock=(c,d,cfg)=>{
+    const rk=findRk(c);const list=g[rk][c][d].slice().sort((a,b)=>(a.address||'').localeCompare(b.address||'','zh-TW'));
+    const jc=JSON.stringify(c),jd=JSON.stringify(d);
+    return `<div class="rgn-dist-hd"><span class="nm">${esc(d)}</span><span class="rgn-dist-cnt">${list.length}</span><span style="flex:1"></span><button class="btn rgn-mini" onclick='copyRegionList(${jc},${jd})' title="複製本區名單">📋 複製</button><button class="btn rgn-mini" onclick='downloadRegionList(${jc},${jd})' title="下載成 Excel／Numbers 表單">⬇️ Excel</button></div>`
+      +'<div class="ord-cards">'+list.map(_regionCard).join('')+'</div>';
+  };
+  // 右邊：單一「縣市」區塊（市大標 + 各區）
+  const cityBlock=(rk,c)=>{
+    const cfg=RCFG[rk];const dns=distNamesOf(rk,c);const cnt=cityCount(rk,c);const jc=JSON.stringify(c);
+    let h=`<div class="rgn-city-blk-hd" style="border-color:${cfg.bg}"><span class="nm">${esc(c)}</span><span class="rgn-dist-cnt">${cnt}</span><span style="font-size:10px;color:var(--dm)">${dns.length} 區</span><span style="flex:1"></span><button class="btn rgn-mini" onclick='copyRegionList(${jc})' title="複製整個${esc(c)}名單">📋 整市</button><button class="btn rgn-mini" onclick='downloadRegionList(${jc})' title="下載整個${esc(c)} Excel">⬇️ Excel</button></div>`;
+    dns.forEach(d=>h+=distBlock(c,d,cfg));
+    return h;
   };
   // 右邊：整個大區（大標 + 各縣市）
   const regionBlock=rk=>{
-    const cfg=RCFG[rk];const cns=cityNamesOf(rk);
-    const regionCnt=cns.reduce((s,c)=>s+g[rk][c].length,0);
-    let h=`<div style="margin:0 0 6px;padding:9px 14px;background:${cfg.bg};color:${cfg.fg};border-radius:8px;font-weight:800;font-size:15px;display:flex;align-items:center;gap:10px"><span>${cfg.label}</span><span style="font-weight:600;font-size:12px;opacity:.85">${regionCnt} 筆・${cns.length} 縣市</span></div>`;
-    cns.forEach(c=>h+=cityBlock(c,g[rk][c],cfg));
+    const cfg=RCFG[rk];const cns=cityNamesOf(rk);const cnt=cns.reduce((s,c)=>s+cityCount(rk,c),0);
+    let h=`<div style="margin:0 0 6px;padding:9px 14px;background:${cfg.bg};color:${cfg.fg};border-radius:8px;font-weight:800;font-size:15px;display:flex;align-items:center;gap:10px"><span>${cfg.label}</span><span style="font-weight:600;font-size:12px;opacity:.85">${cnt} 筆・${cns.length} 縣市</span></div>`;
+    cns.forEach(c=>h+=cityBlock(rk,c));
     return h;
   };
-  // 左邊選單
+  // 左邊選單（大區 → 縣市 → 區；選到的縣市才展開它的區）
   let nav=`<div class="rgn-city${regionSel==='ALL'?' on':''}" onclick="selectRegion('ALL')"><span>全部地區</span><span class="rgn-c-cnt">${pool.length}</span></div>`;
   ORDER.forEach(rk=>{
-    if(!g[rk])return;const cfg=RCFG[rk];const cns=cityNamesOf(rk);
-    const regionCnt=cns.reduce((s,c)=>s+g[rk][c].length,0);
-    nav+=`<div class="rgn-nav-region${regionSel==='R:'+rk?' on':''}" style="color:${cfg.fg}" onclick="selectRegion('R:${rk}')" title="看整個${cfg.label}"><span>${cfg.label}</span><span class="rgn-c-cnt">${regionCnt}</span></div>`;
+    if(!g[rk])return;const cfg=RCFG[rk];const cns=cityNamesOf(rk);const cnt=cns.reduce((s,c)=>s+cityCount(rk,c),0);
+    nav+=`<div class="rgn-nav-region${regionSel==='R:'+rk?' on':''}" style="color:${cfg.fg}" onclick="selectRegion('R:${rk}')" title="看整個${cfg.label}"><span>${cfg.label}</span><span class="rgn-c-cnt">${cnt}</span></div>`;
     cns.forEach(c=>{
-      nav+=`<div class="rgn-city${regionSel==='C:'+c?' on':''}" onclick='selectRegion(${JSON.stringify('C:'+c)})'><span>${esc(c)}</span><span class="rgn-c-cnt">${g[rk][c].length}</span></div>`;
+      const expanded=regionSel==='C:'+c||(regionSel.startsWith('D:')&&regionSel.slice(2).split('|')[0]===c);
+      nav+=`<div class="rgn-city${regionSel==='C:'+c?' on':''}" onclick='selectRegion(${JSON.stringify('C:'+c)})'><span>${esc(c)}</span><span class="rgn-c-cnt">${cityCount(rk,c)}</span></div>`;
+      if(expanded){distNamesOf(rk,c).forEach(d=>{nav+=`<div class="rgn-dist${regionSel==='D:'+c+'|'+d?' on':''}" onclick='selectRegion(${JSON.stringify('D:'+c+'|'+d)})'><span>${esc(d)}</span><span class="rgn-c-cnt">${g[rk][c][d].length}</span></div>`});}
     });
   });
   // 右邊面板
   let panel='';
   if(regionSel==='ALL'){ORDER.forEach(rk=>{if(g[rk])panel+='<div style="margin-bottom:10px">'+regionBlock(rk)+'</div>'})}
   else if(regionSel.startsWith('R:')){panel=regionBlock(regionSel.slice(2))}
-  else if(regionSel.startsWith('C:')){const c=regionSel.slice(2);const rk=ORDER.find(k=>g[k]&&g[k][c]);panel=cityBlock(c,g[rk][c],RCFG[rk])}
+  else if(regionSel.startsWith('C:')){const c=regionSel.slice(2);panel=cityBlock(findRk(c),c)}
+  else if(regionSel.startsWith('D:')){const p=regionSel.slice(2).split('|');const c=p[0],d=p[1];const cfg=RCFG[findRk(c)];panel=`<div class="rgn-city-blk-hd" style="border-color:${cfg.bg}"><span class="nm">${esc(c)}</span><span style="font-size:11px;color:var(--dm)">只看 ${esc(d)}</span></div>`+distBlock(c,d,cfg)}
   area.innerHTML=`<div class="rgn-wrap"><div class="rgn-nav">${nav}</div><div class="rgn-panel">${panel}</div></div>`;
 }
 
