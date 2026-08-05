@@ -4196,20 +4196,24 @@ function _dvDrop(ev,oid){ev.preventDefault();const src=_dvDragId;_dvDragId=null;
 function _dvRenderProduct(list){
   const groups={};list.forEach(o=>{const k=_dvKey(o);(groups[k]||(groups[k]=[])).push(o)});
   const keys=Object.keys(groups).sort((a,b)=>groups[b].length-groups[a].length);
-  return keys.map(k=>{
+  return `<div style="font-size:12px;color:var(--dm);margin-bottom:10px;background:#ecfdf5;border:1px solid #a7f3d0;border-radius:8px;padding:7px 10px">📦 每一款「最上面那筆先寄」。預設<b>先下單先寄</b>（可拖曳／▲▼ 手動調、或按「⚡自動排序」）。寄完按 <b style="color:#16a34a">✅已寄出</b>，下一筆自動遞補。</div>`
+  +keys.map(k=>{
     const arr=groups[k].slice().sort((a,b)=>((a.shipSeq||9999)-(b.shipSeq||9999))||String(a.date||'').localeCompare(String(b.date||'')));
     const first=arr[0].id;
     const rows=arr.map((o,i)=>{
       const st=delivStage(o),stTxt=['','還沒確認','待聯繫','已約好'][st],stC=['','#dc2626','#b45309','#0e7490'][st];
-      return `<div draggable="true" ondragstart="_dvDragStart(event,'${o.id}')" ondragover="event.preventDefault()" ondrop="_dvDrop(event,'${o.id}')" style="display:flex;align-items:center;gap:8px;background:var(--sf);border:1px solid var(--bd);border-radius:8px;padding:7px 9px;margin-bottom:5px;cursor:grab">`
-        +`<span style="font-weight:800;color:var(--mo);min-width:20px;text-align:center">${i+1}</span>`
+      const top=i===0;
+      return `<div draggable="true" ondragstart="_dvDragStart(event,'${o.id}')" ondragover="event.preventDefault()" ondrop="_dvDrop(event,'${o.id}')" style="display:flex;align-items:center;gap:8px;background:${top?'#ecfdf5':'var(--sf)'};border:${top?'2px solid #16a34a':'1px solid var(--bd)'};border-radius:8px;padding:8px 9px;margin-bottom:5px;cursor:grab">`
+        +`<span style="font-weight:800;color:${top?'#16a34a':'var(--mo)'};min-width:22px;text-align:center;font-size:${top?'16px':'14px'}">${i+1}</span>`
         +`<span style="display:flex;flex-direction:column;gap:2px"><button class="btn" style="padding:0 7px;font-size:11px;line-height:1.3" onclick="_dvMove('${o.id}',-1)">▲</button><button class="btn" style="padding:0 7px;font-size:11px;line-height:1.3" onclick="_dvMove('${o.id}',1)">▼</button></span>`
-        +`<div style="flex:1"><div style="font-weight:600">${esc(o.name||'—')} <span style="font-size:11px;color:${stC}">● ${stTxt}</span></div><div style="font-size:11px;color:var(--dm)">${_dvValid(o)?_dvPhone(o):'待補電話'}${o.installDay?'　🚚 '+esc(o.installDay):''}　<span class="pill" style="font-size:9px">${esc(platName(o.platform))}</span></div></div>`
+        +`<div style="flex:1"><div style="font-weight:600">${esc(o.name||'—')} <span style="font-weight:800;color:#0369a1;font-size:12px">🗓 ${esc(o.date||'—')}</span>${top?' <span style="background:#16a34a;color:#fff;font-size:11px;font-weight:800;padding:1px 8px;border-radius:999px">⬅ 先寄這台（最早下單）</span>':''}</div><div style="font-size:11px;color:var(--dm)"><span style="color:${stC}">● ${stTxt}</span>　${_dvValid(o)?_dvPhone(o):'待補電話'}${o.installDay?'　🚚 '+esc(o.installDay):''}　<span class="pill" style="font-size:9px">${esc(platName(o.platform))}</span></div></div>`
+        +`<button class="btn btn-g" onclick="delivShipped('${o.id}')" style="font-size:11px" title="標記已寄出/已送，從清單移除">✅ 已寄出</button>`
         +`<button class="btn" onclick="openEdit('${o.id}')" style="font-size:11px">編輯</button></div>`;
     }).join('');
-    return `<div style="margin-bottom:16px"><div style="font-weight:800;margin-bottom:6px;display:flex;align-items:center;gap:8px;flex-wrap:wrap">${esc(k)} <span class="pill" style="font-size:11px">共 ${arr.length} 單</span><button class="btn" style="font-size:11px;border-color:#a3e635;color:#3f6212" onclick="_dvAutoSort('${first}')">⚡ 自動排序</button></div>${rows}</div>`;
+    return `<div style="margin-bottom:16px"><div style="font-weight:800;margin-bottom:6px;display:flex;align-items:center;gap:8px;flex-wrap:wrap">${esc(k)} <span class="pill" style="font-size:11px">共 ${arr.length} 單</span><button class="btn" style="font-size:11px;border-color:#a3e635;color:#3f6212" onclick="_dvAutoSort('${first}')">⚡ 自動排序（先下單先寄）</button></div>${rows}</div>`;
   }).join('');
 }
+function delivShipped(oid){const o=findO(oid);if(!o)return;if(!confirm(`確定「${o.name||''} ${(o.product||'').slice(0,20)}」已寄出／已送？\n（會標記已出貨、從親送清單移除）`))return;setOrderStatus(oid,'已出貨');setTimeout(renderDelivery,60);}
 
 function renderRegion(){
   const area=document.getElementById('region-area');if(!area)return;
