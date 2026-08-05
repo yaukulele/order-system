@@ -4089,11 +4089,15 @@ function _regionOrders(city,district){
   }).sort((a,b)=>(a.address||'').localeCompare(b.address||'','zh-TW'));
 }
 function _regionLabel(city,district){return district?`${city} ${district}`:city}
-// 複製名單（縣市 或 縣市+區）— 方便統一安排安裝／配送
-function copyRegionList(city,district){
-  const list=_regionOrders(city,district);
+// 整個大區（北/中/南…）的訂單，依縣市→地址排序（方便一次拉整個大區）
+const _BIGREGION_LABEL={'北':'北部','中':'中部','南':'南部','東':'東部','離島':'離島','?':'未分類'};
+function _bigRegionOrders(rk){
+  return _regionPool().filter(o=>regionOf(o.address)===rk)
+    .sort((a,b)=>(addrCity(a.address)||'').localeCompare(addrCity(b.address)||'','zh-TW')||(a.address||'').localeCompare(b.address||'','zh-TW'));
+}
+// 共用：複製名單 / 下載 Excel（給縣市、區、大區三種層級共用）
+function _copyOrderList(list,label){
   if(!list.length){showToast('這區目前沒有訂單');return}
-  const label=_regionLabel(city,district);
   const lines=list.map(o=>{
     const ph=o.realPhone||(o.phone&&!o.phone.includes('#')?o.phone:'')||o.phone||'';
     const svc=isServiceActive(o)?(isSelfDeliver(o)?'｜自己配':'｜需安裝'+(o.installFee?' $'+o.installFee:'')):'';
@@ -4102,18 +4106,22 @@ function copyRegionList(city,district){
   copyText(`【${label}】共 ${list.length} 筆\n`+lines.join('\n'),`✅ 已複製 ${label} ${list.length} 筆名單`);
 }
 // 下載 Excel／Numbers（CSV + UTF-8 BOM，Excel/Numbers 直接開成表單，中文不亂碼）
-function downloadRegionList(city,district){
-  const list=_regionOrders(city,district);
+function _downloadOrderList(list,label){
   if(!list.length){showToast('這區目前沒有訂單');return}
-  const label=_regionLabel(city,district);
   const headers=['日期','平台','姓名','電話','手機','地址','品項','規格','數量','金額','狀態','安裝/配送','安裝費','安裝已收','備註'];
   const rows=list.map(o=>[o.date||'',platName(o.platform),o.name||'',o.phone||'',o.realPhone||'',o.address||'',o.product||'',o.specs||'',o.qty||1,tot(o),o.status||'',isServiceActive(o)?(isSelfDeliver(o)?'自己配':'安裝'):'',o.installFee||0,o.installPaidAmount||0,cleanNote(o.note||'').replace(/\n/g,' ')]);
   const csv='﻿'+[headers,...rows].map(r=>r.map(csvCell).join(',')).join('\n');
   const blob=new Blob([csv],{type:'text/csv;charset=utf-8'});const url=URL.createObjectURL(blob);
-  const a=document.createElement('a');a.href=url;a.download=`區域名單_${label.replace(/\s+/g,'_')}_${localDateISO()}.csv`;document.body.appendChild(a);a.click();a.remove();
+  const a=document.createElement('a');a.href=url;a.download=`區域名單_${String(label).replace(/\s+/g,'_')}_${localDateISO()}.csv`;document.body.appendChild(a);a.click();a.remove();
   setTimeout(()=>URL.revokeObjectURL(url),1500);
   showToast(`⬇️ 已下載「${label}」${list.length} 筆（Excel／Numbers 可開）`);
 }
+// 縣市 或 縣市+區
+function copyRegionList(city,district){_copyOrderList(_regionOrders(city,district),_regionLabel(city,district))}
+function downloadRegionList(city,district){_downloadOrderList(_regionOrders(city,district),_regionLabel(city,district))}
+// 整個大區（北部/中部/南部…）
+function copyBigRegion(rk){_copyOrderList(_bigRegionOrders(rk),_BIGREGION_LABEL[rk]||rk)}
+function downloadBigRegion(rk){_downloadOrderList(_bigRegionOrders(rk),_BIGREGION_LABEL[rk]||rk)}
 // 左邊選到的地區：'ALL'=全部；'R:北'=整個大區；'C:台北市'=單一縣市（跨 render 記住）
 let regionSel='ALL';
 function selectRegion(key){regionSel=key;renderRegion();
@@ -4136,10 +4144,20 @@ const _dvOrders=()=>orders.filter(o=>o&&(o.status==='自己配'||o.status==='要
 // 依品相排順位的範圍(親送/補貨/全部) + 排序方向(先出優先=先下單先寄 / 最新在前=預設瀏覽)
 let _dvScope=(()=>{try{return localStorage.getItem('dvScope')||'deliver'}catch(_){return 'deliver'}})();
 let _dvSortDir=(()=>{try{return localStorage.getItem('dvSortDir')||'fifo'}catch(_){return 'fifo'}})();
+// 新竹以北(含宜蘭)=親送；以南＋花東離島=寄送。依地址縣市判斷。
+const _DV_NORTH=['基隆','台北','新北','桃園','新竹','宜蘭'];
+function _dvShipMode(o){const r=_dvRegion(o).replace(/[市縣]/g,'');return _DV_NORTH.some(n=>r.indexOf(n)>=0)?'親送':(r==='未填地區'?'未填':'寄送');}
+let _dvProdQ='';
+function setDvProdQ(v){_dvProdQ=(v||'').trim();renderDelivery();}
+const _DV_DONE=['已完成','已出貨','已取消','線下完成'];
 function _dvScopeOrders(){
-  if(_dvScope==='restock')return orders.filter(o=>o&&o.status==='補貨中');
-  if(_dvScope==='all')return orders.filter(o=>o&&(o.status==='自己配'||o.status==='要安裝'||o.status==='補貨中'));
-  return orders.filter(o=>o&&(o.status==='自己配'||o.status==='要安裝'));
+  let arr;
+  if(_dvScope==='restock')arr=orders.filter(o=>o&&o.status==='補貨中');
+  else if(_dvScope==='all')arr=orders.filter(o=>o&&(o.status==='自己配'||o.status==='要安裝'||o.status==='補貨中'));
+  else if(_dvScope==='pending')arr=orders.filter(o=>o&&_DV_DONE.indexOf(o.status)<0);
+  else arr=orders.filter(o=>o&&(o.status==='自己配'||o.status==='要安裝'));
+  if(_dvProdQ){const q=_dvProdQ.toLowerCase();arr=arr.filter(o=>String(o.product||'').toLowerCase().indexOf(q)>=0);}
+  return arr;
 }
 function setDvScope(s){_dvScope=s;try{localStorage.setItem('dvScope',s)}catch(_){}['deliver','restock','all'].forEach(x=>{const el=document.getElementById('dv-scope-'+x);if(el)el.classList.toggle('on',x===s)});renderDelivery();}
 function setDvSortDir(d){_dvSortDir=d;try{localStorage.setItem('dvSortDir',d)}catch(_){}['fifo','recent'].forEach(x=>{const el=document.getElementById('dv-sortdir-'+x);if(el)el.classList.toggle('on',x===d)});renderDelivery();}
@@ -4269,7 +4287,8 @@ function renderRegion(){
   // 右邊：整個大區（大標 + 各縣市）
   const regionBlock=rk=>{
     const cfg=RCFG[rk];const cns=cityNamesOf(rk);const cnt=cns.reduce((s,c)=>s+cityCount(rk,c),0);
-    let h=`<div style="margin:0 0 6px;padding:9px 14px;background:${cfg.bg};color:${cfg.fg};border-radius:8px;font-weight:800;font-size:15px;display:flex;align-items:center;gap:10px"><span>${cfg.label}</span><span style="font-weight:600;font-size:12px;opacity:.85">${cnt} 筆・${cns.length} 縣市</span></div>`;
+    const rbtn=`background:rgba(255,255,255,.7);border:1px solid ${cfg.fg};color:${cfg.fg};font-size:11px;font-weight:700;padding:3px 10px;border-radius:6px;cursor:pointer;font-family:var(--sans)`;
+    let h=`<div style="margin:0 0 6px;padding:9px 14px;background:${cfg.bg};color:${cfg.fg};border-radius:8px;font-weight:800;font-size:15px;display:flex;align-items:center;gap:10px"><span>${cfg.label}</span><span style="font-weight:600;font-size:12px;opacity:.85">${cnt} 筆・${cns.length} 縣市</span><span style="flex:1"></span><button style="${rbtn}" onclick="copyBigRegion('${rk}')" title="複製整個${cfg.label}名單">📋 整區複製</button><button style="${rbtn}" onclick="downloadBigRegion('${rk}')" title="下載整個${cfg.label} Excel／Numbers">⬇️ Excel</button></div>`;
     cns.forEach(c=>h+=cityBlock(rk,c));
     return h;
   };
