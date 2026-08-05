@@ -4149,6 +4149,7 @@ function printCurrentRegion(){
   if(regionSel&&regionSel.indexOf('R:')===0){const rk=regionSel.slice(2);list=_bigRegionOrders(rk);label=_BIGREGION_LABEL[rk]||rk;}
   else if(regionSel&&regionSel.indexOf('C:')===0){const c=regionSel.slice(2);list=_regionOrders(c);label=c;}
   else{list=_regionPool();label='全部地區';}
+  if(regionQuery){list=list.filter(o=>_matchSearch(_searchHay(o),regionQuery));label+=`（${regionQuery}）`;}
   _printOrderList(list,label);
 }
 // 縣市 或 縣市+區
