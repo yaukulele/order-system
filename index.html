@@ -2007,6 +2007,14 @@ function buildOrderActions(o,variant){
         :`<button class="act" onclick="quickShipPchomeSelf('${oid}')" title="一鍵用「廠商自行出貨」方式出貨（會先確認）" style="border-color:#0d9488;color:#0d9488;font-weight:700">自行出貨</button> <button class="act" onclick="openShipPchome('${oid}')" title="回填物流單號到 PChome" style="border-color:var(--pc);color:var(--pc);font-weight:700">出貨</button> `)
       :'')
     :'';
+  // 出貨痕跡：按過「出貨／自行出貨」後蓋一個綠色 ✓ 記號（含時間/誰按的），避免不確定按過沒
+  const shipDone=o.shippedAt?(()=>{
+    const d=new Date(o.shippedAt);const md=(d.getMonth()+1)+'/'+d.getDate();const via=o.shippedVia||'出貨';
+    const tip=`${via}已回填 ${d.toLocaleString('zh-TW',{month:'2-digit',day:'2-digit',hour:'2-digit',minute:'2-digit',hour12:false})}${o.shippedBy?'（'+o.shippedBy+'）':''}`;
+    return isMob
+      ?`<button class="success" onclick="event.stopPropagation()" title="${esc(tip)}" style="cursor:default">✓ ${esc(via)} ${md}</button>`
+      :`<span class="act" title="${esc(tip)}" style="border-color:var(--grn);color:var(--grn);background:var(--grn-bg);cursor:default;font-weight:700">✓ ${esc(via)} ${md}</span> `;
+  })():'';
   // 安裝款已收/未收/部分已收（只在 install===是）
   // 三狀態：未收(0) / 部分(0<paid<fee) / 已收齊(paid>=fee)。部分視為「未收齊」橘色提醒
   const _iFee=Number(o.installFee)||0,_iPaid=Number(o.installPaidAmount)||0;
@@ -2073,7 +2081,7 @@ function buildOrderActions(o,variant){
   const sms=isMob
     ?`<button onclick="openSmsMenu('${oid}',event)" style="${_smsDone?'color:#15803d;border-color:#86efac;background:#e8f7ee':'color:#7c3aed;border-color:#c4b5fd'}" title="${_smsTip}">📩 ${_smsDone?'已發':'發簡訊'}</button>`
     :`<button class="act" onclick="openSmsMenu('${oid}',event)" title="${_smsTip}" style="${_smsDone?'border-color:#86efac;color:#15803d':'border-color:#c4b5fd;color:#7c3aed'}">📩${_smsDone?'✓':''}</button> `;
-  return{addrAck,ship,instPaid,addonPaid,quickAddInstall,quickAddAddon,edit,copy,cam,del,prodLink,sms};
+  return{addrAck,ship,shipDone,instPaid,addonPaid,quickAddInstall,quickAddAddon,edit,copy,cam,del,prodLink,sms};
 }
 
 // 商品頁網址 — 重複確認訂單買的商品用
@@ -2497,7 +2505,7 @@ const checked=selectedIds.has(o.id);
 // 規格併入品名 cell — 用小 pill 顯示，省一整欄寬度給操作欄
 // 規格放最前面 — 之前放品名後面，品名太長會被 truncate 切掉，看不到規格要點編輯。
 const prodSpecCombined=`${r.ps.specs?`<span class="spec-pill" title="${esc(r.ps.specs)}" style="margin-right:6px;flex-shrink:0">${esc(r.ps.specs)}</span>`:''}${escWithHL(r.ps.name)}`;
-h+=`<tr><td class="batch-cell"><input type="checkbox" data-oid="${o.id}" ${checked?'checked':''} onclick="toggleRowSelected('${o.id}')"></td><td class="mono" style="width:56px">${fmtD(o.date)}${r.newBadge?' '+r.newBadge:''}</td><td style="width:44px;text-align:center">${platformPill(o.platform)}${r.addrBadge?' '+r.addrBadge:''}</td><td class="prod-cell" onclick="openEdit('${oid}')" style="cursor:pointer" title="點擊編輯：${esc(o.product)}">${prodSpecCombined}</td><td class="tab-list-mobile-hide qty-cell"><input type="text" inputmode="numeric" value="${r.qty}" oninput="this.value=cn(this.value);setQty('${oid}',this.value)" class="fee-input qty-input" style="width:34px${r.qty>1?';border-color:var(--mo);background:var(--mo-bg);color:var(--mo);font-weight:800':''}"></td><td class="name-cell" title="${r.ph?'電話 '+esc(r.ph):''}${o.address?'\n地址 '+esc(o.address):''}${r.noteShort?'\n備註 '+esc(r.noteShort):''}"><span style="white-space:nowrap">${o.name?`<span style="cursor:pointer;text-decoration:underline;text-decoration-style:dotted;text-decoration-color:var(--ht);text-underline-offset:2px" onclick="event.stopPropagation();searchCustomerOrders(${JSON.stringify(o.name).replace(/"/g,'&quot;')})" title="🔒 鎖定看「${esc(o.name)}」的所有訂單">${escWithHL(o.name)}</span>`:'(無姓名)'}${r.region?`<span style="font-size:9px;color:#1657b5;background:#e8eef9;border-radius:3px;padding:1px 5px;margin-left:5px;font-weight:700" title="${esc(o.address||'')}">${esc(r.region)}</span>`:''}${r.remoteBadge?`<span style="margin-left:4px">${r.remoteBadge}</span>`:''}</span>${r.ph?`<div style="font-size:9px;color:var(--dm);font-family:var(--mono);margin-top:1px;max-width:140px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${phoneTel(r.ph)}</div>`:''}${r.noteShort?`<div style="font-size:9px;color:#b45309;background:#fef9ec;border-radius:3px;padding:2px 5px;margin-top:2px;max-width:190px;white-space:normal;line-height:1.3;overflow:hidden;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical" title="${esc(r.noteShort)}">${escWithHL(r.noteShort)}</div>`:''}</td><td class="tab-list-mobile-hide acc-cell">${ib}</td><td class="tab-list-mobile-hide acc-cell">${ab}</td><td class="total-cell" id="tot-${oid}" style="width:78px">${$(tot(o))}${r.trackInfo}</td><td style="width:64px;white-space:nowrap"><button class="${stCls(o.status)}" onclick="openStatusMenu('${oid}',event)" title="點擊選擇狀態">${o.status} ▾</button></td><td class="act-cell"><div class="act-wrap">${a.addrAck}${a.ship}${a.instPaid}${a.addonPaid}${a.prodLink}${a.sms}${a.edit}${a.copy}${a.cam}${a.del}</div></td></tr>`});
+h+=`<tr><td class="batch-cell"><input type="checkbox" data-oid="${o.id}" ${checked?'checked':''} onclick="toggleRowSelected('${o.id}')"></td><td class="mono" style="width:56px">${fmtD(o.date)}${r.newBadge?' '+r.newBadge:''}</td><td style="width:44px;text-align:center">${platformPill(o.platform)}${r.addrBadge?' '+r.addrBadge:''}</td><td class="prod-cell" onclick="openEdit('${oid}')" style="cursor:pointer" title="點擊編輯：${esc(o.product)}">${prodSpecCombined}</td><td class="tab-list-mobile-hide qty-cell"><input type="text" inputmode="numeric" value="${r.qty}" oninput="this.value=cn(this.value);setQty('${oid}',this.value)" class="fee-input qty-input" style="width:34px${r.qty>1?';border-color:var(--mo);background:var(--mo-bg);color:var(--mo);font-weight:800':''}"></td><td class="name-cell" title="${r.ph?'電話 '+esc(r.ph):''}${o.address?'\n地址 '+esc(o.address):''}${r.noteShort?'\n備註 '+esc(r.noteShort):''}"><span style="white-space:nowrap">${o.name?`<span style="cursor:pointer;text-decoration:underline;text-decoration-style:dotted;text-decoration-color:var(--ht);text-underline-offset:2px" onclick="event.stopPropagation();searchCustomerOrders(${JSON.stringify(o.name).replace(/"/g,'&quot;')})" title="🔒 鎖定看「${esc(o.name)}」的所有訂單">${escWithHL(o.name)}</span>`:'(無姓名)'}${r.region?`<span style="font-size:9px;color:#1657b5;background:#e8eef9;border-radius:3px;padding:1px 5px;margin-left:5px;font-weight:700" title="${esc(o.address||'')}">${esc(r.region)}</span>`:''}${r.remoteBadge?`<span style="margin-left:4px">${r.remoteBadge}</span>`:''}</span>${r.ph?`<div style="font-size:9px;color:var(--dm);font-family:var(--mono);margin-top:1px;max-width:140px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${phoneTel(r.ph)}</div>`:''}${r.noteShort?`<div style="font-size:9px;color:#b45309;background:#fef9ec;border-radius:3px;padding:2px 5px;margin-top:2px;max-width:190px;white-space:normal;line-height:1.3;overflow:hidden;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical" title="${esc(r.noteShort)}">${escWithHL(r.noteShort)}</div>`:''}</td><td class="tab-list-mobile-hide acc-cell">${ib}</td><td class="tab-list-mobile-hide acc-cell">${ab}</td><td class="total-cell" id="tot-${oid}" style="width:78px">${$(tot(o))}${r.trackInfo}</td><td style="width:64px;white-space:nowrap"><button class="${stCls(o.status)}" onclick="openStatusMenu('${oid}',event)" title="點擊選擇狀態">${o.status} ▾</button></td><td class="act-cell"><div class="act-wrap">${a.addrAck}${a.ship}${a.shipDone}${a.instPaid}${a.addonPaid}${a.prodLink}${a.sms}${a.edit}${a.copy}${a.cam}${a.del}</div></td></tr>`});
 h+='</tbody></table></div>';if(dtrunc)h+=`<div style="text-align:center;padding:12px 8px"><button class="btn" onclick="_deskExpand=true;renderList()">顯示全部 ${fl.length} 筆（目前先顯示前 ${DLIMIT} 筆，避免大量訂單卡頓）</button></div>`;h+='</div>';document.getElementById('list-area').innerHTML=h;renderBatchBar(fl)}
 
 // 勾單一行：不重 render 整個列表（避免幾百筆訂單時點 checkbox 卡頓）
@@ -2539,7 +2547,7 @@ ${r.ph?`<div class="ord-card-phone">📞 ${phoneTel(r.ph)}${copyBtn(r.ph,'電話
 ${o.address?`<div class="ord-card-addr">📍 ${mapsLink(o.address)}${copyBtn(o.address,'地址')}</div>`:''}
 ${r.noteShort?`<div class="ord-card-note">${esc(r.noteShort)}</div>`:''}
 <div class="ord-card-actions">
-${a.addrAck}${a.ship}${a.instPaid}${a.addonPaid}${a.quickAddInstall}${a.quickAddAddon}
+${a.addrAck}${a.ship}${a.shipDone}${a.instPaid}${a.addonPaid}${a.quickAddInstall}${a.quickAddAddon}
 ${a.prodLink}
 ${a.sms}
 ${a.edit}
@@ -3551,7 +3559,7 @@ async function submitShip(force){
     if(_realBtn)_realBtn.style.display='none';
     result.innerHTML=`<div style="background:var(--grn-bg);border:1px solid var(--grn);color:var(--grn);padding:10px;border-radius:6px;font-size:12px"><b>✅ MOMO 已收到出貨確認</b><br>HTTP ${data.status} ｜ 重試次數 ${data.attempts||1}<br><pre style="white-space:pre-wrap;font-size:10px;margin-top:6px;background:#fff;padding:8px;border-radius:4px;color:#000">${esc(JSON.stringify(data.data,null,2).slice(0,400))}</pre></div>`;
     // Update local order
-    if(status==='已配送'){o.trackingNo=item.slipNo;o.delyGbStr=item.delyGbStr;o.shipTypeStr=item.shipTypeStr;o.packTypeStr=item.packTypeStr;o.packUnit=item.packUnit;o.status='已出貨'}
+    if(status==='已配送'){o.trackingNo=item.slipNo;o.delyGbStr=item.delyGbStr;o.shipTypeStr=item.shipTypeStr;o.packTypeStr=item.packTypeStr;o.packUnit=item.packUnit;o.status='已出貨';o.shippedAt=new Date().toISOString();o.shippedBy=currentUser||'';o.shippedVia='出貨'}
     else if(status==='無貨取消訂單'){o.status='已取消'}
     else if(status==='暫時電聯不上(無須momo協助)'||status==='多次電聯不上(2天3次以上)'){o.status='未接電'}
     else if(status==='已確認指定配送日'){o.scmDelyDate=item.scmDelyDate;/* status 維持，等之後改「已配送」*/}
@@ -3636,7 +3644,7 @@ async function submitShipPchome(real){
     const data=await r.json();
     if(!r.ok||!data.ok){result.innerHTML=`<div style="background:var(--pc-bg);border:1px solid var(--pc);color:var(--pc);padding:10px;border-radius:6px;font-size:12px"><b>❌ 失敗</b><br>${esc(data.error||'HTTP '+r.status)}<br><pre style="white-space:pre-wrap;font-size:10px;margin-top:6px">${esc(JSON.stringify(data.detail||data,null,2).slice(0,500))}</pre></div>`;return}
     result.innerHTML=`<div style="background:var(--grn-bg);border:1px solid var(--grn);color:var(--grn);padding:10px;border-radius:6px;font-size:12px"><b>✅ PChome 已收到${mode==='ship'?'出貨回填':'不出貨標記'}</b><br>HTTP ${data.status||''}</div>`;
-    if(mode==='ship'){o.trackingNo=payload.shipId;o.delyGbStr=(PC_SHIP_VENDORS.find(v=>v.code===payload.shipVendorId)||{}).name||payload.shipVendorId;o.status='已出貨'}
+    if(mode==='ship'){o.trackingNo=payload.shipId;o.delyGbStr=(PC_SHIP_VENDORS.find(v=>v.code===payload.shipVendorId)||{}).name||payload.shipVendorId;o.status='已出貨';o.shippedAt=new Date().toISOString();o.shippedBy=currentUser||'';o.shippedVia='出貨'}
     else{o.status='已取消'}
     logActivity(o,mode==='ship'?`PChome 出貨回填：${summary}`:`PChome ${summary}`);
     saveOne(o);renderList();_modalDirty=false;
@@ -3661,7 +3669,9 @@ async function quickShipPchomeSelf(oid){
     const data=await r.json();
     if(!r.ok||!data.ok){alert(`❌ 自行出貨失敗\n\n${data.error||'HTTP '+r.status}\n\n${JSON.stringify(data.detail||data,null,2).slice(0,400)}`);return}
     // 只記配送方式，不動訂單狀態 —— 可能先壓自行出貨回報 PChome，貨還沒到，狀態等實際到貨再手動改
+    // 但要留「按過」的痕跡（狀態沒變 → 沒痕跡會不知道按過沒）
     o.delyGbStr='廠商自行出貨';
+    o.shippedAt=new Date().toISOString();o.shippedBy=currentUser||'';o.shippedVia='自行出貨';
     logActivity(o,`PChome 一鍵自行出貨（已回報 PChome，狀態未變）：${qty} 件`);
     saveOne(o);renderList();
     alert(`✅ 已送出「廠商自行出貨」給 PChome\n訂單 ${o.orderNo} 狀態維持不動（等實際到貨你再自己改）`);
