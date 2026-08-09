@@ -2494,7 +2494,20 @@ function setBtnCount(btn,cnt){
   pill.textContent=cnt;
   pill.style.opacity=cnt===0?'0.4':'1';
 }
-function renderList(){updateFilterIndicator();updateFilterCounts();const fl=filterListOrders();
+function renderList(){updateFilterIndicator();updateFilterCounts();
+// 釘住機制：sig（篩選+搜尋+排序）沒變 → 沿用上一批 id（做動作不跳走）；變了 → 重算並重新釘住
+const _psig=cFilter.join(',')+'|'+cStatus.join(',')+'|'+(cSpecial||'')+'|'+_curQuery()+'|'+sortOrder;
+const _filterActive=!!(cFilter.length||cStatus.length||cSpecial||_curQuery());
+let fl;
+if(_psig!==_pinnedSig){
+  // 篩選/搜尋/排序 改變（或重整後第一次）→ 重算並釘住這批
+  fl=filterListOrders();_pinnedSig=_psig;_pinnedIds=_filterActive?new Set(fl.map(o=>o.id)):null;
+}else if(_pinnedIds){
+  // 同一組篩選內：保留原本這批（處理過的先留著），另把「現在才符合」的新單併進來 → 只增不減，重整才會清
+  filterListOrders().forEach(o=>_pinnedIds.add(o.id));
+  const _byId=new Map(orders.map(o=>[o.id,o]));
+  fl=[..._pinnedIds].map(id=>_byId.get(id)).filter(Boolean);
+}else{fl=filterListOrders();}
 fl.sort((a,b)=>{const av=a.date||'',bv=b.date||'';if(av!==bv)return sortOrder==='date-desc'?(av<bv?1:-1):(av>bv?1:-1);/* 同日比 id（gid = Date.now base36 + 隨機）— newer id 大 */const aid=String(a.id||''),bid=String(b.id||'');if(aid===bid)return 0;return sortOrder==='date-desc'?(aid<bid?1:-1):(aid>bid?1:-1)});
 if(!fl.length){const hasFilter=cFilter.length||cStatus.length||cSpecial||(document.getElementById('q')?.value||'').trim();
   // 初始 Firebase 還沒回應 → 顯示骨架載入而不是「尚無訂單」（避免誤導）
@@ -2534,6 +2547,9 @@ function toggleRowSelected(id){if(selectedIds.has(id))selectedIds.delete(id);els
 function toggleAllSelected(e){const checked=e.target.checked;const fl=filterListOrders();if(checked)fl.forEach(o=>selectedIds.add(o.id));else fl.forEach(o=>selectedIds.delete(o.id));document.querySelectorAll('input[type=checkbox][data-oid]').forEach(cb=>{cb.checked=selectedIds.has(cb.dataset.oid)});_syncSelectAllCb(fl);renderBatchBar(fl)}
 function _syncSelectAllCb(fl){const cb=document.querySelector('.select-all-cb');if(!cb)return;const list=fl||filterListOrders();cb.checked=list.length>0&&list.every(o=>selectedIds.has(o.id))}
 let _mobileExpand=false;let _deskExpand=false,_deskSig='';
+// 「釘住」目前這批篩選結果：同一組篩選內做動作（收款/改狀態…）不重新過濾，處理過的先留著不跳走；
+// 換篩選/搜尋/排序 或 重新整理 才會重算新的一批（杰哥要求：核對到一半不要馬上消失）
+let _pinnedIds=null,_pinnedSig=null;
 function renderListMobile(fl){const LIMIT=60;const truncated=!_mobileExpand&&fl.length>LIMIT;const list=truncated?fl.slice(0,LIMIT):fl;
 const arrow=sortOrder==='date-desc'?'新→舊':'舊→新';
 let h=`<div style="display:flex;align-items:center;justify-content:space-between;padding:0 4px 8px;font-size:12px;color:var(--dm)"><span><strong style="color:var(--tx)">${fl.length}</strong> 筆 ｜ 合計 <strong style="color:var(--grn)">${$(fl.reduce((s,o)=>s+tot(o),0))}</strong></span><button class="btn" onclick="toggleSort()" style="font-size:11px;padding:5px 10px;min-height:30px">📅 ${arrow}</button></div>`;
