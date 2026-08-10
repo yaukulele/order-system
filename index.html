@@ -461,7 +461,7 @@ const db=firebase.database();
 // 不變量：任何寫入 orders 到 DB 前都會呼叫 _setSavingBadge()，那裡統一清快取 → 就地改/直寫/匯入/刪除全涵蓋
 const _hayCache=new Map();
 let _custAggCache=null,_custAggLen=-1,_custAggKey='',_custAggLastId='';
-function _invalidateOrderCaches(){_hayCache.clear();_custAggCache=null}
+function _invalidateOrderCaches(){_hayCache.clear();_custAggCache=null;_snapDirty=true}
 let orders=[],ordersLoaded=false,cFilter=(()=>{const raw=localStorage.getItem('cFilter');if(!raw||raw==='all')return[];try{const p=JSON.parse(raw);if(Array.isArray(p))return p;if(typeof p==='string')return p==='all'?[]:[p];return[]}catch(e){return[raw]}})(),editId=null,shipId=null,sortOrder=localStorage.getItem('sortOrder')||'date-desc',cSpecial=localStorage.getItem('cSpecial')||null,statsPeriod=localStorage.getItem('statsPeriod')||'30',statsPlatform=localStorage.getItem('statsPlatform')||'all',customerSort=localStorage.getItem('customerSort')||'lastDate',customerPlatform=localStorage.getItem('customerPlatform')||'all',outputPlatform=localStorage.getItem('outputPlatform')||'all',statsPureAmount=localStorage.getItem('statsPureAmount')==='1',statsDoneOnly=localStorage.getItem('statsDoneOnly')==='1';
 // cStatus 改為陣列：[] = 狀態；多元素 = 多選（desktop only）；單元素 = 對應狀態
 // 兼容舊版 localStorage 字串（'已確認'）跟新版 JSON 陣列
@@ -566,7 +566,7 @@ function _cacheOrdersToLocal(val,preJson){
     catch(e){console.warn('cache save failed (quota?):',e.message)}
   },1500); // 1.5s debounce — 多次 update 連續來時只寫最後一次
 }
-db.ref('orders').on('value',snap=>{
+function _onOrdersValue(snap){
   try{
     const val=snap.val();
     // Skip echo of own write — 比對 local state，相同就不 re-render（避免 spam UI）
@@ -585,7 +585,18 @@ db.ref('orders').on('value',snap=>{
     console.error('orders listener failed:',e);
     if(typeof showToast==='function')showToast('⚠️ 同步出錯：'+(e.message||'未知'),null,null,6000);
   }
-});
+}
+// cancel callback：權限被拒/token 失效/伺服器中斷 會「取消」監聽 → Firebase 之後永遠不再 fire。
+// 沒有這條的話，同步會靜默死掉、用戶對著過期資料一直改。加上：提示 + 指數退避重連。
+let _ordersReconnectDelay=3000;
+function _onOrdersCancel(err){
+  console.error('orders listener cancelled:',err);
+  if(typeof showToast==='function')showToast('⚠️ 雲端同步中斷（'+((err&&err.message)||'連線問題')+'）— 自動重連中…',null,null,6000);
+  const sb=document.getElementById('sync-badge');if(sb){sb.className='sync-dot sync-off';sb.innerHTML='<span class="dot dot-off"></span>重連中…'}
+  setTimeout(()=>{try{db.ref('orders').on('value',_onOrdersValue,_onOrdersCancel);_ordersReconnectDelay=3000}catch(e){}},_ordersReconnectDelay);
+  _ordersReconnectDelay=Math.min(_ordersReconnectDelay*2,60000); // 3s→6s→…→最多60s
+}
+db.ref('orders').on('value',_onOrdersValue,_onOrdersCancel);
 
 // users 即時監聽 — 讓 _usersCache 永遠是最新（自己或別台改密碼/角色/刪帳號都即時反映），
 // 這樣 doLogin 快路徑不會用到過期憑證（改過的舊密碼會落到比對失敗、被刪帳號會消失、降級角色即時生效）。
@@ -598,7 +609,10 @@ db.ref('users').on('value',snap=>{_usersCache=snap.val()||null;},()=>{/* 離線/
 let _saveAllTimer=null,_saveOneTimer=null,_pendingOneIds=new Set();
 function _setSavingBadge(){_invalidateOrderCaches();const sb=document.getElementById('sync-badge');if(sb){sb.className='sync-dot sync-on';sb.innerHTML='<span class="dot dot-on"></span>💾 同步中...';sb.title='本地已存，正在同步雲端'}}
 function _saveError(err){console.error('save failed',err);const sb=document.getElementById('sync-badge');if(sb){sb.className='sync-dot sync-off';sb.innerHTML='<span class="dot dot-off"></span>❌ 儲存失敗'}}
-function _snapshotJson(){const d={};orders.forEach(o=>{d[o.id]=o});return JSON.stringify(d)}
+// 快取本地快照字串 — 只在本地 orders 有變(_invalidateOrderCaches 設 dirty)時重算，
+// 否則每個遠端 value 事件都重新 stringify ~900 筆很吃 CPU（self-echo 比對用）
+var _snapCache='',_snapDirty=true;
+function _snapshotJson(){if(!_snapDirty)return _snapCache;const d={};orders.forEach(o=>{d[o.id]=o});_snapCache=JSON.stringify(d);_snapDirty=false;return _snapCache}
 // 之前用 set 會把其他裝置剛新增的訂單沖掉。現在 update — 安全多裝置同時操作
 function _doSaveAll(){_saveAllTimer=null;const d={};orders.forEach(o=>{d[o.id]=o});_pendingOneIds.clear();db.ref('orders').update(d).catch(_saveError);pendingRemoteOrders=null}
 function _doSaveOnes(){_saveOneTimer=null;if(_pendingOneIds.size===0)return;const updates={};for(const id of _pendingOneIds){const o=findO(id);if(o)updates[id]=o}_pendingOneIds.clear();db.ref('orders').update(updates).catch(_saveError);pendingRemoteOrders=null}
@@ -786,7 +800,7 @@ function copyShipping(oid,btn){const o=findO(oid);if(!o)return;const txt=fmtShip
 // 4. Web Share API 拋給 LINE 等 app（含照片 + fmtShipping 文字）
 // 5. 之後在編輯 modal 看得到所有照片
 async function _compressImage(file,maxDim,quality){
-  const img=await new Promise((res,rej)=>{const i=new Image();i.onload=()=>res(i);i.onerror=rej;i.src=URL.createObjectURL(file)});
+  const img=await new Promise((res,rej)=>{const i=new Image();i.onload=()=>res(i);i.onerror=e=>{URL.revokeObjectURL(i.src);rej(e)};i.src=URL.createObjectURL(file)});
   const ratio=Math.min(maxDim/img.width,maxDim/img.height,1);
   const w=Math.max(1,Math.round(img.width*ratio));const h=Math.max(1,Math.round(img.height*ratio));
   const cv=document.createElement('canvas');cv.width=w;cv.height=h;
@@ -806,11 +820,17 @@ function capturePhoto(oid,btn){
   if(_photoBusy){showToast('⏳ 上一批處理中，請稍等再按');return}
   const o=findO(oid);if(!o){alert('訂單已不存在');return}
   _photoBusy=true;
+  let _picked=false;
   // 不設 capture → 手機點下去會跳「拍照 / 從相簿選」兩種；multiple → 相簿可一次複選多張
   const input=document.createElement('input');input.type='file';input.accept='image/*';input.multiple=true;input.style.display='none';
-  // 用戶按取消（沒選檔案）也要釋放 busy flag
-  input.addEventListener('cancel',()=>{_photoBusy=false;input.remove()});
+  // 用戶按取消（沒選檔案）也要釋放 busy flag —— 但很多手機(iOS<16.4/部分Android)不會 fire 'cancel'，
+  // 只靠它會卡死 _photoBusy=true 讓拍照永遠按不動。用「視窗重新取得焦點」當保底：
+  // 選檔器關掉→視窗 focus 回來，隔一下沒選到檔就解鎖。
+  const _cleanupFocus=()=>window.removeEventListener('focus',_onWinFocus);
+  const _onWinFocus=()=>{setTimeout(()=>{if(!_picked&&_photoBusy){_photoBusy=false;try{input.remove()}catch(_){}}_cleanupFocus();},800)};
+  input.addEventListener('cancel',()=>{_cleanupFocus();_photoBusy=false;input.remove()});
   input.onchange=async()=>{
+    _picked=true;_cleanupFocus();
     const files=Array.from(input.files||[]);input.remove();if(!files.length){_photoBusy=false;return}
     // 30 秒 toast 涵蓋慢網路上傳；上傳完會被後面的結果 toast 取代
     showToast(`📤 上傳 ${files.length} 張雲端中...`,null,null,30000);
@@ -840,7 +860,7 @@ function capturePhoto(oid,btn){
     const baseMsg=failCount?`✅ ${okCount} 張已存，⚠️ ${failCount} 張失敗${lastErr?'：'+(lastErr.message||''):''}`:`✅ ${okCount} 張雲端已存`;
     if(navigator.share&&navigator.canShare&&navigator.canShare({files})){
       showToast(baseMsg+' — 點右邊分享給 LINE','📤 分享',()=>{
-        navigator.share({files,text:fmtShipping(o),title:`📦 ${o.name||''} ${o.orderNo||''}`})
+        navigator.share((()=>{const os=findO(oid)||o;return {files,text:fmtShipping(os),title:`📦 ${os.name||''} ${os.orderNo||''}`}})())
           .then(()=>showToast('✅ 已分享'))
           .catch(e=>{
             if(e.name==='AbortError'){showToast('已取消');return}
@@ -854,6 +874,7 @@ function capturePhoto(oid,btn){
     }
     _photoBusy=false;
   };
+  window.addEventListener('focus',_onWinFocus);
   document.body.appendChild(input);input.click();
 }
 function removeOrderPhoto(oid,idx){
@@ -2398,15 +2419,17 @@ function statusMatchList(o){
 const _SEARCH_STRIP=/[\s\-_/.]+/g;
 // 🚀 hay 快取：搜尋乾草堆字串按訂單 id 記憶（_hayCache 宣告在頂部）— 搜尋 keystroke 不再對每筆重複 join 8 欄。
 // 快取失效統一在 _setSavingBadge()（任何寫 DB 前都會呼叫）。新增訂單自動 miss→重算。
-function _searchHay(o){let h=_hayCache.get(o.id);if(h===undefined){h=[o.orderNo,o.product,o.name,o.phone,o.realPhone,o.address,o.note,o.specs].join(' ').toLowerCase();_hayCache.set(o.id,h)}return h}
-function _matchSearch(hay,q){
-  // hay：已 lowercase 的乾草堆字串；q：已 fwToHw + lowercase 的查詢
+// 快取 {hay, collapsed}（去標點版），避免每筆每次擊鍵都重跑 hay.replace 正則
+function _searchEntry(o){let e=_hayCache.get(o.id);if(e===undefined){const h=[o.orderNo,o.product,o.name,o.phone,o.realPhone,o.address,o.note,o.specs].join(' ').toLowerCase();e={hay:h,collapsed:h.replace(_SEARCH_STRIP,'')};_hayCache.set(o.id,e)}return e}
+function _searchHay(o){return _searchEntry(o).hay}
+function _matchSearch(o,q){
+  // o：訂單物件；q：已 fwToHw + lowercase 的查詢
   if(!q)return true;
-  const collapsed=hay.replace(_SEARCH_STRIP,'');
+  const e=_searchEntry(o);
   return q.split(/\s+/).filter(Boolean).every(term=>{
-    if(hay.includes(term))return true;
+    if(e.hay.includes(term))return true;
     const tc=term.replace(_SEARCH_STRIP,'');
-    return tc&&collapsed.includes(tc);
+    return tc&&e.collapsed.includes(tc);
   });
 }
 function _curQuery(){return fwToHw((document.getElementById('q')?.value||'')).trim().toLowerCase()}
@@ -2452,13 +2475,13 @@ function filterListOrders(){const q=_curQuery();return orders.filter(o=>{if(!pla
   if(cSpecial==='pendingDeliver'&&!needsDeliverAction(o))return false;
   if(cSpecial==='scmFiled'&&!isScmFiled(o))return false;
   if(cSpecial==='scmUnfiled'&&!isScmUnfiled(o))return false;
-  if(q&&!_matchSearch(_searchHay(o),q))return false;return true})}
+  if(q&&!_matchSearch(o,q))return false;return true})}
 function updateFilterCounts(){
   // 每個篩選按鈕後面的數字（小灰色 pill）— 之前每組各跑一次 orders.filter，現在合併為單次 pass
   // 平台組的 count 用「當前 cStatus + special + q」當前提；狀態組用「當前 cFilter + special + q」
   const q=_curQuery();
   const matchSpecial=o=>{if(cSpecial==='changeAddr')return hasPendingAddrChange(o);if(cSpecial==='newToday')return isNewOrder(o);if(cSpecial==='unpaidFee')return hasAnyUnpaidFee(o);if(cSpecial==='pendingDeliver')return needsDeliverAction(o);if(cSpecial==='scmFiled')return isScmFiled(o);if(cSpecial==='scmUnfiled')return isScmUnfiled(o);return true};
-  const matchQ=q?(o=>_matchSearch(_searchHay(o),q)):()=>true;
+  const matchQ=q?(o=>_matchSearch(o,q)):()=>true;
   const platCnt={all:0,MO:0,PC:0,ST:0,SCH:0,MO3:0,EXPO:0};
   const statCnt={all:0,'待收費':0};
   // special button 也算 count（改址 / 今日新單 / 未收款 / MOMO 指定配）— 用「當前 plat+status+q」當前提
@@ -2518,9 +2541,8 @@ if(!fl.length){const hasFilter=cFilter.length||cStatus.length||cSpecial||(docume
   if(!ordersLoaded){document.getElementById('list-area').innerHTML='<div class="card"><div class="card-b" style="text-align:center;padding:40px 20px;color:var(--dm)"><div style="font-size:28px;opacity:.5;margin-bottom:8px">⏳</div><div style="font-size:13px">載入訂單中...</div></div></div>';return}
   document.getElementById('list-area').innerHTML=`<div class="card"><div class="card-b empty-state"><div class="es-icon">${hasFilter?'🔍':'📦'}</div><div class="es-title">${hasFilter?'沒有符合篩選的訂單':'尚無訂單'}</div><div class="es-hint">${hasFilter?'試試清除篩選 / 改搜尋字':'去匯入分頁貼後台資料 或 按 🔄 自動抓 MOMO'}</div>${hasFilter?'<button class=\"btn\" style=\"margin-top:14px\" onclick=\"resetAllFilters()\">↻ 清除篩選</button>':'<button class=\"btn btn-g\" style=\"margin-top:14px\" onclick=\"showTab(&quot;import&quot;)\">📋 去匯入</button>'}</div></div>`;renderBatchBar([]);return}
 if(isMobile())return renderListMobile(fl);
-// 桌面版渲染上限（防大量訂單一次渲染卡死瀏覽器）— 篩選/搜尋改變自動重置回收合
-const _sig=cFilter.join(',')+'|'+cStatus.join(',')+'|'+(cSpecial||'')+'|'+_curQuery()+'|'+sortOrder;
-if(_sig!==_deskSig){_deskExpand=false;_deskSig=_sig}
+// 桌面版渲染上限（防大量訂單一次渲染卡死瀏覽器）— 篩選/搜尋改變自動重置回收合（重用上面算好的 _psig）
+if(_psig!==_deskSig){_deskExpand=false;_deskSig=_psig}
 const DLIMIT=250;const dtrunc=!_deskExpand&&fl.length>DLIMIT;const rows=dtrunc?fl.slice(0,DLIMIT):fl;
 const arrow=sortOrder==='date-desc'?'↓':'↑';
 const allChecked=fl.length>0&&fl.every(o=>selectedIds.has(o.id));
@@ -2668,7 +2690,7 @@ function filterOutputOrders(){
   // 預設排除已取消/轉線下 — 出貨清單不需要看這些（user 抱怨改了轉線下後 output 還看得到那筆 = 這裡修）
   if(!_outputIncSkip)list=list.filter(o=>o.status!=='已取消'&&o.status!=='轉線下'&&o.status!=='線下完成');
   // 搜尋字（姓名/單號/商品/地址/電話/備註）
-  if(outputQ){const q=fwToHw(outputQ).trim().toLowerCase();list=list.filter(o=>_matchSearch(_searchHay(o),q))}
+  if(outputQ){const q=fwToHw(outputQ).trim().toLowerCase();list=list.filter(o=>_matchSearch(o,q))}
   const today=new Date();today.setHours(0,0,0,0);const todayISO=localDateISO(today);
   if(outputDateMode==='today')return list.filter(o=>o.date===todayISO);
   if(outputDateMode==='yesterday'){const y=localDateISO(new Date(today.getTime()-86400000));return list.filter(o=>o.date===y)}
@@ -4112,7 +4134,7 @@ function _regionPool(){
   let p=regionShowAll?orders.filter(o=>o.status!=='已取消'):_schedCandidates();
   if(regionDone==='done')p=p.filter(o=>_isDoneStatus(o.status));
   else if(regionDone==='undone')p=p.filter(o=>!_isDoneStatus(o.status));
-  if(regionQuery)p=p.filter(o=>_matchSearch(_searchHay(o),regionQuery));
+  if(regionQuery)p=p.filter(o=>_matchSearch(o,regionQuery));
   return p;
 }
 // 區域頁單張卡片（緊湊版，重用 list 的 helper）
@@ -4200,7 +4222,7 @@ function printCurrentRegion(){
   if(regionSel&&regionSel.indexOf('R:')===0){const rk=regionSel.slice(2);list=_bigRegionOrders(rk);label=_BIGREGION_LABEL[rk]||rk;}
   else if(regionSel&&regionSel.indexOf('C:')===0){const c=regionSel.slice(2);list=_regionOrders(c);label=c;}
   else{list=_regionPool();label='全部地區';}
-  if(regionQuery){list=list.filter(o=>_matchSearch(_searchHay(o),regionQuery));label+=`（${regionQuery}）`;}
+  if(regionQuery){list=list.filter(o=>_matchSearch(o,regionQuery));label+=`（${regionQuery}）`;}
   _printOrderList(list,label);
 }
 // 縣市 或 縣市+區
@@ -4890,7 +4912,12 @@ window.addEventListener('error',e=>{if(typeof showToast==='function')showToast('
 window.addEventListener('unhandledrejection',e=>{if(typeof showToast==='function')showToast('⚠️ Promise 失敗：'+(e.reason?.message||e.reason||'未知'),null,null,5000);console.error('Unhandled rejection:',e.reason)});
 // 有未儲存的 modal 修改時 重新整理/關 tab 會出原生提示，避免按錯刷新就 lose 改動
 // （已 save 正在 commit 也不擋 — saveTimer 排隊的會在頁面關閉前 fire）
-window.addEventListener('beforeunload',e=>{if(_modalDirty&&!_saveOneTimer&&!_saveAllTimer){e.preventDefault();e.returnValue='⚠️ 有未儲存的修改';return e.returnValue}});
+window.addEventListener('beforeunload',e=>{
+  // 先把「排隊中(debounce 200ms)的存檔」同步 flush 出去 — 否則按 Ctrl-R 太快，剛改的狀態/金額會靜默丟失
+  try{if(_saveOneTimer){clearTimeout(_saveOneTimer);_saveOneTimer=null;_doSaveOnes()}}catch(_){}
+  try{if(_saveAllTimer){clearTimeout(_saveAllTimer);_saveAllTimer=null;_doSaveAll()}}catch(_){}
+  if(_modalDirty){e.preventDefault();e.returnValue='⚠️ 有未儲存的修改';return e.returnValue}
+});
 </script>
 </body>
 </html>
