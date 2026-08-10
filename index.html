@@ -498,16 +498,23 @@ if(!window._dupChecked){window._dupChecked=true;const dupGroups=new Map();
   orders.forEach(o=>{if(!o.orderNo)return;const k=_orderKey(o);if(!dupGroups.has(k))dupGroups.set(k,[]);dupGroups.get(k).push(o)});const dupSets=[...dupGroups.values()].filter(arr=>arr.length>1);if(dupSets.length){console.warn('Duplicate orders detected:',dupSets);
   // 自動清理重複單：每組保留「最舊」+「使用者改過最多」的那筆，其他刪掉。
   // 標準：先 sort by hasUserData (install/addon/status 不是初始值 / 有 trackingNo / 有 note)，再 sort by id timestamp（舊優先）
-  const _initial=(o)=>o.install==='未確認'&&o.addon==='未確認'&&o.status==='未確認'&&!o.trackingNo&&!o.note&&!o.installPaidAmount&&!o.addonPaidAmount;
+  // 「未被人碰過的原始匯入單」判定 — 這些欄位在剛匯入時都空，一有值就代表有人手改過，不可自動刪。
+  // 加上 realPhone/安裝費/加購費/物流/管理室/電梯（原本漏掉 → 手改過這些的單會被誤刪）
+  const _initial=(o)=>o.install==='未確認'&&o.addon==='未確認'&&o.status==='未確認'&&!o.trackingNo&&!o.note&&!o.installPaidAmount&&!o.addonPaidAmount
+    &&!o.realPhone&&!o.installFee&&!o.addonFee&&!o.delyGbStr&&!o.addrMgmt&&!o.addrElev;
   const toDelete=[],toDeleteObjs=[];let conflictGroups=0;
   for(const grp of dupSets){
     // 排序：使用者改過的排前面，同樣狀態下 id 字典序小（早建立）排前面
     grp.sort((a,b)=>{const aV=_initial(a)?1:0,bV=_initial(b)?1:0;if(aV!==bV)return aV-bV;return String(a.id)<String(b.id)?-1:1});
     // 保留 grp[0]，其餘只「自動刪」未被編輯過(_initial)的那些；
     // 若要刪的那筆其實有人改過（兩裝置各自編輯同單號）→ 不自動刪，避免靜默吃掉編輯，改提示人工處理。
+    // 另外：即使看似 pristine，只要金額/數量跟保留那筆不同 → 可能是有人改過價格 → 當成衝突不自動刪。
     let grpConflict=false;
+    const keep=grp[0];
     for(let i=1;i<grp.length;i++){
-      if(_initial(grp[i])){toDelete.push(grp[i].id);toDeleteObjs.push(grp[i])}
+      const cand=grp[i];
+      const sameMoney=(Number(cand.amount)||0)===(Number(keep.amount)||0)&&(Number(cand.qty)||1)===(Number(keep.qty)||1);
+      if(_initial(cand)&&sameMoney){toDelete.push(cand.id);toDeleteObjs.push(cand)}
       else grpConflict=true;
     }
     if(grpConflict)conflictGroups++;
@@ -2228,8 +2235,8 @@ function setOrderStatus(oid,next){
   btns.forEach(btn=>{btn.className=stCls(o.status);btn.textContent=o.status+' ▾'});
   // 改成排程排除的狀態（已取消/轉線下）→ 安裝排程頁要把這張卡移除，不能只留 stale 按鈕
   if(next==='已取消'||next==='轉線下'||next==='線下完成')renderSchedule();
-  // 如果有篩選狀態，狀態變了可能會讓這筆在列表消失或進入 → full render（排程卡已於上方同步）
-  if(cStatus.length){renderList();return}
+  // 如果有篩選狀態/特殊篩選(未收款/待確認配送/改址…)，狀態變了會影響是否符合 → full render（排程卡已於上方同步）
+  if(cStatus.length||cSpecial){renderList();return}
   // 快速路徑：按鈕已就地更新，不重建整個列表（避免 200+ 筆訂單卡頓）
   if(btns.length){updateFilterCounts();return}
   // 找不到按鈕 → fallback full render
@@ -2367,7 +2374,7 @@ function togAddonPaid(oid){
 }
 function setInstFee(oid,v){const o=findO(oid);if(!o)return;o.installFee=parseInt(v)||0;saveOne(o);const el=document.getElementById('tot-'+oid);if(el)el.textContent=$(tot(o))}
 function setAddonFee(oid,v){const o=findO(oid);if(!o)return;o.addonFee=parseInt(v)||0;saveOne(o);const el=document.getElementById('tot-'+oid);if(el)el.textContent=$(tot(o))}
-function setQty(oid,v){const o=findO(oid);if(!o)return;const n=parseInt(v);o.qty=n>=1?n:1;saveOne(o)}
+function setQty(oid,v){const o=findO(oid);if(!o)return;if(String(v).trim()===''){return}/* 清空重打的中間態不要存成 qty=1 */const n=parseInt(v);if(!(n>=1))return;if(o.qty===n)return;o.qty=n;saveOne(o)}
 
 function toggleSort(){sortOrder=sortOrder==='date-desc'?'date-asc':'date-desc';persistFilters();renderList()}
 function resetAllFilters(){cFilter=[];cStatus=[];cSpecial=null;selectedIds.clear();const q=document.getElementById('q');if(q)q.value='';document.querySelectorAll('#tab-list .fbtn').forEach(b=>b.classList.remove('on'));const fp=document.querySelector('#tab-list .fbtn[data-fg="plat"]');if(fp)fp.classList.add('on');const fs=document.querySelector('#tab-list .fbtn[data-fg="status"]');if(fs)fs.classList.add('on');persistFilters();renderList();showToast('已清除所有篩選')}
@@ -2532,12 +2539,14 @@ let fl;
 if(_psig!==_pinnedSig){
   // 篩選/搜尋/排序 改變（或重整後第一次）→ 重算並釘住這批
   fl=filterListOrders();_pinnedSig=_psig;_pinnedIds=_filterActive?new Set(fl.map(o=>o.id)):null;
+  _lastMatchIds=new Set(fl.map(o=>o.id));
 }else if(_pinnedIds){
   // 同一組篩選內：保留原本這批（處理過的先留著），另把「現在才符合」的新單併進來 → 只增不減，重整才會清
-  filterListOrders().forEach(o=>_pinnedIds.add(o.id));
+  const _fresh=filterListOrders();_fresh.forEach(o=>_pinnedIds.add(o.id));
+  _lastMatchIds=new Set(_fresh.map(o=>o.id)); // 目前「仍符合篩選」的 id — 全選只作用在這些，避免批次動到已處理列
   const _byId=new Map(orders.map(o=>[o.id,o]));
   fl=[..._pinnedIds].map(id=>_byId.get(id)).filter(Boolean);
-}else{fl=filterListOrders();}
+}else{fl=filterListOrders();_lastMatchIds=new Set(fl.map(o=>o.id));}
 fl.sort((a,b)=>{const av=a.date||'',bv=b.date||'';if(av!==bv)return sortOrder==='date-desc'?(av<bv?1:-1):(av>bv?1:-1);/* 同日比 id（gid = Date.now base36 + 隨機）— newer id 大 */const aid=String(a.id||''),bid=String(b.id||'');if(aid===bid)return 0;return sortOrder==='date-desc'?(aid<bid?1:-1):(aid>bid?1:-1)});
 _lastFl=fl; // 快取「目前顯示的這批」給勾選/select-all 用，免每次勾選都重跑全表過濾
 if(!fl.length){const hasFilter=cFilter.length||cStatus.length||cSpecial||(document.getElementById('q')?.value||'').trim();
@@ -2573,10 +2582,11 @@ h+='</tbody></table></div>';if(dtrunc)h+=`<div style="text-align:center;padding:
 
 // 勾單一行：不重 render 整個列表（避免幾百筆訂單時點 checkbox 卡頓）
 // checkbox 本身瀏覽器已 toggle state，我們只更新 batch bar + 全選 checkbox
-function toggleRowSelected(id){if(selectedIds.has(id))selectedIds.delete(id);else selectedIds.add(id);const fl=_lastFl||filterListOrders();_syncSelectAllCb(fl);renderBatchBar(fl)}
-function toggleAllSelected(e){const checked=e.target.checked;const fl=_lastFl||filterListOrders();if(checked)fl.forEach(o=>selectedIds.add(o.id));else fl.forEach(o=>selectedIds.delete(o.id));document.querySelectorAll('input[type=checkbox][data-oid]').forEach(cb=>{cb.checked=selectedIds.has(cb.dataset.oid)});_syncSelectAllCb(fl);renderBatchBar(fl)}
-function _syncSelectAllCb(fl){const cb=document.querySelector('.select-all-cb');if(!cb)return;const list=fl||_lastFl||filterListOrders();cb.checked=list.length>0&&list.every(o=>selectedIds.has(o.id))}
-let _mobileExpand=false;let _deskExpand=false,_deskSig='';let _lastFl=null;
+function toggleRowSelected(id){if(selectedIds.has(id))selectedIds.delete(id);else selectedIds.add(id);_syncSelectAllCb();renderBatchBar(_lastFl||filterListOrders())}
+// 全選：只選「目前仍符合篩選」的列（_lastMatchIds），不含釘住但已處理(不再符合)的列 → 批次刪除/改狀態不會誤動到它們
+function toggleAllSelected(e){const checked=e.target.checked;const ids=[..._lastMatchIds||new Set((_lastFl||filterListOrders()).map(o=>o.id))];if(checked)ids.forEach(id=>selectedIds.add(id));else ids.forEach(id=>selectedIds.delete(id));document.querySelectorAll('input[type=checkbox][data-oid]').forEach(cb=>{cb.checked=selectedIds.has(cb.dataset.oid)});_syncSelectAllCb();renderBatchBar(_lastFl||filterListOrders())}
+function _syncSelectAllCb(){const cb=document.querySelector('.select-all-cb');if(!cb)return;const ids=_lastMatchIds;cb.checked=!!ids&&ids.size>0&&[...ids].every(id=>selectedIds.has(id))}
+let _mobileExpand=false;let _deskExpand=false,_deskSig='';let _lastFl=null;let _lastMatchIds=null;
 // 「釘住」目前這批篩選結果：同一組篩選內做動作（收款/改狀態…）不重新過濾，處理過的先留著不跳走；
 // 換篩選/搜尋/排序 或 重新整理 才會重算新的一批（杰哥要求：核對到一半不要馬上消失）
 let _pinnedIds=null,_pinnedSig=null;
@@ -2644,7 +2654,8 @@ function batchSetStatus(s){
   const snapshot=sel.map(o=>({id:o.id,prevStatus:o.status}));
   sel.forEach(o=>{const prev=o.status;o.status=s;logActivity(o,`批次狀態：${prev} → ${s}`)});
   pushUndo({kind:'bulk-restore-status',snapshot});
-  const upd={};for(const o of sel)upd[o.id]=o;
+  // 只寫 status + note 兩個欄位（不寫整包 o）→ 別台剛改的金額/收款/單號不會被批次覆蓋洗掉
+  const upd={};for(const o of sel){upd[o.id+'/status']=o.status;upd[o.id+'/note']=o.note||''}
   _setSavingBadge();db.ref('orders').update(upd).catch(_saveError);
   renderList();updateCnt();
   showToast(`✅ 已更新 ${sel.length} 筆訂單為「${s}」`,'↩️ 還原',undoLast,8000)
@@ -3005,7 +3016,10 @@ function noteAppendCommit(oid,lines){
   if(!add.length)return;
   _setSavingBadge();
   // optimistic：先本地追加 + 立刻刷新時間軸（離線也有反應），transaction 回來再以雲端為準
-  {let base=String(o.note||'').replace(/\s+$/,'');for(const ln of add){if(!base.split('\n').some(x=>x.trim()===ln.trim()))base=base?base+'\n'+ln:ln}o.note=base;_invalidateOrderCaches();if(editId===oid)refreshModalNoteUI(oid);try{renderList()}catch(_){}}
+  {let base=String(o.note||'').replace(/\s+$/,'');for(const ln of add){if(!base.split('\n').some(x=>x.trim()===ln.trim()))base=base?base+'\n'+ln:ln}o.note=base;_invalidateOrderCaches();
+   // 若「全文編輯」框正開著，把新追加的行也同步進去 → 存檔(整段覆蓋)時不會把剛加的 chip 行洗掉
+   const _raw=document.getElementById('e-note');if(editId===oid&&_raw&&_raw.style.display!=='none'){for(const ln of add){if(!_raw.value.split('\n').some(x=>x.trim()===ln.trim())){_raw.value=(_raw.value?_raw.value.replace(/\s+$/,'')+'\n':'')+ln;_raw.dataset.dirty='1'}}}
+   if(editId===oid)refreshModalNoteUI(oid);try{renderList()}catch(_){}}
   db.ref('orders/'+oid+'/note').transaction(cur=>{
     let base=String(cur||'').replace(/\s+$/,'');
     for(const ln of add){if(!base.split('\n').some(x=>x.trim()===ln.trim()))base=base?base+'\n'+ln:ln}
@@ -3126,7 +3140,7 @@ const _isel=document.getElementById('ei-sel');
 o.install=_isel?_isel.value:(o.install||'未確認');
 // 改前 → 改後不同且原本要服務（安裝/配送）有資料 → 在 log 保留原金額/日期/師傅
 if((_snap.install==='是'||_snap.install==='配送')&&o.install!==_snap.install){const segs=[];if(_snap.installFee)segs.push(`費用 $${_snap.installFee}`);if(_snap.installPaidAmount)segs.push(`已收 $${_snap.installPaidAmount}`);if(_snap.installDate)segs.push(_snap.installDate);if(_snap.installSlot)segs.push(_snap.installSlot);if(_snap.installer)segs.push('師傅 '+_snap.installer);if(_snap.installDay)segs.push(_snap.installDay);if(_snap.installTime)segs.push(_snap.installTime);logActivity(o,`${_snap.install==='配送'?'配送':'安裝'} ${_snap.install} → ${o.install}${segs.length?'（原 '+segs.join(' / ')+'）':''}（編輯視窗）`)}
-if(o.install==='否'||o.install==='未確認'){o.installFee=0;o.installDay='';o.installTime='';o.installPaidAmount=0;o.installDate='';o.installSlot='';o.installer='';o.installDone=false}
+if(o.install==='否'||o.install==='未確認'){const _keepPaid=Number(o.installPaidAmount)||0;o.installFee=0;o.installDay='';o.installTime='';o.installDate='';o.installSlot='';o.installer='';o.installDone=false;if(_keepPaid>0){logActivity(o,`⚠ 改成不安裝但已收安裝款 $${_keepPaid} — 保留收款紀錄（要清請手動改為 0）`)}else{o.installPaidAmount=0}}
 else{o.installFee=parseInt(document.getElementById('e-instf').value)||0;o.installDay='';o.installTime='';
   // 安裝已收金額（新增 — 可填部分）
   {const _pInp=document.getElementById('e-instpaid');if(_pInp){const _pNew=parseAmt(_pInp.value)||0;const _pOld=Number(o.installPaidAmount||0);if(_pNew!==_pOld)logActivity(o,`安裝款 ${_pOld===0?'未收':'$'+_pOld} → ${_pNew===0?'未收':'$'+_pNew}（編輯視窗）`);o.installPaidAmount=_pNew}}
@@ -3149,7 +3163,7 @@ const _asel=document.getElementById('ea-sel');
 o.addon=_asel?_asel.value:(o.addon||'未確認');
 // 同樣：加購從「是」改掉前，把原本金額/已收/品項記到 log
 if(_snap.addon==='是'&&o.addon!=='是'){const segs=[];if(_snap.addonFee)segs.push(`金額 $${_snap.addonFee}`);if(_snap.addonPaidAmount)segs.push(`已收 $${_snap.addonPaidAmount}`);if((_snap.addonItems||'').trim())segs.push(_snap.addonItems.trim());logActivity(o,`加購 是 → ${o.addon}${segs.length?'（原 '+segs.join(' / ')+'）':''}（編輯視窗）`)}
-if(o.addon==='否'||o.addon==='未確認'){o.addonFee=0;o.addonItems='';o.addonPaidAmount=0}
+if(o.addon==='否'||o.addon==='未確認'){const _keepPaid=Number(o.addonPaidAmount)||0;o.addonFee=0;o.addonItems='';if(_keepPaid>0){logActivity(o,`⚠ 改成不加購但已收加購款 $${_keepPaid} — 保留收款紀錄（要清請手動改為 0）`)}else{o.addonPaidAmount=0}}
 else{o.addonFee=parseInt(document.getElementById('e-addonf').value)||0;o.addonItems=(document.getElementById('e-addonitems')?.value||'').trim();
   // 加購已收金額（新增 — 可填部分）
   {const _pInp=document.getElementById('e-addonpaid');if(_pInp){const _pNew=parseAmt(_pInp.value)||0;const _pOld=Number(o.addonPaidAmount||0);if(_pNew!==_pOld)logActivity(o,`加購款 ${_pOld===0?'未收':'$'+_pOld} → ${_pNew===0?'未收':'$'+_pNew}（編輯視窗）`);o.addonPaidAmount=_pNew}}}
@@ -3185,6 +3199,19 @@ o.delyGbStr=newDely;o.trackingNo=newTracking;
   if(remoteNote){const seen=new Set(note.split('\n').map(l=>l.trim()));for(const ln of remoteNote.split('\n')){const t=ln.trim();if(t&&!seen.has(t)){note=note?note+'\n'+ln:ln;seen.add(t)}}}
   o.note=note.trim();
 }
+// 三方合併：模態開著期間「其他裝置」改過、但「本次編輯沒動到」的欄位 → 採用遠端值，
+// 避免整包 saveOne 把別台剛改的狀態/金額/單號/收款洗掉（note 已於上面單獨合併）。
+// o[k]===_snap[k] = 本次表單沒改這欄；rem[k]!==_snap[k] = 遠端有改 → 採遠端。
+try{
+  const rem=pendingRemoteOrders&&pendingRemoteOrders[o.id];
+  if(rem&&typeof rem==='object'){
+    for(const k in rem){
+      if(k==='note'||k==='id')continue;
+      const sv=JSON.stringify(_snap[k]);
+      if(JSON.stringify(o[k])===sv&&JSON.stringify(rem[k])!==sv)o[k]=rem[k];
+    }
+  }
+}catch(e){console.warn('saveEdit field-merge skipped:',e)}
 saveOne(o);pendingRemoteOrders=null;closeModal();renderList();
 // 如果用戶在排程 tab 開的 edit，存完也要 refresh 排程
 if(document.querySelector('.tab.active')?.textContent?.includes('安裝')&&typeof renderSchedule==='function')renderSchedule();
