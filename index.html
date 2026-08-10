@@ -100,6 +100,10 @@ textarea{width:100%;padding:12px;border:2px dashed var(--bd);border-radius:10px;
 .fbtn.on .cnt-pill{background:rgba(255,255,255,.25);color:#fff}
 .search{padding:5px 10px;border:1px solid var(--bd);border-radius:7px;font-size:11px;width:160px;outline:none;font-family:var(--sans)}
 table{width:100%;border-collapse:collapse;font-size:11px}
+/* 列表在較窄/放大的桌機不夠寬時，表格別把欄位擠扁、把右邊操作欄切掉：
+   給列表表格保底寬度 → 不夠寬時由外層既有的 overflow-x 水平捲動(不壓扁不切掉)；
+   寬螢幕(.main 1240)仍是 100% 不會出現捲軸。 */
+#list-area table{min-width:1100px}
 th{padding:8px 10px;text-align:left;font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.5px;color:var(--dm);border-bottom:1px solid var(--bd);background:var(--sf2);white-space:nowrap;position:sticky;top:0;z-index:5}
 td{padding:7px 10px;border-bottom:1px solid #f0ede6}tr:hover td{background:var(--sf2)}
 .tag{display:inline-block;padding:2px 8px;border-radius:4px;font-size:10px;font-weight:700}.tag-mo{background:var(--mo-bg);color:var(--mo)}.tag-pc{background:var(--pc-bg);color:var(--pc)}
