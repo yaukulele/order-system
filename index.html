@@ -608,7 +608,10 @@ db.ref('users').on('value',snap=>{_usersCache=snap.val()||null;},()=>{/* 離線/
 // 刪除訂單要走 deleteOrderId / deleteOrderIds（顯式 remove），不能靠「不在 orders 就消失」
 let _saveAllTimer=null,_saveOneTimer=null,_pendingOneIds=new Set();
 function _setSavingBadge(){_invalidateOrderCaches();const sb=document.getElementById('sync-badge');if(sb){sb.className='sync-dot sync-on';sb.innerHTML='<span class="dot dot-on"></span>💾 同步中...';sb.title='本地已存，正在同步雲端'}}
-function _saveError(err){console.error('save failed',err);const sb=document.getElementById('sync-badge');if(sb){sb.className='sync-dot sync-off';sb.innerHTML='<span class="dot dot-off"></span>❌ 儲存失敗'}}
+let _saveErrToastAt=0;
+function _saveError(err){console.error('save failed',err);const sb=document.getElementById('sync-badge');if(sb){sb.className='sync-dot sync-off';sb.innerHTML='<span class="dot dot-off"></span>❌ 儲存失敗'}
+  // 之前只有一個小徽章，員工常沒注意到雲端存檔失敗 → 明顯 toast 提醒（節流 20 秒避免連續失敗洗版）
+  const now=Date.now();if(now-_saveErrToastAt>20000){_saveErrToastAt=now;if(typeof showToast==='function')showToast('❌ 雲端存檔失敗：'+((err&&err.message)||'連線問題')+' — 請檢查網路，改動可能沒同步',null,null,7000)}}
 // 快取本地快照字串 — 只在本地 orders 有變(_invalidateOrderCaches 設 dirty)時重算，
 // 否則每個遠端 value 事件都重新 stringify ~900 筆很吃 CPU（self-echo 比對用）
 var _snapCache='',_snapDirty=true;
@@ -2536,6 +2539,7 @@ if(_psig!==_pinnedSig){
   fl=[..._pinnedIds].map(id=>_byId.get(id)).filter(Boolean);
 }else{fl=filterListOrders();}
 fl.sort((a,b)=>{const av=a.date||'',bv=b.date||'';if(av!==bv)return sortOrder==='date-desc'?(av<bv?1:-1):(av>bv?1:-1);/* 同日比 id（gid = Date.now base36 + 隨機）— newer id 大 */const aid=String(a.id||''),bid=String(b.id||'');if(aid===bid)return 0;return sortOrder==='date-desc'?(aid<bid?1:-1):(aid>bid?1:-1)});
+_lastFl=fl; // 快取「目前顯示的這批」給勾選/select-all 用，免每次勾選都重跑全表過濾
 if(!fl.length){const hasFilter=cFilter.length||cStatus.length||cSpecial||(document.getElementById('q')?.value||'').trim();
   // 初始 Firebase 還沒回應 → 顯示骨架載入而不是「尚無訂單」（避免誤導）
   if(!ordersLoaded){document.getElementById('list-area').innerHTML='<div class="card"><div class="card-b" style="text-align:center;padding:40px 20px;color:var(--dm)"><div style="font-size:28px;opacity:.5;margin-bottom:8px">⏳</div><div style="font-size:13px">載入訂單中...</div></div></div>';return}
@@ -2569,10 +2573,10 @@ h+='</tbody></table></div>';if(dtrunc)h+=`<div style="text-align:center;padding:
 
 // 勾單一行：不重 render 整個列表（避免幾百筆訂單時點 checkbox 卡頓）
 // checkbox 本身瀏覽器已 toggle state，我們只更新 batch bar + 全選 checkbox
-function toggleRowSelected(id){if(selectedIds.has(id))selectedIds.delete(id);else selectedIds.add(id);const fl=filterListOrders();_syncSelectAllCb(fl);renderBatchBar(fl)}
-function toggleAllSelected(e){const checked=e.target.checked;const fl=filterListOrders();if(checked)fl.forEach(o=>selectedIds.add(o.id));else fl.forEach(o=>selectedIds.delete(o.id));document.querySelectorAll('input[type=checkbox][data-oid]').forEach(cb=>{cb.checked=selectedIds.has(cb.dataset.oid)});_syncSelectAllCb(fl);renderBatchBar(fl)}
-function _syncSelectAllCb(fl){const cb=document.querySelector('.select-all-cb');if(!cb)return;const list=fl||filterListOrders();cb.checked=list.length>0&&list.every(o=>selectedIds.has(o.id))}
-let _mobileExpand=false;let _deskExpand=false,_deskSig='';
+function toggleRowSelected(id){if(selectedIds.has(id))selectedIds.delete(id);else selectedIds.add(id);const fl=_lastFl||filterListOrders();_syncSelectAllCb(fl);renderBatchBar(fl)}
+function toggleAllSelected(e){const checked=e.target.checked;const fl=_lastFl||filterListOrders();if(checked)fl.forEach(o=>selectedIds.add(o.id));else fl.forEach(o=>selectedIds.delete(o.id));document.querySelectorAll('input[type=checkbox][data-oid]').forEach(cb=>{cb.checked=selectedIds.has(cb.dataset.oid)});_syncSelectAllCb(fl);renderBatchBar(fl)}
+function _syncSelectAllCb(fl){const cb=document.querySelector('.select-all-cb');if(!cb)return;const list=fl||_lastFl||filterListOrders();cb.checked=list.length>0&&list.every(o=>selectedIds.has(o.id))}
+let _mobileExpand=false;let _deskExpand=false,_deskSig='';let _lastFl=null;
 // 「釘住」目前這批篩選結果：同一組篩選內做動作（收款/改狀態…）不重新過濾，處理過的先留著不跳走；
 // 換篩選/搜尋/排序 或 重新整理 才會重算新的一批（杰哥要求：核對到一半不要馬上消失）
 let _pinnedIds=null,_pinnedSig=null;
