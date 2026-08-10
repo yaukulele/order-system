@@ -676,7 +676,9 @@ res.push({id:gid(),date:iso,dateFmt:date,platform:'PC',orderNo:id,product:prod,s
 
 function parseMO(raw){const hs=/\d+\(•\)/.test(raw);if(hs){const b=raw.split(/\d+\(•\)/).filter(x=>x.trim().length>30);const r=b.map(parseMOB).filter(Boolean);if(r.length)return r}const re=/(\d{14,}-\d{3}-\d{3}-\d{3})/g,sn=new Set(),h=[];let m;while((m=re.exec(raw))!==null){if(!sn.has(m[1])){sn.add(m[1]);h.push({id:m[1],pos:m.index})}}if(h.length){const r=[];for(let i=0;i<h.length;i++){const o=parseMOB(raw.substring(h[i].pos,i+1<h.length?h[i+1].pos:raw.length));if(o)r.push(o)}if(r.length)return r}const s=parseMOB(raw);return s?[s]:[]}
 function parseMOB(bk){let t=bk.replace(/請回覆/g,' ').replace(/請選取[^\n]*/g,' ').replace(/已配送|已確認[^\n]*|已確定[^\n]*|已電聯[^\n]*|多次電聯[^\n]*|暫時電聯[^\n]*/g,' ').replace(/需配送[^\n]*|無貨取消[^\n]*|收件資料[^\n]*|無適當[^\n]*/g,' ').replace(/宅配通|新竹貨運|統一速達|大榮貨運|順豐速運|全球快遞|通盈貨運|新航貨運|郵局|便利袋|富昇物流|其他宅配|宅配-宅配通大電/g,' ').replace(/原箱|momo制式包材-紙箱\(袋\)|momo制式包材-破壞袋|自有包材|循環箱/g,' ').replace(/其他/g,' ').replace(/\n/g,' ').replace(/\s{2,}/g,' ').trim();
-const im=t.match(/(\d{14,}-\d{3}-\d{3}-\d{3})/);if(!im)return null;const no=im[1];const dm=t.match(/(\d{4})\/(\d{2})\/(\d{2})\s+\d{2}:\d{2}/);const dt=dm?`${dm[1]}-${dm[2]}-${dm[3]}`:localDateISO();const df=dm?`${parseInt(dm[2])}/${parseInt(dm[3])}`:'';
+const im=t.match(/(\d{14,}-\d{3}-\d{3}-\d{3})/);if(!im)return null;const no=im[1];
+// 日期：放寬成 1-2 位月/日、時間可有可無（原本硬要 2 位數+緊接 HH:MM，單號日期沒補零或時間換行就整單被塞成「今天」→ 錯誤營收/分組）
+const dm=t.match(/(\d{4})\/(\d{1,2})\/(\d{1,2})(?:\s+\d{1,2}:\d{2})?/);const dt=dm?`${dm[1]}-${String(dm[2]).padStart(2,'0')}-${String(dm[3]).padStart(2,'0')}`:localDateISO();const df=dm?`${parseInt(dm[2])}/${parseInt(dm[3])}`:'';
 let pr='';const pm=t.match(/(【[^】]+】[^)）]*[)）]\)?)/);if(pm)pr=pm[1].trim();
 let ac='';if(pr){const ap=t.substring(t.indexOf(pr)+pr.length);const vm=ap.match(/^\s*(\d{3})\s*(黑|白|紅|藍|無|BKN|BS|煙燻黑|[^\d\s]{1,6}?)(?=\s*\d)/);if(vm&&vm[2]&&vm[2]!=='無'){const cm={'黑':'黑色','白':'白色','紅':'紅色','藍':'藍色'};ac=cm[vm[2]]||vm[2]}}
 if(pr&&ac){if(pr.includes('黑色/白色')||pr.includes('白色/黑色'))pr=pr.replace(/黑色\/白色|白色\/黑色/,ac);else if(pr.includes('/'))pr=pr.replace(/[^\s(/]+\/[^\s()）]+/,ac)}
@@ -4478,6 +4480,9 @@ function formatGridHeader(d){
 // 沒明確排程時，用客戶希望的「第一個時段」當預設位置（少用「未排時段」整個 row 塞東西）
 function effectiveSlot(o){
   if(o.installSlot&&TIMES.includes(o.installSlot))return o.installSlot;
+  // 已排到某一天但沒指定時段 → 尊重「未排時段」，不要自動跳回客戶希望時段
+  // （否則把單拖到「未排時段」格會一直彈回客戶希望的早上/下午格，卡在那邊排不進未排時段）
+  if(o.installDate)return '';
   const arr=(o.installTime||'').split(/[、,\/]/).map(x=>x.trim()).filter(Boolean);
   for(const t of arr)if(TIMES.includes(t))return t;
   return ''; // 真的沒任何時段才丟「未排時段」row
@@ -4605,20 +4610,31 @@ function renderWeekGrid(filtered,noDate,monday,overdue){
 }
 
 // ===== 週表拖曳排程 =====
-let _schedDragOid=null;
+let _schedDragOid=null,_schedDragWatchdog=null;
+// 統一清掉拖曳狀態 + 樣式；若 dragend 沒 fire（手機/例外）導致 _schedDragOid 卡住，
+// 同步監聽會一直 defer 遠端更新永遠不套用（畫面像連線卻收不到別台改動）→ 這裡是唯一解鎖點。
+function _clearSchedDrag(){
+  _schedDragOid=null;
+  if(_schedDragWatchdog){clearTimeout(_schedDragWatchdog);_schedDragWatchdog=null}
+  document.querySelectorAll('.grid-card-dragging').forEach(el=>el.classList.remove('grid-card-dragging'));
+  document.querySelectorAll('.drop-target-active').forEach(el=>el.classList.remove('drop-target-active'));
+}
 function schedDragStart(e,oid){
   _schedDragOid=oid;
+  if(_schedDragWatchdog)clearTimeout(_schedDragWatchdog);
+  // 看門狗：12 秒沒收到 dragend 就強制解鎖，並補套用被 defer 的遠端更新，避免同步凍結
+  _schedDragWatchdog=setTimeout(()=>{
+    if(!_schedDragOid)return;
+    console.warn('sched drag watchdog: force-clearing stuck drag flag');
+    _clearSchedDrag();
+    if(pendingRemoteOrders!==null&&!isModalOpen()&&!isInputFocused()&&!_saveOneTimer&&!_saveAllTimer){const v=pendingRemoteOrders;try{applyRemoteOrders(v)}catch(_){}}
+  },12000);
   try{e.dataTransfer.setData('text/plain',oid);e.dataTransfer.effectAllowed='move'}catch(_){}
   // 拖曳中卡片透明化 — currentTarget 是 onClick 綁的卡片本身（不是用戶按到的子 div）
   const ct=e.currentTarget;
   setTimeout(()=>{ct&&ct.classList&&ct.classList.add('grid-card-dragging')},0);
 }
-function schedDragEnd(e){
-  // 清掉所有可能掛上的 dragging 樣式（不止 currentTarget — 防 e.target 是子 div 沒清到）
-  document.querySelectorAll('.grid-card-dragging').forEach(el=>el.classList.remove('grid-card-dragging'));
-  _schedDragOid=null;
-  document.querySelectorAll('.drop-target-active').forEach(el=>el.classList.remove('drop-target-active'));
-}
+function schedDragEnd(e){_clearSchedDrag()}
 function schedDragOver(e){
   e.preventDefault();
   try{e.dataTransfer.dropEffect='move'}catch(_){}
@@ -4632,6 +4648,7 @@ function schedDrop(e,dateIso,slot){
   e.preventDefault();
   e.currentTarget.classList.remove('drop-target-active');
   const oid=e.dataTransfer.getData('text/plain')||_schedDragOid;
+  _clearSchedDrag(); // 讀完 oid 先解鎖，避免 scheduleOrderToSlot 內部若丟例外導致 drag flag 卡住凍結同步
   if(!oid)return;
   scheduleOrderToSlot(oid,dateIso,slot==='未排時段'?'':slot);
 }
@@ -4811,7 +4828,7 @@ async function setWarehouseAddress(){
 // openSchedRoute / copySchedCurrentView 移除 — 簡化只剩週表後沒有 caller
 // 複製當日清單給司機/師傅（純文字格式，貼 LINE 用）
 function copySchedDay(dateIso){
-  const target=orders.filter(o=>isServiceActive(o)&&!o.installDone&&o.installDate===dateIso&&(schedInstaller==='all'||o.installer===schedInstaller)&&o.status!=='已取消'&&o.status!=='轉線下');
+  const target=orders.filter(o=>isServiceActive(o)&&!o.installDone&&o.installDate===dateIso&&(schedInstaller==='all'||o.installer===schedInstaller)&&o.status!=='已取消'&&o.status!=='轉線下'&&o.status!=='線下完成');
   if(!target.length){alert(`${dateIso} 沒有安裝行程可複製`);return}
   // 按師傅分組（如 schedInstaller=all 多人）+ 同師傅內按時段 + ZIP
   const slotOrder={'早上':0,'下午':1,'晚上':2,'':3};
@@ -4849,7 +4866,7 @@ function copySchedDay(dateIso){
 }
 function openSchedRouteForDate(dateIso,opts){
   opts=opts||{};
-  const target=orders.filter(o=>isServiceActive(o)&&!o.installDone&&o.installDate===dateIso&&(schedInstaller==='all'||o.installer===schedInstaller)&&o.status!=='已取消'&&o.status!=='轉線下');
+  const target=orders.filter(o=>isServiceActive(o)&&!o.installDone&&o.installDate===dateIso&&(schedInstaller==='all'||o.installer===schedInstaller)&&o.status!=='已取消'&&o.status!=='轉線下'&&o.status!=='線下完成');
   if(!target.length){alert(`${dateIso} 沒有安裝行程可以規劃`);return}
   // 多師傅警告：schedInstaller='all' 且有 ≥2 位師傅的單 → 路線會混合
   if(schedInstaller==='all'){
