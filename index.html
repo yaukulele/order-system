@@ -237,6 +237,14 @@ td{padding:7px 10px;border-bottom:1px solid #f0ede6}tr:hover td{background:var(-
 .rgn-panel .copy-mini{width:22px;height:22px;margin-left:4px}
 /* MOMO 指定配送日 訂單 — 紫色特殊標記 */
 .scm-badge{display:inline-block;font-size:10px;color:#6d28d9;background:#f3e8ff;border:1px solid #c4b5fd;border-radius:4px;padding:1px 6px;font-weight:800;white-space:nowrap;vertical-align:middle}
+/* MOMO 配送聯絡三態徽章：確認指配日(紫)/已電聯待指配(琥珀)/尚未電聯(紅) */
+.ct-badge{display:inline-block;font-size:10px;font-weight:800;padding:1px 6px;border-radius:4px;white-space:nowrap;vertical-align:middle}
+.ct-dated{color:#6d28d9;background:#f3e8ff;border:1px solid #c4b5fd}
+.ct-called{color:#b45309;background:#fffbeb;border:1px solid #fcd34d}
+.ct-none{color:#b91c1c;background:#fef2f2;border:1px solid #fca5a5}
+[data-theme="dark"] .ct-dated{color:#d8b4fe;background:#2e1065;border-color:#6d28d9}
+[data-theme="dark"] .ct-called{color:#fcd34d;background:#3a2e0a;border-color:#a16207}
+[data-theme="dark"] .ct-none{color:#fca5a5;background:#3a1616;border-color:#b91c1c}
 [data-theme="dark"] .scm-badge{color:#d8b4fe;background:#2e1065;border-color:#6d28d9}
 tr.row-scm>td{background:#faf7ff}
 tr.row-scm>td:first-child{box-shadow:inset 3px 0 0 #7c3aed}
@@ -1935,7 +1943,14 @@ function prepareOrderRow(o,opts){
   // MOMO 約配訂單「已回押指定配送日」→ 特殊紫色標記 + 標注配送日（尚未出貨/結案前才亮）
   const scmDate=o.scmDelyDate||'';
   const scmActive=!!scmDate&&!['已出貨','已完成','線下完成','已取消','轉線下'].includes(o.status);
-  const scmBadge=scmActive?`<span class="scm-badge" title="MOMO 指定配送日：${esc(scmDate)}">🚚 指定配 ${esc(scmDate.slice(5))}</span>`:'';
+  // MOMO 配送聯絡三態徽章（杰哥要求每筆明確顯示）：確認指配日 / 已電聯待指配 / 尚未電聯。
+  // 沿用 scmBadge 欄位 → 列表桌面/手機卡片/區域卡片三處自動帶到；只在 MOMO/三方且尚未出貨/結案的單顯示。
+  let scmBadge='';
+  if((o.platform==='MO'||o.platform==='MO3')&&!['已出貨','已完成','線下完成','已取消','轉線下','直接出','已包裝'].includes(o.status)){
+    if(scmDate)scmBadge=`<span class="ct-badge ct-dated" title="MOMO 已確認指定配送日 ${esc(scmDate)}">確認指配 ${esc(scmDate.slice(5))}</span>`;
+    else if(o.momoContacted)scmBadge=`<span class="ct-badge ct-called" title="已電聯客戶，尚未確認配送日">已電聯待指配</span>`;
+    else scmBadge=`<span class="ct-badge ct-none" title="MOMO 尚未電聯客戶排配送">尚未電聯</span>`;
+  }
   return{ps,ph,qty,addrAttrs,noteShort,installInfo,addonInfo,newBadge,addrBadge,trackInfo,region,remoteBadge,scmDate,scmActive,scmBadge};
 }
 // 從地址抽「縣市 + 區」簡化字串 — 第一頁就能看出大概在哪
@@ -3783,7 +3798,8 @@ async function submitShip(force){
     if(status==='已配送'){o.trackingNo=item.slipNo;o.delyGbStr=item.delyGbStr;o.shipTypeStr=item.shipTypeStr;o.packTypeStr=item.packTypeStr;o.packUnit=item.packUnit;o.status='已出貨';o.shippedAt=new Date().toISOString();o.shippedBy=currentUser||'';o.shippedVia='出貨'}
     else if(status==='無貨取消訂單'){o.status='已取消'}
     else if(status==='暫時電聯不上(無須momo協助)'||status==='多次電聯不上(2天3次以上)'){o.status='未接電'}
-    else if(status==='已確認指定配送日'){o.scmDelyDate=item.scmDelyDate;/* status 維持，等之後改「已配送」*/}
+    else if(status==='已確認指定配送日'){o.scmDelyDate=item.scmDelyDate;o.momoContacted=true;/* status 維持，等之後改「已配送」*/}
+    else if(status==='已電聯，尚未確認配送日期'){o.momoContacted=true;o.momoContactedAt=new Date().toISOString()/* 電聯過但還沒喬到配送日 → 三態徽章顯示「已電聯待指配」*/}
     // 其他狀態（需配送加價協調中/收件資料有誤/無適當選項，momo請協助）保持原狀，使用者手動再決定
     logActivity(o,`出貨回報：${status}${item.delyGbStr?' ｜ '+item.delyGbStr:''}${item.slipNo?' ｜ '+item.slipNo:''}${item.scmDelyDate?' ｜ 配送日 '+item.scmDelyDate:''}${item.msgNote?' ｜ '+item.msgNote:''}`);
     saveOne(o);renderList();
