@@ -103,7 +103,7 @@ table{width:100%;border-collapse:collapse;font-size:11px}
 /* 列表在較窄/放大的桌機不夠寬時，表格別把欄位擠扁、把右邊操作欄切掉：
    給列表表格保底寬度 → 不夠寬時由外層既有的 overflow-x 水平捲動(不壓扁不切掉)；
    寬螢幕(.main 1240)仍是 100% 不會出現捲軸。 */
-#list-area table{min-width:1100px}
+#list-area table{min-width:1200px}
 th{padding:8px 10px;text-align:left;font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.5px;color:var(--dm);border-bottom:1px solid var(--bd);background:var(--sf2);white-space:nowrap;position:sticky;top:0;z-index:5}
 td{padding:7px 10px;border-bottom:1px solid #f0ede6}tr:hover td{background:var(--sf2)}
 .tag{display:inline-block;padding:2px 8px;border-radius:4px;font-size:10px;font-weight:700}.tag-mo{background:var(--mo-bg);color:var(--mo)}.tag-pc{background:var(--pc-bg);color:var(--pc)}
@@ -4945,7 +4945,13 @@ setInterval(()=>{
 },2000);
 // Register service worker (PWA support)
 if('serviceWorker' in navigator){
-  window.addEventListener('load',()=>{navigator.serviceWorker.register('sw.js').catch(()=>{})});
+  let _swReg=null;
+  window.addEventListener('load',()=>{navigator.serviceWorker.register('sw.js').then(r=>{_swReg=r}).catch(()=>{})});
+  // 主動檢查新版：切回分頁 + 每 5 分鐘呼叫 registration.update()。
+  // 沒這個的話，一直開著沒動的桌機分頁不會主動比對 sw.js → 抓不到新版、跳不出「立即更新」提示。
+  const _swUpdateCheck=()=>{try{if(_swReg)_swReg.update()}catch(_){}};
+  document.addEventListener('visibilitychange',()=>{if(!document.hidden)_swUpdateCheck()});
+  setInterval(_swUpdateCheck,300000);
   // SW 背景偵測到新版 → 提示用戶重整（SWR 模式：開頁給 cache，背景比對）
   let _newVerToastShown=false;
   navigator.serviceWorker.addEventListener('message',e=>{
