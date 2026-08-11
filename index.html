@@ -2824,7 +2824,10 @@ async function runMomoReconXls(f){
   try{const buf=await f.arrayBuffer();const wb=XLSX.read(new Uint8Array(buf),{type:'array'});
     const res=parseMomoXls(wb,XLSX);
     if(!res.ok){area.innerHTML='<div class="card"><div class="card-b" style="color:#c0392b;font-weight:600">⚠️ '+res.err+'</div></div>';return}
-    renderMomoRecon(res);
+    // 預設比對期間＝上個月（MOMO 月結，這份多半是上月）；杰哥可自己調
+    const now=new Date();const pm=new Date(now.getFullYear(),now.getMonth()-1,1);const pe=new Date(now.getFullYear(),now.getMonth(),0);
+    const iso=d=>d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0');
+    renderMomoRecon(res,iso(pm),iso(pe));
   }catch(e){area.innerHTML='<div class="card"><div class="card-b" style="color:#c0392b;font-weight:600">⚠️ 解析失敗：'+(e.message||e)+'</div></div>'}
 }
 function parseMomoXls(wb,XLSX){
@@ -2850,21 +2853,45 @@ function parseMomoXls(wb,XLSX){
   if(!sale.items.length&&!ret.items.length)return{ok:false,err:'讀不到對帳明細（請確認是 MOMO 供應商後台下載的對帳單 .xls）'};
   return{ok:true,sale,ret,netPay:sale.gross+ret.gross};
 }
-function renderMomoRecon(res){
-  const M=n=>'$'+Math.round(n||0).toLocaleString();const s=res.sale,rt=res.ret;
-  // 撈單 MOMO(含三方)參考數：已完成/已出貨的單量+件數(僅供對照，MOMO 對帳單無訂單號無法逐筆比)
-  let moCnt=0,moQty=0;for(const o of orders){if(o.platform!=='MO'&&o.platform!=='MO3')continue;if(['已完成','已出貨','直接出','線下完成'].includes(o.status)){moCnt++;moQty+=(o.qty||1)}}
+let _momoRes=null;
+function _momoModelTok(name){const s=String(name||'').toUpperCase();const m=s.match(/[A-Z]{1,}[A-Z]*-?\d[A-Z0-9-]*/);return m?m[0].replace(/[^A-Z0-9]/g,''):''}
+function momoDateFilterChange(){const f=document.getElementById('momo-from')?.value||'';const t=document.getElementById('momo-to')?.value||'';if(_momoRes)renderMomoRecon(_momoRes,f,t)}
+function renderMomoRecon(res,fromD,toD){
+  _momoRes=res;const M=n=>'$'+Math.round(n||0).toLocaleString();const s=res.sale,rt=res.ret;
+  fromD=fromD||'';toD=toD||'';
+  // 撈單 MO/MO3 訂單依 goodsCode(=MOMO 品號) 分組計數；沒 goodsCode 的用型號 token 當後路。期間用訂單日 o.date 篩。
+  const byCode=new Map(),byTok=new Map();let sysTotal=0;
+  for(const o of orders){if(o.platform!=='MO'&&o.platform!=='MO3')continue;const d=String(o.date||'');if(fromD&&d<fromD)continue;if(toD&&d>toD)continue;
+    if(['已取消','轉線下'].includes(o.status))continue; // 取消單不算
+    const q=o.qty||1;sysTotal+=q;
+    const gc=String(o.goodsCode||'').trim();if(gc){byCode.set(gc,(byCode.get(gc)||0)+q)}
+    const tk=_momoModelTok(o.product);if(tk){byTok.set(tk,(byTok.get(tk)||0)+q)}}
+  // 逐商品比對
+  let matchN=0,lessN=0,moreN=0,noSysN=0;
+  const rows=s.items.slice().sort((a,b)=>b.gross-a.gross).map(x=>{
+    let sysN=byCode.has(x.code)?byCode.get(x.code):null,via='品號';
+    if(sysN==null){const tk=_momoModelTok(x.name);if(tk&&byTok.has(tk)){sysN=byTok.get(tk);via='型號'}}
+    if(sysN==null){sysN=0;via='—'}
+    const diff=(x.qty||0)-sysN;let tag,col;
+    if(diff===0){tag='✓ 相符';col='var(--grn)';matchN++}
+    else if(diff>0){tag='⚠ 撈單少 '+diff;col='#c0392b';if(sysN===0)noSysN++;else lessN++}
+    else{tag='➕ 撈單多 '+(-diff);col='#b45309';moreN++}
+    return '<tr><td style="padding:4px 7px;border-bottom:1px solid #f4f4f4;white-space:nowrap">'+x.code+'</td><td style="padding:4px 7px;border-bottom:1px solid #f4f4f4">'+esc((x.name||'').slice(0,30))+(x.spec&&x.spec!=='無'?' <span style="color:var(--dm)">('+esc(x.spec)+')</span>':'')+'</td><td style="padding:4px 7px;border-bottom:1px solid #f4f4f4;text-align:right;font-weight:600">'+x.qty+'</td><td style="padding:4px 7px;border-bottom:1px solid #f4f4f4;text-align:right">'+sysN+' <span style="font-size:9px;color:var(--ht)">'+via+'</span></td><td style="padding:4px 7px;border-bottom:1px solid #f4f4f4;text-align:center;color:'+col+';font-weight:700;white-space:nowrap">'+tag+'</td><td style="padding:4px 7px;border-bottom:1px solid #f4f4f4;text-align:right;color:var(--dm)">'+M(x.gross)+'</td></tr>';
+  }).join('');
+  const clean=(lessN+noSysN)===0;
   let h='<div class="card"><div class="card-b">'+
-    '<div style="font-size:12px;color:var(--dm);margin-bottom:8px">📑 MOMO 對帳單（商品層級月結）</div>'+
+    '<div style="font-size:12px;color:var(--dm);margin-bottom:8px">📑 MOMO 對帳單（商品層級月結）× 撈單逐商品核對</div>'+
     '<div class="stats-g">'+
-    '<div class="stat"><div class="stat-l">淨撥款（含稅）</div><div class="stat-v" style="color:var(--mo)">'+M(res.netPay)+'</div><div class="stat-s">貨款−退貨</div></div>'+
-    '<div class="stat"><div class="stat-l">貨款撥款（含稅）</div><div class="stat-v" style="color:var(--grn)">'+M(s.gross)+'</div><div class="stat-s">未稅 '+M(s.net)+'＋稅 '+M(s.tax)+'</div></div>'+
-    '<div class="stat"><div class="stat-l">退貨扣款</div><div class="stat-v" style="color:'+(rt.gross?'#c0392b':'var(--dm)')+'">'+M(rt.gross)+'</div><div class="stat-s">'+rt.items.length+' 筆</div></div>'+
-    '<div class="stat"><div class="stat-l">對帳品項 / 件數</div><div class="stat-v">'+s.items.length+'</div><div class="stat-s">共 '+s.qty+' 件</div></div>'+
+    '<div class="stat"><div class="stat-l">淨撥款（含稅）</div><div class="stat-v" style="color:var(--mo)">'+M(res.netPay)+'</div><div class="stat-s">貨款'+M(s.gross)+'−退貨'+M(-rt.gross)+'</div></div>'+
+    '<div class="stat"><div class="stat-l">數量相符</div><div class="stat-v" style="color:var(--grn)">'+matchN+'</div><div class="stat-s">/ '+s.items.length+' 項</div></div>'+
+    '<div class="stat"><div class="stat-l">撈單較少/漏</div><div class="stat-v" style="color:'+((lessN+noSysN)?'#c0392b':'var(--grn)')+'">'+(lessN+noSysN)+'</div><div class="stat-s">MOMO 有結、撈單不足</div></div>'+
+    '<div class="stat"><div class="stat-l">撈單較多</div><div class="stat-v" style="color:'+(moreN?'#b45309':'var(--dm)')+'">'+moreN+'</div><div class="stat-s">多為跨期/未結</div></div>'+
     '</div>'+
-    '<div style="margin-top:10px;padding:10px;background:#fff7ed;border:1px solid #fdba74;border-radius:8px;color:#9a3412;font-size:12px;line-height:1.6">💡 MOMO 對帳單是「<strong>商品層級</strong>」月結（按商品品號彙總、沒有逐筆訂單編號），所以不像 PChome 能逐筆對訂單。核對方式：<strong>「淨撥款 '+M(res.netPay)+'」</strong>要對得上 MOMO 實際撥進銀行的金額；下方逐商品明細核數量／金額。<br><span style="color:#b45309">撈單 MOMO＋三方「已完成/已出貨」參考：'+moCnt+' 筆 ／ '+moQty+' 件（僅供對照，期間可能不完全一致）。</span></div>'+
+    '<div style="margin-top:10px;display:flex;align-items:center;gap:6px;flex-wrap:wrap;font-size:12px"><span style="color:var(--dm)">📅 撈單比對期間（依訂單日）：</span><input type="date" id="momo-from" value="'+fromD+'" onchange="momoDateFilterChange()" style="padding:4px 6px;border:1px solid #e2cdd6;border-radius:8px;font-size:12px"><span>～</span><input type="date" id="momo-to" value="'+toD+'" onchange="momoDateFilterChange()" style="padding:4px 6px;border:1px solid #e2cdd6;border-radius:8px;font-size:12px"><span style="color:var(--ht);font-size:11px">留空＝全部；選這份對帳單的結算月會最準（撈單此期 '+sysTotal+' 件）</span></div>'+
+    '<div style="margin-top:10px;padding:10px;background:'+(clean?'#eafaf0':'#fdecea')+';border-radius:8px;color:'+(clean?'#1e824c':'#c0392b')+';font-weight:700;font-size:12.5px">'+(clean?'✅ 每項 MOMO 結算數量都 ≤ 撈單筆數，沒有「MOMO 有結但撈單漏單」的狀況。':'⚠️ 有 '+(lessN+noSysN)+' 項「MOMO 結了、但撈單數量不足（可能漏單）」，往下看紅字那幾項。')+'</div>'+
+    '<div style="margin-top:8px;padding:9px;background:#fff7ed;border:1px solid #fdba74;border-radius:8px;color:#9a3412;font-size:11.5px;line-height:1.6">💡 MOMO 對帳單是<strong>商品層級</strong>（品號彙總、沒逐筆訂單號），我用<strong>品號＝撈單 goodsCode</strong>逐商品比「數量」（少數舊單沒品號→退回用型號比對，該列標「型號」）。<br><strong>金額不逐筆比</strong>：MOMO 金額是「撥款成本」、撈單金額是「客人售價」，基礎不同；請直接核「<strong>淨撥款 '+M(res.netPay)+'</strong>」對不對得上 MOMO 撥進銀行的錢。</div>'+
     '</div></div>';
-  h+=_recSec('📦 逐商品對帳明細（'+s.items.length+' 項，撥款高→低）',s.items.slice().sort((a,b)=>b.gross-a.gross).map(x=>'<tr><td style="padding:4px 7px;border-bottom:1px solid #f4f4f4;white-space:nowrap">'+x.code+(x.sku?'-'+x.sku:'')+'</td><td style="padding:4px 7px;border-bottom:1px solid #f4f4f4">'+esc((x.name||'').slice(0,32))+(x.spec&&x.spec!=='無'?' <span style="color:var(--dm)">('+esc(x.spec)+')</span>':'')+'</td><td style="padding:4px 7px;border-bottom:1px solid #f4f4f4;text-align:right">'+x.qty+'</td><td style="padding:4px 7px;border-bottom:1px solid #f4f4f4;text-align:right;font-weight:600">'+M(x.gross)+'</td></tr>').join(''),['品號','商品','數量','撥款(含稅)']);
+  h+=_recSec('📦 逐商品核對（'+s.items.length+' 項，撥款高→低）',rows,['品號','商品','MOMO結算','撈單筆數','核對','撥款(成本)']);
   if(rt.items.length)h+=_recSec('↩️ 退貨扣款（'+rt.items.length+' 筆）',rt.items.map(x=>'<tr><td style="padding:4px 7px;border-bottom:1px solid #f4f4f4;white-space:nowrap">'+x.code+'</td><td style="padding:4px 7px;border-bottom:1px solid #f4f4f4">'+esc((x.name||'').slice(0,32))+'</td><td style="padding:4px 7px;border-bottom:1px solid #f4f4f4;text-align:right;color:#c0392b;font-weight:600">'+M(x.gross)+'</td></tr>').join(''),['品號','商品','扣款']);
   document.getElementById('recon-area').innerHTML=h;
 }
