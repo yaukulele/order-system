@@ -377,8 +377,14 @@ th,td{padding:6px 4px}
 @media(max-width:768px){
 input[type="text"],input[type="number"],input[type="tel"],input[type="email"],input[type="date"],input:not([type]),select,textarea{font-size:16px}
 }}
-/* ===== 全螢幕閱讀模式（手機板專用）— 隱藏 header、today-summary、filter；保留 tabs 才能切換 ===== */
-body.fullscreen-mode .hdr,body.fullscreen-mode #today-summary,body.fullscreen-mode .filter-row{display:none!important}
+/* ===== 全螢幕閱讀模式（手機板專用）— 隱藏 header、today-summary；保留 tabs 才能切換 ===== */
+/* 2026-08-13 阿淵：全螢幕模式原本連 .filter-row 一起隱藏 → 手機列表變成完全不能篩選。
+   改成「保留篩選列、只壓縮高度」（chip 縮小 + 隱藏 📜 紀錄鈕），仍黏在 tabs 下方隨時可按。 */
+body.fullscreen-mode .hdr,body.fullscreen-mode #today-summary{display:none!important}
+body.fullscreen-mode .filter-row{padding:3px 4px!important;row-gap:3px!important;column-gap:3px!important}
+body.fullscreen-mode #tab-list .filter-row .fbtn{padding:5px 7px;min-width:38px;min-height:30px;font-size:10px}
+body.fullscreen-mode #tab-list .filter-row > button[onclick*="openActivityLog"]{display:none}
+body.fullscreen-mode #tab-list .filter-row .search{min-height:30px;padding:5px 8px;margin-top:0}
 @media(max-width:768px){
 body.fullscreen-mode .tabs{top:0!important;padding:2px 4px;gap:2px}
 body.fullscreen-mode .tab{padding:6px 4px;font-size:10px;min-height:32px}
