@@ -4357,16 +4357,19 @@ function _regionPool(){
 // 區域頁單張卡片（緊湊版，重用 list 的 helper）
 function _regionCard(o){
   const oid=o.id;const r=prepareOrderRow(o);const a=buildOrderActions(o,'mobile');
-  const instPill=isServiceActive(o)?`<span class="qty-pill" style="color:${isSelfDeliver(o)?'#be185d':'var(--blu)'};border-color:${isSelfDeliver(o)?'#f9a8d4':'var(--blu)'}">${isSelfDeliver(o)?'自己配':'安裝'+(o.installFee?' +$'+o.installFee:'')}${r.installInfo?' '+esc(r.installInfo):''}</span>`:'';
+  // 安裝／加購顯示跟「訂單列表」一模一樣（杰哥 2026-08-14：區域頁要能再三確認有沒有安裝/加購）
+  // 有 → 藍色「安裝 +$」/ 粉色「加購 +$」pill（點擊開編輯）；沒有/未確認 → 下方 quickAddInstall/quickAddAddon 顯示「安裝?」「不安裝」「加購?」「不加購」
+  const instPill=isServiceActive(o)?`<span class="qty-pill" style="color:${isSelfDeliver(o)?'#be185d':'var(--blu)'};border-color:${isSelfDeliver(o)?'#f9a8d4':'var(--blu)'};cursor:pointer" onclick="event.stopPropagation();openEdit('${oid}')" title="${r.installInfo?esc(r.installInfo):'未排日期 — 點擊編輯'}">${isSelfDeliver(o)?'自己配':'安裝'+(o.installFee?' +$'+o.installFee:'')}${r.installInfo?' '+esc(r.installInfo):''}</span>`:'';
+  const addonPill=o.addon==='是'?`<span class="qty-pill" style="color:var(--mo);border-color:var(--mo);cursor:pointer" onclick="event.stopPropagation();openEdit('${oid}')" title="${r.addonInfo?esc(r.addonInfo):''} — 點擊編輯">加購${o.addonFee?' +$'+o.addonFee:''}${r.addonInfo?' '+esc(r.addonInfo):''}</span>`:'';
   return `<div class="ord-card${r.scmActive?' row-scm':''}" data-oid="${oid}">
 <div class="ord-card-h"><span class="ord-date">${fmtD(o.date)}</span>${platformPill(o.platform)}${r.remoteBadge||''}${r.scmBadge||''}<span class="ord-total">${$(tot(o))}</span></div>
 <div class="ord-card-name">${o.name?`<span style="cursor:pointer;text-decoration:underline;text-decoration-style:dotted;text-decoration-color:var(--ht);text-underline-offset:3px" onclick="event.stopPropagation();searchCustomerOrders(${JSON.stringify(o.name).replace(/"/g,'&quot;')})" title="🔒 看「${esc(o.name)}」所有訂單">${escWithHL(o.name)}</span>`:'(無姓名)'}${r.remoteBadge?'':''}</div>
 <div class="ord-card-prod" onclick="openEdit('${oid}')" style="cursor:pointer">${r.ps.specs?`<span class="spec-pill" style="margin-right:6px">${esc(r.ps.specs)}</span>`:''}${escWithHL(r.ps.name||o.product||'')}</div>
-<div class="ord-card-meta"><button class="${stCls(o.status)}" onclick="openStatusMenu('${oid}',event)" style="min-height:30px" title="點擊選擇狀態">${o.status} ▾</button>${instPill}</div>
+<div class="ord-card-meta"><button class="${stCls(o.status)}" onclick="openStatusMenu('${oid}',event)" style="min-height:30px" title="點擊選擇狀態">${o.status} ▾</button>${instPill}${addonPill}</div>
 ${o.address?`<div class="ord-card-addr">📍 ${mapsLink(o.address)}${copyBtn(o.address,'地址')}</div>`:''}
 ${r.ph?`<div class="ord-card-phone">📞 ${phoneTel(r.ph)}${copyBtn(r.ph,'電話')}${o.realPhone?`<span class="real-ph">📱 ${phoneTel(o.realPhone)}</span>${copyBtn(o.realPhone,'手機')}`:''}</div>`:''}
 ${r.noteShort?`<div class="ord-card-note">${esc(r.noteShort)}</div>`:''}
-<div class="ord-card-actions">${a.addrAck||''}${a.instPaid||''}${a.addonPaid||''}${a.prodLink||''}${a.edit}${a.copy}${a.cam}</div>
+<div class="ord-card-actions">${a.addrAck||''}${a.instPaid||''}${a.addonPaid||''}${a.quickAddInstall||''}${a.quickAddAddon||''}${a.prodLink||''}${a.edit}${a.copy}${a.cam}</div>
 </div>`;
 }
 // 抓某縣市(+可選區)的訂單，依地址排序（同路線一起跑）
