@@ -439,7 +439,7 @@ body.has-batch-bar .main{padding-bottom:140px}
 <div class="main hidden" id="tab-stats"><div class="filter-row" style="margin-bottom:14px;flex-wrap:wrap;gap:6px"><span style="font-size:12px;color:var(--dm);font-weight:600">📅 期間：</span><button class="fbtn" data-fg="speriod" onclick="setStatsPeriod('today',this)">今日</button><button class="fbtn" data-fg="speriod" onclick="setStatsPeriod('7',this)">7 天</button><button class="fbtn on" data-fg="speriod" onclick="setStatsPeriod('30',this)">30 天</button><button class="fbtn" data-fg="speriod" onclick="setStatsPeriod('90',this)">3 個月</button><button class="fbtn" data-fg="speriod" onclick="setStatsPeriod('all',this)">全部</button><span style="margin-left:8px;color:var(--ht)">｜</span><span style="font-size:11px;color:var(--dm)">指定月份：</span><span id="stats-month-wrap" style="position:relative;display:inline-block;vertical-align:middle"><button type="button" id="stats-month-btn" class="fbtn" onclick="toggleMonthPicker(event)">選擇月份 ▾</button><div id="stats-month-pop" class="month-pop hidden"></div></span><span style="margin-left:8px;color:var(--ht)">｜</span><span style="font-size:11px;color:var(--dm)">自訂區間：</span><input type="date" id="stats-range-start" onchange="onStatsRangeChange()" style="padding:5px 8px;border:1px solid #e2cdd6;border-radius:14px;font-size:12px;color:var(--dm);background:#fff"><span style="color:var(--dm);margin:0 3px">～</span><input type="date" id="stats-range-end" onchange="onStatsRangeChange()" style="padding:5px 8px;border:1px solid #e2cdd6;border-radius:14px;font-size:12px;color:var(--dm);background:#fff"><button type="button" id="stats-range-btn" class="fbtn" onclick="applyStatsRange()">查詢</button></div><div class="filter-row" style="margin-bottom:14px;flex-wrap:wrap;gap:6px"><span style="font-size:12px;color:var(--dm);font-weight:600">🛒 平台：</span><button class="fbtn on" data-fg="splat" onclick="setStatsPlatform('all',this)">全部</button><button class="fbtn" data-fg="splat" onclick="setStatsPlatform('MO',this)">Mo</button><button class="fbtn" data-fg="splat" onclick="setStatsPlatform('PC',this)">Pc</button><button class="fbtn" data-fg="splat" onclick="setStatsPlatform('MO3',this)" title="MOMO 第三方物流">三方</button><button class="fbtn" data-fg="splat" onclick="setStatsPlatform('ST',this)">店內</button><button class="fbtn" data-fg="splat" onclick="setStatsPlatform('SCH',this)">學校</button><button class="fbtn" data-fg="splat" onclick="setStatsPlatform('EXPO',this)">展場</button><span style="margin-left:8px;color:var(--ht)">｜</span><button type="button" id="stats-pure-btn" class="fbtn" onclick="toggleStatsPure(this)" title="對帳用：營收只算訂單商品金額，不含加購/安裝費">🧾 對帳・不含加購安裝</button><button type="button" id="stats-done-btn" class="fbtn" onclick="toggleStatsDone(this)" title="對帳用：只統計「已完成」的訂單（排除還在處理中的）">✅ 只算已完成</button></span></div><div id="stats-area"></div></div><div class="main hidden" id="tab-recon"><div class="card"><div class="card-b"><div style="font-weight:800;font-size:15px;margin-bottom:6px">📑 平台對帳</div><div style="font-size:12px;color:var(--dm);line-height:1.7;margin-bottom:12px">把平台後台下載的對帳單丟進來：<br>・<strong>PChome</strong>（.csv）→ 逐筆用<strong>訂單編號</strong>比對，標出 ⚠️金額不符、❌漏單、➕撈單多的。<br>・<strong>MOMO</strong>（.xls）→ MOMO 對帳單是商品層級月結（沒逐筆訂單號），出<strong>淨撥款結算摘要＋逐商品明細</strong>供核對撥款。<br><span style="color:var(--ht)">※ 直接選檔即可，系統會自動判斷 PChome CSV 或 MOMO Excel。</span></div><input type="file" id="recon-file" accept=".csv,.txt,.xls,.xlsx" onchange="reconFile(event)" style="margin-bottom:6px;font-size:12px"><div style="font-size:11px;color:var(--dm);margin:8px 0 4px">或直接把內容整段貼上：</div><textarea id="recon-paste" placeholder="把對帳單內容貼這裡…" style="width:100%;min-height:80px;font-size:11px;font-family:monospace;border:1px solid #e2cdd6;border-radius:8px;padding:8px;box-sizing:border-box"></textarea><div style="margin-top:10px"><button type="button" onclick="runReconFromPaste()" style="background:var(--mo);color:#fff;border:none;padding:9px 22px;border-radius:16px;font-weight:800;cursor:pointer;font-size:13px">開始對帳</button></div></div></div><div id="recon-area"></div></div>
 <div class="main hidden" id="tab-customers"><div class="filter-row" style="margin-bottom:10px;flex-wrap:wrap;gap:6px"><input class="search" id="cq" placeholder="搜尋客戶（姓名/電話/地址）..." oninput="this.value=fwToHw(this.value);searchCustDebounced()" style="width:240px"><span class="fg-grp"><span style="font-size:11px;color:var(--dm)">平台：</span><button class="fbtn on" data-fg="cplat" onclick="setCustomerPlatform('all',this)">全部</button><button class="fbtn" data-fg="cplat" onclick="setCustomerPlatform('MO',this)">Mo</button><button class="fbtn" data-fg="cplat" onclick="setCustomerPlatform('PC',this)">Pc</button><button class="fbtn" data-fg="cplat" onclick="setCustomerPlatform('MO3',this)" title="MOMO 第三方物流">三方</button><button class="fbtn" data-fg="cplat" onclick="setCustomerPlatform('ST',this)">店內</button><button class="fbtn" data-fg="cplat" onclick="setCustomerPlatform('SCH',this)">學校</button><button class="fbtn" data-fg="cplat" onclick="setCustomerPlatform('EXPO',this)">展場</button></span><span class="fg-grp"><span style="font-size:11px;color:var(--dm)">排序：</span><button class="fbtn on" data-fg="csort" onclick="setCustomerSort('lastDate',this)">最近訂購</button><button class="fbtn" data-fg="csort" onclick="setCustomerSort('total',this)">總消費</button><button class="fbtn" data-fg="csort" onclick="setCustomerSort('cnt',this)">訂購次數</button><button class="fbtn" data-fg="csort" onclick="setCustomerSort('name',this)">姓名</button></span><span style="flex:1"></span><span class="stat" style="font-size:11px;color:var(--dm)">共 <strong id="ccnt">0</strong> 位客戶</span></div><div id="cust-area"></div></div>
 <div class="main hidden" id="tab-account"><div class="card"><div class="card-b" style="text-align:center;padding:30px"><div style="color:var(--dm)">載入中...</div></div></div></div>
-<div class="overlay hidden" id="login-overlay" style="z-index:400"><div class="modal" style="max-width:380px"><h3>🔐 訂單管理系統 登入</h3><div class="fg full" style="margin-top:10px"><div class="fi"><label>選擇使用者</label><div id="login-userchips" style="display:grid;grid-template-columns:1fr 1fr;gap:6px;margin-top:6px"></div><input id="login-user" type="hidden"></div></div><div class="fg full"><div class="fi"><label>密碼</label><input id="login-pass" type="password" autocomplete="current-password" onkeypress="if(event.key==='Enter')doLogin()"></div></div><div id="login-err" style="color:var(--pc);font-size:12px;min-height:18px;margin-top:6px"></div><div class="modal-ft"><button class="btn btn-g" onclick="doLogin()">登入</button></div><div style="font-size:11px;color:var(--dm);margin-top:10px;line-height:1.6">📌 點選名字 → 輸入密碼。開發者：Allie／阿淵　夥伴：雨停／建杰<br>密碼預設同名字（建杰預設 0000），請登入後盡速更改</div></div></div>
+<div class="overlay hidden" id="login-overlay" style="z-index:400"><div class="modal" style="max-width:380px"><h3>🔐 訂單管理系統 登入</h3><div class="fg full" style="margin-top:10px"><div class="fi"><label>選擇使用者</label><div id="login-userchips" style="display:grid;grid-template-columns:1fr 1fr;gap:6px;margin-top:6px"></div><input id="login-user" type="hidden"></div></div><div class="fg full"><div class="fi"><label>密碼</label><input id="login-pass" type="password" autocomplete="current-password" onkeypress="if(event.key==='Enter')doLogin()"></div></div><div id="login-err" style="color:var(--pc);font-size:12px;min-height:18px;margin-top:6px"></div><div class="modal-ft"><button class="btn btn-g" onclick="doLogin()">登入</button></div><div style="font-size:11px;color:var(--dm);margin-top:10px;line-height:1.6">📌 點選名字 → 輸入密碼。開發者：Allie／阿淵　夥伴：雨停／建杰／詠璇／芷瑜<br>密碼預設同名字（建杰／詠璇／芷瑜 預設 0000），請登入後盡速更改</div></div></div>
 <div class="overlay hidden" id="modal-overlay"><div class="modal" id="modal-body"></div><button class="modal-x" type="button" onclick="closeModal()" title="關閉編輯 (Esc)">✕</button></div>
 <button class="fs-toggle" id="fs-toggle" onclick="toggleFullscreenMode()" title="全螢幕閱讀模式" aria-label="切換全螢幕模式">⛶</button>
 
@@ -1055,7 +1055,7 @@ async function bootAuth(){
   }catch(e){console.error('bootAuth failed',e);if(!currentUser)showLoginModal()}
 }
 // 統一登入格式：點名字（不用打帳號）→ 輸入密碼。名單對應 Firebase /users 的 key。
-const LOGIN_USERS=['Allie','阿淵','雨停','建杰'];
+const LOGIN_USERS=['Allie','阿淵','雨停','建杰','詠璇','芷瑜'];
 function renderLoginChips(){
   const box=document.getElementById('login-userchips');if(!box)return;
   const hid=document.getElementById('login-user');
@@ -1085,6 +1085,7 @@ function _finishLogin(u,role){
   localStorage.setItem('orderSysRole',currentRole);
   try{localStorage.setItem('orderSysLoginDay',localDateISO())}catch(_){}
   _mnPrompted=false;
+  try{_idleLast=Date.now();_idleClose();}catch(_){}  // 換人登入 → 閒置計時重新起算
   // logUserAction fire-and-forget — 不要 await 卡住 UI（之前要等 Firebase 寫完 activityLog 才關 modal）
   logUserAction('login','').catch(()=>{});
   hideLoginModal();
@@ -1160,18 +1161,68 @@ function _mnShowPrompt(){
 }
 function _mnStay(){localStorage.setItem('orderSysLoginDay',_mnToday());_mnPrompted=false;_mnClose()}
 function _mnClose(){if(_mnAutoTimer){clearTimeout(_mnAutoTimer);_mnAutoTimer=null}if(_mnCountdownTimer){clearInterval(_mnCountdownTimer);_mnCountdownTimer=null}const ov=document.getElementById('mn-logout-ov');if(ov)ov.style.display='none'}
-function _mnLogout(manual){
-  _mnClose();
-  if(typeof logUserAction==='function')logUserAction('logout',manual?'午夜提示手動登出':'午夜無回應自動登出').catch(()=>{});
+// 午夜／閒置兩條自動登出走同一套清理，避免將來只改一邊就漏清狀態。
+function _doForceLogout(reason){
+  if(typeof logUserAction==='function')logUserAction('logout',reason).catch(()=>{});
   currentUser=null;currentRole='';
   localStorage.removeItem('orderSysUser');localStorage.removeItem('orderSysRole');
   try{selectedIds.clear()}catch(_){}
+  try{editId=null;shipId=null}catch(_){}
+  try{_modalDirty=false}catch(_){}  // 跳過未儲存警告，自動登出本來就棄改
   const sb=document.getElementById('user-badge');if(sb)sb.textContent='';
   const mo=document.getElementById('modal-overlay');if(mo&&!mo.classList.contains('hidden')){mo.classList.add('hidden');document.body.style.overflow=''}
   if(typeof showLoginModal==='function')showLoginModal();
 }
+function _mnLogout(manual){
+  _mnClose();
+  _doForceLogout(manual?'午夜提示手動登出':'午夜無回應自動登出');
+}
 setInterval(_mnCheck,60000);
 document.addEventListener('visibilitychange',()=>{if(!document.hidden)_mnCheck()});
+
+// ── 閒置自動登出：30 分鐘完全沒操作 → 跳提示倒數 60 秒，沒回應就登出。
+//    店裡電腦／平板是共用的，人離開後不該一直掛著他的帳號讓下一個人接著用。
+//    用 lastActive 時間戳而不是單純 setTimeout：手機把分頁切到背景時計時器會被凍結，
+//    切回來要能立刻算出「實際上已經閒置多久」而不是從凍結處續算。
+const IDLE_LOGOUT_MS=30*60*1000;      // 閒置多久跳提示
+const IDLE_GRACE_SEC=60;              // 提示後給幾秒反應
+let _idleLast=Date.now(),_idleWarning=false,_idleCountTimer=null,_idleAutoTimer=null;
+function _idleBump(e){
+  if(_idleWarning){
+    // 點在提示視窗裡面的話交給按鈕自己處理 —— 這裡若先關掉視窗，「立即登出」按鈕會因為
+    // 元素被隱藏而收不到 click。
+    const ov=document.getElementById('idle-logout-ov');
+    if(ov&&e&&e.target&&ov.contains(e.target))return;
+    _idleStay();return;               // 視窗外有任何操作 = 人還在
+  }
+  _idleLast=Date.now();
+}
+function _idleCheck(){
+  if(!currentUser||_idleWarning||_mnPrompted)return;  // 午夜提示已經在處理就不疊第二個視窗
+  if(Date.now()-_idleLast>=IDLE_LOGOUT_MS)_idleWarn();
+}
+function _idleWarn(){
+  _idleWarning=true;
+  let ov=document.getElementById('idle-logout-ov');
+  if(!ov){ov=document.createElement('div');ov.id='idle-logout-ov';ov.style.cssText='position:fixed;inset:0;z-index:99999;background:rgba(0,0,0,.55);display:flex;align-items:center;justify-content:center;padding:20px';document.body.appendChild(ov)}
+  ov.innerHTML='<div style="background:#fff;border-radius:16px;max-width:380px;width:100%;padding:22px;box-shadow:0 20px 60px rgba(0,0,0,.3);text-align:center;font-family:var(--sans)"><div style="font-size:34px;margin-bottom:6px">😴</div><div style="font-size:16px;font-weight:800;margin-bottom:8px">很久沒有動作了</div><div style="font-size:13px;color:var(--dm);line-height:1.7;margin-bottom:6px">目前登入的是 <strong>'+esc(currentUser||'')+'</strong>。<br>為了避免別人接著用你的帳號，閒置太久會自動登出。</div><div style="font-size:12px;color:#c0392b;margin-bottom:16px"><strong id="idle-count">'+IDLE_GRACE_SEC+' 秒</strong>後自動登出（沒存的編輯會不見）</div><div style="display:flex;gap:10px"><button onclick="_idleStay()" style="flex:1;padding:12px;border:0;border-radius:10px;background:var(--grn);color:#fff;font-weight:700;font-size:14px;cursor:pointer">我還在，繼續用</button><button onclick="_idleLogoutNow()" style="flex:1;padding:12px;border:0;border-radius:10px;background:var(--pc);color:#fff;font-weight:700;font-size:14px;cursor:pointer">立即登出</button></div></div>';
+  ov.style.display='flex';
+  let left=IDLE_GRACE_SEC;
+  const upd=()=>{const el=document.getElementById('idle-count');if(el)el.textContent=left+' 秒'};upd();
+  _idleCountTimer=setInterval(()=>{left--;upd();if(left<=0)clearInterval(_idleCountTimer)},1000);
+  _idleAutoTimer=setTimeout(()=>{_idleClose();_doForceLogout('閒置 '+(IDLE_LOGOUT_MS/60000)+' 分鐘自動登出')},IDLE_GRACE_SEC*1000);
+}
+function _idleStay(){_idleClose();_idleLast=Date.now();}
+function _idleLogoutNow(){_idleClose();_doForceLogout('閒置提示手動登出');}
+function _idleClose(){
+  _idleWarning=false;
+  if(_idleAutoTimer){clearTimeout(_idleAutoTimer);_idleAutoTimer=null}
+  if(_idleCountTimer){clearInterval(_idleCountTimer);_idleCountTimer=null}
+  const ov=document.getElementById('idle-logout-ov');if(ov)ov.style.display='none';
+}
+setInterval(_idleCheck,20000);
+['mousedown','keydown','touchstart','wheel','scroll'].forEach(ev=>document.addEventListener(ev,_idleBump,{passive:true,capture:true}));
+document.addEventListener('visibilitychange',()=>{if(!document.hidden)_idleCheck()});
 function onAuthReady(){
   const sb=document.getElementById('user-badge');
   if(sb)sb.textContent=currentUser+(currentRole==='admin'?' 🛡️':'');
