@@ -180,6 +180,23 @@ label{display:block;font-size:11px;font-weight:700;color:var(--dm);margin-bottom
 .vtab .n{font-family:var(--mono);font-size:11px;opacity:.7;margin-left:5px}
 @media(max-width:860px){.vtab{flex:1;text-align:center;padding:9px 6px}.g-grid{grid-template-columns:1fr}}
 
+/* ===== 便利貼留言：記進度、記卡在哪，不用勾掉也能交代事情做到哪 ===== */
+.n-msg{margin-top:6px;font-size:11.5px;line-height:1.6;color:var(--dm);background:var(--sf2);border:1px solid var(--bd);border-radius:8px;padding:6px 9px;word-break:break-word}
+.n-msg b{color:var(--tx);font-weight:800}
+.n-msg .more{color:var(--blu);font-weight:700;margin-left:6px;white-space:nowrap}
+.n-ico.has{color:var(--blu);border-color:var(--blu)}
+.n-cnt{font-family:var(--mono);font-size:9.5px;font-weight:800;margin-left:2px}
+.tk-list{max-height:44vh;overflow-y:auto;border:1px solid var(--bd);border-radius:11px;margin-bottom:12px}
+.tk-i{padding:9px 12px;border-bottom:1px solid var(--bd);font-size:12.5px;line-height:1.65}
+.tk-i:last-child{border-bottom:0}
+.tk-i .h{display:flex;gap:8px;align-items:baseline;margin-bottom:2px}
+.tk-i .h b{font-size:11.5px;font-weight:800}
+.tk-i .h .t{margin-left:auto;font-family:var(--mono);font-size:10px;color:var(--ht)}
+.tk-i .h .del{border:0;background:transparent;color:var(--ht);font-size:12px;padding:0 2px;line-height:1}
+.tk-i .h .del:hover{color:var(--red)}
+.tk-i .x{color:var(--dm);white-space:pre-wrap;word-break:break-word}
+.tk-empty{padding:26px 12px;text-align:center;color:var(--ht);font-size:12px}
+
 /* ===== 我的紀錄 ===== */
 .rc-nums{display:grid;grid-template-columns:repeat(auto-fit,minmax(178px,1fr));gap:12px;margin-top:14px}
 .rc-n{background:var(--sf);border:1px solid var(--bd);border-radius:13px;padding:15px 16px}
@@ -196,6 +213,20 @@ label{display:block;font-size:11px;font-weight:700;color:var(--dm);margin-bottom
 .rc-r .x{flex:1;min-width:0;word-break:break-word}
 .rc-r .t{margin-left:auto;flex:none;font-family:var(--mono);font-size:10px;color:var(--ht)}
 .rc-r .by{font-size:10px;color:var(--ht);font-family:var(--mono);flex:none}
+
+.n-msg{font-size:11.5px;color:var(--dm);background:var(--sf2);border-left:2px solid var(--bd);border-radius:0 6px 6px 0;padding:5px 8px;margin-top:6px;line-height:1.55;word-break:break-word}
+.n-msg b{color:var(--tx)}
+.n-msg .more{color:var(--ht);margin-left:6px}
+.n-ico.has{color:var(--blu)}
+.n-cnt{font-family:var(--mono);font-size:9px;font-weight:800;margin-left:1px}
+.th-list{max-height:44vh;overflow-y:auto;border:1px solid var(--bd);border-radius:10px;background:var(--sf2);padding:4px}
+.th-i{position:relative;padding:8px 26px 8px 10px;border-bottom:1px solid var(--bd)}
+.th-i:last-child{border-bottom:0}
+.th-h{display:flex;gap:8px;align-items:baseline;font-size:10.5px;color:var(--dm);font-family:var(--mono)}
+.th-h b{font-family:var(--sans);font-size:12px;color:var(--tx)}
+.th-t{font-size:12.5px;line-height:1.6;white-space:pre-wrap;word-break:break-word;margin-top:2px}
+.th-x{position:absolute;top:6px;right:6px;width:20px;height:20px;border:0;background:transparent;color:var(--ht);font-size:15px;line-height:1;border-radius:5px}
+.th-x:hover{background:var(--red-bg);color:var(--red)}
 </style>
 </head>
 <body>
@@ -469,6 +500,8 @@ function onReady(){
     const v = s.val() || {};
     todos = Object.keys(v).map(k=>Object.assign({id:k}, v[k]));
     render();
+    // 有人正開著某張的留言視窗 → 別人剛留的要當場出現，不用關掉重開
+    Object.keys(_threadPainters).forEach(k=>{ try{ _threadPainters[k]() }catch(_){} });
   });
   db.ref(PATHS.goals).on('value', s=>{
     const v = s.val() || {};
@@ -567,13 +600,18 @@ function noteHTML(t){
     if((t.priority||3) >= 5) cls.push('p5'); else if((t.priority||3) === 4) cls.push('p4');
     if(d.overdue) cls.push('overdue');
   }
-  const canDelete = isAdmin() || t.createdBy === me;
+  // 杰哥 2026-08-20 選 A：編輯跟刪除同一套規則 —— 只有建立者和管理員能動。
+  // 其他人要回報狀況就按底下的「進度」留言，不要直接改掉別人寫的內容。
+  const canEdit = isAdmin() || t.createdBy === me;
+  const canDelete = canEdit;
   let meta = '<span class="stars" style="color:'+starColor(t.priority)+'">'+starStr(t.priority)+'</span>';
   if(t.due) meta += '<span class="pill due'+(d.overdue?' od':'')+'">'+esc(d.txt)+'</span>';
   if(t.assignee) meta += '<span class="pill asg">指派 '+esc(t.assignee)+(mine?'（你）':'')+'</span>';
   if(t.noRemind) meta += '<span class="pill mute">不提醒</span>';
   else if(t.remindEvery) meta += '<span class="pill mute">每 '+t.remindEvery+' 分</span>';
 
+  const nList = noteMsgs(t), nN = nList.length;
+  const lastMsg = nN ? nList[0] : null;
   const foot = t.done
     ? '完成：' + esc(t.doneBy||'?') + ' · ' + fmtTime(t.doneAt) + '　新增：' + esc(t.createdBy||'?')
     : '新增：' + esc(t.createdBy||'?') + ' · ' + fmtTime(t.createdAt);
@@ -586,9 +624,15 @@ function noteHTML(t){
     +   '<div class="n-body">'
     +     '<div class="n-title">'+esc(t.title||'(無標題)')+'</div>'
     +     (t.detail ? '<div class="n-detail">'+esc(t.detail)+'</div>' : '')
+    +     (lastMsg ? '<div class="n-msg"><b>'+esc(lastMsg.by||'?')+'</b>：'+esc(lastMsg.text||'')
+    +                 (nN>1?'<span class="more">還有 '+(nN-1)+' 則</span>':'')+'</div>' : '')
     +     '<div class="n-meta">'+meta
     +       '<span class="n-act">'
-    +         '<button class="n-ico" data-act="edit" title="編輯"><svg viewBox="0 0 24 24"><path d="M11 4H4v16h16v-7"/><path d="M18.5 2.5a2.1 2.1 0 0 1 3 3L12 15l-4 1 1-4z"/></svg></button>'
+    +         '<button class="n-ico'+(nN?' has':'')+'" data-act="talk" title="進度／狀況留言">'
+    +           '<svg viewBox="0 0 24 24"><path d="M21 11.5a8.4 8.4 0 0 1-9 8.4 9 9 0 0 1-3.9-.9L3 20.5l1.6-4.6A8.4 8.4 0 0 1 3.6 11 8.4 8.4 0 0 1 12 2.6a8.4 8.4 0 0 1 9 8.9z"/></svg>'
+    +           (nN?'<span class="n-cnt">'+nN+'</span>':'')
+    +         '</button>'
+    +         (canEdit ? '<button class="n-ico" data-act="edit" title="編輯"><svg viewBox="0 0 24 24"><path d="M11 4H4v16h16v-7"/><path d="M18.5 2.5a2.1 2.1 0 0 1 3 3L12 15l-4 1 1-4z"/></svg></button>' : '')
     +         (canDelete ? '<button class="n-ico" data-act="del" title="刪除"><svg viewBox="0 0 24 24"><path d="M3 6h18M8 6V4h8v2M19 6l-1 14H6L5 6"/></svg></button>' : '')
     +       '</span>'
     +     '</div>'
@@ -605,6 +649,7 @@ function bindNotes(){
       const act = b.dataset.act;
       if(act==='toggle') toggleDone(id);
       else if(act==='edit') openEdit(id);
+      else if(act==='talk') openThread(id);
       else if(act==='del') delNote(id);
     };
   });
@@ -626,6 +671,11 @@ function updateBell(open){
    新增／編輯
    ========================================================================= */
 function openEdit(id){
+  const t0 = id ? todos.find(x=>x.id===id) : null;
+  if(t0 && !(isAdmin() || t0.createdBy === me)){
+    toast('只有建立者和管理員能改內容。要回報狀況請按「進度」留言。');
+    return;
+  }
   editingId = id;
   const t = id ? todos.find(x=>x.id===id) : null;
   draftStars = t ? (t.priority||3) : 3;
@@ -918,6 +968,75 @@ function rmItem(t){
     +   '<div class="rm-m">'+m+'</div>'
     +   '<div class="n-foot">新增：'+esc(t.createdBy||'?')+'</div>'
     + '</div></div>';
+}
+
+
+/* =========================================================================
+   進度留言
+   杰哥 2026-08-20：「有些代辦可能沒處理好，底下可以留言處理進度或碰到的狀況，
+   所以沒勾選消除代辦。」→ 每張便利貼底下掛一串留言，誰都能留，不用先完成。
+   留言用 push 存在 todos/{id}/msgs 底下，兩個人同時留不會互相蓋掉。
+   留言刻意不會讓提醒停下來 —— 事情沒做完就是沒做完，留言只是讓大家看得到卡在哪。
+   ========================================================================= */
+let _threadPainters = {};
+function tdLayerOrBody(){
+  return (typeof tdLayer === 'function') ? tdLayer() : document.body;
+}
+function noteMsgs(t){
+  const M = (t && t.msgs) || {};
+  return Object.keys(M).map(k=>Object.assign({id:k}, M[k])).sort((a,b)=>(b.ts||0)-(a.ts||0));
+}
+function openThread(id){
+  const t = todos.find(x=>x.id===id);
+  if(!t) return;
+  const ov = document.createElement('div');
+  ov.className = 'ov'; ov.style.zIndex = '330';
+  const paint = ()=>{
+    const cur = todos.find(x=>x.id===id) || t;
+    const list = noteMsgs(cur);
+    const box = ov.querySelector('#th-list');
+    if(!box) return;
+    box.innerHTML = list.length
+      ? list.map(m=>'<div class="th-i"><div class="th-h"><b>'+esc(m.by||'?')+'</b><span>'+esc(fmtTime(m.ts))+'</span></div>'
+          + '<div class="th-t">'+esc(m.text||'')+'</div>'
+          + ((isAdmin()||m.by===me)?'<button class="th-x" data-mid="'+esc(m.id)+'" title="\u522a\u9019\u5247">\u00d7</button>':'')
+          + '</div>').join('')
+      : '<div class="g-empty" style="padding:22px">還沒有人留言。卡在哪、做到哪，寫一行讓大家知道。</div>';
+    box.querySelectorAll('.th-x').forEach(b=>b.onclick = async ()=>{
+      await authReady;
+      if(!confirm('刪掉這則留言？')) return;
+      try{ await db.ref(PATHS.todos+'/'+id+'/msgs/'+b.dataset.mid).remove() }
+      catch(e){ toast('刪不掉：'+e.message) }
+    });
+  };
+  ov.innerHTML = '<div class="md" style="max-width:520px">'
+    + '<h3>進度／狀況</h3>'
+    + '<div class="sub">'+esc(t.title||'')+'　·　留言不會讓提醒停止，事情做完了還是要記得勾起來</div>'
+    + '<div class="th-list" id="th-list"></div>'
+    + '<div class="fld" style="margin-top:12px"><label>寫一則進度</label>'
+    +   '<textarea id="th-in" maxlength="300" placeholder="例：已經跟客人約好，等他回時間／零件還沒到，等廠商"></textarea></div>'
+    + '<div class="md-ft"><span class="left" style="font-size:11px;color:var(--dm)">會記錄是誰、什麼時候留的</span>'
+    +   '<button class="btn" id="th-close">關閉</button><button class="btn btn-g" id="th-send">送出</button></div>'
+    + '</div>';
+  tdLayerOrBody().appendChild(ov);
+  paint();
+  _threadPainters[id] = paint;
+  const close = ()=>{ delete _threadPainters[id]; ov.remove() };
+  ov.onclick = e=>{ if(e.target===ov) close() };
+  ov.querySelector('#th-close').onclick = close;
+  ov.querySelector('#th-send').onclick = async ()=>{
+    await authReady;
+    const ta = ov.querySelector('#th-in');
+    const text = ta.value.trim();
+    if(!text){ toast('留言不能空白'); return }
+    try{
+      await db.ref(PATHS.todos+'/'+id+'/msgs').push({by:me, text:text, ts:firebase.database.ServerValue.TIMESTAMP});
+      logAction('留言', (t.title||'')+'：'+text.slice(0,40));
+      ta.value = '';
+      toast('已留言');
+    }catch(e){ toast('留言失敗：'+e.message) }
+  };
+  setTimeout(()=>{ const el = ov.querySelector('#th-in'); if(el) el.focus() }, 60);
 }
 
 /* =========================================================================
