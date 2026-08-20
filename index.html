@@ -634,7 +634,27 @@ db.ref('orders').on('value',_onOrdersValue,_onOrdersCancel);
 // users 即時監聽 — 讓 _usersCache 永遠是最新（自己或別台改密碼/角色/刪帳號都即時反映），
 // 這樣 doLogin 快路徑不會用到過期憑證（改過的舊密碼會落到比對失敗、被刪帳號會消失、降級角色即時生效）。
 // users node 很小（~6KB）、reads 本來就公開，加這條沒有額外風險。
-db.ref('users').on('value',snap=>{_usersCache=snap.val()||null;},()=>{/* 離線/權限錯誤忽略；doLogin 會 fallback live 讀 */});
+db.ref('users').on('value',snap=>{
+  const v=snap.val();
+  _usersCache=v||null;
+  // 帳號被管理員刪掉 / 角色被調整 → 已經開著的分頁要即時反應，不能等他重新整理。
+  // （離職的人如果分頁沒關，原本會一直保有權限；管理員刪了以為斷了，其實沒斷。）
+  // 只在「確實讀到一包 users」時才動作 — v 是 null 代表離線或讀取失敗，不能當成帳號被刪。
+  if(v&&currentUser){
+    if(!v[currentUser]){
+      if(typeof _doForceLogout==='function')_doForceLogout('帳號已被管理員刪除');
+      return;
+    }
+    const r=v[currentUser].role||'user';
+    if(r!==currentRole){                       // 被升/降權：即時生效，不用重登
+      currentRole=r;
+      try{localStorage.setItem('orderSysRole',r)}catch(_){}
+      const sb=document.getElementById('user-badge');
+      if(sb)sb.textContent=currentUser+(r==='admin'?' 🛡️':'');
+      if(document.getElementById('tab-account')&&!document.getElementById('tab-account').classList.contains('hidden'))renderAccount();
+    }
+  }
+},()=>{/* 離線/權限錯誤忽略；doLogin 會 fallback live 讀 */});
 
 // Debounced save (300ms) — 避免快速打字 fee/qty 時 spam Firebase + 引發 echo re-render
 // 兩條路徑分開：saveAll / saveOne 都走 update（不用 set，避免沖掉其他裝置剛加的訂單）
@@ -1343,9 +1363,13 @@ async function setUserRole(u,newRole){
   if(!isAdmin()){alert('只有管理員可調整角色');return}
   if(u===currentUser){alert('不能改自己的角色');return}
   // 把最後一個管理員降成一般，效果跟刪掉他一樣 —— 沒人能管帳號了
-  if(newRole==='user'&&_usersCache&&_usersCache[u]&&_usersCache[u].role==='admin'&&adminCount()<=1){
-    alert('「'+u+'」是目前唯一的管理員，降成一般使用者之後就沒有人能管帳號了。\n\n請先把另一個人升成管理員。');
-    return;
+  if(newRole==='user'){
+    const U=await _usersLive();
+    if(!U){alert('現在讀不到帳號清單（可能是離線）。\n\n為了避免把最後一個管理員降權導致沒人能管帳號，先不執行。請等連線恢復再試。');return}
+    if(U[u]&&U[u].role==='admin'&&adminCount(U)<=1){
+      alert('「'+u+'」是目前唯一的管理員，降成一般使用者之後就沒有人能管帳號了。\n\n請先把另一個人升成管理員。');
+      return;
+    }
   }
   if(!confirm('要把「'+u+'」設為「'+(newRole==='admin'?'管理員':'一般')+'」嗎？'))return;
   try{
@@ -1355,9 +1379,18 @@ async function setUserRole(u,newRole){
   renderAccount();
 }
 // 目前還有幾個管理員 — 用即時監聽的 _usersCache 算，避免多開視窗時看到過期的數字
-function adminCount(){
-  if(!_usersCache)return 99; // 讀不到就不擋，交給下面的 Firebase 寫入決定
-  return Object.values(_usersCache).filter(d=>d&&d.role==='admin').length;
+function adminCount(users){
+  const U=users||_usersCache;
+  if(!U)return 99; // 讀不到就不擋，交給呼叫端的 _usersLive 決定要不要放行
+  return Object.values(U).filter(d=>d&&d.role==='admin').length;
+}
+// 拿目前的 users：優先用即時快取，快取空的就現撈一次。
+// 原本的護欄寫成 `_usersCache && _usersCache[u] && ...`，快取是 null 時整條會短路成 false，
+// 護欄等於自動放行 —— 那正是最不該放行的時候（刪掉最後一個管理員沒有任何後路可以救）。
+// 所以寧可撈不到就擋下來，也不要在資料不明的情況下動手。
+async function _usersLive(){
+  if(_usersCache)return _usersCache;
+  try{const s=await db.ref('users').once('value');return s.val()||null}catch(e){return null}
 }
 // 刪帳號要確認兩次（杰哥 2026-08-20 要求）：
 //   第 1 次 confirm 講清楚後果；第 2 次要打出對方名字，防止連按兩下就把人刪了。
@@ -1366,7 +1399,9 @@ async function deleteUser(u){
   if(!isAdmin()){alert('只有管理員可刪');return}
   if(u===currentUser){alert('不能刪自己');return}
   // 最後一個管理員被刪掉就沒人能管帳號了，先擋住
-  if(_usersCache&&_usersCache[u]&&_usersCache[u].role==='admin'&&adminCount()<=1){
+  const U=await _usersLive();
+  if(!U){alert('現在讀不到帳號清單（可能是離線）。\n\n為了避免在資料不明的情況下刪掉最後一個管理員，先不執行。請等連線恢復再試一次。');return}
+  if(U[u]&&U[u].role==='admin'&&adminCount(U)<=1){
     alert('「'+u+'」是目前唯一的管理員，刪掉就沒有人能管帳號了。\n\n請先把另一個人升成管理員，再回來刪。');
     return;
   }
