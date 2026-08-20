@@ -1,0 +1,883 @@
+<!DOCTYPE html>
+<html lang="zh-TW" data-theme="light">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<meta name="robots" content="noindex,nofollow">
+<title>待辦便利貼（測試版）</title>
+<style>
+:root{--bg:#f4f3ee;--sf:#fff;--sf2:#faf9f5;--bd:#ddd9cf;--tx:#1c1b18;--dm:#807b6f;--ht:#b0aa9c;--mo:#d6336c;--grn:#2d7a4f;--grn-bg:#eef7f1;--amb:#b8860b;--amb-bg:#fef9ec;--blu:#2563eb;--blu-bg:#e8eef9;--red:#c0392b;--red-bg:#fef0ee;--pur:#7e22ce;--pur-bg:#f3e8ff;--mono:'Menlo','Consolas','Courier New',monospace;--sans:-apple-system,BlinkMacSystemFont,'Noto Sans TC','Segoe UI',sans-serif}
+[data-theme="dark"]{--bg:#0d1117;--sf:#161b22;--sf2:#0d1117;--bd:#30363d;--tx:#e6edf3;--dm:#8b949e;--ht:#6e7681;--mo:#ff6b9a;--grn:#3fb950;--grn-bg:#0e2914;--amb:#d29922;--amb-bg:#332b14;--blu:#60a5fa;--blu-bg:#12233d;--red:#ff8a7a;--red-bg:#3a1a16;--pur:#c084fc;--pur-bg:#2a1839}
+*{box-sizing:border-box;margin:0;padding:0}
+body{font-family:var(--sans);background:var(--bg);color:var(--tx);font-size:14px;line-height:1.6;-webkit-font-smoothing:antialiased;padding-bottom:40px}
+.wrap{max-width:1400px;margin:0 auto;padding:0 16px}
+.hidden{display:none!important}
+button{font-family:var(--sans);cursor:pointer}
+.btn{padding:7px 14px;border-radius:8px;border:1px solid var(--bd);background:var(--sf);color:var(--tx);font-size:12px;font-weight:600;transition:border-color .15s}
+.btn:hover{border-color:var(--ht)}
+.btn-g{background:var(--grn);color:#fff;border-color:var(--grn)}.btn-g:hover{opacity:.88;border-color:var(--grn)}
+.btn-b{background:var(--blu);color:#fff;border-color:var(--blu)}.btn-b:hover{opacity:.88;border-color:var(--blu)}
+.btn-r{background:var(--red);color:#fff;border-color:var(--red)}.btn-r:hover{opacity:.88;border-color:var(--red)}
+.btn-sm{padding:4px 9px;font-size:11px;border-radius:6px}
+input,select,textarea{font-family:var(--sans);font-size:13px;color:var(--tx);background:var(--sf);border:1px solid var(--bd);border-radius:8px;padding:9px 11px;width:100%;outline:none}
+input:focus,select:focus,textarea:focus{border-color:var(--grn)}
+textarea{resize:vertical;min-height:70px;line-height:1.7}
+label{display:block;font-size:11px;font-weight:700;color:var(--dm);margin-bottom:5px;letter-spacing:.02em}
+
+.hdr{position:sticky;top:0;z-index:60;background:var(--sf);border-bottom:1px solid var(--bd);padding:11px 0}
+.hdr-in{max-width:1400px;margin:0 auto;padding:0 16px;display:flex;align-items:center;gap:10px;flex-wrap:wrap}
+.hdr h1{font-size:16px;font-weight:800;letter-spacing:-.01em;display:flex;align-items:center;gap:9px}
+.tag-test{font-size:10px;font-weight:800;padding:2px 7px;border-radius:5px;background:var(--amb-bg);color:var(--amb);border:1px solid var(--amb);letter-spacing:.04em}
+.hdr-sp{flex:1}
+.icon-btn{width:34px;height:34px;border-radius:9px;border:1px solid var(--bd);background:var(--sf);display:inline-flex;align-items:center;justify-content:center;position:relative;color:var(--tx)}
+.icon-btn:hover{border-color:var(--ht)}
+.icon-btn svg{width:17px;height:17px;stroke:currentColor;fill:none;stroke-width:1.9;stroke-linecap:round;stroke-linejoin:round}
+.bell-badge{position:absolute;top:-5px;right:-5px;min-width:18px;height:18px;padding:0 5px;border-radius:9px;background:var(--dm);color:#fff;font-size:10px;font-weight:800;display:flex;align-items:center;justify-content:center;font-family:var(--mono)}
+.bell-badge.urgent{background:var(--red)}
+.bell-live{animation:bellRing 1.6s ease-in-out infinite}
+#notif-b .nx{display:none}
+#notif-b.off{color:var(--ht)}
+#notif-b.off .nw{display:none}
+#notif-b.off .nx{display:block}
+#notif-b.on{color:var(--grn);border-color:var(--grn)}
+@keyframes bellRing{0%,72%,100%{transform:rotate(0)}78%{transform:rotate(11deg)}84%{transform:rotate(-9deg)}90%{transform:rotate(5deg)}}
+.who{font-size:11px;color:var(--dm);font-weight:700;display:flex;align-items:center;gap:6px}
+.who .role{font-size:9px;padding:2px 6px;border-radius:4px;background:var(--sf2);border:1px solid var(--bd);letter-spacing:.03em}
+.who .role.adm{background:var(--pur-bg);color:var(--pur);border-color:var(--pur)}
+.conn{font-size:10px;font-weight:700;color:var(--dm);display:flex;align-items:center;gap:5px}
+.conn i{width:7px;height:7px;border-radius:50%;background:var(--ht);display:block}
+.conn.on i{background:var(--grn)}
+.conn.off i{background:var(--red)}
+
+.bar{display:flex;align-items:center;gap:7px;flex-wrap:wrap;padding:14px 0 4px}
+.chip{padding:6px 13px;border-radius:20px;border:1px solid var(--bd);background:var(--sf);font-size:12px;font-weight:700;color:var(--dm)}
+.chip.on{background:var(--tx);color:var(--bg);border-color:var(--tx)}
+.chip .n{font-family:var(--mono);font-size:11px;opacity:.72;margin-left:5px}
+.bar-sp{flex:1}
+
+.board{display:grid;grid-template-columns:repeat(3,1fr);gap:14px;margin-top:14px;align-items:start}
+.col{background:var(--sf2);border:1px solid var(--bd);border-radius:14px;padding:12px;min-height:130px}
+.col-h{display:flex;align-items:center;gap:8px;margin-bottom:11px;padding:0 2px}
+.col-dot{width:9px;height:9px;border-radius:50%;flex:none}
+.col-h b{font-size:13px;font-weight:800;letter-spacing:.01em}
+.col-h .n{font-family:var(--mono);font-size:11px;color:var(--dm);font-weight:700}
+.col-empty{text-align:center;padding:26px 10px;color:var(--ht);font-size:12px}
+
+.note{background:var(--sf);border:1px solid var(--bd);border-left:4px solid var(--bd);border-radius:10px;padding:11px 12px;margin-bottom:9px;position:relative;transition:box-shadow .15s}
+.note:hover{box-shadow:0 4px 14px rgba(0,0,0,.07)}
+.note.mine{border-left-color:var(--blu);background:linear-gradient(90deg,var(--blu-bg) 0%,var(--sf) 22%)}
+.note.p5{border-left-color:var(--red)}
+.note.p4{border-left-color:var(--amb)}
+.note.overdue{border-color:var(--red)}
+.note.done{opacity:.5}
+.note.done .n-title{text-decoration:line-through;color:var(--dm)}
+.n-top{display:flex;align-items:flex-start;gap:9px}
+.n-chk{width:19px;height:19px;flex:none;border-radius:6px;border:2px solid var(--bd);background:var(--sf);margin-top:1px;display:flex;align-items:center;justify-content:center;padding:0}
+.n-chk:hover{border-color:var(--grn)}
+.n-chk.on{background:var(--grn);border-color:var(--grn)}
+.n-chk svg{width:12px;height:12px;stroke:#fff;fill:none;stroke-width:3;stroke-linecap:round;stroke-linejoin:round}
+.n-body{flex:1;min-width:0}
+.n-title{font-size:13.5px;font-weight:700;line-height:1.45;word-break:break-word}
+.n-detail{font-size:12px;color:var(--dm);margin-top:4px;line-height:1.6;white-space:pre-wrap;word-break:break-word}
+.n-meta{display:flex;align-items:center;gap:6px;flex-wrap:wrap;margin-top:8px}
+.pill{font-size:10px;font-weight:700;padding:2.5px 7px;border-radius:5px;border:1px solid var(--bd);color:var(--dm);background:var(--sf2);white-space:nowrap}
+.pill.due{background:var(--amb-bg);color:var(--amb);border-color:var(--amb)}
+.pill.due.od{background:var(--red-bg);color:var(--red);border-color:var(--red)}
+.pill.asg{background:var(--blu-bg);color:var(--blu);border-color:var(--blu)}
+.pill.mute{background:var(--sf2);color:var(--ht)}
+.stars{font-size:11px;letter-spacing:1px;font-weight:800;white-space:nowrap;font-family:var(--mono)}
+.n-act{display:flex;gap:5px;margin-left:auto}
+.n-ico{width:24px;height:24px;border-radius:6px;border:1px solid transparent;background:transparent;color:var(--ht);display:flex;align-items:center;justify-content:center;padding:0}
+.n-ico:hover{border-color:var(--bd);color:var(--tx)}
+.n-ico svg{width:13px;height:13px;stroke:currentColor;fill:none;stroke-width:1.9;stroke-linecap:round;stroke-linejoin:round}
+.n-foot{font-size:10px;color:var(--ht);margin-top:7px;font-family:var(--mono)}
+
+.done-sec{margin-top:20px}
+.done-h{display:flex;align-items:center;gap:8px;padding:9px 2px;font-size:12px;font-weight:700;color:var(--dm);cursor:pointer;user-select:none}
+.done-h svg{width:13px;height:13px;stroke:currentColor;fill:none;stroke-width:2.2;transition:transform .18s}
+.done-h.open svg{transform:rotate(90deg)}
+.done-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:14px}
+
+.ov{position:fixed;inset:0;background:rgba(0,0,0,.45);z-index:200;display:flex;align-items:center;justify-content:center;padding:16px;backdrop-filter:blur(2px);animation:fadeIn .18s ease-out}
+@keyframes fadeIn{from{opacity:0}to{opacity:1}}
+.md{background:var(--sf);border-radius:16px;width:100%;max-width:520px;max-height:88vh;overflow-y:auto;padding:22px;box-shadow:0 24px 70px rgba(0,0,0,.22);animation:mdIn .24s cubic-bezier(.2,.9,.3,1.1)}
+@keyframes mdIn{from{opacity:0;transform:translateY(14px) scale(.98)}to{opacity:1;transform:none}}
+.md h3{font-size:15px;font-weight:800;margin-bottom:4px}
+.md .sub{font-size:12px;color:var(--dm);margin-bottom:16px}
+.fld{margin-bottom:13px}
+.row2{display:grid;grid-template-columns:1fr 1fr;gap:11px}
+.md-ft{display:flex;gap:9px;justify-content:flex-end;margin-top:20px;flex-wrap:wrap;align-items:center}
+.md-ft .left{margin-right:auto}
+.star-pick{display:flex;gap:3px}
+.star-pick button{width:31px;height:31px;border:1px solid var(--bd);background:var(--sf);border-radius:7px;font-size:14px;line-height:1;color:var(--ht);padding:0}
+.star-pick button.on{background:var(--amb-bg);border-color:var(--amb);color:var(--amb)}
+.seg{display:flex;border:1px solid var(--bd);border-radius:8px;overflow:hidden}
+.seg button{flex:1;padding:8px 4px;border:0;background:var(--sf);font-size:12px;font-weight:700;color:var(--dm);border-right:1px solid var(--bd);white-space:nowrap}
+.seg.sm button{font-size:11px;padding:8px 2px}
+.seg button:last-child{border-right:0}
+.seg button.on{background:var(--tx);color:var(--bg)}
+.note-admin{border:1px dashed var(--pur);background:var(--pur-bg);border-radius:10px;padding:11px;margin-top:4px}
+.note-admin .tt{font-size:10px;font-weight:800;color:var(--pur);letter-spacing:.04em;margin-bottom:8px}
+.warn{font-size:11.5px;color:var(--amb);background:var(--amb-bg);border:1px solid var(--amb);border-radius:8px;padding:9px 11px;line-height:1.6}
+
+.rm-list{max-height:46vh;overflow-y:auto;margin:4px 0 6px;border:1px solid var(--bd);border-radius:11px}
+.rm-item{display:flex;align-items:flex-start;gap:10px;padding:11px 12px;border-bottom:1px solid var(--bd)}
+.rm-item:last-child{border-bottom:0}
+.rm-item.od{background:var(--red-bg)}
+.rm-b{flex:1;min-width:0}
+.rm-t{font-size:13px;font-weight:700;line-height:1.45}
+.rm-m{display:flex;gap:6px;flex-wrap:wrap;margin-top:5px}
+
+.toast{position:fixed;left:50%;bottom:26px;transform:translateX(-50%);background:var(--tx);color:var(--bg);padding:11px 16px;border-radius:11px;font-size:13px;font-weight:600;z-index:400;display:flex;align-items:center;gap:12px;box-shadow:0 10px 34px rgba(0,0,0,.28);max-width:92vw;animation:tIn .22s ease-out}
+@keyframes tIn{from{opacity:0;transform:translateX(-50%) translateY(12px)}to{opacity:1;transform:translateX(-50%)}}
+
+.lg-chips{display:grid;grid-template-columns:1fr 1fr;gap:7px}
+.lg-chips button{padding:11px 8px;border:1px solid var(--bd);border-radius:9px;background:var(--sf);font-size:13px;font-weight:700;color:var(--tx)}
+.lg-chips button.on{background:var(--grn);color:#fff;border-color:var(--grn)}
+.lg-err{color:var(--red);font-size:12px;min-height:18px;margin-top:7px}
+
+@media(max-width:860px){
+  .board,.done-grid{grid-template-columns:1fr}
+  .hdr h1{font-size:14px}
+  .hdr-in{gap:7px}
+  .conn{display:none}
+  .md{max-width:100%;border-radius:16px 16px 0 0;max-height:92dvh;align-self:flex-end}
+  .ov{align-items:flex-end;padding:0}
+  .row2{grid-template-columns:1fr}
+  .btn{min-height:40px}
+  .col{padding:10px}
+}
+</style>
+</head>
+<body>
+
+<div class="ov hidden" id="lg-ov" style="z-index:500">
+  <div class="md" style="max-width:390px">
+    <h3>待辦便利貼</h3>
+    <div class="sub">測試版 — 選名字後輸入密碼（同撈單系統）</div>
+    <div class="fld"><label>選擇使用者</label><div class="lg-chips" id="lg-chips"></div></div>
+    <div class="fld"><label>密碼</label><input id="lg-pass" type="password" autocomplete="current-password"></div>
+    <div class="lg-err" id="lg-err"></div>
+    <div class="md-ft"><button class="btn btn-g" id="lg-go">登入</button></div>
+  </div>
+</div>
+
+<div class="hdr">
+  <div class="hdr-in">
+    <h1>待辦便利貼<span class="tag-test">測試版</span></h1>
+    <span class="conn" id="conn"><i></i><span>連線中</span></span>
+    <span class="hdr-sp"></span>
+    <button class="icon-btn" id="bell" title="待辦提醒">
+      <svg viewBox="0 0 24 24"><path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.7 21a2 2 0 0 1-3.4 0"/></svg>
+      <span class="bell-badge hidden" id="bell-n">0</span>
+    </button>
+    <button class="icon-btn" id="notif-b" title="桌面通知">
+      <svg viewBox="0 0 24 24"><path d="M11 5 6 9H2v6h4l5 4z"/><path class="nw" d="M15.5 8.6a4.8 4.8 0 0 1 0 6.8"/><path class="nw" d="M18.8 5.3a9.5 9.5 0 0 1 0 13.4"/><path class="nx" d="M17 9.5l5 5M22 9.5l-5 5"/></svg>
+    </button>
+    <button class="icon-btn" id="theme-b" title="亮色／暗色">
+      <svg viewBox="0 0 24 24"><path d="M21 12.8A9 9 0 1 1 11.2 3a7 7 0 0 0 9.8 9.8z"/></svg>
+    </button>
+    <button class="icon-btn hidden" id="set-b" title="提醒設定（管理員）">
+      <svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="3.2"/><path d="M19.6 14.5a1.6 1.6 0 0 0 .3 1.8l.1.1a2 2 0 1 1-2.8 2.8l-.1-.1a1.6 1.6 0 0 0-1.8-.3 1.6 1.6 0 0 0-1 1.5v.2a2 2 0 1 1-4 0v-.1a1.6 1.6 0 0 0-1-1.5 1.6 1.6 0 0 0-1.8.3l-.1.1a2 2 0 1 1-2.8-2.8l.1-.1a1.6 1.6 0 0 0 .3-1.8 1.6 1.6 0 0 0-1.5-1H3a2 2 0 1 1 0-4h.2a1.6 1.6 0 0 0 1.4-1 1.6 1.6 0 0 0-.3-1.8l-.1-.1a2 2 0 1 1 2.8-2.8l.1.1a1.6 1.6 0 0 0 1.8.3H9a1.6 1.6 0 0 0 1-1.5V3a2 2 0 1 1 4 0v.2a1.6 1.6 0 0 0 1 1.4 1.6 1.6 0 0 0 1.8-.3l.1-.1a2 2 0 1 1 2.8 2.8l-.1.1a1.6 1.6 0 0 0-.3 1.8V9a1.6 1.6 0 0 0 1.5 1h.2a2 2 0 1 1 0 4h-.2a1.6 1.6 0 0 0-1.4 1z"/></svg>
+    </button>
+    <span class="who" id="who"></span>
+    <button class="btn btn-g" id="add-b">＋ 新增</button>
+  </div>
+</div>
+
+<div class="wrap">
+  <div class="bar" id="bar"></div>
+  <div class="board" id="board"></div>
+  <div class="done-sec">
+    <div class="done-h" id="done-h"><svg viewBox="0 0 24 24"><path d="M9 18l6-6-6-6"/></svg><span id="done-h-t">已完成</span></div>
+    <div class="done-grid hidden" id="done-grid"></div>
+  </div>
+</div>
+
+<script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-database-compat.js"></script>
+<!-- auth 必須 eager：正式 DB 的 rules 是 .write: auth != null，沒先匿名登入所有寫入都會被拒 -->
+<script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-auth-compat.js"></script>
+<script>
+/* =========================================================================
+   待辦便利貼 — 獨立測試版
+   刻意不動 index.html / sw.js。資料全部寫在 *Test 節點，跟正式資料隔開。
+   驗過之後把 PATHS 改成正式節點、再把這支的邏輯搬進 index.html。
+   ========================================================================= */
+const PATHS = {
+  todos:    'todosTest',        // 正式時改 'todos'
+  settings: 'todoSettingsTest', // 正式時改 'todoSettings'
+  snooze:   'todoSnoozeTest',   // 正式時改 'todoSnooze'
+  log:      'activityLog'       // 沿用主系統的操作紀錄
+};
+
+firebase.initializeApp({
+  apiKey:"AIzaSyBFIekk-vqXwYlnwBSRqJ6LtIq1vgInOaI",
+  authDomain:"order-system-dddca.firebaseapp.com",
+  databaseURL:"https://order-system-dddca-default-rtdb.firebaseio.com",
+  projectId:"order-system-dddca",
+  storageBucket:"order-system-dddca.firebasestorage.app"
+});
+const db = firebase.database();
+// 跟主系統同一套：開頁就匿名登入，之後的寫入才過得了 rules
+const authReady = firebase.auth().signInAnonymously().then(()=>true).catch(err=>{
+  console.warn('anon auth failed:', err);
+  const b = document.createElement('div');
+  b.style.cssText = 'position:fixed;bottom:0;left:0;right:0;background:var(--amb-bg);border-top:1px solid var(--amb);padding:8px 12px;font-size:12px;text-align:center;z-index:9999;color:var(--amb)';
+  b.textContent = 'Firebase 匿名登入失敗，寫入可能會被擋：' + (err && err.message || err);
+  document.body.appendChild(b);
+  return false;
+});
+
+const CATS = [
+  {k:'課務', c:'var(--blu)'},
+  {k:'店務', c:'var(--grn)'},
+  {k:'線上', c:'var(--mo)'}
+];
+const SNOOZE_MIN = 10, SNOOZE_MAX = 60;          // 一般使用者只能在這個範圍內延後
+const DEFAULT_EVERY = 30;                         // 全域預設提醒間隔（分）
+const EVERY_OPTIONS = [10, 20, 30, 60, 120];
+
+/* ---------- state ---------- */
+let me = null, myRole = '';
+let todos = [];                                   // [{id, ...}]
+let users = {};                                   // {name:{password, role}}
+let settings = {enabled:true, everyMin:DEFAULT_EVERY};
+let snoozeUntil = 0;                              // 我自己的（存 Firebase，換裝置也生效）
+let fCat = 'all', fMine = false;
+let sessionStart = Date.now();
+let lastRemind = {};                              // {todoId: ts} — 這台裝置的提醒節奏
+let editingId = null, draftStars = 3;
+let reminderOpen = false;
+
+/* ---------- utils ---------- */
+const $ = id => document.getElementById(id);
+const esc = s => String(s==null?'':s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;').replace(/'/g,'&#39;');
+const todayStr = () => {const d=new Date();return d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0')};
+const isAdmin = () => myRole === 'admin';
+
+function fmtTime(ts){
+  if(!ts) return '';
+  const d = new Date(ts), n = new Date();
+  const sameDay = d.toDateString() === n.toDateString();
+  const hm = String(d.getHours()).padStart(2,'0')+':'+String(d.getMinutes()).padStart(2,'0');
+  return sameDay ? hm : (d.getMonth()+1)+'/'+d.getDate()+' '+hm;
+}
+function dueInfo(due){
+  if(!due) return {txt:'', overdue:false};
+  const t = todayStr();
+  const diff = Math.round((new Date(due+'T00:00:00') - new Date(t+'T00:00:00'))/86400000);
+  if(diff < 0)  return {txt:'逾期 '+Math.abs(diff)+' 天', overdue:true};
+  if(diff === 0) return {txt:'今天到期', overdue:false, today:true};
+  return {txt: diff<=7 ? diff+' 天後' : due.slice(5), overdue:false};
+}
+function starStr(n){n=Math.max(1,Math.min(5,n||3));return '★'.repeat(n)+'☆'.repeat(5-n)}
+function starColor(n){return n>=5?'var(--red)':n>=4?'var(--amb)':'var(--dm)'}
+
+let _toastEl=null,_toastT=null;
+function toast(msg, ms){
+  if(_toastT)clearTimeout(_toastT);
+  if(_toastEl)_toastEl.remove();
+  const el=document.createElement('div');el.className='toast';
+  el.innerHTML='<span>'+esc(msg)+'</span>';
+  document.body.appendChild(el);_toastEl=el;
+  _toastT=setTimeout(()=>{el.remove();if(_toastEl===el)_toastEl=null}, ms||3000);
+}
+function logAction(action, detail){
+  if(!me) return;
+  authReady.then(()=>{
+    try{ db.ref(PATHS.log).push({ts:new Date().toISOString(), user:me, action:'[待辦]'+action, detail:detail||''}) }catch(e){}
+  });
+}
+function lsGet(k,d){try{const v=localStorage.getItem(k);return v==null?d:JSON.parse(v)}catch(e){return d}}
+function lsSet(k,v){try{localStorage.setItem(k,JSON.stringify(v))}catch(e){}}
+
+/* ---------- 提醒 vs 看得到，是兩件事 ----------
+   看：全部人都看得到全部事項（店務要透明，才知道誰新增、誰完成）。
+   提醒：只吵「指派給我的」＋「沒指派給任何人的」。
+   管理員不特別處理 — 否則每個人的個人任務都會去吵管理員，一天下來吵到沒人想理。
+   管理員要被某張提醒，把它指派給自己就好。 */
+function remindsMe(t){
+  return !t.assignee || t.assignee === me;
+}
+function visibleToMe(t){ return true }
+
+/* =========================================================================
+   登入
+   ========================================================================= */
+function showLogin(){
+  $('lg-ov').classList.remove('hidden');
+  const box = $('lg-chips');
+  const names = Object.keys(users);
+  box.innerHTML = names.map(n=>'<button data-u="'+esc(n)+'">'+esc(n)+'</button>').join('');
+  let pick = null;
+  box.querySelectorAll('button').forEach(b=>{
+    b.onclick = ()=>{
+      pick = b.dataset.u;
+      box.querySelectorAll('button').forEach(x=>x.classList.toggle('on', x===b));
+      $('lg-pass').focus();
+    };
+  });
+  const go = ()=>{
+    const p = $('lg-pass').value;
+    if(!pick){ $('lg-err').textContent = '請先選一個名字'; return }
+    const u = users[pick];
+    if(!u || u.password !== p){ $('lg-err').textContent = '密碼不對'; return }
+    me = pick; myRole = u.role || 'user';
+    lsSet('todoTestUser', {u:me, r:myRole});
+    $('lg-ov').classList.add('hidden');
+    onReady();
+  };
+  $('lg-go').onclick = go;
+  $('lg-pass').onkeypress = e => { if(e.key==='Enter') go() };
+}
+
+async function boot(){
+  // theme
+  const th = lsGet('todoTestTheme','light');
+  document.documentElement.setAttribute('data-theme', th);
+  $('theme-b').onclick = ()=>{
+    const cur = document.documentElement.getAttribute('data-theme');
+    const nx = cur==='dark'?'light':'dark';
+    document.documentElement.setAttribute('data-theme', nx);
+    lsSet('todoTestTheme', nx);
+  };
+
+  db.ref('.info/connected').on('value', s=>{
+    const el = $('conn');
+    el.className = 'conn ' + (s.val()?'on':'off');
+    el.querySelector('span').textContent = s.val()?'已連線':'離線';
+  });
+
+  db.ref('users').on('value', s=>{
+    const v = s.val();
+    if(!v) return;
+    users = v;
+    lsSet('todoTestUsers', users);   // 離線／斷線時還登得進來
+    // 角色被改（升級/降級）即時生效，不用等重整
+    if(me && users[me]){
+      const r = users[me].role || 'user';
+      if(r !== myRole){ myRole = r; $('set-b').classList.toggle('hidden', !isAdmin()); render() }
+    }
+  });
+
+  // db.ref().get() 在離線時「不會 reject，會一直吊著」— 直接 await 會讓整頁卡住，
+  // 連登入框都出不來。所以給它一個時限，逾時就用 localStorage 的快取名單先撐著。
+  users = lsGet('todoTestUsers', {}) || {};
+  try{
+    const snap = await Promise.race([
+      db.ref('users').get(),
+      new Promise((_, rej) => setTimeout(() => rej(new Error('users get timeout')), 4000))
+    ]);
+    const v = snap.val();
+    if(v){ users = v; lsSet('todoTestUsers', users) }
+  }catch(e){
+    console.warn('users 讀取逾時／失敗，改用本機快取', e && e.message);
+  }
+  if(!Object.keys(users).length) users = {'Allie':{password:'Allie',role:'admin'}};
+
+  const saved = lsGet('todoTestUser', null);
+  if(saved && users[saved.u]){ me = saved.u; myRole = users[saved.u].role || 'user'; onReady() }
+  else showLogin();
+}
+
+function onReady(){
+  sessionStart = Date.now();
+  lastRemind = lsGet('todoTestLastRemind_'+me, {});
+  $('who').innerHTML = '<span class="nm">'+esc(me)+'</span><span class="role'+(isAdmin()?' adm':'')+'">'+(isAdmin()?'管理員':'一般')+'</span>';
+  $('set-b').classList.toggle('hidden', !isAdmin());
+
+  db.ref(PATHS.settings).on('value', s=>{
+    const v = s.val() || {};
+    settings = {enabled: v.enabled !== false, everyMin: v.everyMin || DEFAULT_EVERY};
+    render();
+  });
+  db.ref(PATHS.snooze+'/'+me).on('value', s=>{ snoozeUntil = (s.val()||{}).until || 0 });
+  db.ref(PATHS.todos).on('value', s=>{
+    const v = s.val() || {};
+    todos = Object.keys(v).map(k=>Object.assign({id:k}, v[k]));
+    render();
+  });
+
+  $('notif-b').onclick = toggleNotif;
+  updateNotifBtn();
+  $('add-b').onclick = ()=>openEdit(null);
+  $('bell').onclick  = ()=>openReminder(true);
+  $('set-b').onclick = openSettings;
+  $('done-h').onclick = ()=>{
+    const g = $('done-grid'), h = $('done-h');
+    g.classList.toggle('hidden'); h.classList.toggle('open');
+    lsSet('todoTestDoneOpen', !g.classList.contains('hidden'));
+  };
+  if(lsGet('todoTestDoneOpen', false)){ $('done-grid').classList.remove('hidden'); $('done-h').classList.add('open') }
+
+  setInterval(tick, 20000);
+  setTimeout(tick, 2500);
+}
+
+/* =========================================================================
+   render
+   ========================================================================= */
+function sortNotes(a,b){
+  const da = dueInfo(a.due), dbb = dueInfo(b.due);
+  if(da.overdue !== dbb.overdue) return da.overdue ? -1 : 1;   // 逾期最前
+  if((b.priority||3) !== (a.priority||3)) return (b.priority||3)-(a.priority||3);
+  const ad = a.due || '9999-99-99', bd = b.due || '9999-99-99';
+  if(ad !== bd) return ad < bd ? -1 : 1;
+  return (b.createdAt||0)-(a.createdAt||0);
+}
+
+function render(){
+  const open = todos.filter(t=>!t.done && visibleToMe(t));
+  const doneList = todos.filter(t=>t.done && visibleToMe(t)).sort((a,b)=>(b.doneAt||0)-(a.doneAt||0));
+
+  // filter bar
+  const mineN = open.filter(t=>t.assignee===me).length;
+  let bar = '<button class="chip'+(fCat==='all'?' on':'')+'" data-c="all">全部<span class="n">'+open.length+'</span></button>';
+  CATS.forEach(c=>{
+    const n = open.filter(t=>t.cat===c.k).length;
+    bar += '<button class="chip'+(fCat===c.k?' on':'')+'" data-c="'+esc(c.k)+'">'+esc(c.k)+'<span class="n">'+n+'</span></button>';
+  });
+  bar += '<span class="bar-sp"></span>';
+  bar += '<button class="chip'+(fMine?' on':'')+'" id="f-mine">只看指派給我的<span class="n">'+mineN+'</span></button>';
+  $('bar').innerHTML = bar;
+  $('bar').querySelectorAll('.chip[data-c]').forEach(b=>b.onclick=()=>{fCat=b.dataset.c;render()});
+  $('f-mine').onclick = ()=>{fMine=!fMine;render()};
+
+  // board
+  const shown = CATS.filter(c=>fCat==='all'||fCat===c.k);
+  $('board').style.gridTemplateColumns = window.innerWidth<=860 ? '1fr' : 'repeat('+Math.max(1,shown.length)+',1fr)';
+  $('board').innerHTML = shown.map(c=>{
+    let list = open.filter(t=>t.cat===c.k);
+    if(fMine) list = list.filter(t=>t.assignee===me);
+    list.sort(sortNotes);
+    return '<div class="col">'
+      + '<div class="col-h"><span class="col-dot" style="background:'+c.c+'"></span><b>'+esc(c.k)+'</b><span class="n">'+list.length+'</span></div>'
+      + (list.length ? list.map(noteHTML).join('') : '<div class="col-empty">目前沒有事項</div>')
+      + '</div>';
+  }).join('');
+
+  // done — 只留今天完成的，隔天自動收起來
+  const t0 = new Date(); t0.setHours(0,0,0,0);
+  const todayDone = doneList.filter(t=>(t.doneAt||0) >= t0.getTime());
+  const older = doneList.length - todayDone.length;
+  $('done-h-t').textContent = '今日已完成 ' + todayDone.length + (older>0 ? '（更早的 '+older+' 筆已收起）' : '');
+  $('done-grid').innerHTML = todayDone.length
+    ? '<div class="col" style="grid-column:1/-1">'+todayDone.map(noteHTML).join('')+'</div>'
+    : '<div class="col" style="grid-column:1/-1"><div class="col-empty">今天還沒有完成的事項</div></div>';
+
+  bindNotes();
+  updateBell(open);
+}
+
+function noteHTML(t){
+  const d = dueInfo(t.due);
+  const mine = t.assignee === me;
+  const cls = ['note'];
+  if(t.done) cls.push('done');
+  else{
+    if(mine) cls.push('mine');
+    if((t.priority||3) >= 5) cls.push('p5'); else if((t.priority||3) === 4) cls.push('p4');
+    if(d.overdue) cls.push('overdue');
+  }
+  const canDelete = isAdmin() || t.createdBy === me;
+  let meta = '<span class="stars" style="color:'+starColor(t.priority)+'">'+starStr(t.priority)+'</span>';
+  if(t.due) meta += '<span class="pill due'+(d.overdue?' od':'')+'">'+esc(d.txt)+'</span>';
+  if(t.assignee) meta += '<span class="pill asg">指派 '+esc(t.assignee)+(mine?'（你）':'')+'</span>';
+  if(t.noRemind) meta += '<span class="pill mute">不提醒</span>';
+  else if(t.remindEvery) meta += '<span class="pill mute">每 '+t.remindEvery+' 分</span>';
+
+  const foot = t.done
+    ? '完成：' + esc(t.doneBy||'?') + ' · ' + fmtTime(t.doneAt) + '　新增：' + esc(t.createdBy||'?')
+    : '新增：' + esc(t.createdBy||'?') + ' · ' + fmtTime(t.createdAt);
+
+  return '<div class="'+cls.join(' ')+'" data-id="'+esc(t.id)+'">'
+    + '<div class="n-top">'
+    +   '<button class="n-chk'+(t.done?' on':'')+'" data-act="toggle" title="'+(t.done?'取消完成':'標記完成')+'">'
+    +     (t.done?'<svg viewBox="0 0 24 24"><path d="M20 6L9 17l-5-5"/></svg>':'')
+    +   '</button>'
+    +   '<div class="n-body">'
+    +     '<div class="n-title">'+esc(t.title||'(無標題)')+'</div>'
+    +     (t.detail ? '<div class="n-detail">'+esc(t.detail)+'</div>' : '')
+    +     '<div class="n-meta">'+meta
+    +       '<span class="n-act">'
+    +         '<button class="n-ico" data-act="edit" title="編輯"><svg viewBox="0 0 24 24"><path d="M11 4H4v16h16v-7"/><path d="M18.5 2.5a2.1 2.1 0 0 1 3 3L12 15l-4 1 1-4z"/></svg></button>'
+    +         (canDelete ? '<button class="n-ico" data-act="del" title="刪除"><svg viewBox="0 0 24 24"><path d="M3 6h18M8 6V4h8v2M19 6l-1 14H6L5 6"/></svg></button>' : '')
+    +       '</span>'
+    +     '</div>'
+    +     '<div class="n-foot">'+foot+'</div>'
+    +   '</div>'
+    + '</div></div>';
+}
+
+function bindNotes(){
+  document.querySelectorAll('.note [data-act]').forEach(b=>{
+    b.onclick = e=>{
+      e.stopPropagation();
+      const id = b.closest('.note').dataset.id;
+      const act = b.dataset.act;
+      if(act==='toggle') toggleDone(id);
+      else if(act==='edit') openEdit(id);
+      else if(act==='del') delNote(id);
+    };
+  });
+}
+
+function updateBell(open){
+  const mineOrAll = open.filter(remindsMe);
+  const n = mineOrAll.length;
+  const urgent = mineOrAll.filter(t=>dueInfo(t.due).overdue || (t.priority||3)>=5).length;
+  const badge = $('bell-n');
+  badge.textContent = n;
+  badge.classList.toggle('hidden', n===0);
+  badge.classList.toggle('urgent', urgent>0);
+  $('bell').classList.toggle('bell-live', urgent>0 && settings.enabled);
+  $('bell').title = n ? (n+' 件未完成' + (urgent?'，其中 '+urgent+' 件緊急':'')) : '沒有未完成事項';
+}
+
+/* =========================================================================
+   新增／編輯
+   ========================================================================= */
+function openEdit(id){
+  editingId = id;
+  const t = id ? todos.find(x=>x.id===id) : null;
+  draftStars = t ? (t.priority||3) : 3;
+  const names = Object.keys(users);
+
+  const ov = document.createElement('div');
+  ov.className = 'ov'; ov.id = 'edit-ov';
+  ov.innerHTML = '<div class="md">'
+    + '<h3>'+(t?'編輯事項':'新增事項')+'</h3>'
+    + '<div class="sub">'+(t?('由 '+esc(t.createdBy||'?')+' 於 '+fmtTime(t.createdAt)+' 新增'):'寫清楚一點，接手的人才看得懂')+'</div>'
+    + '<div class="fld"><label>事項</label><input id="e-title" maxlength="80" placeholder="例：週三前把 8 月課表印出來貼公佈欄" value="'+esc(t?t.title:'')+'"></div>'
+    + '<div class="fld"><label>說明／交接內容（可留白）</label><textarea id="e-detail" maxlength="800" placeholder="細節、注意事項、要交接給誰什麼">'+esc(t?t.detail:'')+'</textarea></div>'
+    + '<div class="fld"><label>分類</label><div class="seg" id="e-cat">'
+    +   CATS.map(c=>'<button data-k="'+esc(c.k)+'"'+((t?t.cat:'店務')===c.k?' class="on"':'')+'>'+esc(c.k)+'</button>').join('')
+    + '</div></div>'
+    + '<div class="row2">'
+    +   '<div class="fld"><label>緊急程度（5 星最高）</label><div class="star-pick" id="e-stars">'
+    +     [1,2,3,4,5].map(n=>'<button data-n="'+n+'"'+(n<=draftStars?' class="on"':'')+'>★</button>').join('')
+    +   '</div></div>'
+    +   '<div class="fld"><label>處理日期（可留白）</label><input id="e-due" type="date" value="'+esc(t?(t.due||''):'')+'"></div>'
+    + '</div>'
+    + '<div class="fld"><label>指派給誰</label><select id="e-asg">'
+    +   '<option value="">不指定（全體都會被提醒）</option>'
+    +   names.map(n=>'<option value="'+esc(n)+'"'+((t&&t.assignee===n)?' selected':'')+'>'+esc(n)+'</option>').join('')
+    + '</select></div>'
+    + (isAdmin() ? '<div class="note-admin">'
+    +   '<div class="tt">管理員：這張的提醒方式</div>'
+    +   '<div class="seg sm" id="e-rem">'
+    +     '<button data-v="">預設</button>'
+    +     EVERY_OPTIONS.map(m=>'<button data-v="'+m+'"'+((t&&t.remindEvery===m)?' class="on"':'')+'>'+m+' 分</button>').join('')
+    +     '<button data-v="off"'+((t&&t.noRemind)?' class="on"':'')+'>不提醒</button>'
+    +   '</div></div>' : '')
+    + '<div class="md-ft">'
+    +   '<button class="btn" id="e-cancel">取消</button>'
+    +   '<button class="btn btn-g" id="e-save">'+(t?'儲存':'新增')+'</button>'
+    + '</div></div>';
+  document.body.appendChild(ov);
+
+  if(!t) ov.querySelector('#e-rem')?.querySelector('[data-v=""]')?.classList.add('on');
+  else if(!t.remindEvery && !t.noRemind) ov.querySelector('#e-rem')?.querySelector('[data-v=""]')?.classList.add('on');
+
+  ov.querySelectorAll('#e-cat button').forEach(b=>b.onclick=()=>{
+    ov.querySelectorAll('#e-cat button').forEach(x=>x.classList.toggle('on', x===b));
+  });
+  ov.querySelectorAll('#e-stars button').forEach(b=>b.onclick=()=>{
+    draftStars = parseInt(b.dataset.n);
+    ov.querySelectorAll('#e-stars button').forEach(x=>x.classList.toggle('on', parseInt(x.dataset.n)<=draftStars));
+  });
+  ov.querySelectorAll('#e-rem button').forEach(b=>b.onclick=()=>{
+    ov.querySelectorAll('#e-rem button').forEach(x=>x.classList.toggle('on', x===b));
+  });
+  ov.querySelector('#e-cancel').onclick = ()=>ov.remove();
+  ov.onclick = e=>{ if(e.target===ov) ov.remove() };
+  ov.querySelector('#e-save').onclick = ()=>saveNote(ov);
+  setTimeout(()=>ov.querySelector('#e-title').focus(), 80);
+}
+
+async function saveNote(ov){
+  await authReady;
+  const title = ov.querySelector('#e-title').value.trim();
+  if(!title){ toast('事項不能空白'); return }
+  const cat = ov.querySelector('#e-cat button.on')?.dataset.k || '店務';
+  const detail = ov.querySelector('#e-detail').value.trim();
+  const due = ov.querySelector('#e-due').value || '';
+  const assignee = ov.querySelector('#e-asg').value || '';
+  // 提醒規則只有管理員能改。一般人編輯內容時要原封不動帶回去，
+  // 否則管理員設的「不提醒 / 每 10 分」會被一次無關的文字修改洗掉。
+  let remindEvery = null, noRemind = false;
+  const remSel = ov.querySelector('#e-rem button.on');
+  if(isAdmin() && remSel){
+    const v = remSel.dataset.v;
+    if(v === 'off') noRemind = true;
+    else if(v) remindEvery = parseInt(v);
+  }else if(editingId){
+    const prev0 = todos.find(t=>t.id===editingId);
+    if(prev0){ remindEvery = prev0.remindEvery || null; noRemind = !!prev0.noRemind }
+  }
+  const payload = {title, detail, cat, priority:draftStars, due, assignee, remindEvery, noRemind};
+
+  try{
+    if(editingId){
+      const prev = todos.find(t=>t.id===editingId) || {};
+      // 只更新這幾個欄位 — 不整包覆寫，避免蓋掉別台剛改的 done/doneBy
+      await db.ref(PATHS.todos+'/'+editingId).update(Object.assign({}, payload, {
+        editedBy: me, editedAt: firebase.database.ServerValue.TIMESTAMP
+      }));
+      logAction('編輯', title);
+      toast('已儲存');
+      if(prev.assignee !== assignee && assignee) toast('已指派給 '+assignee);
+    }else{
+      await db.ref(PATHS.todos).push(Object.assign({}, payload, {
+        done:false, createdBy:me, createdAt: firebase.database.ServerValue.TIMESTAMP
+      }));
+      logAction('新增', title + (assignee ? '（指派 '+assignee+'）' : ''));
+      toast(assignee ? ('已新增並指派給 '+assignee) : '已新增');
+    }
+    ov.remove();
+  }catch(e){ toast('存檔失敗：'+e.message) }
+}
+
+async function toggleDone(id){
+  await authReady;
+  const t = todos.find(x=>x.id===id);
+  if(!t) return;
+  const now = !t.done;
+  try{
+    // update 而非 set — 同一張便利貼別人正在編輯內容時不會被互相蓋掉
+    await db.ref(PATHS.todos+'/'+id).update(now
+      ? {done:true,  doneBy:me, doneAt: firebase.database.ServerValue.TIMESTAMP}
+      : {done:false, doneBy:null, doneAt:null});
+    logAction(now?'完成':'取消完成', t.title||'');
+    if(now){
+      delete lastRemind[id];
+      lsSet('todoTestLastRemind_'+me, lastRemind);
+      toast('完成：'+(t.title||''));
+    }
+  }catch(e){ toast('更新失敗：'+e.message) }
+}
+
+async function delNote(id){
+  await authReady;
+  const t = todos.find(x=>x.id===id);
+  if(!t) return;
+  if(!(isAdmin() || t.createdBy===me)){ toast('只能刪自己新增的'); return }
+  if(!confirm('確定刪除「'+(t.title||'')+'」？刪掉就找不回來了。')) return;
+  try{
+    await db.ref(PATHS.todos+'/'+id).remove();
+    logAction('刪除', t.title||'');
+    toast('已刪除');
+  }catch(e){ toast('刪除失敗：'+e.message) }
+}
+
+/* =========================================================================
+   提醒
+   ========================================================================= */
+function dueForReminder(){
+  if(!settings.enabled) return [];
+  if(Date.now() < snoozeUntil) return [];
+  const now = Date.now();
+  return todos.filter(t=>{
+    if(t.done || t.noRemind) return false;
+    if(!remindsMe(t)) return false;
+    const every = (t.remindEvery || settings.everyMin) * 60000;
+    const last = lastRemind[t.id] || sessionStart;
+    return now - last >= every;
+  }).sort(sortNotes);
+}
+
+/* 分頁在前景 → 直接跳視窗；在背景 → 發桌面通知（有授權的話）。
+   沒授權就什麼都不做，等切回這個分頁再跳 —— 不能在這裡吃掉計時，
+   否則使用者整天開別的分頁就永遠收不到提醒。 */
+function tick(){
+  if(reminderOpen) return;
+  const list = dueForReminder();
+  if(!list.length) return;
+  if(document.hidden){
+    if(notifOn()){
+      notifyDesktop(list);
+      const now = Date.now();
+      list.forEach(t => { lastRemind[t.id] = now });
+      lsSet('todoTestLastRemind_'+me, lastRemind);
+    }
+    return;
+  }
+  openReminder(false, list);
+}
+
+function notifOn(){
+  return ('Notification' in window) && Notification.permission === 'granted' && lsGet('todoTestNotif', true);
+}
+function notifyDesktop(list){
+  try{
+    const NL = String.fromCharCode(10);
+    const body = list.slice(0,3).map(t => '★'.repeat(Math.max(1,Math.min(5,t.priority||3))) + ' ' + (t.title||'')).join(NL)
+               + (list.length > 3 ? NL + '…共 ' + list.length + ' 件' : '');
+    const n = new Notification('待辦提醒 · ' + list.length + ' 件', {body, tag:'todo-remind'});
+    n.onclick = () => { window.focus(); n.close(); openReminder(true) };
+  }catch(e){}
+}
+function updateNotifBtn(){
+  const b = $('notif-b');
+  const on = notifOn();
+  b.classList.toggle('on', on);
+  b.classList.toggle('off', !on);
+  b.title = !('Notification' in window) ? '這個瀏覽器不支援桌面通知'
+          : Notification.permission === 'denied' ? '瀏覽器已封鎖通知，要到網址列旁邊的鎖頭去開'
+          : on ? '桌面通知：開（切到別的分頁也收得到）' : '桌面通知：關 — 點一下開啟';
+}
+async function toggleNotif(){
+  if(!('Notification' in window)){ toast('這個瀏覽器不支援桌面通知'); return }
+  if(Notification.permission === 'denied'){ toast('瀏覽器把通知封鎖了，要去網址列旁的鎖頭開'); return }
+  if(Notification.permission === 'granted'){
+    const on = !lsGet('todoTestNotif', true);
+    lsSet('todoTestNotif', on);
+    toast(on ? '桌面通知已開啟' : '桌面通知已關閉');
+  }else{
+    const p = await Notification.requestPermission();
+    lsSet('todoTestNotif', p === 'granted');
+    toast(p === 'granted' ? '桌面通知已開啟' : '沒有拿到通知權限');
+  }
+  updateNotifBtn();
+}
+
+function openReminder(manual, preList){
+  if(reminderOpen) return;
+  const list = preList || todos.filter(t=>!t.done && remindsMe(t)).sort(sortNotes);
+  if(!list.length){
+    if(manual) toast('目前沒有未完成的事項');
+    return;
+  }
+  reminderOpen = true;
+  const ov = document.createElement('div');
+  ov.className='ov'; ov.id='rm-ov'; ov.style.zIndex='300';
+  const overdueN = list.filter(t=>dueInfo(t.due).overdue).length;
+
+  ov.innerHTML = '<div class="md">'
+    + '<h3>待辦提醒</h3>'
+    + '<div class="sub">'+list.length+' 件要處理'
+    +   (overdueN?('，其中 <strong style="color:var(--red)">'+overdueN+' 件已逾期</strong>'):'')
+    +   (manual?'':'　·　每 '+settings.everyMin+' 分鐘提醒一次') + '</div>'
+    + '<div class="rm-list" id="rm-list">'+ list.map(rmItem).join('') +'</div>'
+    + '<div class="md-ft">'
+    +   (isAdmin()
+        ? '<button class="btn left" id="rm-off">關閉全體提醒</button>'
+        : '<span class="left" style="font-size:11px;color:var(--dm)">最少 '+SNOOZE_MIN+' 分、最多 '+SNOOZE_MAX+' 分</span>')
+    +   '<select id="rm-snooze" style="width:auto;min-width:118px">'
+    +     '<option value="">稍後提醒…</option>'
+    +     '<option value="10">10 分鐘後</option><option value="20">20 分鐘後</option>'
+    +     '<option value="30">30 分鐘後</option><option value="45">45 分鐘後</option>'
+    +     '<option value="60">1 小時後</option>'
+    +   '</select>'
+    +   '<button class="btn btn-g" id="rm-ok">知道了</button>'
+    + '</div></div>';
+  document.body.appendChild(ov);
+
+  const close = ()=>{ ov.remove(); reminderOpen=false; render() };
+  const ack = ()=>{
+    const now = Date.now();
+    list.forEach(t=>{ lastRemind[t.id] = now });
+    lsSet('todoTestLastRemind_'+me, lastRemind);
+  };
+
+  ov.querySelectorAll('.rm-item [data-act="toggle"]').forEach(b=>{
+    b.onclick = async ()=>{
+      const id = b.closest('.rm-item').dataset.id;
+      await toggleDone(id);
+      b.closest('.rm-item').remove();
+      if(!ov.querySelectorAll('.rm-item').length){ ack(); close(); toast('全部處理完了') }
+    };
+  });
+  ov.querySelector('#rm-ok').onclick = ()=>{ ack(); close() };
+  ov.querySelector('#rm-snooze').onchange = async e=>{
+    await authReady;
+    let m = parseInt(e.target.value);
+    if(!m) return;
+    if(!isAdmin()) m = Math.max(SNOOZE_MIN, Math.min(SNOOZE_MAX, m));   // 一般人夾在 10~60 分
+    const until = Date.now() + m*60000;
+    try{ await db.ref(PATHS.snooze+'/'+me).set({until, by:me, setAt:firebase.database.ServerValue.TIMESTAMP}) }catch(_){}
+    snoozeUntil = until;
+    ack(); close();
+    toast(m+' 分鐘後再提醒你');
+  };
+  if(isAdmin()){
+    ov.querySelector('#rm-off').onclick = async ()=>{
+      await authReady;
+      if(!confirm('關閉之後全部的人都不會再收到提醒，確定？')) return;
+      try{ await db.ref(PATHS.settings).update({enabled:false, offBy:me, offAt:firebase.database.ServerValue.TIMESTAMP}) }catch(_){}
+      logAction('關閉全體提醒','');
+      ack(); close(); toast('已關閉全體提醒（設定裡可以開回來）');
+    };
+  }
+}
+
+function rmItem(t){
+  const d = dueInfo(t.due);
+  let m = '<span class="stars" style="color:'+starColor(t.priority)+'">'+starStr(t.priority)+'</span>';
+  m += '<span class="pill">'+esc(t.cat||'')+'</span>';
+  if(t.due) m += '<span class="pill due'+(d.overdue?' od':'')+'">'+esc(d.txt)+'</span>';
+  if(t.noRemind) m += '<span class="pill mute">不提醒</span>';
+  if(t.assignee) m += '<span class="pill asg">指派 '+esc(t.assignee)+(t.assignee===me?'（你）':'')+'</span>';
+  return '<div class="rm-item'+(d.overdue?' od':'')+'" data-id="'+esc(t.id)+'">'
+    + '<button class="n-chk" data-act="toggle" title="標記完成"></button>'
+    + '<div class="rm-b"><div class="rm-t">'+esc(t.title||'')+'</div>'
+    +   (t.detail?'<div class="n-detail">'+esc(t.detail)+'</div>':'')
+    +   '<div class="rm-m">'+m+'</div>'
+    +   '<div class="n-foot">新增：'+esc(t.createdBy||'?')+'</div>'
+    + '</div></div>';
+}
+
+/* =========================================================================
+   設定（管理員）
+   ========================================================================= */
+function openSettings(){
+  const ov = document.createElement('div');
+  ov.className='ov'; ov.id='set-ov';
+  ov.innerHTML = '<div class="md" style="max-width:440px">'
+    + '<h3>提醒設定</h3><div class="sub">管理員專用，設定會套用到所有人</div>'
+    + '<div class="fld"><label>提醒總開關</label><div class="seg" id="s-en">'
+    +   '<button data-v="1"'+(settings.enabled?' class="on"':'')+'>開啟提醒</button>'
+    +   '<button data-v="0"'+(!settings.enabled?' class="on"':'')+'>全部關掉</button>'
+    + '</div></div>'
+    + '<div class="fld"><label>多久提醒一次（全域預設）</label><div class="seg" id="s-ev">'
+    +   EVERY_OPTIONS.map(m=>'<button data-v="'+m+'"'+(settings.everyMin===m?' class="on"':'')+'>'+(m>=60?(m/60)+' 時':m+' 分')+'</button>').join('')
+    + '</div></div>'
+    + '<div class="warn">單張便利貼可以在編輯裡個別設定提醒頻率或「不提醒」，會蓋過這裡的全域值。一般使用者關不掉提醒，只能延後 '+SNOOZE_MIN+'～'+SNOOZE_MAX+' 分鐘。</div>'
+    + '<div class="fld" style="margin-top:14px"><label>目前延後提醒的人</label><div id="s-snooze" style="font-size:12px;color:var(--dm)">讀取中…</div></div>'
+    + '<div class="md-ft"><button class="btn" id="s-cancel">關閉</button><button class="btn btn-g" id="s-save">儲存</button></div>'
+    + '</div>';
+  document.body.appendChild(ov);
+
+  db.ref(PATHS.snooze).get().then(s=>{
+    const v = s.val() || {};
+    const now = Date.now();
+    const act = Object.keys(v).filter(k=>(v[k].until||0) > now);
+    $('s-snooze').innerHTML = act.length
+      ? act.map(k=>esc(k)+'：到 '+fmtTime(v[k].until)).join('<br>')
+      : '沒有人延後';
+  }).catch(()=>{ $('s-snooze').textContent = '讀不到' });
+
+  ov.querySelectorAll('#s-en button, #s-ev button').forEach(b=>b.onclick=()=>{
+    b.parentNode.querySelectorAll('button').forEach(x=>x.classList.toggle('on', x===b));
+  });
+  ov.querySelector('#s-cancel').onclick = ()=>ov.remove();
+  ov.onclick = e=>{ if(e.target===ov) ov.remove() };
+  ov.querySelector('#s-save').onclick = async ()=>{
+    await authReady;
+    const en = ov.querySelector('#s-en button.on').dataset.v === '1';
+    const ev = parseInt(ov.querySelector('#s-ev button.on').dataset.v);
+    try{
+      await db.ref(PATHS.settings).update({enabled:en, everyMin:ev, editedBy:me, editedAt:firebase.database.ServerValue.TIMESTAMP});
+      logAction('改提醒設定', (en?'開啟':'關閉')+' / 每 '+ev+' 分');
+      toast('設定已儲存');
+      ov.remove();
+    }catch(e){ toast('儲存失敗：'+e.message) }
+  };
+}
+
+window.addEventListener('resize', ()=>{ if(me) render() });
+boot();
+</script>
+</body>
+</html>
