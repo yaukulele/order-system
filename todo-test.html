@@ -147,6 +147,38 @@ label{display:block;font-size:11px;font-weight:700;color:var(--dm);margin-bottom
   .btn{min-height:40px}
   .col{padding:10px}
 }
+
+/* ===== 個人目標 ===== */
+.vsw{display:inline-flex;border:1px solid var(--bd);border-radius:9px;overflow:hidden;background:var(--sf)}
+.vsw button{padding:6px 15px;border:0;background:transparent;font-size:12px;font-weight:700;color:var(--dm)}
+.vsw button.on{background:var(--tx);color:var(--bg)}
+.g-wrap{padding-top:14px}
+.g-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(310px,1fr));gap:13px}
+.g-card{background:var(--sf);border:1px solid var(--bd);border-radius:13px;padding:14px 15px}
+.g-card.hit{border-color:var(--grn)}
+.g-card.expired{border-color:var(--red)}
+.g-top{display:flex;align-items:flex-start;gap:9px}
+.g-owner{font-size:10px;font-weight:800;padding:2.5px 8px;border-radius:5px;background:var(--pur-bg);color:var(--pur);border:1px solid var(--pur);white-space:nowrap}
+.g-title{font-size:13.5px;font-weight:800;line-height:1.45;flex:1;word-break:break-word}
+.g-num{display:flex;align-items:baseline;gap:4px;margin:11px 0 5px;font-family:var(--mono)}
+.g-num b{font-size:29px;font-weight:800;line-height:1;letter-spacing:-.02em}
+.g-num span{font-size:12px;color:var(--dm);font-weight:700}
+.g-bar{height:7px;border-radius:4px;background:var(--sf2);border:1px solid var(--bd);overflow:hidden}
+.g-bar i{display:block;height:100%;background:var(--blu);transition:width .3s}
+.g-card.hit .g-bar i{background:var(--grn)}
+.g-card.expired .g-bar i{background:var(--red)}
+.g-meta{display:flex;align-items:center;gap:6px;flex-wrap:wrap;margin-top:9px}
+.g-ft{display:flex;align-items:center;gap:7px;margin-top:11px;padding-top:10px;border-top:1px solid var(--bd)}
+.g-plus{padding:7px 15px;border-radius:8px;border:1px solid var(--grn);background:var(--grn);color:#fff;font-size:12px;font-weight:800}
+.g-plus:disabled{opacity:.4}
+.g-hist{font-size:10px;color:var(--ht);font-family:var(--mono);margin-left:auto;text-align:right;line-height:1.5}
+.g-log{margin-top:9px;border-top:1px dashed var(--bd);padding-top:8px;font-size:11px;color:var(--dm);font-family:var(--mono);line-height:1.75}
+.g-empty{text-align:center;padding:40px 16px;color:var(--ht);font-size:12.5px;line-height:1.9}
+.vtabs{display:flex;gap:6px;padding:12px 0 0}
+.vtab{padding:8px 16px;border-radius:9px 9px 0 0;border:1px solid var(--bd);border-bottom:0;background:var(--sf2);font-size:12.5px;font-weight:700;color:var(--dm)}
+.vtab.on{background:var(--sf);color:var(--tx);box-shadow:0 -2px 0 var(--grn) inset}
+.vtab .n{font-family:var(--mono);font-size:11px;opacity:.7;margin-left:5px}
+@media(max-width:860px){.vtab{flex:1;text-align:center;padding:9px 6px}.g-grid{grid-template-columns:1fr}}
 </style>
 </head>
 <body>
@@ -186,11 +218,23 @@ label{display:block;font-size:11px;font-weight:700;color:var(--dm);margin-bottom
 </div>
 
 <div class="wrap">
-  <div class="bar" id="bar"></div>
-  <div class="board" id="board"></div>
-  <div class="done-sec">
-    <div class="done-h" id="done-h"><svg viewBox="0 0 24 24"><path d="M9 18l6-6-6-6"/></svg><span id="done-h-t">已完成</span></div>
-    <div class="done-grid hidden" id="done-grid"></div>
+  <div class="vtabs" id="vtabs">
+    <button class="vtab on" data-v="notes">便利貼<span class="n" id="vt-notes">0</span></button>
+    <button class="vtab" data-v="goals">個人目標<span class="n" id="vt-goals">0</span></button>
+  </div>
+
+  <div id="view-notes">
+    <div class="bar" id="bar"></div>
+    <div class="board" id="board"></div>
+    <div class="done-sec">
+      <div class="done-h" id="done-h"><svg viewBox="0 0 24 24"><path d="M9 18l6-6-6-6"/></svg><span id="done-h-t">已完成</span></div>
+      <div class="done-grid hidden" id="done-grid"></div>
+    </div>
+  </div>
+
+  <div id="view-goals" class="hidden">
+    <div class="bar" id="gbar"></div>
+    <div class="g-wrap"><div class="g-grid" id="goals"></div></div>
   </div>
 </div>
 
@@ -208,6 +252,7 @@ const PATHS = {
   todos:    'todosTest',        // 正式時改 'todos'
   settings: 'todoSettingsTest', // 正式時改 'todoSettings'
   snooze:   'todoSnoozeTest',   // 正式時改 'todoSnooze'
+  goals:    'goalsTest',        // 正式時改 'goals'（個人目標，只有本人＋管理員看得到）
   log:      'activityLog'       // 沿用主系統的操作紀錄
 };
 
@@ -245,6 +290,9 @@ let users = {};                                   // {name:{password, role}}
 let settings = {enabled:true, everyMin:DEFAULT_EVERY};
 let snoozeUntil = 0;                              // 我自己的（存 Firebase，換裝置也生效）
 let fCat = 'all', fMine = false;
+let goals = [];                                   // 個人目標 [{id, owner, title, target, unit, start, end, log:{}}]
+let view = 'notes';                               // 'notes' | 'goals'
+let gWho = '';                                    // 目標頁的人員篩選（管理員限定，'' = 全部人）
 let sessionStart = Date.now();
 let lastRemind = {};                              // {todoId: ts} — 這台裝置的提醒節奏
 let editingId = null, draftStars = 3;
@@ -398,10 +446,17 @@ function onReady(){
     todos = Object.keys(v).map(k=>Object.assign({id:k}, v[k]));
     render();
   });
+  db.ref(PATHS.goals).on('value', s=>{
+    const v = s.val() || {};
+    goals = Object.keys(v).map(k=>Object.assign({id:k}, v[k]));
+    render();
+  });
 
+  $('vtabs').querySelectorAll('.vtab').forEach(b=>b.onclick=()=>setView(b.dataset.v));
   $('notif-b').onclick = toggleNotif;
   updateNotifBtn();
-  $('add-b').onclick = ()=>openEdit(null);
+  // 新增鈕看目前在哪一頁：便利貼頁開便利貼、目標頁開目標
+  $('add-b').onclick = ()=> view==='goals' ? openGoalEdit(null) : openEdit(null);
   $('bell').onclick  = ()=>openReminder(true);
   $('set-b').onclick = openSettings;
   $('done-h').onclick = ()=>{
@@ -410,6 +465,7 @@ function onReady(){
     lsSet('todoTestDoneOpen', !g.classList.contains('hidden'));
   };
   if(lsGet('todoTestDoneOpen', false)){ $('done-grid').classList.remove('hidden'); $('done-h').classList.add('open') }
+  setView(lsGet('todoTestView', 'notes') === 'goals' ? 'goals' : 'notes');
 
   setInterval(tick, 20000);
   setTimeout(tick, 2500);
@@ -468,6 +524,12 @@ function render(){
 
   bindNotes();
   updateBell(open);
+
+  // 分頁計數 + 個人目標頁
+  $('vt-notes').textContent = open.length;
+  const myGoals = goals.filter(goalVisible);
+  $('vt-goals').textContent = myGoals.length;
+  renderGoals();
 }
 
 function noteHTML(t){
@@ -692,6 +754,8 @@ function dueForReminder(){
    否則使用者整天開別的分頁就永遠收不到提醒。 */
 function tick(){
   if(reminderOpen) return;
+  // 目標提醒一天只跳一次，先讓它插隊 — 不然待辦每天都有，目標永遠輪不到
+  if(!document.hidden && maybeGoalNudge()) return;
   const list = dueForReminder();
   if(!list.length) return;
   if(document.hidden){
@@ -874,6 +938,304 @@ function openSettings(){
       ov.remove();
     }catch(e){ toast('儲存失敗：'+e.message) }
   };
+}
+
+/* =========================================================================
+   個人目標
+   ─ 兩種型態：有終點（target 有數字，例「九月賣出 2 把吉他」）
+              無終點（target 空白，純累積戰績，例「銷售大保養」）
+   ─ 可見性：本人＋管理員。同事之間互相看不到。
+     ⚠ 這是介面層擋的；Firebase 規則目前全公開，直連資料庫仍讀得到。
+   ─ 累積數不存欄位，改成把每次加減 push 進 log 再加總。
+     兩台同時按加一都會各自 push，不會互相蓋掉（存 count 就會）。
+   ========================================================================= */
+function goalLog(g){
+  const L = g.log || {};
+  return Object.keys(L).map(k=>Object.assign({id:k}, L[k])).sort((a,b)=>(b.ts||0)-(a.ts||0));
+}
+function goalCount(g){
+  return goalLog(g).reduce((s,e)=>s + (Number(e.delta)||0), 0);
+}
+function goalVisible(g){ return g && !g.archived && (g.owner===me || isAdmin()) }
+function goalCanBump(g){ return g.owner===me || isAdmin() }
+function goalHit(g){ return g.target ? goalCount(g) >= g.target : false }
+function goalExpired(g){ return !!(g.end && g.end < todayStr() && !goalHit(g)) }
+function goalDaysLeft(g){
+  if(!g.end) return null;
+  return Math.round((new Date(g.end+'T23:59:59') - Date.now()) / 86400000);
+}
+function goalPeriodText(g){
+  if(!g.start && !g.end) return '不限期間';
+  if(g.start && g.end)   return g.start.slice(5) + ' ～ ' + g.end.slice(5);
+  return g.end ? ('截止 '+g.end.slice(5)) : ('自 '+g.start.slice(5));
+}
+
+function sortGoals(a,b){
+  const ae=goalExpired(a), be=goalExpired(b);
+  if(ae!==be) return ae?-1:1;                         // 逾期未達標排最前
+  const ah=goalHit(a), bh=goalHit(b);
+  if(ah!==bh) return ah?1:-1;                         // 已達standard的往後放
+  const ad=goalDaysLeft(a), bd=goalDaysLeft(b);
+  if(ad!=null && bd!=null && ad!==bd) return ad-bd;   // 剩越少天越前面
+  if(ad!=null && bd==null) return -1;
+  if(ad==null && bd!=null) return 1;
+  return (b.createdAt||0)-(a.createdAt||0);
+}
+
+function renderGoals(){
+  const mine = goals.filter(goalVisible);
+
+  // 篩選列：管理員多一排人員篩選
+  let bar = '';
+  if(isAdmin()){
+    const owners = Array.from(new Set(mine.map(g=>g.owner))).sort();
+    bar += '<button class="chip'+(gWho===''?' on':'')+'" data-w="">全部人<span class="n">'+mine.length+'</span></button>';
+    owners.forEach(o=>{
+      const n = mine.filter(g=>g.owner===o).length;
+      bar += '<button class="chip'+(gWho===o?' on':'')+'" data-w="'+esc(o)+'">'+esc(o)+'<span class="n">'+n+'</span></button>';
+    });
+    bar += '<span class="bar-sp"></span><span style="font-size:11px;color:var(--dm)">管理員看得到全部人的目標</span>';
+  }else{
+    bar = '<span style="font-size:11px;color:var(--dm)">這一頁只有你自己和管理員看得到，同事看不到。</span>';
+  }
+  $('gbar').innerHTML = bar;
+  $('gbar').querySelectorAll('.chip[data-w]').forEach(b=>b.onclick=()=>{gWho=b.dataset.w;render()});
+
+  let list = mine;
+  if(isAdmin() && gWho) list = list.filter(g=>g.owner===gWho);
+  list.sort(sortGoals);
+
+  $('goals').innerHTML = list.length
+    ? list.map(goalHTML).join('')
+    : '<div class="g-empty" style="grid-column:1/-1">還沒有目標。<br>按右上角「＋ 新增」開一個，例如「九月賣出 2 把吉他」或不設終點的「銷售大保養」累積戰績。</div>';
+
+  bindGoals();
+}
+
+function goalHTML(g){
+  const cnt = goalCount(g), tgt = g.target || 0;
+  const hit = goalHit(g), exp = goalExpired(g);
+  const pct = tgt ? Math.min(100, Math.round(cnt/tgt*100)) : 0;
+  const left = goalDaysLeft(g);
+  const unit = g.unit || '次';
+  const log = goalLog(g);
+  const last = log.find(e=>(Number(e.delta)||0) > 0);
+
+  let meta = '<span class="pill">'+esc(goalPeriodText(g))+'</span>';
+  if(exp)                      meta += '<span class="pill due od">已到期未達標</span>';
+  else if(hit)                 meta += '<span class="pill" style="background:var(--grn-bg);color:var(--grn);border-color:var(--grn)">已達標</span>';
+  else if(left!=null && left<=7 && left>=0) meta += '<span class="pill due">剩 '+left+' 天</span>';
+  if(!g.target)                meta += '<span class="pill mute">純累積</span>';
+
+  return '<div class="g-card '+(hit?'hit':'')+' '+(exp?'expired':'')+'" data-id="'+g.id+'">'
+    + '<div class="g-top">'
+    +   '<span class="g-owner">'+esc(g.owner||'?')+'</span>'
+    +   '<div class="g-title">'+esc(g.title||'')+'</div>'
+    +   (goalCanBump(g) || isAdmin() || g.createdBy===me
+        ? '<div class="n-act">'
+          + '<button class="n-ico" data-act="gedit" title="編輯"><svg viewBox="0 0 24 24"><path d="M12 20h9"/><path d="M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4z"/></svg></button>'
+          + '</div>' : '')
+    + '</div>'
+    + '<div class="g-num"><b>'+cnt+'</b><span>'+(g.target?(' / '+g.target+' '+esc(unit)):(' '+esc(unit)+'（累積中）'))+'</span></div>'
+    + (g.target ? '<div class="g-bar"><i style="width:'+pct+'%"></i></div>' : '')
+    + '<div class="g-meta">'+meta+'</div>'
+    + '<div class="g-ft">'
+    +   (goalCanBump(g)
+        ? '<button class="g-plus" data-act="gplus">＋1</button><button class="btn btn-sm" data-act="gminus">－1</button>'
+        : '<span style="font-size:11px;color:var(--ht)">只有本人和管理員可以計數</span>')
+    +   '<span class="g-hist">'+(last ? ('最近一次 '+fmtTime(last.ts)+'<br>由 '+esc(last.by||'?')) : '還沒有紀錄')+'</span>'
+    + '</div>'
+    + (log.length ? '<div class="g-log">'+log.slice(0,4).map(e=>
+        fmtTime(e.ts)+'　'+((Number(e.delta)||0)>0?'+':'')+(Number(e.delta)||0)+'　'+esc(e.by||'?')+(e.note?('　'+esc(e.note)):'')
+      ).join('<br>')+(log.length>4?('<br>…共 '+log.length+' 筆'):'')+'</div>' : '')
+    + '</div>';
+}
+
+function bindGoals(){
+  $('goals').querySelectorAll('.g-card').forEach(card=>{
+    const id = card.dataset.id;
+    const q = a => card.querySelector('[data-act="'+a+'"]');
+    if(q('gplus'))  q('gplus').onclick  = ()=>bumpGoal(id, 1);
+    if(q('gminus')) q('gminus').onclick = ()=>bumpGoal(id, -1);
+    if(q('gedit'))  q('gedit').onclick  = ()=>openGoalEdit(id);
+  });
+}
+
+async function bumpGoal(id, delta){
+  await authReady;
+  const g = goals.find(x=>x.id===id);
+  if(!g) return;
+  if(!goalCanBump(g)){ toast('只有本人和管理員可以計數'); return }
+  if(delta < 0 && goalCount(g) <= 0){ toast('已經是 0 了'); return }
+  let note = '';
+  if(delta > 0){
+    const inp = prompt('加一筆「'+(g.title||'')+'」。\n要備註嗎？（可留白直接按確定）', '');
+    if(inp === null) return;                 // 按取消就不加
+    note = (inp || '').trim().slice(0, 60);
+  }
+  try{
+    await db.ref(PATHS.goals+'/'+id+'/log').push({
+      by: me, delta: delta, note: note,
+      ts: firebase.database.ServerValue.TIMESTAMP
+    });
+    logAction(delta>0?'目標+1':'目標-1', (g.owner||'')+' / '+(g.title||''));
+    const after = goalCount(g) + delta;
+    if(g.target && after >= g.target && delta > 0) toast('達標了！'+g.title+' '+after+'/'+g.target);
+    else toast(delta>0 ? ('已記一筆，目前 '+after) : ('已扣一筆，目前 '+after));
+  }catch(e){ toast('寫入失敗：'+e.message) }
+}
+
+function openGoalEdit(id){
+  const g = id ? goals.find(x=>x.id===id) : null;
+  if(g && !(isAdmin() || g.createdBy===me || g.owner===me)){ toast('沒有權限編輯這個目標'); return }
+
+  // 一般人只能開給自己；管理員可以指定任何人
+  const names = Object.keys(users);
+  const ownerField = isAdmin()
+    ? '<select id="g-owner">'+names.map(n=>'<option value="'+esc(n)+'"'+(((g?g.owner:me)===n)?' selected':'')+'>'+esc(n)+'</option>').join('')+'</select>'
+    : '<input value="'+esc(me)+'" disabled><input type="hidden" id="g-owner" value="'+esc(me)+'">';
+
+  const ov = document.createElement('div');
+  ov.className = 'ov'; ov.style.zIndex = '320';
+  ov.innerHTML = '<div class="md" style="max-width:480px">'
+    + '<h3>'+(g?'編輯目標':'新增個人目標')+'</h3>'
+    + '<div class="sub">只有本人和管理員看得到</div>'
+    + '<div class="fld"><label>目標是誰的</label>'+ownerField+'</div>'
+    + '<div class="fld"><label>目標內容</label><input id="g-title" maxlength="60" placeholder="例：賣出吉他／電吉他　或　銷售大保養" value="'+esc(g?g.title:'')+'"></div>'
+    + '<div style="display:flex;gap:10px">'
+    +   '<div class="fld" style="flex:1"><label>目標數量（留白＝純累積不設終點）</label><input id="g-target" type="number" min="1" max="9999" placeholder="例 2" value="'+(g&&g.target?g.target:'')+'"></div>'
+    +   '<div class="fld" style="width:110px"><label>單位</label><input id="g-unit" maxlength="4" placeholder="把 / 次" value="'+esc(g?(g.unit||''):'')+'"></div>'
+    + '</div>'
+    + '<div style="display:flex;gap:10px">'
+    +   '<div class="fld" style="flex:1"><label>開始日（可留白）</label><input id="g-start" type="date" value="'+esc(g?(g.start||''):'')+'"></div>'
+    +   '<div class="fld" style="flex:1"><label>截止日（可留白）</label><input id="g-end" type="date" value="'+esc(g?(g.end||''):'')+'"></div>'
+    + '</div>'
+    + '<div class="fld"><label>快速帶入期間</label><div class="seg" id="g-quick">'
+    +   '<button data-q="thismonth">這個月</button><button data-q="nextmonth">下個月</button><button data-q="clear">不限期間</button>'
+    + '</div></div>'
+    + '<div class="md-ft">'
+    +   (g && (isAdmin()||g.createdBy===me) ? '<button class="btn btn-r left" id="g-del">刪除</button>' : '')
+    +   '<button class="btn" id="g-cancel">取消</button><button class="btn btn-g" id="g-save">儲存</button>'
+    + '</div></div>';
+  document.body.appendChild(ov);
+
+  ov.onclick = e=>{ if(e.target===ov) ov.remove() };
+  ov.querySelector('#g-cancel').onclick = ()=>ov.remove();
+  ov.querySelectorAll('#g-quick button').forEach(b=>b.onclick=()=>{
+    const d = new Date(), q = b.dataset.q;
+    if(q==='clear'){ ov.querySelector('#g-start').value=''; ov.querySelector('#g-end').value=''; return }
+    const m = q==='nextmonth' ? d.getMonth()+1 : d.getMonth();
+    const s = new Date(d.getFullYear(), m, 1), e2 = new Date(d.getFullYear(), m+1, 0);
+    const f = x => x.getFullYear()+'-'+String(x.getMonth()+1).padStart(2,'0')+'-'+String(x.getDate()).padStart(2,'0');
+    ov.querySelector('#g-start').value = f(s);
+    ov.querySelector('#g-end').value   = f(e2);
+  });
+  const delB = ov.querySelector('#g-del');
+  if(delB) delB.onclick = async ()=>{
+    await authReady;
+    if(!confirm('確定刪除目標「'+(g.title||'')+'」？累積紀錄也會一起不見。')) return;
+    try{
+      await db.ref(PATHS.goals+'/'+id).remove();
+      logAction('刪除目標', (g.owner||'')+' / '+(g.title||''));
+      ov.remove(); toast('已刪除');
+    }catch(e){ toast('刪除失敗：'+e.message) }
+  };
+  ov.querySelector('#g-save').onclick = async ()=>{
+    await authReady;
+    const title = ov.querySelector('#g-title').value.trim();
+    if(!title){ toast('目標內容不能空白'); return }
+    const tRaw = ov.querySelector('#g-target').value.trim();
+    const start = ov.querySelector('#g-start').value || '';
+    const end   = ov.querySelector('#g-end').value || '';
+    if(start && end && end < start){ toast('截止日不能早於開始日'); return }
+    const payload = {
+      owner:  ov.querySelector('#g-owner').value || me,
+      title:  title,
+      target: tRaw ? Math.max(1, parseInt(tRaw)) : null,
+      unit:   ov.querySelector('#g-unit').value.trim() || (tRaw ? '次' : '次'),
+      start:  start,
+      end:    end
+    };
+    try{
+      if(id){
+        // 只更新這幾個欄位 — 不碰 log，免得蓋掉別台剛按的加一
+        await db.ref(PATHS.goals+'/'+id).update(Object.assign({}, payload, {
+          editedBy: me, editedAt: firebase.database.ServerValue.TIMESTAMP
+        }));
+        logAction('改目標', payload.owner+' / '+title);
+      }else{
+        await db.ref(PATHS.goals).push(Object.assign({}, payload, {
+          createdBy: me, createdAt: firebase.database.ServerValue.TIMESTAMP, archived: false
+        }));
+        logAction('新增目標', payload.owner+' / '+title);
+      }
+      ov.remove(); toast('已儲存');
+      if(view!=='goals') setView('goals');
+    }catch(e){ toast('儲存失敗：'+e.message) }
+  };
+  setTimeout(()=>ov.querySelector('#g-title').focus(), 60);
+}
+
+/* 目標提醒：一天最多一次，不跟著待辦每 N 分鐘吵。
+   只有「有截止日、還沒達標、且剩 7 天內或已過期」的才會提醒 —
+   一個月期的目標天天催沒有意義，快到期才有意義。 */
+function goalsNeedingNudge(){
+  if(!settings.enabled) return [];
+  if(Date.now() < snoozeUntil) return [];
+  return goals.filter(g=>{
+    if(!goalVisible(g) || g.owner !== me) return false;   // 只催自己的
+    if(!g.end || goalHit(g)) return false;
+    const left = goalDaysLeft(g);
+    return left !== null && left <= 7;                    // 含逾期（left 會是負的）
+  }).sort(sortGoals);
+}
+function maybeGoalNudge(){
+  const list = goalsNeedingNudge();
+  if(!list.length) return false;
+  const key = 'todoTestGoalNudge_'+me;
+  const lastDay = lsGet(key, '');
+  if(lastDay === todayStr()) return false;                // 今天催過了
+  lsSet(key, todayStr());
+  openGoalNudge(list);
+  return true;
+}
+function openGoalNudge(list){
+  if(reminderOpen) return;
+  reminderOpen = true;
+  const ov = document.createElement('div');
+  ov.className = 'ov'; ov.style.zIndex = '300';
+  ov.innerHTML = '<div class="md" style="max-width:440px">'
+    + '<h3>個人目標進度</h3>'
+    + '<div class="sub">快到期還沒達標，一天只提醒一次</div>'
+    + '<div class="rm-list">' + list.map(g=>{
+        const left = goalDaysLeft(g), cnt = goalCount(g);
+        return '<div class="rm-item" style="display:block">'
+          + '<div style="font-weight:700">'+esc(g.title)+'</div>'
+          + '<div style="font-size:11.5px;color:var(--dm);margin-top:3px">'
+          +   '目前 '+cnt+' / '+(g.target||'—')+' '+esc(g.unit||'次')+'　·　'
+          +   (left < 0
+              ? '<span style="color:var(--red);font-weight:700">已過期 '+Math.abs(left)+' 天</span>'
+              : (left === 0 ? '<span style="color:var(--red);font-weight:700">今天最後一天</span>' : '剩 '+left+' 天'))
+          + '</div></div>';
+      }).join('') + '</div>'
+    + '<div class="md-ft"><span class="left" style="font-size:11px;color:var(--dm)">明天這個時候會再提醒一次</span>'
+    +   '<button class="btn" id="gn-open">去看目標</button><button class="btn btn-g" id="gn-ok">知道了</button></div>'
+    + '</div>';
+  document.body.appendChild(ov);
+  const close = ()=>{ ov.remove(); reminderOpen = false; render() };
+  ov.onclick = e=>{ if(e.target===ov) close() };
+  ov.querySelector('#gn-ok').onclick = close;
+  ov.querySelector('#gn-open').onclick = ()=>{ close(); setView('goals') };
+}
+
+function setView(v){
+  view = v;
+  $('vtabs').querySelectorAll('.vtab').forEach(b=>b.classList.toggle('on', b.dataset.v===v));
+  $('view-notes').classList.toggle('hidden', v!=='notes');
+  $('view-goals').classList.toggle('hidden', v!=='goals');
+  $('add-b').textContent = v==='goals' ? '＋ 新目標' : '＋ 新增';
+  lsSet('todoTestView', v);
+  render();
 }
 
 window.addEventListener('resize', ()=>{ if(me) render() });
