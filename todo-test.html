@@ -179,6 +179,23 @@ label{display:block;font-size:11px;font-weight:700;color:var(--dm);margin-bottom
 .vtab.on{background:var(--sf);color:var(--tx);box-shadow:0 -2px 0 var(--grn) inset}
 .vtab .n{font-family:var(--mono);font-size:11px;opacity:.7;margin-left:5px}
 @media(max-width:860px){.vtab{flex:1;text-align:center;padding:9px 6px}.g-grid{grid-template-columns:1fr}}
+
+/* ===== 我的紀錄 ===== */
+.rc-nums{display:grid;grid-template-columns:repeat(auto-fit,minmax(178px,1fr));gap:12px;margin-top:14px}
+.rc-n{background:var(--sf);border:1px solid var(--bd);border-radius:13px;padding:15px 16px}
+.rc-n .k{font-size:11px;font-weight:700;color:var(--dm)}
+.rc-n .v{font-size:31px;font-weight:900;font-family:var(--mono);line-height:1.15;margin-top:4px;letter-spacing:-.02em}
+.rc-n .s{font-size:10.5px;color:var(--ht);margin-top:2px;font-family:var(--mono)}
+.rc-list{margin-top:16px;background:var(--sf);border:1px solid var(--bd);border-radius:13px;overflow:hidden}
+.rc-h{padding:11px 15px;font-size:12px;font-weight:800;border-bottom:1px solid var(--bd);background:var(--sf2)}
+.rc-r{display:flex;gap:9px;padding:9px 15px;border-bottom:1px solid var(--bd);font-size:12.5px;align-items:baseline}
+.rc-r:last-child{border-bottom:0}
+.rc-r .tag{font-size:9.5px;font-weight:800;padding:2px 7px;border-radius:4px;flex:none;white-space:nowrap}
+.rc-r .tag.n{background:var(--grn-bg);color:var(--grn);border:1px solid var(--grn)}
+.rc-r .tag.g{background:var(--blu-bg);color:var(--blu);border:1px solid var(--blu)}
+.rc-r .x{flex:1;min-width:0;word-break:break-word}
+.rc-r .t{margin-left:auto;flex:none;font-family:var(--mono);font-size:10px;color:var(--ht)}
+.rc-r .by{font-size:10px;color:var(--ht);font-family:var(--mono);flex:none}
 </style>
 </head>
 <body>
@@ -221,6 +238,7 @@ label{display:block;font-size:11px;font-weight:700;color:var(--dm);margin-bottom
   <div class="vtabs" id="vtabs">
     <button class="vtab on" data-v="notes">便利貼<span class="n" id="vt-notes">0</span></button>
     <button class="vtab" data-v="goals">個人目標<span class="n" id="vt-goals">0</span></button>
+    <button class="vtab" data-v="rec">我的紀錄</button>
   </div>
 
   <div id="view-notes">
@@ -235,6 +253,12 @@ label{display:block;font-size:11px;font-weight:700;color:var(--dm);margin-bottom
   <div id="view-goals" class="hidden">
     <div class="bar" id="gbar"></div>
     <div class="g-wrap"><div class="g-grid" id="goals"></div></div>
+  </div>
+
+  <div id="view-rec" class="hidden">
+    <div class="bar" id="rbar"></div>
+    <div class="rc-nums" id="rc-nums"></div>
+    <div class="rc-list" id="rc-list"></div>
   </div>
 </div>
 
@@ -530,6 +554,7 @@ function render(){
   const myGoals = goals.filter(goalVisible);
   $('vt-goals').textContent = myGoals.length;
   renderGoals();
+  renderRec();
 }
 
 function noteHTML(t){
@@ -1228,11 +1253,98 @@ function openGoalNudge(list){
   ov.querySelector('#gn-open').onclick = ()=>{ close(); setView('goals') };
 }
 
+/* =========================================================================
+   我的紀錄 — 把「完成的便利貼」和「目標加一」合成個人戰績。
+   可見性跟個人目標同一條規矩：本人看自己，管理員看全部人，同事之間看不到。
+   ========================================================================= */
+let recWho = '';   // 管理員選看誰；空字串＝自己
+
+function monthKey(ts){
+  const d = new Date(ts);
+  return d.getFullYear() + '-' + String(d.getMonth()+1).padStart(2,'0');
+}
+function recTarget(){
+  return (isAdmin() && recWho) ? recWho : me;
+}
+/* 這個人的所有紀錄，新的在前。便利貼算「誰打的勾」，目標算「這個目標的擁有者」，
+   代登的情況（管理員幫按）仍算在擁有者頭上，但會標出實際按的人。 */
+function recRows(who){
+  const rows = [];
+  todos.forEach(t => {
+    if(t.done && t.doneBy === who && t.doneAt)
+      rows.push({kind:'note', ts:t.doneAt, title:t.title||'', sub:t.cat||'', by:who});
+  });
+  goals.forEach(g => {
+    if(g.owner !== who) return;
+    Object.values(g.log || {}).forEach(l => {
+      if(!l || !l.ts || (l.delta||0) <= 0) return;
+      rows.push({kind:'goal', ts:l.ts, title:g.title||'', sub:l.note||'', by:l.by||who, unit:g.unit||'次'});
+    });
+  });
+  return rows.sort((a,b) => b.ts - a.ts);
+}
+
+function renderRec(){
+  const who = recTarget();
+  const rows = recRows(who);
+  const thisMonth = monthKey(Date.now());
+  const mRows = rows.filter(r => monthKey(r.ts) === thisMonth);
+
+  // 篩選列
+  let bar;
+  if(isAdmin()){
+    const people = Array.from(new Set(
+      todos.filter(t=>t.done&&t.doneBy).map(t=>t.doneBy)
+        .concat(goals.map(g=>g.owner))
+    )).filter(Boolean).sort();
+    bar = '<button class="chip' + (recWho===''?' on':'') + '" data-r="">我自己</button>'
+        + people.filter(p=>p!==me).map(p =>
+            '<button class="chip' + (recWho===p?' on':'') + '" data-r="' + esc(p) + '">' + esc(p) + '</button>').join('')
+        + '<span class="bar-sp"></span><span style="font-size:11px;color:var(--dm)">管理員可以看每個人的紀錄</span>';
+  }else{
+    bar = '<span style="font-size:11px;color:var(--dm)">這一頁只有你自己和管理員看得到，同事看不到。</span>';
+  }
+  $('rbar').innerHTML = bar;
+  $('rbar').querySelectorAll('.chip[data-r]').forEach(b => b.onclick = () => { recWho = b.dataset.r; render() });
+
+  // 數字卡
+  const noteM = mRows.filter(r=>r.kind==='note').length;
+  const goalM = mRows.filter(r=>r.kind==='goal').length;
+  const myGoals = goals.filter(g => g.owner === who && !g.archived);
+  const hitN = myGoals.filter(goalHit).length;
+  const nowM = new Date();
+  const mLabel = (nowM.getMonth()+1) + ' 月';
+  $('rc-nums').innerHTML =
+      card(mLabel + '完成的待辦', noteM, '累計 ' + rows.filter(r=>r.kind==='note').length + ' 件')
+    + card(mLabel + '目標加一次數', goalM, '累計 ' + rows.filter(r=>r.kind==='goal').length + ' 次')
+    + card('目標達標', hitN + ' / ' + myGoals.length, myGoals.length ? '進行中 ' + (myGoals.length-hitN) + ' 個' : '還沒有目標');
+
+  function card(k, v, sub){
+    return '<div class="rc-n"><div class="k">' + esc(k) + '</div><div class="v">' + esc(String(v)) + '</div><div class="s">' + esc(sub) + '</div></div>';
+  }
+
+  // 流水帳（最近 40 筆）
+  const head = '<div class="rc-h">' + esc(who) + ' 的紀錄'
+             + (rows.length > 40 ? '（最近 40 筆，共 ' + rows.length + ' 筆）' : '（共 ' + rows.length + ' 筆）') + '</div>';
+  $('rc-list').innerHTML = head + (rows.length
+    ? rows.slice(0,40).map(r =>
+        '<div class="rc-r">'
+        + '<span class="tag ' + (r.kind==='note'?'n':'g') + '">' + (r.kind==='note'?'待辦':'目標') + '</span>'
+        + '<span class="x">' + esc(r.title) + (r.sub ? ' <span style="color:var(--ht)">· ' + esc(r.sub) + '</span>' : '') + '</span>'
+        + (r.by !== who ? '<span class="by">代登 ' + esc(r.by) + '</span>' : '')
+        + '<span class="t">' + fmtTime(r.ts) + '</span>'
+        + '</div>').join('')
+    : '<div class="g-empty">還沒有紀錄。勾完一張便利貼、或在目標按一次加一，這裡就會長出來。</div>');
+}
+
 function setView(v){
+
   view = v;
   $('vtabs').querySelectorAll('.vtab').forEach(b=>b.classList.toggle('on', b.dataset.v===v));
   $('view-notes').classList.toggle('hidden', v!=='notes');
   $('view-goals').classList.toggle('hidden', v!=='goals');
+  $('view-rec').classList.toggle('hidden', v!=='rec');
+  $('add-b').classList.toggle('hidden', v==='rec');   // 紀錄頁沒有東西可以新增
   $('add-b').textContent = v==='goals' ? '＋ 新目標' : '＋ 新增';
   lsSet('todoTestView', v);
   render();
