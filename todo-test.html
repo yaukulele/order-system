@@ -769,7 +769,10 @@ function dueForReminder(){
     if(t.done || t.noRemind) return false;
     if(!remindsMe(t)) return false;
     const every = (t.remindEvery || settings.everyMin) * 60000;
-    const last = lastRemind[t.id] || sessionStart;
+    // 起算點要取「開分頁」跟「這張被建立」兩者中比較晚的那個。
+    // 只用 sessionStart 的話：分頁開了兩小時後才新增一張，它的起算點是兩小時前，
+    // 下一次 tick（20 秒內）就會立刻跳出來提醒你剛剛才打完的字。
+    const last = lastRemind[t.id] || Math.max(sessionStart, t.createdAt || 0);
     return now - last >= every;
   }).sort(sortNotes);
 }
@@ -1220,12 +1223,15 @@ function maybeGoalNudge(){
   const key = 'todoTestGoalNudge_'+me;
   const lastDay = lsGet(key, '');
   if(lastDay === todayStr()) return false;                // 今天催過了
+  // 先開視窗、開成功才記「今天催過」。順序反過來的話：如果這一刻剛好有別的提醒
+  // 視窗開著，openGoalNudge 會直接 return，結果沒跳出來卻已經記成催過了，
+  // 這一整天就再也不會提醒目標。
+  if(!openGoalNudge(list)) return false;
   lsSet(key, todayStr());
-  openGoalNudge(list);
   return true;
 }
 function openGoalNudge(list){
-  if(reminderOpen) return;
+  if(reminderOpen) return false;      // 回傳成不成功，讓 maybeGoalNudge 決定要不要記「今天催過」
   reminderOpen = true;
   const ov = document.createElement('div');
   ov.className = 'ov'; ov.style.zIndex = '300';
@@ -1251,6 +1257,7 @@ function openGoalNudge(list){
   ov.onclick = e=>{ if(e.target===ov) close() };
   ov.querySelector('#gn-ok').onclick = close;
   ov.querySelector('#gn-open').onclick = ()=>{ close(); setView('goals') };
+  return true;
 }
 
 /* =========================================================================
