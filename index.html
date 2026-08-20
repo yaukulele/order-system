@@ -1319,12 +1319,13 @@ async function addUser(){
   if(/[.#$\[\]/]/.test(trimmed)){alert('使用者名稱不可包含 . # $ [ ] / 等符號');return}
   const exists=await db.ref('users/'+trimmed).once('value');
   if(exists.exists()){alert('「'+trimmed+'」已存在');return}
-  const p=prompt('初始密碼：');
-  if(!p)return;
+  const p=prompt('初始密碼：\n\n（新人建議先給簡單的，請他登入後自己到「帳號」分頁改掉）');
+  if(p===null)return;
+  if(!p.trim()){alert('密碼不能是空的。');return}
   const role=confirm('要設為管理員嗎？\n\n確定 = 管理員（可看所有人密碼/新增帳號）\n取消 = 一般使用者')?'admin':'user';
-  await db.ref('users/'+trimmed).set({password:p,role,createdAt:new Date().toISOString()});
+  await db.ref('users/'+trimmed).set({password:p.trim(),role,createdAt:new Date().toISOString()});
   await logUserAction('create-user','新增 '+trimmed+' ('+role+')');
-  alert('✅ 已新增「'+trimmed+'」，密碼：'+p);
+  alert('已新增「'+trimmed+'」\n帳號：'+trimmed+'\n密碼：'+p.trim()+'\n權限：'+(role==='admin'?'管理員':'一般使用者')+'\n\n把這組給新人，請他登入後自己改密碼。');
   renderAccount();
 }
 async function setUserPassword(u){
@@ -1341,6 +1342,11 @@ async function setUserPassword(u){
 async function setUserRole(u,newRole){
   if(!isAdmin()){alert('只有管理員可調整角色');return}
   if(u===currentUser){alert('不能改自己的角色');return}
+  // 把最後一個管理員降成一般，效果跟刪掉他一樣 —— 沒人能管帳號了
+  if(newRole==='user'&&_usersCache&&_usersCache[u]&&_usersCache[u].role==='admin'&&adminCount()<=1){
+    alert('「'+u+'」是目前唯一的管理員，降成一般使用者之後就沒有人能管帳號了。\n\n請先把另一個人升成管理員。');
+    return;
+  }
   if(!confirm('要把「'+u+'」設為「'+(newRole==='admin'?'管理員':'一般')+'」嗎？'))return;
   try{
     await db.ref('users/'+u+'/role').set(newRole);
@@ -1348,14 +1354,31 @@ async function setUserRole(u,newRole){
   }catch(e){alert('更新失敗：'+e.message);return}
   renderAccount();
 }
+// 目前還有幾個管理員 — 用即時監聽的 _usersCache 算，避免多開視窗時看到過期的數字
+function adminCount(){
+  if(!_usersCache)return 99; // 讀不到就不擋，交給下面的 Firebase 寫入決定
+  return Object.values(_usersCache).filter(d=>d&&d.role==='admin').length;
+}
+// 刪帳號要確認兩次（杰哥 2026-08-20 要求）：
+//   第 1 次 confirm 講清楚後果；第 2 次要打出對方名字，防止連按兩下就把人刪了。
+//   刪掉是 Firebase remove()，沒有垃圾桶也沒有復原。
 async function deleteUser(u){
   if(!isAdmin()){alert('只有管理員可刪');return}
   if(u===currentUser){alert('不能刪自己');return}
-  if(!confirm('真的要刪除「'+u+'」？無法復原'))return;
+  // 最後一個管理員被刪掉就沒人能管帳號了，先擋住
+  if(_usersCache&&_usersCache[u]&&_usersCache[u].role==='admin'&&adminCount()<=1){
+    alert('「'+u+'」是目前唯一的管理員，刪掉就沒有人能管帳號了。\n\n請先把另一個人升成管理員，再回來刪。');
+    return;
+  }
+  if(!confirm('第 1 次確認\n\n要刪除帳號「'+u+'」嗎？\n\n刪掉之後這個人就無法登入，而且無法復原。'))return;
+  const typed=prompt('第 2 次確認\n\n真的要刪除「'+u+'」。\n請把名字一字不差打出來，才會執行：');
+  if(typed===null)return;                       // 按取消
+  if(typed.trim()!==u){alert('名字對不起來，已取消刪除。\n\n您打的是「'+typed.trim()+'」，要刪的是「'+u+'」。');return}
   try{
     await db.ref('users/'+u).remove();
     await logUserAction('delete-user','刪除 '+u);
   }catch(e){alert('刪除失敗：'+e.message);return}
+  alert('已刪除「'+u+'」。');
   renderAccount();
 }
 // 平台篩選（cFilter 為陣列，[]=全部）：
