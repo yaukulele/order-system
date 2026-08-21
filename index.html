@@ -324,12 +324,21 @@ body.offline{padding-top:30px} /* 騰出空間給 banner，header 不會被蓋 *
 .main{padding:8px}
 .stats-g{grid-template-columns:1fr 1fr}
 .fg{grid-template-columns:1fr}
-.hdr{padding:10px 12px}
-.hdr h1{font-size:14px}
+.hdr{padding:10px 12px;gap:6px}
+/* 標題不換行、擠不下就用省略號 —— 原本會斷成「訂單管理系 / 統」兩行 */
+.hdr h1{font-size:14px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;min-width:0}
 .hdr h1 small{display:none}
-.tabs{padding:0 4px;gap:4px;position:sticky;top:43px;z-index:99;background:var(--sf)}
-.tab{padding:10px 6px;font-size:11px;flex:1;white-space:nowrap;min-width:0}
+.hdr>div{flex:0 0 auto}
+.hdr .btn{padding:6px 9px;min-height:36px}
+/* 分頁列改成橫向捲動。
+   原本是 flex:1 平均分寬 + nowrap，分頁一多（加了「待辦」變 11 個）每格就被壓到
+   比文字還窄，字跟 badge 直接疊在一起（杰哥 2026-08-21 回報）。
+   改成各自保持自然寬度、擠不下就左右滑，跟下面的篩選列一致。 */
+.tabs{padding:0 8px;gap:2px;position:sticky;top:43px;z-index:99;background:var(--sf);flex-wrap:nowrap;overflow-x:auto;-webkit-overflow-scrolling:touch;scrollbar-width:none}
+.tabs::-webkit-scrollbar{display:none}
+.tab{padding:10px 10px;font-size:11.5px;flex:0 0 auto;white-space:nowrap}
 .tab .badge{font-size:9px;padding:0 5px;margin-left:2px}
+#user-badge{max-width:56px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;display:inline-block;vertical-align:bottom}
 .card-h{padding:10px 12px}
 .card-h h3{font-size:13px}
 .card-b{padding:12px}
