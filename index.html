@@ -880,6 +880,27 @@ body.has-batch-bar .main{padding-bottom:140px}
 .tdmod .vtabs{padding:0}
 #tab-todo{padding-bottom:30px}
 
+/* ===== 排班時間用拉的（滑桿） ===== */
+.tm-box{background:var(--sf2);border:1px solid var(--bd);border-radius:12px;padding:14px 15px;margin-bottom:13px}
+.tm-big{display:flex;align-items:baseline;gap:8px;justify-content:center;margin-bottom:3px}
+.tm-big b{font-size:29px;font-weight:900;font-family:var(--mono);letter-spacing:-.02em;line-height:1.1}
+.tm-big .dash{font-size:19px;color:var(--dm);font-weight:700}
+.tm-len{text-align:center;font-size:11.5px;color:var(--dm);font-weight:700;margin-bottom:12px}
+.tm-len.bad{color:var(--pc)}
+.tm-row{display:flex;align-items:center;gap:10px;margin-top:9px}
+.tm-row .k{font-size:11px;font-weight:800;color:var(--dm);width:30px;flex:none}
+.tm-row input[type=range]{flex:1;-webkit-appearance:none;appearance:none;height:6px;border-radius:3px;background:var(--bd);outline:none;padding:0;border:0}
+.tm-row input[type=range]::-webkit-slider-thumb{-webkit-appearance:none;appearance:none;width:22px;height:22px;border-radius:50%;background:var(--grn);border:2px solid #fff;box-shadow:0 1px 5px rgba(0,0,0,.28);cursor:grab}
+.tm-row input[type=range]::-webkit-slider-thumb:active{cursor:grabbing;transform:scale(1.1)}
+.tm-row input[type=range]::-moz-range-thumb{width:20px;height:20px;border-radius:50%;background:var(--grn);border:2px solid #fff;box-shadow:0 1px 5px rgba(0,0,0,.28);cursor:grab}
+.tm-row.out input[type=range]::-webkit-slider-thumb{background:var(--pc)}
+.tm-row.out input[type=range]::-moz-range-thumb{background:var(--pc)}
+.tm-row .v{font-family:var(--mono);font-size:13px;font-weight:800;width:52px;text-align:right;flex:none}
+.tm-scale{display:flex;justify-content:space-between;font-size:9.5px;color:var(--ht);font-family:var(--mono);margin:5px 0 0 40px;padding-right:56px}
+.tm-quick{display:flex;gap:6px;flex-wrap:wrap;margin-top:12px;justify-content:center}
+.tm-quick button{padding:5px 11px;border-radius:16px;border:1px solid var(--bd);background:var(--sf);font-size:11.5px;font-weight:700;color:var(--dm);cursor:pointer}
+.tm-quick button:hover{border-color:var(--grn);color:var(--grn)}
+
 /* ===== 打卡 ／ 排班（全部關在 .pmod 底下，不外漏影響撈單系統本體） ===== */
 .pmod{padding-bottom:30px}
 .pmod .pk-hero{background:var(--sf);border:1px solid var(--bd);border-radius:16px;padding:20px 22px;margin-bottom:14px;display:flex;align-items:center;gap:20px;flex-wrap:wrap}
@@ -7363,8 +7384,18 @@ function openShift(dateStr, user){
   ov.className='ov';
   ov.innerHTML = '<div class="md" style="max-width:400px">'
     + '<h3>排班</h3><div class="sub">' + esc(user) + '　' + esc(dateStr) + '</div>'
+    + '<div class="tm-box">'
+    +   '<div class="tm-big"><b id="tm-s">--:--</b><span class="dash">–</span><b id="tm-e">--:--</b></div>'
+    +   '<div class="tm-len" id="tm-len">　</div>'
+    +   '<div class="tm-row"><span class="k">上班</span>'
+    +     '<input type="range" id="sh-sr" min="0" max="96" step="1"><span class="v" id="tm-sv"></span></div>'
+    +   '<div class="tm-row out"><span class="k">下班</span>'
+    +     '<input type="range" id="sh-er" min="0" max="96" step="1"><span class="v" id="tm-ev"></span></div>'
+    +   '<div class="tm-scale"><span>00</span><span>06</span><span>12</span><span>18</span><span>24</span></div>'
+    +   '<div class="tm-quick" id="tm-quick"></div>'
+    + '</div>'
     + '<div class="row2">'
-    +   '<div class="fld"><label>上班</label><input id="sh-s" type="time" value="'+esc(cur.start||'')+'"></div>'
+    +   '<div class="fld"><label>上班（也可以直接打）</label><input id="sh-s" type="time" value="'+esc(cur.start||'')+'"></div>'
     +   '<div class="fld"><label>下班</label><input id="sh-e" type="time" value="'+esc(cur.end||'')+'"></div>'
     + '</div>'
     + '<div class="fld"><label>備註（可留白）</label><input id="sh-n" maxlength="30" value="'+esc(cur.note||'')+'" placeholder="例：只顧櫃檯"></div>'
@@ -7376,6 +7407,58 @@ function openShift(dateStr, user){
   pkLayer().appendChild(ov);
   ov.querySelector('#sh-c').onclick = ()=>ov.remove();
   ov.onclick = e=>{ if(e.target===ov) ov.remove() };
+
+  /* ---- 時間用拉的 ----
+     滑桿一格 15 分鐘（一天 96 格）。上面的大字跟下面的時間輸入框雙向同步，
+     所以想精確到分鐘還是可以用打的。下班一定晚於上班，拖過頭會自動推開。 */
+  const S = ov.querySelector('#sh-sr'), E = ov.querySelector('#sh-er');
+  const SI = ov.querySelector('#sh-s'), EI = ov.querySelector('#sh-e');
+  const toHM = v => two(Math.floor(v/4)) + ':' + two((v%4)*15);
+  const toV  = hhmm => {
+    const m = /^(\d{1,2}):(\d{2})$/.exec(hhmm||'');
+    if(!m) return null;
+    return Math.max(0, Math.min(96, Math.round((+m[1]*60 + +m[2]) / 15)));
+  };
+  const lastOf = () => {                     // 沒排過就用這個人上一次排的班當預設
+    const days = Object.keys(shifts).sort().reverse();
+    for(const d of days){ const v = (shifts[d]||{})[user]; if(v && v.start && v.end) return v }
+    return null;
+  };
+  const prev = lastOf();
+  let sv = toV(cur.start) ?? toV(prev && prev.start) ?? 40;   // 預設 10:00
+  let ev = toV(cur.end)   ?? toV(prev && prev.end)   ?? 76;   // 預設 19:00
+  function paint(){
+    S.value = sv; E.value = ev;
+    ov.querySelector('#tm-s').textContent  = toHM(sv);
+    ov.querySelector('#tm-e').textContent  = toHM(ev);
+    ov.querySelector('#tm-sv').textContent = toHM(sv);
+    ov.querySelector('#tm-ev').textContent = toHM(ev);
+    SI.value = toHM(sv); EI.value = toHM(ev);
+    const mins = (ev - sv) * 15;
+    const el = ov.querySelector('#tm-len');
+    el.classList.toggle('bad', mins <= 0);
+    el.textContent = mins > 0 ? ('共 ' + hrsText(mins)) : '下班要晚於上班';
+  }
+  S.oninput = ()=>{ sv = +S.value; if(ev <= sv) ev = Math.min(96, sv + 1); paint() };
+  E.oninput = ()=>{ ev = +E.value; if(ev <= sv) sv = Math.max(0, ev - 1); paint() };
+  SI.oninput = ()=>{ const v = toV(SI.value); if(v!=null){ sv = v; if(ev<=sv) ev=Math.min(96,sv+1); paint() } };
+  EI.oninput = ()=>{ const v = toV(EI.value); if(v!=null){ ev = v; if(ev<=sv) sv=Math.max(0,ev-1); paint() } };
+
+  // 常用班別：拿這個月已經排過的時段自動變成快捷鍵，排越多次的排前面
+  const freq = {};
+  Object.keys(shifts).forEach(d=>Object.keys(shifts[d]||{}).forEach(u=>{
+    const v = shifts[d][u];
+    if(v && v.start && v.end){ const k = v.start+'-'+v.end; freq[k] = (freq[k]||0)+1 }
+  }));
+  const quick = Object.keys(freq).sort((a,b)=>freq[b]-freq[a]).slice(0,4);
+  if(!quick.length) quick.push('10:00-19:00','13:00-22:00');
+  ov.querySelector('#tm-quick').innerHTML = quick.map(q=>'<button data-q="'+q+'">'+q.replace('-','–')+'</button>').join('');
+  ov.querySelectorAll('#tm-quick button').forEach(b=>b.onclick=()=>{
+    const [a2,b2] = b.dataset.q.split('-');
+    sv = toV(a2); ev = toV(b2); paint();
+  });
+  paint();
+
   const path = P.shifts+'/'+dateStr.slice(0,7)+'/'+dd+'/'+user;
   ov.querySelector('#sh-off').onclick = async ()=>{
     await authReady;
