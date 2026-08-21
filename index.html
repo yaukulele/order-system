@@ -7610,65 +7610,140 @@ function exportSummary(){
   logIt('匯出彙總', ym);
 }
 
-/* 領薪簽名表：直接開列印視窗，A4 一頁 */
+/* 領薪表：先問要「合併一張」還是「一人一頁」，可以勾選要印誰。
+   合併版＝自己核帳＋大家一起簽；個別版＝發給本人，附當月出勤明細讓他核對再簽收。 */
 function printPayroll(){
   const {names, per} = monthStats();
   const list = names.filter(u=>per[u].days.length);
   if(!list.length){ toast('這個月沒有打卡紀錄'); return }
-  const w = window.open('', '_blank');
-  if(!w){ alert('請允許彈出視窗才能列印'); return }
-  const rows = list.map(u=>{
-    const p = per[u];
-    const rate = payRates[u];
-    const amt = rate ? Math.round(hrDec(p.mins) * rate) : '';
-    return '<tr>'
-      + '<td class="nm">' + esc(u) + '</td>'
-      + '<td>' + p.days.length + '</td>'
-      + '<td>' + hrDec(p.mins) + '</td>'
-      + '<td>' + (rate ? rate : '') + '</td>'
-      + '<td class="amt">' + (amt !== '' ? amt.toLocaleString() : '') + '</td>'
-      + '<td class="sign"></td>'
-      + '</tr>';
-  }).join('');
-  const totalAmt = list.reduce((n,u)=>{
-    const r = payRates[u];
-    return n + (r ? Math.round(hrDec(per[u].mins) * r) : 0);
-  }, 0);
-  w.document.write('<!DOCTYPE html><html lang="zh-TW"><head><meta charset="utf-8">'
-    + '<title>領薪簽名表 ' + ym + '</title><style>'
-    + '@page{size:A4;margin:14mm}'
+  const ov = document.createElement('div');
+  ov.className='ov';
+  ov.innerHTML = '<div class="md" style="max-width:420px">'
+    + '<h3>領薪簽名表</h3><div class="sub">' + ym + '　共 ' + list.length + ' 人有出勤</div>'
+    + '<div class="fld"><label>要印哪一種</label><div class="seg" id="py-mode">'
+    +   '<button data-v="all" class="on">合併一張</button>'
+    +   '<button data-v="each">一人一頁</button></div></div>'
+    + '<div class="fld"><label>印給誰（預設全部）</label>'
+    +   '<div style="display:grid;grid-template-columns:1fr 1fr;gap:6px;margin-top:4px">'
+    +   list.map(u=>'<label style="display:flex;align-items:center;gap:6px;font-size:13px;font-weight:600;color:var(--tx);margin:0;cursor:pointer">'
+        + '<input type="checkbox" data-u="' + esc(u) + '" checked style="width:auto">' + esc(u)
+        + '<span style="font-size:10.5px;color:var(--dm);font-family:var(--mono)">' + hrDec(per[u].mins) + 'h</span></label>').join('')
+    +   '</div></div>'
+    + '<div class="warn" style="font-size:11px">一人一頁會把當月出勤明細一起印上去，員工看得到自己怎麼算出來的。</div>'
+    + '<div class="md-ft"><button class="btn" id="py-c">取消</button>'
+    +   '<button class="btn btn-b" id="py-go">列印</button></div></div>';
+  document.body.appendChild(ov);
+  ov.querySelectorAll('#py-mode button').forEach(b=>b.onclick=()=>{
+    ov.querySelectorAll('#py-mode button').forEach(x=>x.classList.toggle('on', x===b));
+  });
+  ov.querySelector('#py-c').onclick = ()=>ov.remove();
+  ov.onclick = e=>{ if(e.target===ov) ov.remove() };
+  ov.querySelector('#py-go').onclick = ()=>{
+    const picked = [...ov.querySelectorAll('input[data-u]:checked')].map(i=>i.dataset.u);
+    if(!picked.length){ toast('至少要勾一個人'); return }
+    const mode = ov.querySelector('#py-mode button.on').dataset.v;
+    ov.remove();
+    if(mode === 'all') doPayrollAll(picked, per);
+    else doPayrollEach(picked, per);
+  };
+}
+
+function payrollCSS(){
+  return '@page{size:A4;margin:13mm}'
     + '*{box-sizing:border-box}'
     + 'body{font-family:-apple-system,"Noto Sans TC","Microsoft JhengHei",sans-serif;color:#111;margin:0}'
     + 'h1{font-size:19px;margin:0 0 2px;letter-spacing:.04em}'
-    + '.sub{font-size:11px;color:#666;margin-bottom:14px}'
+    + '.sub{font-size:11px;color:#666;margin-bottom:13px}'
     + 'table{width:100%;border-collapse:collapse;table-layout:fixed}'
-    + 'th,td{border:1px solid #333;padding:9px 6px;font-size:12.5px;text-align:center}'
+    + 'th,td{border:1px solid #333;padding:8px 6px;font-size:12.5px;text-align:center}'
     + 'th{background:#f0efe9;font-weight:700;font-size:11.5px}'
     + 'td.nm{font-weight:700;text-align:left;padding-left:10px}'
     + 'td.amt{font-family:"Menlo",monospace;font-weight:700;text-align:right;padding-right:10px}'
     + 'td.sign{height:42px}'
     + 'tr{break-inside:avoid;page-break-inside:avoid}'
     + 'tfoot td{font-weight:800;background:#f7f6f2}'
-    + '.note{margin-top:12px;font-size:10.5px;color:#666;line-height:1.7}'
-    + '.sigline{margin-top:26px;font-size:12px;display:flex;gap:40px}'
+    + '.note{margin-top:11px;font-size:10.5px;color:#666;line-height:1.7}'
+    + '.sigline{margin-top:24px;font-size:12px;display:flex;gap:40px}'
     + '.sigline div{flex:1;border-top:1px solid #333;padding-top:5px}'
-    + '</style></head><body>'
-    + '<h1>' + ym.replace('-', ' 年 ') + ' 月　薪資發放簽名表</h1>'
-    + '<div class="sub">列印時間：' + new Date().toLocaleString('zh-TW') + '　·　資料來源：打卡紀錄</div>'
-    + '<table><thead><tr>'
-    + '<th style="width:16%">姓名</th><th style="width:11%">出勤天數</th><th style="width:14%">總時數</th>'
-    + '<th style="width:12%">時薪</th><th style="width:17%">應付金額</th><th style="width:30%">簽名</th>'
-    + '</tr></thead><tbody>' + rows + '</tbody>'
-    + (totalAmt ? '<tfoot><tr><td colspan="4" style="text-align:right;padding-right:10px">合計</td>'
-        + '<td class="amt">' + totalAmt.toLocaleString() + '</td><td></td></tr></tfoot>' : '')
-    + '</table>'
-    + '<div class="note">※ 金額為系統依「總時數 × 時薪」試算，未包含加班費、全勤、遲到扣款等其他項目，實際發放金額請自行核對。<br>'
-    + '※ 時數來自打卡紀錄；缺下班卡的日子該段不計入時數。</div>'
-    + '<div class="sigline"><div>製表人：</div><div>負責人：</div></div>'
-    + '</body></html>');
+    + '.page{page-break-after:always}'
+    + '.page:last-child{page-break-after:auto}'
+    + '.det th,.det td{padding:4px 5px;font-size:11px}'
+    + '.det td.d{font-family:"Menlo",monospace}'
+    + '.box{display:flex;gap:10px;margin:12px 0}'
+    + '.box div{flex:1;border:1px solid #333;padding:8px 10px}'
+    + '.box .k{font-size:10.5px;color:#666}'
+    + '.box .v{font-size:19px;font-weight:800;font-family:"Menlo",monospace;margin-top:2px}'
+    + '.recv{margin-top:16px;border:1px solid #333;padding:12px 14px}'
+    + '.recv .t{font-size:12px;font-weight:700;margin-bottom:8px}'
+    + '.recv .l{font-size:11.5px;line-height:2.4}';
+}
+function openPrint(title, body){
+  const w = window.open('', '_blank');
+  if(!w){ alert('請允許彈出視窗才能列印'); return }
+  w.document.write('<!DOCTYPE html><html lang="zh-TW"><head><meta charset="utf-8"><title>'
+    + title + '</title><style>' + payrollCSS() + '</style></head><body>' + body + '</body></html>');
   w.document.close();
   setTimeout(()=>{ try{ w.focus(); w.print() }catch(e){} }, 350);
-  logIt('列印領薪表', ym);
+}
+const DISCLAIM = '<div class="note">※ 金額為系統依「總時數 × 時薪」試算，未包含加班費、全勤、遲到扣款等其他項目，實際發放金額請自行核對。<br>'
+  + '※ 時數來自打卡紀錄；缺下班卡的日子該段不計入時數。</div>';
+
+function doPayrollAll(list, per){
+  const rows = list.map(u=>{
+    const p = per[u], rate = payRates[u];
+    const amt = rate ? Math.round(hrDec(p.mins) * rate) : '';
+    return '<tr><td class="nm">' + esc(u) + '</td><td>' + p.days.length + '</td><td>' + hrDec(p.mins) + '</td>'
+      + '<td>' + (rate || '') + '</td><td class="amt">' + (amt !== '' ? amt.toLocaleString() : '') + '</td>'
+      + '<td class="sign"></td></tr>';
+  }).join('');
+  const total = list.reduce((n,u)=>{ const r=payRates[u]; return n + (r ? Math.round(hrDec(per[u].mins)*r) : 0) }, 0);
+  openPrint('領薪簽名表 ' + ym,
+      '<h1>' + ym.replace('-', ' 年 ') + ' 月　薪資發放簽名表</h1>'
+    + '<div class="sub">列印時間：' + new Date().toLocaleString('zh-TW') + '　·　資料來源：打卡紀錄</div>'
+    + '<table><thead><tr><th style="width:16%">姓名</th><th style="width:11%">出勤天數</th>'
+    +   '<th style="width:14%">總時數</th><th style="width:12%">時薪</th>'
+    +   '<th style="width:17%">應付金額</th><th style="width:30%">簽名</th></tr></thead>'
+    + '<tbody>' + rows + '</tbody>'
+    + (total ? '<tfoot><tr><td colspan="4" style="text-align:right;padding-right:10px">合計</td>'
+        + '<td class="amt">' + total.toLocaleString() + '</td><td></td></tr></tfoot>' : '')
+    + '</table>' + DISCLAIM
+    + '<div class="sigline"><div>製表人：</div><div>負責人：</div></div>');
+  logIt('列印領薪表(合併)', ym + ' / ' + list.length + ' 人');
+}
+
+function doPayrollEach(list, per){
+  const wd = ['日','一','二','三','四','五','六'];
+  const pages = list.map(u=>{
+    const p = per[u], rate = payRates[u];
+    const amt = rate ? Math.round(hrDec(p.mins) * rate) : null;
+    const det = p.days.map(d=>{
+      const w = wd[new Date(d.ds+'T00:00:00').getDay()];
+      const seg = d.segs.map(([a,b])=>hm(a)+'–'+hm(b)).join('  ');
+      return '<tr><td class="d">' + d.ds.slice(5) + '</td><td>' + w + '</td>'
+        + '<td class="d">' + (seg || '—') + '</td>'
+        + '<td class="d">' + (d.mins ? hrDec(d.mins) : '—') + '</td>'
+        + '<td>' + (d.openAt ? '缺下班卡' : (d.list.some(x=>x.by) ? '含補登' : '')) + '</td></tr>';
+    }).join('');
+    return '<div class="page">'
+      + '<h1>' + ym.replace('-', ' 年 ') + ' 月　薪資明細</h1>'
+      + '<div class="sub">' + esc(u) + '　·　列印時間：' + new Date().toLocaleString('zh-TW') + '</div>'
+      + '<div class="box">'
+      +   '<div><div class="k">出勤天數</div><div class="v">' + p.days.length + '</div></div>'
+      +   '<div><div class="k">總時數</div><div class="v">' + hrDec(p.mins) + '</div></div>'
+      +   '<div><div class="k">時薪</div><div class="v">' + (rate || '—') + '</div></div>'
+      +   '<div><div class="k">應付金額</div><div class="v">' + (amt !== null ? amt.toLocaleString() : '—') + '</div></div>'
+      + '</div>'
+      + '<table class="det"><thead><tr><th style="width:14%">日期</th><th style="width:9%">星期</th>'
+      +   '<th>上下班時間</th><th style="width:14%">時數</th><th style="width:18%">備註</th></tr></thead>'
+      + '<tbody>' + det + '</tbody></table>'
+      + DISCLAIM
+      + '<div class="recv"><div class="t">簽收</div>'
+      +   '<div class="l">本人確認上列出勤與金額無誤，並已如數領取。</div>'
+      +   '<div class="sigline" style="margin-top:18px"><div>領款人簽名：</div><div>日期：</div></div>'
+      + '</div></div>';
+  }).join('');
+  openPrint('薪資明細 ' + ym, pages);
+  logIt('列印領薪表(一人一頁)', ym + ' / ' + list.length + ' 人');
 }
 
 /* 時薪設定 —— 設過一次就記住，下個月自動帶入 */
