@@ -879,12 +879,81 @@ body.has-batch-bar .main{padding-bottom:140px}
 .tdmod .td-sp{flex:1}
 .tdmod .vtabs{padding:0}
 #tab-todo{padding-bottom:30px}
+
+/* ===== 打卡 ／ 排班（全部關在 .pmod 底下，不外漏影響撈單系統本體） ===== */
+.pmod{padding-bottom:30px}
+.pmod .pk-hero{background:var(--sf);border:1px solid var(--bd);border-radius:16px;padding:20px 22px;margin-bottom:14px;display:flex;align-items:center;gap:20px;flex-wrap:wrap}
+.pmod .pk-hero.on{border-color:var(--grn);background:linear-gradient(135deg,var(--grn-bg),var(--sf) 58%)}
+.pmod .pk-info{flex:1;min-width:180px}
+.pmod .pk-state{font-size:11px;font-weight:800;letter-spacing:.05em;color:var(--dm)}
+.pmod .pk-clock{font-size:38px;font-weight:900;font-family:var(--mono);line-height:1.1;letter-spacing:-.02em;margin:3px 0 2px}
+.pmod .pk-sub{font-size:12px;color:var(--dm);line-height:1.6}
+.pmod .pk-sub b{color:var(--tx);font-weight:800}
+.pmod .pk-btn{flex:none;min-width:170px;padding:18px 26px;border-radius:14px;border:0;font-size:17px;font-weight:900;letter-spacing:.04em;color:#fff;background:var(--grn);cursor:pointer;box-shadow:0 6px 18px rgba(45,122,79,.28)}
+.pmod .pk-btn.out{background:var(--pc);box-shadow:0 6px 18px rgba(192,57,43,.26)}
+.pmod .pk-btn:hover{opacity:.9}
+.pmod .pk-btn:disabled{background:var(--bd);color:var(--ht);box-shadow:none;cursor:default}
+
+.pmod .pk-bar{display:flex;align-items:center;gap:7px;flex-wrap:wrap;margin-bottom:14px}
+.pmod .pk-grid{display:grid;grid-template-columns:1fr 1fr;gap:14px;align-items:start}
+.pmod .pk-card{background:var(--sf);border:1px solid var(--bd);border-radius:14px;overflow:hidden}
+.pmod .pk-h{padding:11px 15px;font-size:12px;font-weight:800;border-bottom:1px solid var(--bd);background:var(--sf2);display:flex;align-items:center;gap:8px}
+.pmod .pk-h .sp{flex:1}
+.pmod .pk-h .mini{font-size:10.5px;font-weight:700;color:var(--dm);font-family:var(--mono)}
+.pmod .pk-b{padding:12px 15px}
+
+.pmod .pk-row{display:flex;align-items:center;gap:10px;padding:8px 0;border-bottom:1px solid var(--bd);font-size:13px}
+.pmod .pk-row:last-child{border-bottom:0}
+.pmod .pk-tag{font-size:10px;font-weight:800;padding:2.5px 9px;border-radius:5px;flex:none;white-space:nowrap;border:1px solid}
+.pmod .pk-tag.i{background:var(--grn-bg);color:var(--grn);border-color:var(--grn)}
+.pmod .pk-tag.o{background:var(--pc-bg);color:var(--pc);border-color:var(--pc)}
+.pmod .pk-t{font-family:var(--mono);font-weight:800;font-size:14px;flex:none}
+.pmod .pk-note{color:var(--dm);font-size:11.5px;flex:1;min-width:0;word-break:break-word}
+.pmod .pk-fix{font-size:9.5px;font-weight:800;padding:2px 6px;border-radius:4px;background:var(--amb-bg);color:var(--amb);border:1px solid var(--amb);flex:none;white-space:nowrap}
+.pmod .pk-del{flex:none;border:0;background:transparent;color:var(--ht);font-size:13px;padding:0 3px;line-height:1;cursor:pointer}
+.pmod .pk-del:hover{color:var(--pc)}
+.pmod .pk-empty{padding:20px 4px;text-align:center;color:var(--ht);font-size:12.5px;line-height:1.8}
+
+.pmod .pk-sum{display:flex;align-items:baseline;gap:8px;padding:4px 0 12px;border-bottom:1px dashed var(--bd);margin-bottom:10px}
+.pmod .pk-sum .v{font-size:31px;font-weight:900;font-family:var(--mono);line-height:1;letter-spacing:-.02em}
+.pmod .pk-sum .u{font-size:12px;color:var(--dm);font-weight:700}
+.pmod .pk-sum .sp{flex:1}
+.pmod .pk-sum .side{font-size:11px;color:var(--dm);text-align:right;line-height:1.6;font-family:var(--mono)}
+.pmod .pk-day{display:flex;align-items:center;gap:9px;padding:6px 0;border-bottom:1px solid var(--bd);font-size:12.5px}
+.pmod .pk-day:last-child{border-bottom:0}
+.pmod .pk-day .d{font-family:var(--mono);font-weight:800;flex:none;width:52px}
+.pmod .pk-day .seg{flex:1;min-width:0;color:var(--dm);font-family:var(--mono);font-size:11.5px;border:0;background:transparent;display:block;padding:0}
+.pmod .pk-day .hr{font-family:var(--mono);font-weight:800;flex:none}
+.pmod .pk-day.odd{background:transparent}
+.pmod .pk-warn{color:var(--pc);font-weight:700}
+
+.pmod .pk-shift{margin-top:14px;background:var(--sf);border:1px solid var(--bd);border-radius:14px;overflow:hidden}
+.pmod .sh-wrap{overflow-x:auto}
+.pmod .sh-tbl{width:100%;border-collapse:collapse;min-width:640px}
+.pmod .sh-tbl th,.pmod .sh-tbl td{border:1px solid var(--bd);padding:7px 8px;font-size:12px;text-align:center;vertical-align:middle}
+.pmod .sh-tbl th{background:var(--sf2);font-weight:800;font-size:11px;color:var(--dm);white-space:nowrap}
+.pmod .sh-tbl th.today{background:var(--grn-bg);color:var(--grn)}
+.pmod .sh-tbl td.today{background:rgba(45,122,79,.05)}
+.pmod .sh-tbl td.who{text-align:left;font-weight:800;white-space:nowrap;background:var(--sf2);font-size:12px}
+.pmod .sh-cell{cursor:default;font-family:var(--mono);font-size:11.5px;line-height:1.5;color:var(--tx);min-height:26px}
+.pmod .sh-cell.editable{cursor:pointer}
+.pmod .sh-cell.editable:hover{background:var(--grn-bg)}
+.pmod .sh-cell .off{color:var(--ht)}
+.pmod .sh-cell .note{display:block;font-size:10px;color:var(--dm);font-family:var(--sans)}
+.pmod .sh-nav{display:flex;align-items:center;gap:8px}
+
+@media(max-width:860px){
+  .pmod .pk-grid{grid-template-columns:1fr}
+  .pmod .pk-hero{padding:16px;gap:14px}
+  .pmod .pk-clock{font-size:32px}
+  .pmod .pk-btn{width:100%;min-width:0;padding:16px;font-size:16px}
+}
 </style>
 </head>
 <body>
 <div class="offline-banner hidden" id="offline-banner">⚠️ 已離線 — 你的修改會在連線恢復後同步</div>
 <div class="hdr"><h1>📦 訂單管理系統<small>MOMO + PChome</small></h1><div style="display:flex;align-items:center;gap:8px"><span id="sync-badge" class="sync-dot sync-off"><span class="dot dot-off"></span>連線中...</span><button class="btn tdmod" id="bell" style="font-size:13px;position:relative" title="待辦提醒（點開便利貼）">🔔<span class="bell-badge hidden" id="bell-n">0</span></button><button class="btn" id="theme-btn" onclick="toggleTheme()" style="font-size:11px" title="切換亮色/暗色">🌙</button><button class="btn" id="notif-btn" onclick="toggleNotifications()" style="font-size:11px" title="桌面通知">🔕</button><button class="btn" onclick="showShortcutsHelp()" style="font-size:11px" title="鍵盤捷徑（按 ? 快速打開）">⌨️</button><button class="btn" onclick="location.reload()" style="font-size:11px">🔄</button></div></div>
-<div class="tabs"><button class="tab active" onclick="showTab('import')">匯入</button><button class="tab" onclick="showTab('list')">列表 <span class="badge" id="cnt">0</span></button><button class="tab" onclick="showTab('schedule')">安裝 <span class="badge" id="sched-cnt" style="background:#fef9ec;color:#b45309">0</span></button><button class="tab" onclick="showTab('region')">區域 <span class="badge" id="region-cnt" style="background:#e8eef9;color:#1657b5">0</span></button><button class="tab" onclick="showTab('delivery')">親送 <span class="badge" id="deliv-cnt" style="background:#fce7f3;color:#be185d">0</span></button><button class="tab" onclick="showTab('output')">輸出</button><button class="tab" onclick="showTab('stats')">統計</button><button class="tab" onclick="showTab('recon')">對帳</button><button class="tab" onclick="showTab('customers')">客戶</button><button class="tab" onclick="showTab('account')">帳號 <span id="user-badge" style="font-size:10px;color:var(--dm);margin-left:4px"></span></button><button class="tab" onclick="showTab('todo')">待辦 <span class="badge" id="todo-cnt" style="background:#eef7f1;color:#2d7a4f">0</span></button></div>
+<div class="tabs"><button class="tab active" onclick="showTab('import')">匯入</button><button class="tab" onclick="showTab('list')">列表 <span class="badge" id="cnt">0</span></button><button class="tab" onclick="showTab('schedule')">安裝 <span class="badge" id="sched-cnt" style="background:#fef9ec;color:#b45309">0</span></button><button class="tab" onclick="showTab('region')">區域 <span class="badge" id="region-cnt" style="background:#e8eef9;color:#1657b5">0</span></button><button class="tab" onclick="showTab('delivery')">親送 <span class="badge" id="deliv-cnt" style="background:#fce7f3;color:#be185d">0</span></button><button class="tab" onclick="showTab('output')">輸出</button><button class="tab" onclick="showTab('stats')">統計</button><button class="tab" onclick="showTab('recon')">對帳</button><button class="tab" onclick="showTab('customers')">客戶</button><button class="tab" onclick="showTab('account')">帳號 <span id="user-badge" style="font-size:10px;color:var(--dm);margin-left:4px"></span></button><button class="tab" onclick="showTab('todo')">待辦 <span class="badge" id="todo-cnt" style="background:#eef7f1;color:#2d7a4f">0</span></button><button class="tab" onclick="showTab('punch')">打卡 <span class="badge" id="pk-badge" style="background:#e8eef9;color:#1657b5">—</span></button></div>
 
 <div class="main" id="tab-import"><div id="today-summary" style="display:none"></div><div class="card" style="background:linear-gradient(135deg,#f3e8ff,#fff);border:1px solid #d8b4fe"><div class="card-h" style="background:transparent"><h3>🏪 店內銷售</h3><div class="btn-row" style="justify-content:flex-end"><button class="btn" onclick="openStoreSaleModal()" style="background:#7e22ce;border-color:#7e22ce;color:#fff;font-weight:700;flex:0 0 auto;min-width:130px" title="櫃台現金/刷卡直購用">+ 新增訂單</button></div></div></div>
 <div class="card" style="background:linear-gradient(135deg,#ccfbf1,#fff);border:1px solid #5eead4"><div class="card-h" style="background:transparent"><h3>🎓 學校團購</h3><div class="btn-row" style="justify-content:flex-end"><button class="btn" onclick="openSchoolModal()" style="background:#0d9488;border-color:#0d9488;color:#fff;font-weight:700;flex:0 0 auto;min-width:130px" title="學校班級團購建單（學生 / 團購學校 / 年級班級）">+ 新增訂單</button></div></div></div>
@@ -939,6 +1008,16 @@ body.has-batch-bar .main{padding-bottom:140px}
     <div class="rc-list" id="rc-list"></div>
   </div>
 </div>
+<div class="main hidden pmod" id="tab-punch">
+  <div class="pk-hero" id="pk-hero"></div>
+  <div class="pk-bar" id="pk-bar"></div>
+  <div class="pk-grid">
+    <div id="pk-today"></div>
+    <div id="pk-month"></div>
+  </div>
+  <div id="pk-shift"></div>
+</div>
+
 <div id="td-layer" class="tdmod"></div>
 <div class="overlay hidden" id="login-overlay" style="z-index:400"><div class="modal" style="max-width:380px"><h3>🔐 訂單管理系統 登入</h3><div class="fg full" style="margin-top:10px"><div class="fi"><label>選擇使用者</label><div id="login-userchips" style="display:grid;grid-template-columns:1fr 1fr;gap:6px;margin-top:6px"></div><input id="login-user" type="hidden"></div></div><div class="fg full"><div class="fi"><label>密碼</label><input id="login-pass" type="password" autocomplete="current-password" onkeypress="if(event.key==='Enter')doLogin()"></div></div><div id="login-err" style="color:var(--pc);font-size:12px;min-height:18px;margin-top:6px"></div><div class="modal-ft"><button class="btn btn-g" onclick="doLogin()">登入</button></div><div style="font-size:11px;color:var(--dm);margin-top:10px;line-height:1.6">📌 點選名字 → 輸入密碼。開發者：Allie／阿淵　夥伴：雨停／建杰／詠璇／芷瑜<br>密碼預設同名字（建杰／詠璇／芷瑜 預設 0000），請登入後盡速更改</div></div></div>
 <div class="overlay hidden" id="modal-overlay"><div class="modal" id="modal-body"></div><button class="modal-x" type="button" onclick="closeModal()" title="關閉編輯 (Esc)">✕</button></div>
@@ -1533,7 +1612,7 @@ function clearInput(){document.getElementById('raw-input').value='';document.get
 async function copyPCScript(){try{const r=await fetch('pchome-scraper.js?_='+Date.now());if(!r.ok)throw new Error('HTTP '+r.status);const code=await r.text();await navigator.clipboard.writeText(code);alert('✅ PChome F12 撈單 script 已複製到剪貼簿！\n\n下一步：\n1. 切到 PChome 廠商後台「印貨資料 / 商品明細」view（看得到 商品名稱、收貨人、訂單編號 那個 view）\n2. F12 → Console → Ctrl+V → Enter\n3. 跳出 alert 顯示抓到 N 筆 → 訂單 JSON 已自動複製\n4. 回來這頁 → 在下方大框 Ctrl+V → 按「匯入雲端」')}catch(e){alert('複製失敗：'+e.message+'\n\n你可以直接打開 yaukulele.github.io/order-system/pchome-scraper.js 手動 copy')}}
 
 // ===== TABS =====
-function showTab(t){const tabs=['import','list','schedule','region','delivery','output','stats','recon','customers','account','todo'];try{localStorage.setItem('orderSysTab',t)}catch(_){}tabs.forEach(id=>document.getElementById('tab-'+id).classList.toggle('hidden',id!==t));document.querySelectorAll('.tabs .tab').forEach((b,i)=>b.classList.toggle('active',tabs[i]===t));window.scrollTo({top:0,behavior:'instant'});if(t==='list')renderList();if(t==='schedule')renderSchedule();if(t==='region')renderRegion();if(t==='delivery')setDelivMode(_delivMode);if(t==='output')renderOutput();if(t==='stats')renderStats();if(t==='recon')renderRecon();if(t==='customers')renderCustomers();if(t==='account')renderAccount();if(t==='todo'&&window.__tdRender)window.__tdRender()}
+function showTab(t){const tabs=['import','list','schedule','region','delivery','output','stats','recon','customers','account','todo','punch'];try{localStorage.setItem('orderSysTab',t)}catch(_){}tabs.forEach(id=>document.getElementById('tab-'+id).classList.toggle('hidden',id!==t));document.querySelectorAll('.tabs .tab').forEach((b,i)=>b.classList.toggle('active',tabs[i]===t));window.scrollTo({top:0,behavior:'instant'});if(t==='list')renderList();if(t==='schedule')renderSchedule();if(t==='region')renderRegion();if(t==='delivery')setDelivMode(_delivMode);if(t==='output')renderOutput();if(t==='stats')renderStats();if(t==='recon')renderRecon();if(t==='customers')renderCustomers();if(t==='account')renderAccount();if(t==='todo'&&window.__tdRender)window.__tdRender();if(t==='punch'&&window.PUNCH)PUNCH.render()}
 
 // ===== AUTH / 使用者帳號系統 =====
 let currentUser=null,currentRole='';
@@ -1698,8 +1777,11 @@ function _mnLogout(manual){
   _mnClose();
   _doForceLogout(manual?'午夜提示手動登出':'午夜無回應自動登出');
 }
-setInterval(_mnCheck,60000);
-document.addEventListener('visibilitychange',()=>{if(!document.hidden)_mnCheck()});
+// 2026-08-21 杰哥：兩條自動登出都拿掉 —— 老闆家裡的電腦不想一直被登出。
+// 改由「下班打卡」時詢問要不要登出（打卡分頁），店裡電腦忘記登出的問題在那裡解決。
+// 底下的 _mnCheck / _idleCheck 函式刻意保留不刪，要恢復只要把這兩行的觸發器接回去。
+// setInterval(_mnCheck,60000);
+// document.addEventListener('visibilitychange',()=>{if(!document.hidden)_mnCheck()});
 
 // ── 閒置自動登出：30 分鐘完全沒操作 → 跳提示倒數 60 秒，沒回應就登出。
 //    店裡電腦／平板是共用的，人離開後不該一直掛著他的帳號讓下一個人接著用。
@@ -1741,9 +1823,10 @@ function _idleClose(){
   if(_idleCountTimer){clearInterval(_idleCountTimer);_idleCountTimer=null}
   const ov=document.getElementById('idle-logout-ov');if(ov)ov.style.display='none';
 }
-setInterval(_idleCheck,20000);
-['mousedown','keydown','touchstart','wheel','scroll'].forEach(ev=>document.addEventListener(ev,_idleBump,{passive:true,capture:true}));
-document.addEventListener('visibilitychange',()=>{if(!document.hidden)_idleCheck()});
+// 同上，閒置 30 分自動登出也停用（杰哥 2026-08-21「一起拿掉」）。
+// setInterval(_idleCheck,20000);
+// ['mousedown','keydown','touchstart','wheel','scroll'].forEach(ev=>document.addEventListener(ev,_idleBump,{passive:true,capture:true}));
+// document.addEventListener('visibilitychange',()=>{if(!document.hidden)_idleCheck()});
 function onAuthReady(){
   const sb=document.getElementById('user-badge');
   if(sb)sb.textContent=currentUser+(currentRole==='admin'?' 🛡️':'');
@@ -7001,6 +7084,457 @@ tdBoot();
 
 window.__tdRender = function(){ try{ if(me) render() }catch(_){} };
 })();
+
+/* =========================================================================
+   打卡 ／ 排班
+   -------------------------------------------------------------------------
+   跟待辦一樣整包關在 IIFE 裡：撈單系統本體有 $()（格式化金額）、esc()、
+   openEdit()（編輯訂單）這些同名的東西，攤平貼進來會互相蓋掉。
+   對外只留 window.PUNCH。
+
+   共用本體的：db / authReady / currentUser / currentRole / showToast /
+              logUserAction / doLogout
+   資料節點：
+     punches/{YYYY-MM}/{user}/{pushId} = {type:'in'|'out', at, note, by, editedBy, editedAt}
+       —— by 只有在「別人代打／補登」時才會有值，本人自己打的沒有這欄。
+     shifts/{YYYY-MM}/{DD}/{user}      = {start:'09:00', end:'18:00', note, by}
+   ========================================================================= */
+window.PUNCH = (function(){
+'use strict';
+
+const P = { punches:'punches', shifts:'shifts' };
+
+let me = null, myRole = '';
+let ym = '';                 // 目前看的月份 YYYY-MM
+let punches = {};            // {user:{id:{...}}}
+let shifts = {};             // {DD:{user:{...}}}
+let users = {};
+let who = '';                // 管理員在看誰的（空＝自己）
+let shiftWeekStart = null;   // 排班週視圖的起始日（週一）
+let _inited = false, _clockTimer = null;
+
+const $ = id => document.getElementById(id);
+const esc = s => String(s==null?'':s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;').replace(/'/g,'&#39;');
+const isAdmin = () => myRole === 'admin';
+const two = n => String(n).padStart(2,'0');
+const toast = (m, ms) => { try{ showToast(m, null, null, ms||3000) }catch(e){} };
+const logIt = (a,d) => { try{ logUserAction('[打卡]'+a, d||'') }catch(e){} };
+
+function dstr(d){ return d.getFullYear()+'-'+two(d.getMonth()+1)+'-'+two(d.getDate()) }
+function ymOf(d){ return d.getFullYear()+'-'+two(d.getMonth()+1) }
+function hm(ts){ const d=new Date(ts); return two(d.getHours())+':'+two(d.getMinutes()) }
+function today(){ return dstr(new Date()) }
+function target(){ return (isAdmin() && who) ? who : me }
+
+/* 一天的打卡，時間由早到晚 */
+function dayPunches(user, dateStr){
+  const all = punches[user] || {};
+  return Object.keys(all).map(k=>Object.assign({id:k}, all[k]))
+    .filter(p => p.at && dstr(new Date(p.at)) === dateStr)
+    .sort((a,b)=>a.at-b.at);
+}
+/* 目前是上班中還是下班中 —— 看今天最後一筆是 in 還是 out */
+function stateOf(user){
+  const list = dayPunches(user, today());
+  if(!list.length) return {working:false, since:null, list};
+  const last = list[list.length-1];
+  return {working: last.type==='in', since: last.at, list};
+}
+/* 把一天的打卡配成 in→out 的區段;落單的 in 不計時數(還沒下班) */
+function pairDay(list){
+  const segs = [];
+  let open = null;
+  list.forEach(p=>{
+    if(p.type==='in'){ if(open===null) open = p.at }        // 連續兩次上班只算第一次
+    else { if(open!==null){ segs.push([open, p.at]); open = null } }
+  });
+  return {segs, openAt: open};
+}
+function segMinutes(segs){ return segs.reduce((n,[a,b])=> n + Math.max(0, Math.round((b-a)/60000)), 0) }
+function hrsText(min){
+  if(!min) return '0';
+  const h = Math.floor(min/60), m = min%60;
+  return m ? (h + ' 小時 ' + m + ' 分') : (h + ' 小時');
+}
+function monthDays(){
+  const [y,mo] = ym.split('-').map(Number);
+  return new Date(y, mo, 0).getDate();
+}
+function mondayOf(d){
+  const x = new Date(d.getFullYear(), d.getMonth(), d.getDate());
+  const w = (x.getDay()+6)%7;             // 週一=0
+  x.setDate(x.getDate()-w);
+  return x;
+}
+
+/* =========================================================================
+   啟動
+   ========================================================================= */
+function init(){
+  if(!currentUser) return;
+  me = currentUser; myRole = currentRole || 'user';
+  if(_inited){ render(); return }
+  _inited = true;
+  ym = ymOf(new Date());
+  shiftWeekStart = mondayOf(new Date());
+
+  db.ref('users').on('value', s=>{ const v=s.val(); if(v){ users=v; if(users[me]) myRole=users[me].role||'user'; render() } }, ()=>{});
+  listen();
+  if(!_clockTimer) _clockTimer = setInterval(()=>{ if(!$('tab-punch') || $('tab-punch').classList.contains('hidden')) return; renderHero() }, 30000);
+}
+
+let _bound = [];
+function listen(){
+  _bound.forEach(r=>{ try{ r.off() }catch(e){} });
+  _bound = [];
+  const rp = db.ref(P.punches+'/'+ym);
+  rp.on('value', s=>{ punches = s.val() || {}; render() }, ()=>{});
+  const rs = db.ref(P.shifts+'/'+ym);
+  rs.on('value', s=>{ shifts = s.val() || {}; render() }, ()=>{});
+  _bound = [rp, rs];
+}
+function setMonth(next){
+  const [y,mo] = ym.split('-').map(Number);
+  const d = new Date(y, mo-1+next, 1);
+  ym = ymOf(d);
+  listen();
+  render();
+}
+
+/* =========================================================================
+   打卡
+   ========================================================================= */
+async function doPunch(type){
+  await authReady;
+  const st = stateOf(me);
+  if(type==='in' && st.working){ toast('你已經是上班中了'); return }
+  if(type==='out' && !st.working){ toast('還沒打上班卡'); return }
+  const nowYm = ymOf(new Date());
+  try{
+    await db.ref(P.punches+'/'+nowYm+'/'+me).push({
+      type: type, at: firebase.database.ServerValue.TIMESTAMP
+    });
+    logIt(type==='in'?'上班':'下班', '');
+    if(nowYm !== ym){ ym = nowYm; listen() }
+    if(type==='in'){
+      toast('上班打卡完成');
+    }else{
+      setTimeout(askLogout, 400);
+    }
+  }catch(e){ toast('打卡失敗：'+e.message) }
+}
+
+/* 下班打卡後問要不要順手登出 —— 公司電腦忘記登出就是這樣解決的 */
+function askLogout(){
+  const list = dayPunches(me, today());
+  const {segs} = pairDay(list);
+  const mins = segMinutes(segs);
+  const ov = document.createElement('div');
+  ov.className='ov'; ov.style.zIndex='420';
+  ov.innerHTML = '<div class="md" style="max-width:400px;text-align:center">'
+    + '<div style="font-size:13px;font-weight:800;color:var(--grn);letter-spacing:.05em">下班打卡完成</div>'
+    + '<div style="font-size:34px;font-weight:900;font-family:var(--mono);line-height:1.2;margin:6px 0 2px">' + hm(Date.now()) + '</div>'
+    + '<div style="font-size:12.5px;color:var(--dm);line-height:1.7;margin-bottom:18px">今天累計 <b style="color:var(--tx)">' + hrsText(mins) + '</b>'
+    +   '<br>要順手登出嗎？如果這是公司的電腦，建議登出。</div>'
+    + '<div style="display:flex;gap:10px">'
+    +   '<button class="btn" id="pk-stay" style="flex:1;padding:12px">留著不登出</button>'
+    +   '<button class="btn btn-g" id="pk-out" style="flex:1;padding:12px">登出</button>'
+    + '</div></div>';
+  document.body.appendChild(ov);
+  ov.querySelector('#pk-stay').onclick = ()=>{ ov.remove(); toast('下班打卡完成，帳號留著') };
+  ov.querySelector('#pk-out').onclick = ()=>{
+    ov.remove();
+    try{ if(typeof doLogout==='function') doLogout(); else location.reload() }
+    catch(e){ location.reload() }
+  };
+}
+
+/* 補登／代打 —— 只有管理員可以，而且一定留痕 */
+function openFix(user, dateStr){
+  if(!isAdmin()){ toast('補登只有管理員可以做'); return }
+  const ov = document.createElement('div');
+  ov.className='ov';
+  ov.innerHTML = '<div class="md" style="max-width:420px">'
+    + '<h3>補登打卡</h3>'
+    + '<div class="sub">補的這筆會標「補登」跟補的人是誰，跟本人自己打的分開</div>'
+    + '<div class="fld"><label>補給誰</label><select id="fx-u">'
+    +   Object.keys(users).map(u=>'<option value="'+esc(u)+'"'+(u===user?' selected':'')+'>'+esc(u)+'</option>').join('')
+    + '</select></div>'
+    + '<div class="row2">'
+    +   '<div class="fld"><label>日期</label><input id="fx-d" type="date" value="'+esc(dateStr||today())+'"></div>'
+    +   '<div class="fld"><label>時間</label><input id="fx-t" type="time" value="09:00"></div>'
+    + '</div>'
+    + '<div class="fld"><label>上班還是下班</label><div class="seg" id="fx-ty">'
+    +   '<button data-v="in" class="on">上班</button><button data-v="out">下班</button></div></div>'
+    + '<div class="fld"><label>原因（會留在紀錄裡）</label><input id="fx-n" maxlength="60" placeholder="例：忘記打卡，本人口頭回報 9:00 到"></div>'
+    + '<div class="md-ft"><button class="btn" id="fx-c">取消</button><button class="btn btn-g" id="fx-s">補登</button></div>'
+    + '</div>';
+  document.body.appendChild(ov);
+  ov.querySelectorAll('#fx-ty button').forEach(b=>b.onclick=()=>{
+    ov.querySelectorAll('#fx-ty button').forEach(x=>x.classList.toggle('on', x===b));
+  });
+  ov.querySelector('#fx-c').onclick = ()=>ov.remove();
+  ov.onclick = e=>{ if(e.target===ov) ov.remove() };
+  ov.querySelector('#fx-s').onclick = async ()=>{
+    await authReady;
+    const u = ov.querySelector('#fx-u').value;
+    const d = ov.querySelector('#fx-d').value;
+    const t = ov.querySelector('#fx-t').value;
+    const ty = ov.querySelector('#fx-ty button.on').dataset.v;
+    const note = ov.querySelector('#fx-n').value.trim();
+    if(!u || !d || !t){ toast('日期時間要填'); return }
+    const at = new Date(d+'T'+t+':00').getTime();
+    if(isNaN(at)){ toast('時間格式看不懂'); return }
+    try{
+      await db.ref(P.punches+'/'+d.slice(0,7)+'/'+u).push({type:ty, at:at, by:me, note:note});
+      logIt('補登', u+' '+d+' '+t+' '+(ty==='in'?'上班':'下班')+(note?(' / '+note):''));
+      toast('已補登 '+u+' '+d+' '+t);
+      ov.remove();
+      if(d.slice(0,7) !== ym){ ym = d.slice(0,7); listen() }
+    }catch(e){ toast('補登失敗：'+e.message) }
+  };
+}
+
+async function delPunch(user, id){
+  if(!isAdmin()){ toast('只有管理員可以刪打卡紀錄'); return }
+  await authReady;
+  const p = (punches[user]||{})[id];
+  if(!p) return;
+  if(!confirm('刪掉這筆打卡？' + String.fromCharCode(10,10)
+      + user + ' ' + dstr(new Date(p.at)) + ' ' + hm(p.at) + ' ' + (p.type==='in'?'上班':'下班')
+      + String.fromCharCode(10) + '刪掉會影響工時計算，而且沒有垃圾桶。')) return;
+  try{
+    await db.ref(P.punches+'/'+ym+'/'+user+'/'+id).remove();
+    logIt('刪打卡', user+' '+dstr(new Date(p.at))+' '+hm(p.at));
+    toast('已刪除');
+  }catch(e){ toast('刪除失敗：'+e.message) }
+}
+
+/* =========================================================================
+   排班
+   ========================================================================= */
+function openShift(dateStr, user){
+  if(!isAdmin()){ toast('排班只有管理員可以改'); return }
+  const dd = dateStr.slice(8,10);
+  const cur = ((shifts[dd]||{})[user]) || {};
+  const ov = document.createElement('div');
+  ov.className='ov';
+  ov.innerHTML = '<div class="md" style="max-width:400px">'
+    + '<h3>排班</h3><div class="sub">' + esc(user) + '　' + esc(dateStr) + '</div>'
+    + '<div class="row2">'
+    +   '<div class="fld"><label>上班</label><input id="sh-s" type="time" value="'+esc(cur.start||'')+'"></div>'
+    +   '<div class="fld"><label>下班</label><input id="sh-e" type="time" value="'+esc(cur.end||'')+'"></div>'
+    + '</div>'
+    + '<div class="fld"><label>備註（可留白）</label><input id="sh-n" maxlength="30" value="'+esc(cur.note||'')+'" placeholder="例：只顧櫃檯"></div>'
+    + '<div class="md-ft">'
+    +   '<button class="btn" id="sh-off" style="margin-right:auto">設為休假</button>'
+    +   '<button class="btn" id="sh-c">取消</button>'
+    +   '<button class="btn btn-g" id="sh-s2">儲存</button>'
+    + '</div></div>';
+  document.body.appendChild(ov);
+  ov.querySelector('#sh-c').onclick = ()=>ov.remove();
+  ov.onclick = e=>{ if(e.target===ov) ov.remove() };
+  const path = P.shifts+'/'+dateStr.slice(0,7)+'/'+dd+'/'+user;
+  ov.querySelector('#sh-off').onclick = async ()=>{
+    await authReady;
+    try{ await db.ref(path).remove(); logIt('排班清空', user+' '+dateStr); toast('已設為休假'); ov.remove() }
+    catch(e){ toast('失敗：'+e.message) }
+  };
+  ov.querySelector('#sh-s2').onclick = async ()=>{
+    await authReady;
+    const st = ov.querySelector('#sh-s').value, en = ov.querySelector('#sh-e').value;
+    if(!st || !en){ toast('上下班時間都要填，不上班請按「設為休假」'); return }
+    try{
+      await db.ref(path).set({start:st, end:en, note:ov.querySelector('#sh-n').value.trim(), by:me});
+      logIt('排班', user+' '+dateStr+' '+st+'-'+en);
+      toast('排班已存');
+      ov.remove();
+    }catch(e){ toast('失敗：'+e.message) }
+  };
+}
+
+/* =========================================================================
+   畫面
+   ========================================================================= */
+function render(){
+  if(!me) return;
+  renderHero();
+  renderBar();
+  renderToday();
+  renderMonth();
+  renderShift();
+  const b = $('pk-badge');
+  if(b){ const st = stateOf(me); b.textContent = st.working ? '上班中' : '—';
+         b.style.background = st.working ? '#eef7f1' : '#e8eef9';
+         b.style.color = st.working ? '#2d7a4f' : '#1657b5'; }
+}
+
+function renderHero(){
+  const box = $('pk-hero');
+  if(!box) return;
+  const st = stateOf(me);
+  const {segs, openAt} = pairDay(st.list);
+  const done = segMinutes(segs);
+  const live = openAt ? Math.max(0, Math.round((Date.now()-openAt)/60000)) : 0;
+  box.className = 'pk-hero' + (st.working ? ' on' : '');
+  box.innerHTML =
+      '<div class="pk-info">'
+    +   '<div class="pk-state">' + (st.working ? '上班中' : (st.list.length ? '今天已下班' : '尚未打卡')) + '</div>'
+    +   '<div class="pk-clock">' + hm(Date.now()) + '</div>'
+    +   '<div class="pk-sub">' + esc(me) + '　今天累計 <b>' + hrsText(done+live) + '</b>'
+    +     (st.working && openAt ? '（這段從 ' + hm(openAt) + ' 起算中）' : '')
+    +   '</div>'
+    + '</div>'
+    + '<button class="pk-btn' + (st.working ? ' out' : '') + '" id="pk-go">'
+    +   (st.working ? '下班打卡' : '上班打卡') + '</button>';
+  $('pk-go').onclick = ()=>doPunch(st.working ? 'out' : 'in');
+}
+
+function renderBar(){
+  const box = $('pk-bar');
+  if(!box) return;
+  let h = '';
+  if(isAdmin()){
+    const names = Object.keys(users).sort();
+    h += '<button class="chip' + (who===''?' on':'') + '" data-w="">我自己</button>';
+    h += names.filter(n=>n!==me).map(n=>'<button class="chip' + (who===n?' on':'') + '" data-w="'+esc(n)+'">'+esc(n)+'</button>').join('');
+    h += '<span style="flex:1"></span><button class="btn btn-sm" id="pk-fix">補登打卡</button>';
+  }else{
+    h = '<span style="font-size:11px;color:var(--dm)">打卡紀錄只有你自己和管理員看得到</span>';
+  }
+  box.innerHTML = h;
+  box.querySelectorAll('.chip[data-w]').forEach(b=>b.onclick=()=>{ who=b.dataset.w; render() });
+  const f = $('pk-fix');
+  if(f) f.onclick = ()=>openFix(target(), today());
+}
+
+function renderToday(){
+  const box = $('pk-today');
+  if(!box) return;
+  const u = target();
+  const list = dayPunches(u, today());
+  const {segs, openAt} = pairDay(list);
+  const mins = segMinutes(segs) + (openAt ? Math.max(0, Math.round((Date.now()-openAt)/60000)) : 0);
+  box.innerHTML = '<div class="pk-card">'
+    + '<div class="pk-h">今天 · ' + esc(u) + '<span class="sp"></span><span class="mini">' + today() + '</span></div>'
+    + '<div class="pk-b">'
+    + (list.length
+        ? '<div class="pk-sum"><span class="v">' + hrsText(mins) + '</span><span class="sp"></span>'
+          + '<span class="side">' + list.length + ' 筆打卡' + (openAt ? '<br>上班中，持續累計' : '') + '</span></div>'
+          + list.map(p=>
+              '<div class="pk-row">'
+              + '<span class="pk-tag ' + (p.type==='in'?'i':'o') + '">' + (p.type==='in'?'上班':'下班') + '</span>'
+              + '<span class="pk-t">' + hm(p.at) + '</span>'
+              + (p.by ? '<span class="pk-fix">補登 · ' + esc(p.by) + '</span>' : '')
+              + '<span class="pk-note">' + esc(p.note||'') + '</span>'
+              + (isAdmin() ? '<button class="pk-del" data-del="'+esc(p.id)+'" title="刪除">×</button>' : '')
+              + '</div>').join('')
+        : '<div class="pk-empty">今天還沒打卡。<br>上面那顆綠色按鈕按下去就好。</div>')
+    + '</div></div>';
+  box.querySelectorAll('[data-del]').forEach(b=>b.onclick=()=>delPunch(u, b.dataset.del));
+}
+
+function renderMonth(){
+  const box = $('pk-month');
+  if(!box) return;
+  const u = target();
+  const nd = monthDays();
+  let total = 0;
+  const rows = [];
+  for(let d=1; d<=nd; d++){
+    const ds = ym + '-' + two(d);
+    const list = dayPunches(u, ds);
+    if(!list.length) continue;
+    const {segs, openAt} = pairDay(list);
+    const mins = segMinutes(segs);
+    total += mins;
+    const txt = segs.map(([a,b])=>hm(a)+'–'+hm(b)).join('  ');
+    const warn = openAt ? '<span class="pk-warn">缺下班卡</span>' : '';
+    rows.push('<div class="pk-day"><span class="d">' + ds.slice(5) + '</span>'
+      + '<span class="seg">' + (txt || '—') + ' ' + warn + '</span>'
+      + '<span class="hr">' + (mins ? hrsText(mins) : '—') + '</span></div>');
+  }
+  box.innerHTML = '<div class="pk-card">'
+    + '<div class="pk-h"><span class="sh-nav"><button class="btn btn-sm" id="pk-prev">‹</button>'
+    +   '<span>' + ym + ' 工時</span>'
+    +   '<button class="btn btn-sm" id="pk-next">›</button></span>'
+    +   '<span class="sp"></span><span class="mini">' + esc(u) + '</span></div>'
+    + '<div class="pk-b">'
+    +   '<div class="pk-sum"><span class="v">' + hrsText(total) + '</span><span class="sp"></span>'
+    +     '<span class="side">' + rows.length + ' 天有出勤</span></div>'
+    +   (rows.length ? rows.join('') : '<div class="pk-empty">這個月還沒有打卡紀錄</div>')
+    + '</div></div>';
+  $('pk-prev').onclick = ()=>setMonth(-1);
+  $('pk-next').onclick = ()=>setMonth(1);
+}
+
+function renderShift(){
+  const box = $('pk-shift');
+  if(!box) return;
+  const start = shiftWeekStart || mondayOf(new Date());
+  const days = [];
+  for(let i=0;i<7;i++){ const d=new Date(start); d.setDate(d.getDate()+i); days.push(d) }
+  const wd = ['一','二','三','四','五','六','日'];
+  const t = today();
+  const names = isAdmin() ? Object.keys(users).sort() : [me];
+
+  let html = '<div class="pk-h"><span class="sh-nav">'
+    + '<button class="btn btn-sm" id="sh-prev">‹ 上週</button>'
+    + '<button class="btn btn-sm" id="sh-this">本週</button>'
+    + '<button class="btn btn-sm" id="sh-next">下週 ›</button></span>'
+    + '<span class="sp"></span><span class="mini">'
+    + (isAdmin() ? '點格子可以排班' : '排班由管理員安排') + '</span></div>'
+    + '<div class="sh-wrap"><table class="sh-tbl"><thead><tr><th>　</th>'
+    + days.map(d=>'<th'+(dstr(d)===t?' class="today"':'')+'>'+(d.getMonth()+1)+'/'+d.getDate()+'<br>週'+wd[(d.getDay()+6)%7]+'</th>').join('')
+    + '</tr></thead><tbody>';
+
+  names.forEach(u=>{
+    html += '<tr><td class="who">' + esc(u) + '</td>';
+    days.forEach(d=>{
+      const ds = dstr(d);
+      const same = ds.slice(0,7) === ym;
+      const sh = same ? ((shifts[ds.slice(8,10)]||{})[u]) : null;
+      const inner = sh
+        ? esc(sh.start) + '–' + esc(sh.end) + (sh.note ? '<span class="note">'+esc(sh.note)+'</span>' : '')
+        : '<span class="off">休</span>';
+      html += '<td' + (ds===t?' class="today"':'') + '>'
+        + '<div class="sh-cell' + (isAdmin()?' editable':'') + '" data-d="'+ds+'" data-u="'+esc(u)+'">' + inner + '</div></td>';
+    });
+    html += '</tr>';
+  });
+  html += '</tbody></table></div>';
+  box.className = 'pk-shift';
+  box.innerHTML = html;
+
+  $('sh-prev').onclick = ()=>{ const d=new Date(shiftWeekStart); d.setDate(d.getDate()-7); shiftWeekStart=d; syncMonth(d); };
+  $('sh-next').onclick = ()=>{ const d=new Date(shiftWeekStart); d.setDate(d.getDate()+7); shiftWeekStart=d; syncMonth(d); };
+  $('sh-this').onclick = ()=>{ shiftWeekStart = mondayOf(new Date()); syncMonth(shiftWeekStart); };
+  if(isAdmin()){
+    box.querySelectorAll('.sh-cell.editable').forEach(c=>c.onclick=()=>openShift(c.dataset.d, c.dataset.u));
+  }
+}
+/* 排班週跨到別的月份時，把監聽也切過去，不然格子會是空的 */
+function syncMonth(d){
+  const m = ymOf(d);
+  if(m !== ym){ ym = m; listen() } else render();
+}
+
+/* 本體登入完成才有 currentUser，等到了再啟動（登入是非同步的，
+   而且使用者可能登出換人，所以換人也要重跑一次 init）。 */
+(function waitLogin(){
+  try{
+    if(currentUser && currentUser !== me){ me = null; _inited = false; init(); }
+  }catch(e){}
+  setTimeout(waitLogin, 1000);
+})();
+
+return {
+  init:   init,
+  render: function(){ if(me) render(); else if(currentUser){ init() } },
+  state:  function(){ return me ? stateOf(me) : null }
+};
+})();
+
 </script>
 </body>
 </html>
