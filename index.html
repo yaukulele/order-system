@@ -7225,6 +7225,13 @@ async function doPunch(type){
 }
 
 /* 下班打卡後問要不要順手登出 —— 公司電腦忘記登出就是這樣解決的 */
+/* 彈窗要掛在 .tdmod 底下才吃得到 .ov / .md 的樣式（那組樣式是關在 .tdmod 裡面的）。
+   直接 document.body.appendChild 會變成沒有半透明底、沒有置中白卡的裸文字。 */
+function pkLayer(){
+  let el = document.getElementById('td-layer');
+  if(!el){ el = document.createElement('div'); el.id='td-layer'; el.className='tdmod'; document.body.appendChild(el) }
+  return el;
+}
 function askLogout(){
   const list = dayPunches(me, today());
   const {segs} = pairDay(list);
@@ -7240,7 +7247,7 @@ function askLogout(){
     +   '<button class="btn" id="pk-stay" style="flex:1;padding:12px">留著不登出</button>'
     +   '<button class="btn btn-g" id="pk-out" style="flex:1;padding:12px">登出</button>'
     + '</div></div>';
-  document.body.appendChild(ov);
+  pkLayer().appendChild(ov);
   ov.querySelector('#pk-stay').onclick = ()=>{ ov.remove(); toast('下班打卡完成，帳號留著') };
   ov.querySelector('#pk-out').onclick = ()=>{
     ov.remove();
@@ -7269,7 +7276,7 @@ function openFix(user, dateStr){
     + '<div class="fld"><label>原因（會留在紀錄裡）</label><input id="fx-n" maxlength="60" placeholder="例：忘記打卡，本人口頭回報 9:00 到"></div>'
     + '<div class="md-ft"><button class="btn" id="fx-c">取消</button><button class="btn btn-g" id="fx-s">補登</button></div>'
     + '</div>';
-  document.body.appendChild(ov);
+  pkLayer().appendChild(ov);
   ov.querySelectorAll('#fx-ty button').forEach(b=>b.onclick=()=>{
     ov.querySelectorAll('#fx-ty button').forEach(x=>x.classList.toggle('on', x===b));
   });
@@ -7331,7 +7338,7 @@ function openShift(dateStr, user){
     +   '<button class="btn" id="sh-c">取消</button>'
     +   '<button class="btn btn-g" id="sh-s2">儲存</button>'
     + '</div></div>';
-  document.body.appendChild(ov);
+  pkLayer().appendChild(ov);
   ov.querySelector('#sh-c').onclick = ()=>ov.remove();
   ov.onclick = e=>{ if(e.target===ov) ov.remove() };
   const path = P.shifts+'/'+dateStr.slice(0,7)+'/'+dd+'/'+user;
