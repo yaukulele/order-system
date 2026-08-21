@@ -982,6 +982,9 @@ body.has-batch-bar .main{padding-bottom:140px}
   .pmod .pk-clock{font-size:32px}
   .pmod .pk-btn{width:100%;min-width:0;padding:16px;font-size:16px}
 }
+
+.pmod .pk-rest{font-size:9.5px;font-weight:800;color:var(--amb);background:var(--amb-bg);border:1px solid var(--amb);border-radius:4px;padding:1px 5px;margin-left:6px;white-space:nowrap}
+.pmod .side2{display:block;font-size:10px;color:var(--ht);font-family:var(--mono);margin-top:2px}
 </style>
 </head>
 <body>
@@ -7594,19 +7597,22 @@ function renderMonth(){
   const nd = monthDays();
   let total = 0;
   const rows = [];
-  for(let d=1; d<=nd; d++){
-    const ds = ym + '-' + two(d);
-    const list = dayPunches(u, ds);
-    if(!list.length) continue;
-    const {segs, openAt} = pairDay(list);
-    const mins = segMinutes(segs);
-    total += mins;
-    const txt = segs.map(([a,b])=>hm(a)+'–'+hm(b)).join('  ');
-    const warn = openAt ? '<span class="pk-warn">缺下班卡</span>' : '';
-    rows.push('<div class="pk-day"><span class="d">' + ds.slice(5) + '</span>'
-      + '<span class="seg">' + (txt || '—') + ' ' + warn + '</span>'
-      + '<span class="hr">' + (mins ? hrsText(mins) : '—') + '</span></div>');
-  }
+  // 走 monthStats —— 跟 CSV、領薪簽名表用同一份算法。
+  // 原本這裡自己算一次而且沒扣休息，畫面顯示 8.5 小時、匯出檔卻是 8 小時，
+  // 同一個月兩個數字，拿去對薪水一定會吵起來。
+  const _ms = monthStats().per[u] || {days:[], mins:0, gross:0, rest:0};
+  total = _ms.mins;
+  _ms.days.forEach(d=>{
+    const txt = d.segs.map(([a,b])=>hm(a)+'–'+hm(b)).join('  ');
+    const warn = d.openAt ? '<span class="pk-warn">缺下班卡</span>' : '';
+    const restTag = d.rest ? '<span class="pk-rest">休' + d.rest + '</span>' : '';
+    rows.push('<div class="pk-day"><span class="d">' + d.ds.slice(5) + '</span>'
+      + '<span class="seg">' + (txt || '—') + ' ' + warn + restTag + '</span>'
+      + '<span class="hr">' + (d.mins ? hrsText(d.mins) : '—') + '</span></div>');
+  });
+  const _restNote = _ms.rest
+    ? '<span class="side2">已扣休息 ' + hrsText(_ms.rest) + '（毛 ' + hrsText(_ms.gross) + '）</span>'
+    : '';
   box.innerHTML = '<div class="pk-card">'
     + '<div class="pk-h"><span class="sh-nav"><button class="btn btn-sm" id="pk-prev">‹</button>'
     +   '<span>' + ym + ' 工時</span>'
@@ -7615,7 +7621,7 @@ function renderMonth(){
     +   '<span class="mini">' + esc(u) + '</span></div>'
     + '<div class="pk-b">'
     +   '<div class="pk-sum"><span class="v">' + hrsText(total) + '</span><span class="sp"></span>'
-    +     '<span class="side">' + rows.length + ' 天有出勤</span></div>'
+    +     '<span class="side">' + rows.length + ' 天有出勤' + _restNote + '</span></div>'
     +   (rows.length ? rows.join('') : '<div class="pk-empty">這個月還沒有打卡紀錄</div>')
     + '</div></div>';
   $('pk-prev').onclick = ()=>setMonth(-1);
@@ -7649,10 +7655,24 @@ function dlCSV(name, rows){
 /* 這個月每個人的工時 —— 三種輸出共用同一份算法，不會出現兩張表對不起來 */
 /* 當天排班上填的休息時間（分鐘）。休息不算工時，所以要從打卡時數扣掉 —— 
    13:30-22:00 打卡是 8.5 小時，休 30 分實領工時是 8 小時。沒填就是 0，不扣。 */
-function dayRest(user, dateStr){
+/* 勞基法 §35：繼續工作四小時應有三十分鐘休息。
+   杰哥 2026-08-21 給的兩週班表拿來對，這條規則 34 個班全部吻合、沒有例外：
+     4 小時以內      不扣  （18:00-22:00、13:30-17:30 剛好 4 小時，班表上確實沒寫休）
+     超過 4 到 9 小時 扣 30（13:30-22:00、10:00-14:30、12:00-21:00 → 都是他寫的「休30」）
+     超過 9 小時      扣 60（建杰 8/30 的 10:00-20:00 → 他寫的正是「休30+30」）
+   他也確認過：店裡休息不會叫員工打下班卡，所以不會發生「自己打了卡又被自動扣」重複扣兩次。 */
+function legalRest(grossMin){
+  if(grossMin <= 240) return 0;
+  if(grossMin <= 540) return 30;
+  return 60;
+}
+function dayRest(user, dateStr, grossMin){
   const sh = (shifts[dateStr.slice(8,10)] || {})[user];
   const r = sh && sh.rest;
-  return (typeof r === 'number' && r > 0) ? r : 0;
+  // 排班上有明確指定就照指定（包含指定 0＝這天沒休息），沒指定才走法定規則。
+  // 原本寫 r > 0，指定 0 會被當成沒設定而自動扣 30，等於管不掉。
+  if(typeof r === 'number' && r >= 0) return r;
+  return legalRest(grossMin || 0);
 }
 function monthStats(){
   const nd = monthDays();
@@ -7667,7 +7687,7 @@ function monthStats(){
       if(!list.length) continue;
       const {segs, openAt} = pairDay(list);
       const g = segMinutes(segs);
-      const r = g > 0 ? Math.min(dayRest(u, ds), g) : 0;   // 休息不會扣到變負的
+      const r = g > 0 ? Math.min(dayRest(u, ds, g), g) : 0;   // 休息不會扣到變負的
       const m = g - r;
       if(openAt) missing++;
       gross += g; rest += r; mins += m;
