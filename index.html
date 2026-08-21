@@ -7213,6 +7213,7 @@ function init(){
 
   db.ref('users').on('value', s=>{ const v=s.val(); if(v){ users=v; if(users[me]) myRole=users[me].role||'user'; render() } }, ()=>{});
   db.ref('userOrder').on('value', s=>{ const v=s.val(); userOrder = Array.isArray(v) ? v : []; render() }, ()=>{});
+  db.ref('payRates').on('value', s=>{ payRates = s.val() || {}; render() }, ()=>{});
   listen();
   if(!_clockTimer) _clockTimer = setInterval(()=>{ if(!$('tab-punch') || $('tab-punch').classList.contains('hidden')) return; renderHero() }, 30000);
 }
@@ -7439,7 +7440,12 @@ function renderBar(){
     const names = orderedUsers();
     h += '<button class="chip' + (who===''?' on':'') + '" data-w="">我自己</button>';
     h += names.filter(n=>n!==me).map(n=>'<button class="chip' + (who===n?' on':'') + '" data-w="'+esc(n)+'">'+esc(n)+'</button>').join('');
-    h += '<span style="flex:1"></span><button class="btn btn-sm" id="pk-fix">補登打卡</button>';
+    h += '<span style="flex:1"></span>'
+       + '<button class="btn btn-sm" id="pk-rate">時薪</button>'
+       + '<button class="btn btn-sm" id="pk-csv1">明細 CSV</button>'
+       + '<button class="btn btn-sm" id="pk-csv2">彙總 CSV</button>'
+       + '<button class="btn btn-sm btn-b" id="pk-pay">領薪簽名表</button>'
+       + '<button class="btn btn-sm" id="pk-fix">補登打卡</button>';
   }else{
     h = '<span style="font-size:11px;color:var(--dm)">打卡紀錄只有你自己和管理員看得到</span>';
   }
@@ -7447,6 +7453,11 @@ function renderBar(){
   box.querySelectorAll('.chip[data-w]').forEach(b=>b.onclick=()=>{ who=b.dataset.w; render() });
   const f = $('pk-fix');
   if(f) f.onclick = ()=>openFix(target(), today());
+  const bind = (id, fn)=>{ const b=$(id); if(b) b.onclick = fn; };
+  bind('pk-rate', openRates);
+  bind('pk-csv1', exportDaily);
+  bind('pk-csv2', exportSummary);
+  bind('pk-pay',  printPayroll);
 }
 
 function renderToday(){
@@ -7499,7 +7510,8 @@ function renderMonth(){
     + '<div class="pk-h"><span class="sh-nav"><button class="btn btn-sm" id="pk-prev">‹</button>'
     +   '<span>' + ym + ' 工時</span>'
     +   '<button class="btn btn-sm" id="pk-next">›</button></span>'
-    +   '<span class="sp"></span><span class="mini">' + esc(u) + '</span></div>'
+    +   '<span class="sp"></span>'
+    +   '<span class="mini">' + esc(u) + '</span></div>'
     + '<div class="pk-b">'
     +   '<div class="pk-sum"><span class="v">' + hrsText(total) + '</span><span class="sp"></span>'
     +     '<span class="side">' + rows.length + ' 天有出勤</span></div>'
@@ -7507,6 +7519,191 @@ function renderMonth(){
     + '</div></div>';
   $('pk-prev').onclick = ()=>setMonth(-1);
   $('pk-next').onclick = ()=>setMonth(1);
+}
+
+/* =========================================================================
+   匯出 — 算薪水用
+   -------------------------------------------------------------------------
+   三種輸出，都只有管理員能按：
+     1) 逐日明細 CSV：哪天、誰、幾點上下班、當天幾小時、有沒有補登
+     2) 當月彙總 CSV：一人一列，出勤幾天、總時數
+     3) 領薪簽名表：印出來給人簽的 A4，含時薪與試算金額
+   CSV 一律加 UTF-8 BOM，Excel 跟 Numbers 開中文都不會變亂碼。
+   ========================================================================= */
+let payRates = {};   // {user: 時薪}
+
+function csvCell2(v){
+  const s = String(v==null?'':v);
+  return /[",\n]/.test(s) ? '"' + s.replace(/"/g,'""') + '"' : s;
+}
+function dlCSV(name, rows){
+  const csv = '﻿' + rows.map(r=>r.map(csvCell2).join(',')).join('\r\n');
+  const blob = new Blob([csv], {type:'text/csv;charset=utf-8'});
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url; a.download = name;
+  document.body.appendChild(a); a.click();
+  setTimeout(()=>{ URL.revokeObjectURL(url); a.remove() }, 400);
+}
+/* 這個月每個人的工時 —— 三種輸出共用同一份算法，不會出現兩張表對不起來 */
+function monthStats(){
+  const nd = monthDays();
+  const names = orderedUsers();
+  const per = {};
+  names.forEach(u=>{
+    const days = [];
+    let mins = 0, missing = 0;
+    for(let d=1; d<=nd; d++){
+      const ds = ym + '-' + two(d);
+      const list = dayPunches(u, ds);
+      if(!list.length) continue;
+      const {segs, openAt} = pairDay(list);
+      const m = segMinutes(segs);
+      if(openAt) missing++;
+      mins += m;
+      days.push({ds, segs, mins:m, openAt, list});
+    }
+    per[u] = {days, mins, missing};
+  });
+  return {names, per};
+}
+function hrDec(min){ return Math.round(min/60*100)/100 }   // 2.5 小時這種，Excel 可直接乘
+
+function exportDaily(){
+  const {names, per} = monthStats();
+  const rows = [['日期','星期','姓名','上班','下班','時數(小時)','狀態','備註']];
+  const wd = ['日','一','二','三','四','五','六'];
+  names.forEach(u=>{
+    per[u].days.forEach(d=>{
+      const w = wd[new Date(d.ds+'T00:00:00').getDay()];
+      if(d.segs.length){
+        d.segs.forEach(([a,b], i)=>{
+          const fixed = d.list.some(p=>p.by);
+          rows.push([d.ds, w, u, hm(a), hm(b), hrDec(Math.round((b-a)/60000)),
+                     i===0 ? '正常' : '同日第'+(i+1)+'段', fixed ? '含補登' : '']);
+        });
+      }
+      if(d.openAt) rows.push([d.ds, w, u, hm(d.openAt), '', 0, '缺下班卡', '這段沒有計入時數']);
+    });
+  });
+  if(rows.length === 1){ toast('這個月沒有打卡紀錄可以匯出'); return }
+  dlCSV('打卡明細_' + ym + '.csv', rows);
+  logIt('匯出明細', ym);
+}
+
+function exportSummary(){
+  const {names, per} = monthStats();
+  const rows = [['姓名','出勤天數','總時數(小時)','總時數(時:分)','缺下班卡天數','時薪','試算金額']];
+  let any = false;
+  names.forEach(u=>{
+    const p = per[u];
+    if(!p.days.length) return;
+    any = true;
+    const rate = payRates[u] || '';
+    rows.push([u, p.days.length, hrDec(p.mins), hrsText(p.mins), p.missing || '',
+               rate, rate ? Math.round(hrDec(p.mins) * rate) : '']);
+  });
+  if(!any){ toast('這個月沒有打卡紀錄可以匯出'); return }
+  rows.push([]);
+  rows.push(['※ 試算金額 = 總時數 × 時薪，只是幫忙省計算機，實際發薪請自行核對']);
+  dlCSV('工時彙總_' + ym + '.csv', rows);
+  logIt('匯出彙總', ym);
+}
+
+/* 領薪簽名表：直接開列印視窗，A4 一頁 */
+function printPayroll(){
+  const {names, per} = monthStats();
+  const list = names.filter(u=>per[u].days.length);
+  if(!list.length){ toast('這個月沒有打卡紀錄'); return }
+  const w = window.open('', '_blank');
+  if(!w){ alert('請允許彈出視窗才能列印'); return }
+  const rows = list.map(u=>{
+    const p = per[u];
+    const rate = payRates[u];
+    const amt = rate ? Math.round(hrDec(p.mins) * rate) : '';
+    return '<tr>'
+      + '<td class="nm">' + esc(u) + '</td>'
+      + '<td>' + p.days.length + '</td>'
+      + '<td>' + hrDec(p.mins) + '</td>'
+      + '<td>' + (rate ? rate : '') + '</td>'
+      + '<td class="amt">' + (amt !== '' ? amt.toLocaleString() : '') + '</td>'
+      + '<td class="sign"></td>'
+      + '</tr>';
+  }).join('');
+  const totalAmt = list.reduce((n,u)=>{
+    const r = payRates[u];
+    return n + (r ? Math.round(hrDec(per[u].mins) * r) : 0);
+  }, 0);
+  w.document.write('<!DOCTYPE html><html lang="zh-TW"><head><meta charset="utf-8">'
+    + '<title>領薪簽名表 ' + ym + '</title><style>'
+    + '@page{size:A4;margin:14mm}'
+    + '*{box-sizing:border-box}'
+    + 'body{font-family:-apple-system,"Noto Sans TC","Microsoft JhengHei",sans-serif;color:#111;margin:0}'
+    + 'h1{font-size:19px;margin:0 0 2px;letter-spacing:.04em}'
+    + '.sub{font-size:11px;color:#666;margin-bottom:14px}'
+    + 'table{width:100%;border-collapse:collapse;table-layout:fixed}'
+    + 'th,td{border:1px solid #333;padding:9px 6px;font-size:12.5px;text-align:center}'
+    + 'th{background:#f0efe9;font-weight:700;font-size:11.5px}'
+    + 'td.nm{font-weight:700;text-align:left;padding-left:10px}'
+    + 'td.amt{font-family:"Menlo",monospace;font-weight:700;text-align:right;padding-right:10px}'
+    + 'td.sign{height:42px}'
+    + 'tr{break-inside:avoid;page-break-inside:avoid}'
+    + 'tfoot td{font-weight:800;background:#f7f6f2}'
+    + '.note{margin-top:12px;font-size:10.5px;color:#666;line-height:1.7}'
+    + '.sigline{margin-top:26px;font-size:12px;display:flex;gap:40px}'
+    + '.sigline div{flex:1;border-top:1px solid #333;padding-top:5px}'
+    + '</style></head><body>'
+    + '<h1>' + ym.replace('-', ' 年 ') + ' 月　薪資發放簽名表</h1>'
+    + '<div class="sub">列印時間：' + new Date().toLocaleString('zh-TW') + '　·　資料來源：打卡紀錄</div>'
+    + '<table><thead><tr>'
+    + '<th style="width:16%">姓名</th><th style="width:11%">出勤天數</th><th style="width:14%">總時數</th>'
+    + '<th style="width:12%">時薪</th><th style="width:17%">應付金額</th><th style="width:30%">簽名</th>'
+    + '</tr></thead><tbody>' + rows + '</tbody>'
+    + (totalAmt ? '<tfoot><tr><td colspan="4" style="text-align:right;padding-right:10px">合計</td>'
+        + '<td class="amt">' + totalAmt.toLocaleString() + '</td><td></td></tr></tfoot>' : '')
+    + '</table>'
+    + '<div class="note">※ 金額為系統依「總時數 × 時薪」試算，未包含加班費、全勤、遲到扣款等其他項目，實際發放金額請自行核對。<br>'
+    + '※ 時數來自打卡紀錄；缺下班卡的日子該段不計入時數。</div>'
+    + '<div class="sigline"><div>製表人：</div><div>負責人：</div></div>'
+    + '</body></html>');
+  w.document.close();
+  setTimeout(()=>{ try{ w.focus(); w.print() }catch(e){} }, 350);
+  logIt('列印領薪表', ym);
+}
+
+/* 時薪設定 —— 設過一次就記住，下個月自動帶入 */
+function openRates(){
+  if(!isAdmin()){ toast('只有管理員能設時薪'); return }
+  const names = orderedUsers();
+  const ov = document.createElement('div');
+  ov.className='ov';
+  ov.innerHTML = '<div class="md" style="max-width:420px">'
+    + '<h3>時薪設定</h3>'
+    + '<div class="sub">設好之後匯出跟領薪表會自動帶入；留白就不試算金額，印出來讓你手寫</div>'
+    + names.map(u=>'<div class="fld"><label>' + esc(u) + '</label>'
+        + '<input type="number" min="0" step="1" data-u="' + esc(u) + '" '
+        + 'value="' + (payRates[u] || '') + '" placeholder="例：196"></div>').join('')
+    + '<div class="md-ft"><button class="btn" id="rt-c">取消</button>'
+    +   '<button class="btn btn-g" id="rt-s">儲存</button></div></div>';
+  document.body.appendChild(ov);
+  ov.querySelector('#rt-c').onclick = ()=>ov.remove();
+  ov.onclick = e=>{ if(e.target===ov) ov.remove() };
+  ov.querySelector('#rt-s').onclick = async ()=>{
+    await authReady;
+    const obj = {};
+    ov.querySelectorAll('input[data-u]').forEach(i=>{
+      const v = parseInt(i.value, 10);
+      if(!isNaN(v) && v > 0) obj[i.dataset.u] = v;
+    });
+    try{
+      await db.ref('payRates').set(obj);
+      payRates = obj;
+      logIt('改時薪', Object.keys(obj).map(k=>k+':'+obj[k]).join('、'));
+      toast('時薪已存');
+      ov.remove();
+      render();
+    }catch(e){ toast('存檔失敗：'+e.message) }
+  };
 }
 
 function renderShift(){
