@@ -795,6 +795,27 @@ body.has-batch-bar .main{padding-bottom:140px}
 .tdmod .tk-empty{padding:26px 12px;text-align:center;color:var(--ht);font-size:12px}
 
 
+/* ===== 公告：要一直放著提醒的事，不會被勾掉也不會過期 ===== */
+.tdmod .anc{margin-bottom:14px}
+.tdmod .anc-box{background:linear-gradient(180deg,var(--amb-bg) 0%,var(--sf) 62%);border:1px solid var(--amb);border-radius:14px;padding:14px 16px}
+.tdmod .anc-h{display:flex;align-items:center;gap:8px;margin-bottom:2px}
+.tdmod .anc-h b{font-size:13px;font-weight:800;color:var(--amb);letter-spacing:.03em}
+.tdmod .anc-h .n{font-family:var(--mono);font-size:11px;color:var(--amb);opacity:.8}
+.tdmod .anc-h .sp{flex:1}
+.tdmod .anc-fold{border:0;background:transparent;color:var(--amb);font-size:11px;font-weight:700;padding:2px 6px;cursor:pointer}
+.tdmod .anc-list{margin-top:9px}
+.tdmod .anc-i{display:flex;gap:9px;align-items:flex-start;padding:8px 0;border-bottom:1px solid rgba(184,134,11,.22)}
+.tdmod .anc-i:last-child{border-bottom:0}
+.tdmod .anc-i .dot{width:7px;height:7px;border-radius:50%;background:var(--amb);flex:none;margin-top:7px}
+.tdmod .anc-i .x{flex:1;min-width:0;font-size:13.5px;line-height:1.65;white-space:pre-wrap;word-break:break-word;font-weight:600}
+.tdmod .anc-i .who{font-size:10px;color:var(--ht);font-family:var(--mono);margin-top:3px;font-weight:400}
+.tdmod .anc-i .act{display:flex;gap:4px;flex:none}
+.tdmod .anc-i .act button{width:24px;height:24px;border-radius:6px;border:1px solid transparent;background:transparent;color:var(--ht);display:flex;align-items:center;justify-content:center;padding:0;cursor:pointer}
+.tdmod .anc-i .act button:hover{border-color:var(--amb);color:var(--amb)}
+.tdmod .anc-i .act svg{width:13px;height:13px;stroke:currentColor;fill:none;stroke-width:1.9;stroke-linecap:round;stroke-linejoin:round}
+.tdmod .anc-empty{font-size:12.5px;color:var(--dm);padding:4px 0 2px;line-height:1.7}
+.tdmod .anc-add{margin-top:10px}
+
 /* ===== 我的紀錄 ===== */
 .tdmod .rc-nums{display:grid;grid-template-columns:repeat(auto-fit,minmax(178px,1fr));gap:12px;margin-top:14px}
 
@@ -900,6 +921,7 @@ body.has-batch-bar .main{padding-bottom:140px}
   </div>
 
   <div id="view-notes">
+    <div class="anc" id="anc"></div>
     <div class="bar" id="bar"></div>
     <div class="board" id="board"></div>
     <div class="done-sec">
@@ -5765,6 +5787,7 @@ const PATHS = {
   settings: 'todoSettings',
   snooze:   'todoSnooze',
   goals:    'goals',
+  anc:      'announcements',   // 公告：常駐提醒，不會被勾掉
   log:      'activityLog'       // 沿用主系統的操作紀錄
 };
 
@@ -5796,7 +5819,8 @@ let users = {};                                   // {name:{password, role}}
 let settings = {enabled:true, everyMin:DEFAULT_EVERY};
 let snoozeUntil = 0;                              // 我自己的（存 Firebase，換裝置也生效）
 let fCat = 'all', fMine = false;
-let goals = [];                                   // 個人目標 [{id, owner, title, target, unit, start, end, log:{}}]
+let goals = [];
+let ancs = [];                   // 公告                                   // 個人目標 [{id, owner, title, target, unit, start, end, log:{}}]
 let view = 'notes';                               // 'notes' | 'goals'
 let gWho = '';                                    // 目標頁的人員篩選（管理員限定，'' = 全部人）
 let sessionStart = Date.now();
@@ -5886,6 +5910,11 @@ function onReady(){
     goals = Object.keys(v).map(k=>Object.assign({id:k}, v[k]));
     render();
   });
+  db.ref(PATHS.anc).on('value', s=>{
+    const v = s.val() || {};
+    ancs = Object.keys(v).map(k=>Object.assign({id:k}, v[k])).sort((a,b)=>(b.at||0)-(a.at||0));
+    render();
+  });
 
   $('vtabs').querySelectorAll('.vtab').forEach(b=>b.onclick=()=>setView(b.dataset.v));
   // 新增鈕看目前在哪一頁：便利貼頁開便利貼、目標頁開目標
@@ -5962,8 +5991,112 @@ function render(){
   $('vt-notes').textContent = open.length;
   const myGoals = goals.filter(goalVisible);
   $('vt-goals').textContent = myGoals.length;
+  renderAnc();
   renderGoals();
   renderRec();
+}
+
+/* =========================================================================
+   公告 — 要一直放著提醒的事（例：出貨前一定要拍照、颱風天配送規則）。
+   跟便利貼的差別：不會被勾掉、不會過期、不進提醒輪播，就是常駐在最上面。
+   只有管理員能貼／改／刪，其他人只能看 —— 公告是店規，不是待辦。
+   ========================================================================= */
+function renderAnc(){
+  const box = $('anc');
+  if(!box) return;
+  const folded = lsGet('todoAncFold', false);
+  const canEdit = isAdmin();
+  if(!ancs.length && !canEdit){ box.innerHTML=''; return }   // 沒公告又不是管理員，整塊不佔位
+
+  let html = '<div class="anc-box"><div class="anc-h">'
+    + '<b>公告</b><span class="n">' + ancs.length + '</span><span class="sp"></span>'
+    + (ancs.length ? '<button class="anc-fold" id="anc-fold">' + (folded ? '展開' : '收起') + '</button>' : '')
+    + (canEdit ? '<button class="btn btn-sm" id="anc-new">＋ 貼公告</button>' : '')
+    + '</div>';
+
+  if(!folded){
+    html += '<div class="anc-list">';
+    if(ancs.length){
+      html += ancs.map(a=>{
+        const t = a.editedAt || a.at;
+        const who = (a.editedBy && a.editedBy !== a.by)
+              ? (esc(a.by||'?') + ' 貼 · ' + esc(a.editedBy) + ' 改於 ' + fmtTime(t))
+              : (esc(a.by||'?') + ' · ' + fmtTime(t));
+        return '<div class="anc-i" data-id="' + esc(a.id) + '">'
+          + '<span class="dot"></span>'
+          + '<div class="x">' + esc(a.text||'') + '<div class="who">' + who + '</div></div>'
+          + (canEdit ? '<span class="act">'
+              + '<button data-aact="edit" title="修改"><svg viewBox="0 0 24 24"><path d="M11 4H4v16h16v-7"/><path d="M18.5 2.5a2.1 2.1 0 0 1 3 3L12 15l-4 1 1-4z"/></svg></button>'
+              + '<button data-aact="del" title="撤下"><svg viewBox="0 0 24 24"><path d="M3 6h18M8 6V4h8v2M19 6l-1 14H6L5 6"/></svg></button>'
+            + '</span>' : '')
+          + '</div>';
+      }).join('');
+    }else{
+      html += '<div class="anc-empty">還沒有公告。要一直提醒大家的事寫在這裡 —— 它不會被勾掉，也不會過期。</div>';
+    }
+    html += '</div>';
+  }
+  html += '</div>';
+  box.innerHTML = html;
+
+  const fb = $('anc-fold');
+  if(fb) fb.onclick = ()=>{ lsSet('todoAncFold', !folded); renderAnc() };
+  const nb = $('anc-new');
+  if(nb) nb.onclick = ()=> openAncEdit(null);
+  box.querySelectorAll('.anc-i [data-aact]').forEach(b=>{
+    b.onclick = ()=>{
+      const id = b.closest('.anc-i').dataset.id;
+      if(b.dataset.aact === 'edit') openAncEdit(id);
+      else delAnc(id);
+    };
+  });
+}
+
+function openAncEdit(id){
+  if(!isAdmin()){ toast('只有管理員能貼公告'); return }
+  const a = id ? ancs.find(x=>x.id===id) : null;
+  const ov = document.createElement('div');
+  ov.className = 'ov';
+  ov.innerHTML = '<div class="md" style="max-width:480px">'
+    + '<h3>' + (a ? '修改公告' : '貼一則公告') + '</h3>'
+    + '<div class="sub">公告會一直留在待辦頁最上面，不會被勾掉也不會過期</div>'
+    + '<div class="fld"><textarea id="anc-t" maxlength="400" style="min-height:100px" '
+    +   'placeholder="例：出貨前一定要拍箱況照片，沒拍到不能出">' + esc(a ? (a.text||'') : '') + '</textarea></div>'
+    + '<div class="md-ft"><button class="btn" id="anc-cancel">取消</button>'
+    +   '<button class="btn btn-g" id="anc-save">' + (a ? '儲存' : '貼上去') + '</button></div>'
+    + '</div>';
+  document.body.appendChild(ov);
+  ov.querySelector('#anc-cancel').onclick = ()=>ov.remove();
+  ov.onclick = e=>{ if(e.target===ov) ov.remove() };
+  ov.querySelector('#anc-save').onclick = async ()=>{
+    await authReady;
+    const txt = ov.querySelector('#anc-t').value.trim();
+    if(!txt){ toast('公告不能空白'); return }
+    try{
+      if(id){
+        await db.ref(PATHS.anc+'/'+id).update({text:txt, editedBy:me, editedAt:firebase.database.ServerValue.TIMESTAMP});
+        logAction('改公告', txt.slice(0,30));
+      }else{
+        await db.ref(PATHS.anc).push({text:txt, by:me, at:firebase.database.ServerValue.TIMESTAMP});
+        logAction('貼公告', txt.slice(0,30));
+      }
+      ov.remove(); toast('公告已更新');
+    }catch(e){ toast('存檔失敗：'+e.message) }
+  };
+  setTimeout(()=>ov.querySelector('#anc-t').focus(), 60);
+}
+
+async function delAnc(id){
+  if(!isAdmin()){ toast('只有管理員能撤公告'); return }
+  await authReady;
+  const a = ancs.find(x=>x.id===id);
+  if(!a) return;
+  if(!confirm('把這則公告撤下來？' + String.fromCharCode(10,10) + '「' + (a.text||'').slice(0,40) + '」')) return;
+  try{
+    await db.ref(PATHS.anc+'/'+id).remove();
+    logAction('撤公告', (a.text||'').slice(0,30));
+    toast('已撤下');
+  }catch(e){ toast('撤下失敗：'+e.message) }
 }
 
 function noteHTML(t){
