@@ -942,6 +942,18 @@ body.has-batch-bar .main{padding-bottom:140px}
 .pmod .sh-cell .note{display:block;font-size:10px;color:var(--dm);font-family:var(--sans)}
 .pmod .sh-nav{display:flex;align-items:center;gap:8px}
 
+.pmod .sh-grip{display:inline-flex;align-items:center;margin-right:6px;cursor:grab;color:var(--ht);vertical-align:middle}
+.pmod .sh-grip:active{cursor:grabbing}
+.pmod .sh-grip svg{width:14px;height:14px;fill:currentColor}
+.pmod .sh-tbl tbody tr.sh-dragging{opacity:.4}
+.pmod .sh-tbl tbody tr.sh-over td{border-top:3px solid var(--grn)}
+.pmod .sh-mv{display:none}
+@media(max-width:860px){
+  .pmod .sh-grip{display:none}
+  .pmod .sh-mv{display:inline-flex;gap:2px;margin-right:5px;vertical-align:middle}
+  .pmod .sh-mv button{width:20px;height:20px;border:1px solid var(--bd);background:var(--sf);border-radius:5px;font-size:9px;line-height:1;padding:0;color:var(--dm);cursor:pointer}
+}
+
 @media(max-width:860px){
   .pmod .pk-grid{grid-template-columns:1fr}
   .pmod .pk-hero{padding:16px;gap:14px}
@@ -7110,6 +7122,8 @@ let punches = {};            // {user:{id:{...}}}
 let shifts = {};             // {DD:{user:{...}}}
 let users = {};
 let who = '';                // 管理員在看誰的（空＝自己）
+let userOrder = [];          // 管理員拖出來的員工顯示順序（全店共用）
+let _dragU = null;
 let shiftWeekStart = null;   // 排班週視圖的起始日（週一）
 let _inited = false, _clockTimer = null;
 
@@ -7125,6 +7139,24 @@ function ymOf(d){ return d.getFullYear()+'-'+two(d.getMonth()+1) }
 function hm(ts){ const d=new Date(ts); return two(d.getHours())+':'+two(d.getMinutes()) }
 function today(){ return dstr(new Date()) }
 function target(){ return (isAdmin() && who) ? who : me }
+
+/* 員工顯示順序：先照管理員拖出來的 userOrder，沒排到的接在後面（新進員工不會憑空消失）。
+   順序存 Firebase 是全店共用的一份 —— 排班表跟人員切換用同一個順序，才不會兩邊對不起來。 */
+function orderedUsers(){
+  const all = Object.keys(users);
+  const inOrder = userOrder.filter(u => all.includes(u));
+  const seen = new Set(inOrder);
+  return inOrder.concat(all.filter(u => !seen.has(u)).sort());
+}
+async function saveOrder(arr){
+  if(!isAdmin()) return;
+  await authReady;
+  try{
+    await db.ref('userOrder').set(arr);
+    userOrder = arr;
+    logIt('調整員工順序', arr.join('、'));
+  }catch(e){ toast('順序沒存起來：'+e.message) }
+}
 
 /* 一天的打卡，時間由早到晚 */
 function dayPunches(user, dateStr){
@@ -7179,6 +7211,7 @@ function init(){
   shiftWeekStart = mondayOf(new Date());
 
   db.ref('users').on('value', s=>{ const v=s.val(); if(v){ users=v; if(users[me]) myRole=users[me].role||'user'; render() } }, ()=>{});
+  db.ref('userOrder').on('value', s=>{ const v=s.val(); userOrder = Array.isArray(v) ? v : []; render() }, ()=>{});
   listen();
   if(!_clockTimer) _clockTimer = setInterval(()=>{ if(!$('tab-punch') || $('tab-punch').classList.contains('hidden')) return; renderHero() }, 30000);
 }
@@ -7402,7 +7435,7 @@ function renderBar(){
   if(!box) return;
   let h = '';
   if(isAdmin()){
-    const names = Object.keys(users).sort();
+    const names = orderedUsers();
     h += '<button class="chip' + (who===''?' on':'') + '" data-w="">我自己</button>';
     h += names.filter(n=>n!==me).map(n=>'<button class="chip' + (who===n?' on':'') + '" data-w="'+esc(n)+'">'+esc(n)+'</button>').join('');
     h += '<span style="flex:1"></span><button class="btn btn-sm" id="pk-fix">補登打卡</button>';
@@ -7483,20 +7516,30 @@ function renderShift(){
   for(let i=0;i<7;i++){ const d=new Date(start); d.setDate(d.getDate()+i); days.push(d) }
   const wd = ['一','二','三','四','五','六','日'];
   const t = today();
-  const names = isAdmin() ? Object.keys(users).sort() : [me];
+  const names = isAdmin() ? orderedUsers() : [me];
 
   let html = '<div class="pk-h"><span class="sh-nav">'
     + '<button class="btn btn-sm" id="sh-prev">‹ 上週</button>'
     + '<button class="btn btn-sm" id="sh-this">本週</button>'
     + '<button class="btn btn-sm" id="sh-next">下週 ›</button></span>'
     + '<span class="sp"></span><span class="mini">'
-    + (isAdmin() ? '點格子可以排班' : '排班由管理員安排') + '</span></div>'
+    + (isAdmin() ? '點格子排班 · 拖左邊的把手調順序' : '排班由管理員安排') + '</span></div>'
     + '<div class="sh-wrap"><table class="sh-tbl"><thead><tr><th>　</th>'
     + days.map(d=>'<th'+(dstr(d)===t?' class="today"':'')+'>'+(d.getMonth()+1)+'/'+d.getDate()+'<br>週'+wd[(d.getDay()+6)%7]+'</th>').join('')
     + '</tr></thead><tbody>';
 
-  names.forEach(u=>{
-    html += '<tr><td class="who">' + esc(u) + '</td>';
+  names.forEach((u, ui)=>{
+    html += '<tr data-u="' + esc(u) + '" data-i="' + ui + '"' + (isAdmin() ? ' draggable="true"' : '') + '>'
+      + '<td class="who">'
+      + (isAdmin()
+          ? '<span class="sh-grip" title="按住這裡上下拖，可以調整順序">'
+            + '<svg viewBox="0 0 16 16"><circle cx="6" cy="4" r="1.3"/><circle cx="10" cy="4" r="1.3"/>'
+            + '<circle cx="6" cy="8" r="1.3"/><circle cx="10" cy="8" r="1.3"/>'
+            + '<circle cx="6" cy="12" r="1.3"/><circle cx="10" cy="12" r="1.3"/></svg></span>'
+            + '<span class="sh-mv"><button data-mv="up" title="往上移">▲</button>'
+            + '<button data-mv="dn" title="往下移">▼</button></span>'
+          : '')
+      + esc(u) + '</td>';
     days.forEach(d=>{
       const ds = dstr(d);
       const same = ds.slice(0,7) === ym;
@@ -7518,8 +7561,61 @@ function renderShift(){
   $('sh-this').onclick = ()=>{ shiftWeekStart = mondayOf(new Date()); syncMonth(shiftWeekStart); };
   if(isAdmin()){
     box.querySelectorAll('.sh-cell.editable').forEach(c=>c.onclick=()=>openShift(c.dataset.d, c.dataset.u));
+    bindRowDrag(box, names);
+    box.querySelectorAll('.sh-mv button').forEach(b=>b.onclick=e=>{
+      e.stopPropagation();
+      moveUser(b.closest('tr').dataset.u, b.dataset.mv==='up' ? -1 : 1);
+    });
   }
 }
+/* 拖曳調員工順序（只有管理員）。
+   桌機用 HTML5 拖放；手機不支援拖放，所以另外給每一列上下箭頭當備援 —— 
+   排班表在手機上是橫向捲動的表格，硬做觸控拖曳很難拖準。 */
+function bindRowDrag(box, names){
+  const rows = [...box.querySelectorAll('tbody tr')];
+  rows.forEach(tr=>{
+    tr.ondragstart = e=>{
+      _dragU = tr.dataset.u;
+      tr.classList.add('sh-dragging');
+      try{ e.dataTransfer.effectAllowed='move'; e.dataTransfer.setData('text/plain', _dragU) }catch(_){}
+    };
+    tr.ondragend = ()=>{
+      _dragU = null;
+      rows.forEach(r=>r.classList.remove('sh-dragging','sh-over'));
+    };
+    tr.ondragover = e=>{
+      if(!_dragU || tr.dataset.u === _dragU) return;
+      e.preventDefault();
+      try{ e.dataTransfer.dropEffect='move' }catch(_){}
+      tr.classList.add('sh-over');
+    };
+    tr.ondragleave = ()=>tr.classList.remove('sh-over');
+    tr.ondrop = e=>{
+      e.preventDefault();
+      tr.classList.remove('sh-over');
+      const from = _dragU, to = tr.dataset.u;
+      _dragU = null;
+      if(!from || from === to) return;
+      const arr = names.slice();
+      const fi = arr.indexOf(from);
+      if(fi < 0) return;
+      arr.splice(fi, 1);
+      const ti = arr.indexOf(to);
+      arr.splice(ti < 0 ? arr.length : ti, 0, from);
+      saveOrder(arr);
+    };
+  });
+}
+/* 手機備援：上下移一格 */
+function moveUser(u, dir){
+  const arr = orderedUsers();
+  const i = arr.indexOf(u);
+  const j = i + dir;
+  if(i < 0 || j < 0 || j >= arr.length) return;
+  arr.splice(j, 0, arr.splice(i, 1)[0]);
+  saveOrder(arr);
+}
+
 /* 排班週跨到別的月份時，把監聽也切過去，不然格子會是空的 */
 function syncMonth(d){
   const m = ymOf(d);
