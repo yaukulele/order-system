@@ -952,6 +952,7 @@ body.has-batch-bar .main{padding-bottom:140px}
   .pmod .sh-grip{display:none}
   .pmod .sh-mv{display:inline-flex;gap:2px;margin-right:5px;vertical-align:middle}
   .pmod .sh-mv button{width:20px;height:20px;border:1px solid var(--bd);background:var(--sf);border-radius:5px;font-size:9px;line-height:1;padding:0;color:var(--dm);cursor:pointer}
+.pmod .sh-mv button:disabled{opacity:.25;cursor:default}
 }
 
 @media(max-width:860px){
@@ -7536,8 +7537,10 @@ function renderShift(){
             + '<svg viewBox="0 0 16 16"><circle cx="6" cy="4" r="1.3"/><circle cx="10" cy="4" r="1.3"/>'
             + '<circle cx="6" cy="8" r="1.3"/><circle cx="10" cy="8" r="1.3"/>'
             + '<circle cx="6" cy="12" r="1.3"/><circle cx="10" cy="12" r="1.3"/></svg></span>'
-            + '<span class="sh-mv"><button data-mv="up" title="往上移">▲</button>'
-            + '<button data-mv="dn" title="往下移">▼</button></span>'
+            // 第一列的▲、最後一列的▼ 本來就不會有作用（moveUser 有擋邊界），
+            // 但看起來按得下去又沒反應，會以為壞掉 —— 直接置灰
+            + '<span class="sh-mv"><button data-mv="up" title="往上移"'+(ui===0?' disabled':'')+'>▲</button>'
+            + '<button data-mv="dn" title="往下移"'+(ui===names.length-1?' disabled':'')+'>▼</button></span>'
           : '')
       + esc(u) + '</td>';
     days.forEach(d=>{
