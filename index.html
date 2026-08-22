@@ -254,6 +254,12 @@ td{padding:7px 10px;border-bottom:1px solid #f0ede6}tr:hover td{background:var(-
 .ct-dated{color:#6d28d9;background:#f3e8ff;border:1px solid #c4b5fd}
 .ct-called{color:#b45309;background:#fffbeb;border:1px solid #fcd34d}
 .ct-none{color:#b91c1c;background:#fef2f2;border:1px solid #fca5a5}
+.ct-gone{color:#475569;background:#f1f5f9;border:1px solid #cbd5e1}
+.ct-fine{color:#fff;background:#dc2626;border:1px solid #dc2626}
+.ct-diff{color:#9a3412;background:#ffedd5;border:1px solid #fdba74}
+[data-theme="dark"] .ct-gone{color:#cbd5e1;background:#1e293b;border-color:#475569}
+[data-theme="dark"] .ct-fine{color:#fff;background:#b91c1c;border-color:#ef4444}
+[data-theme="dark"] .ct-diff{color:#fdba74;background:#3a2410;border-color:#c2410c}
 [data-theme="dark"] .ct-dated{color:#d8b4fe;background:#2e1065;border-color:#6d28d9}
 [data-theme="dark"] .ct-called{color:#fcd34d;background:#3a2e0a;border-color:#a16207}
 [data-theme="dark"] .ct-none{color:#fca5a5;background:#3a1616;border-color:#b91c1c}
@@ -999,7 +1005,7 @@ body.has-batch-bar .main{padding-bottom:140px}
 <div class="card" style="background:#fff1f2;border:1px solid #fda4af"><div class="card-h" style="background:transparent"><h3>🚚 自動抓 MOMO 第三方</h3><div class="btn-row" style="justify-content:flex-end"><button class="btn btn-g" id="momo3-auto-btn" onclick="fetchMomoThirdAuto()" style="background:#f43f5e;border-color:#f43f5e;flex:0 0 auto;min-width:130px" title="抓 MOMO 第三方物流 未出貨訂單（跑遍物流商合併）">🔄 抓取</button></div></div><div class="card-b" style="padding:8px 16px"><div id="momo3-auto-status" style="font-size:11px;color:var(--dm);font-family:var(--mono)"></div></div></div>
 <div class="card" style="background:var(--card-pc-bg);border:1px solid var(--card-pc-bd)"><div class="card-h" style="background:transparent"><h3>🛒 自動抓 PChome</h3><div class="btn-row" style="justify-content:flex-end"><button class="btn btn-g" id="pchome-auto-btn" onclick="fetchPchomeAuto()" style="background:var(--pc);border-color:var(--pc);flex:0 0 auto;min-width:130px" title="自動抓 PChome 未出貨訂單（共用 MOMO API Token）">🔄 抓取</button></div></div><div class="card-b" style="padding:8px 16px"><div id="pchome-auto-status" style="font-size:11px;color:var(--dm);font-family:var(--mono)"></div></div></div><div class="card" style="background:#f5f3ff;border:1px solid #c4b5fd"><div class="card-h" style="background:transparent"><h3>📩 簡訊設定</h3><div class="btn-row" style="justify-content:flex-end"><button class="btn" onclick="editSmsTemplate()" style="border-color:#a78bfa;color:#7c3aed;flex:0 0 auto;min-width:130px" title="編輯發給客戶的簡訊範本">✏️ 改範本</button></div></div><div class="card-b" style="padding:8px 16px"><div id="sms-balance" style="font-size:11px;color:var(--dm);font-family:var(--mono)">剩餘點數：發送後自動更新</div></div></div></div>
 
-<div class="main hidden" id="tab-list"><div class="filter-row"><span class="fg-grp" data-grp="plat" title="Ctrl/Cmd 或 Shift + 點擊可多選（同時看 Mo＋Pc＋展場…）"><button class="fbtn on" data-fg="plat" data-stat="all" onclick="setF('all',this,event)">全部</button><button class="fbtn" data-fg="plat" data-stat="MO" onclick="setF('MO',this,event)">Mo</button><button class="fbtn" data-fg="plat" data-stat="PC" onclick="setF('PC',this,event)">Pc</button><button class="fbtn" data-fg="plat" data-stat="MO3" onclick="setF('MO3',this,event)" title="MOMO 第三方物流">三方</button><button class="fbtn" data-fg="plat" data-stat="ST" onclick="setF('ST',this,event)">店內</button><button class="fbtn" data-fg="plat" data-stat="SCH" onclick="setF('SCH',this,event)">學校</button><button class="fbtn" data-fg="plat" data-stat="EXPO" onclick="setF('EXPO',this,event)" title="樂器展場現場收單">展場</button><button id="mob-stat-cycle" class="fbtn st-cycle" onclick="cycleStatus()" title="點擊循環切換狀態篩選">狀態</button></span><span class="fb-divider">｜</span><span class="fg-grp" data-grp="status" title="Ctrl/Cmd + 點擊可多選"><button class="fbtn on" data-fg="status" data-stat="status:all" onclick="setSF('all',this,event)">全狀態</button><button class="fbtn" data-fg="status" data-stat="status:active" onclick="setActiveStatuses(this)" title="一鍵選所有「進行中」狀態（排除 已完成 / 線下完成 / 已取消；轉線下算進行中）" style="color:#b45309;border-color:#b45309;font-weight:700">進行中</button><button class="fbtn" data-fg="status" data-stat="status:未確認" onclick="setSF('未確認',this,event)">未確認</button><button class="fbtn" data-fg="status" data-stat="status:已確認" onclick="setSF('已確認',this,event)">已確認</button><button class="fbtn" data-fg="status" data-stat="status:交涉中" onclick="setSF('交涉中',this,event)">交涉中</button><button class="fbtn" data-fg="status" data-stat="status:要安裝" onclick="setSF('要安裝',this,event)" title="狀態：要安裝" style="color:#0e7490;border-color:#67e8f9;font-weight:700">要安裝</button><button class="fbtn" data-fg="status" data-stat="status:自己配" onclick="setSF('自己配',this,event)" title="狀態：自己配送" style="color:#be185d;border-color:#f9a8d4;font-weight:700">自己配</button><button class="fbtn" data-fg="status" data-stat="status:未接電" onclick="setSF('未接電',this,event)">未接電</button><button class="fbtn" data-fg="status" data-stat="status:已出貨" onclick="setSF('已出貨',this,event)">已出貨</button><button class="fbtn" data-fg="status" data-stat="status:直接出" onclick="setSF('直接出',this,event)" title="直接出貨（不安裝）" style="color:#3f6212;border-color:#a3e635;font-weight:700">直接出</button><button class="fbtn" data-fg="status" data-stat="status:待收費" onclick="setSF('待收費',this,event)" title="安裝/加購款還沒收 — 自動連動偵測" style="color:#dc2626;border-color:#dc2626;font-weight:700">待收費</button><button class="fbtn" data-fg="status" data-stat="status:補貨中" onclick="setSF('補貨中',this,event)">補貨中</button><button class="fbtn" data-fg="status" data-stat="status:未收錢" onclick="setSF('未收錢',this,event)" title="團購：未收錢" style="color:#b91c1c;border-color:#fca5a5;font-weight:700">未收錢</button><button class="fbtn" data-fg="status" data-stat="status:已收錢" onclick="setSF('已收錢',this,event)" title="團購：已收錢" style="color:#15803d;border-color:#86efac;font-weight:700">已收錢</button><button class="fbtn" data-fg="status" data-stat="status:已完成" onclick="setSF('已完成',this,event)" title="只看已完成單" style="color:var(--grn);border-color:#8cc4a0;font-weight:700">已完成</button><button class="fbtn" data-fg="status" data-stat="status:已取消" onclick="setSF('已取消',this,event)">已取消</button><button class="fbtn" data-fg="status" data-stat="status:轉線下" onclick="setSF('轉線下',this,event)">轉線下</button><button class="fbtn" data-fg="status" data-stat="status:線下完成" onclick="setSF('線下完成',this,event)" title="線下完成（改到線下成交／安裝已在線下處理完）" style="color:#0f766e;border-color:#5eead4;font-weight:700">線下完成</button></span><span class="fb-divider">｜</span><span class="fg-grp" data-grp="special"><button class="fbtn" data-fg="special" onclick="toggleSpecial('changeAddr',this)" title="只看客戶有申請改地址的訂單">改址</button><button class="fbtn" data-fg="special" onclick="toggleSpecial('newToday',this)" title="只看今日新單">今日</button><button class="fbtn" data-fg="special" onclick="toggleSpecial('unpaidFee',this)" title="只看有未收款的訂單（安裝/加購費>0 但未收）— 含已完成的單，跨所有狀態篩" style="color:#dc2626;border-color:#dc2626;font-weight:700">未收款</button><button class="fbtn" data-fg="special" onclick="toggleSpecial('pendingDeliver',this)" title="按下會即時抓 MOMO/PChome 平台『線上還沒出貨』的單來比對（約配去後台確認配送日、一般單壓自行出貨）— 以平台實際狀態為準" style="color:#2563eb;border-color:#2563eb;font-weight:700">🚚 待確認配送/出貨</button><button class="fbtn" data-fg="special" onclick="toggleSpecial('scmFiled',this)" title="只看 MOMO 已回押『指定配送日』的進行中訂單" style="color:#6d28d9;border-color:#c4b5fd;font-weight:700">🚚 已壓指定配</button><button class="fbtn" data-fg="special" onclick="toggleSpecial('scmUnfiled',this)" title="只看 MOMO 還沒壓『指定配送日』的進行中訂單" style="color:#7c3aed;border-color:#c4b5fd;font-weight:700">未壓指定配</button><button class="fbtn" data-fg="special" onclick="toggleSpecial('ctNone',this)" title="只看還沒電聯客戶排配送的 MOMO／三方進行中訂單（＝列表上紅色『尚未電聯』那些）" style="color:#b91c1c;border-color:#fca5a5;font-weight:700">📞 尚未電聯</button></span><span style="flex:1"></span><span id="filter-applied-info" style="display:none"></span><button class="btn" onclick="openActivityLog()" style="font-size:11px;padding:4px 10px;margin-right:6px;background:#fef0f5;border-color:#f0c4d8;color:var(--mo)" title="看最近所有訂單的操作紀錄（找「剛剛動了哪一筆」用）">紀錄</button><input class="search" id="q" placeholder="搜尋姓名/單號/商品..." oninput="this.value=fwToHw(this.value);searchListDebounced()" title="按 / 或 Ctrl+K 快速聚焦（全形數字自動轉半形）"></div><div id="list-area"></div></div>
+<div class="main hidden" id="tab-list"><div class="filter-row"><span class="fg-grp" data-grp="plat" title="Ctrl/Cmd 或 Shift + 點擊可多選（同時看 Mo＋Pc＋展場…）"><button class="fbtn on" data-fg="plat" data-stat="all" onclick="setF('all',this,event)">全部</button><button class="fbtn" data-fg="plat" data-stat="MO" onclick="setF('MO',this,event)">Mo</button><button class="fbtn" data-fg="plat" data-stat="PC" onclick="setF('PC',this,event)">Pc</button><button class="fbtn" data-fg="plat" data-stat="MO3" onclick="setF('MO3',this,event)" title="MOMO 第三方物流">三方</button><button class="fbtn" data-fg="plat" data-stat="ST" onclick="setF('ST',this,event)">店內</button><button class="fbtn" data-fg="plat" data-stat="SCH" onclick="setF('SCH',this,event)">學校</button><button class="fbtn" data-fg="plat" data-stat="EXPO" onclick="setF('EXPO',this,event)" title="樂器展場現場收單">展場</button><button id="mob-stat-cycle" class="fbtn st-cycle" onclick="cycleStatus()" title="點擊循環切換狀態篩選">狀態</button></span><span class="fb-divider">｜</span><span class="fg-grp" data-grp="status" title="Ctrl/Cmd + 點擊可多選"><button class="fbtn on" data-fg="status" data-stat="status:all" onclick="setSF('all',this,event)">全狀態</button><button class="fbtn" data-fg="status" data-stat="status:active" onclick="setActiveStatuses(this)" title="一鍵選所有「進行中」狀態（排除 已完成 / 線下完成 / 已取消；轉線下算進行中）" style="color:#b45309;border-color:#b45309;font-weight:700">進行中</button><button class="fbtn" data-fg="status" data-stat="status:未確認" onclick="setSF('未確認',this,event)">未確認</button><button class="fbtn" data-fg="status" data-stat="status:已確認" onclick="setSF('已確認',this,event)">已確認</button><button class="fbtn" data-fg="status" data-stat="status:交涉中" onclick="setSF('交涉中',this,event)">交涉中</button><button class="fbtn" data-fg="status" data-stat="status:要安裝" onclick="setSF('要安裝',this,event)" title="狀態：要安裝" style="color:#0e7490;border-color:#67e8f9;font-weight:700">要安裝</button><button class="fbtn" data-fg="status" data-stat="status:自己配" onclick="setSF('自己配',this,event)" title="狀態：自己配送" style="color:#be185d;border-color:#f9a8d4;font-weight:700">自己配</button><button class="fbtn" data-fg="status" data-stat="status:未接電" onclick="setSF('未接電',this,event)">未接電</button><button class="fbtn" data-fg="status" data-stat="status:已出貨" onclick="setSF('已出貨',this,event)">已出貨</button><button class="fbtn" data-fg="status" data-stat="status:直接出" onclick="setSF('直接出',this,event)" title="直接出貨（不安裝）" style="color:#3f6212;border-color:#a3e635;font-weight:700">直接出</button><button class="fbtn" data-fg="status" data-stat="status:待收費" onclick="setSF('待收費',this,event)" title="安裝/加購款還沒收 — 自動連動偵測" style="color:#dc2626;border-color:#dc2626;font-weight:700">待收費</button><button class="fbtn" data-fg="status" data-stat="status:補貨中" onclick="setSF('補貨中',this,event)">補貨中</button><button class="fbtn" data-fg="status" data-stat="status:未收錢" onclick="setSF('未收錢',this,event)" title="團購：未收錢" style="color:#b91c1c;border-color:#fca5a5;font-weight:700">未收錢</button><button class="fbtn" data-fg="status" data-stat="status:已收錢" onclick="setSF('已收錢',this,event)" title="團購：已收錢" style="color:#15803d;border-color:#86efac;font-weight:700">已收錢</button><button class="fbtn" data-fg="status" data-stat="status:已完成" onclick="setSF('已完成',this,event)" title="只看已完成單" style="color:var(--grn);border-color:#8cc4a0;font-weight:700">已完成</button><button class="fbtn" data-fg="status" data-stat="status:已取消" onclick="setSF('已取消',this,event)">已取消</button><button class="fbtn" data-fg="status" data-stat="status:轉線下" onclick="setSF('轉線下',this,event)">轉線下</button><button class="fbtn" data-fg="status" data-stat="status:線下完成" onclick="setSF('線下完成',this,event)" title="線下完成（改到線下成交／安裝已在線下處理完）" style="color:#0f766e;border-color:#5eead4;font-weight:700">線下完成</button></span><span class="fb-divider">｜</span><span class="fg-grp" data-grp="special"><button class="fbtn" data-fg="special" onclick="toggleSpecial('changeAddr',this)" title="只看客戶有申請改地址的訂單">改址</button><button class="fbtn" data-fg="special" onclick="toggleSpecial('newToday',this)" title="只看今日新單">今日</button><button class="fbtn" data-fg="special" onclick="toggleSpecial('unpaidFee',this)" title="只看有未收款的訂單（安裝/加購費>0 但未收）— 含已完成的單，跨所有狀態篩" style="color:#dc2626;border-color:#dc2626;font-weight:700">未收款</button><button class="fbtn" data-fg="special" onclick="toggleSpecial('pendingDeliver',this)" title="按下會即時抓 MOMO/PChome 平台『線上還沒出貨』的單來比對（約配去後台確認配送日、一般單壓自行出貨）— 以平台實際狀態為準" style="color:#2563eb;border-color:#2563eb;font-weight:700">🚚 待確認配送/出貨</button><button class="fbtn" data-fg="special" onclick="toggleSpecial('scmFiled',this)" title="只看 MOMO 已回押『指定配送日』的進行中訂單" style="color:#6d28d9;border-color:#c4b5fd;font-weight:700">🚚 已壓指定配</button><button class="fbtn" data-fg="special" onclick="toggleSpecial('scmUnfiled',this)" title="只看 MOMO 還沒壓『指定配送日』的進行中訂單" style="color:#7c3aed;border-color:#c4b5fd;font-weight:700">未壓指定配</button><button class="fbtn" data-fg="special" onclick="toggleSpecial('ctNone',this)" title="只看還沒電聯客戶排配送的 MOMO／三方進行中訂單（＝列表上紅色『尚未電聯』那些）" style="color:#b91c1c;border-color:#fca5a5;font-weight:700">📞 尚未電聯</button><button class="fbtn" data-fg="special" onclick="toggleSpecial('momoUnreported',this)" title="MOMO 平台狀態還是「請回覆」＝還沒回報。進單日 +1 個工作日（週末順延）還沒回報，MOMO 會罰款。MOMO 已標「電聯不上」的不算。" style="color:#dc2626;border-color:#dc2626;font-weight:700">MOMO未回報</button><button class="fbtn" data-fg="special" onclick="toggleSpecial('momoDiff',this)" title="MOMO 平台狀態跟我們本機狀態對不上的單（以平台為準）" style="color:#c2410c;border-color:#fdba74;font-weight:700">狀態不一致</button><button id="momo-live-btn" class="fbtn" onclick="syncMomoLive()" title="去 MOMO 平台抓每筆單的實際配送狀態（唯讀，不會改任何東西）" style="color:#2563eb;border-color:#93c5fd;font-weight:700">同步MOMO狀態</button></span><span style="flex:1"></span><span id="filter-applied-info" style="display:none"></span><button class="btn" onclick="openActivityLog()" style="font-size:11px;padding:4px 10px;margin-right:6px;background:#fef0f5;border-color:#f0c4d8;color:var(--mo)" title="看最近所有訂單的操作紀錄（找「剛剛動了哪一筆」用）">紀錄</button><input class="search" id="q" placeholder="搜尋姓名/單號/商品..." oninput="this.value=fwToHw(this.value);searchListDebounced()" title="按 / 或 Ctrl+K 快速聚焦（全形數字自動轉半形）"></div><div id="list-area"></div></div>
 
 <div class="main hidden" id="tab-schedule"><div class="filter-row" style="flex-wrap:wrap;gap:6px;align-items:center"><span class="fg-grp"><span style="font-size:11px;color:var(--dm)">週次</span><select id="sched-week" onchange="setSchedWeek(this.value)" style="font-size:11px;padding:3px 6px;border:1px solid var(--bd);border-radius:6px;background:var(--sf)"></select></span><span class="fb-divider">｜</span><span class="fg-grp" id="sched-installer-row"><span style="font-size:11px;color:var(--dm)">師傅</span><button class="fbtn on" data-installer="all" onclick="setSchedInstaller('all',this)">全部</button></span><span style="flex:1"></span><span style="font-size:11px;color:var(--dm)">共 <strong id="sched-show-cnt">0</strong> 筆</span></div><div id="schedule-area"></div></div>
 
@@ -2098,7 +2104,7 @@ function updateStatCycleBtn(){const btn=document.getElementById('mob-stat-cycle'
   const tail=(all||cStatus.length>1)?'':` ${stCls(cStatus[0]).replace('st-btn ','')}`;
   btn.className='fbtn st-cycle'+(all?' on':'')+tail;
 }
-function toggleSpecial(kind,btn){_mobileExpand=false;selectedIds.clear();if(cSpecial===kind){cSpecial=null;btn?.classList.remove('on');if(kind==='pendingDeliver')_liveUnsentSet=null}else{document.querySelectorAll('.filter-row .fbtn[data-fg="special"]').forEach(x=>x.classList.remove('on'));cSpecial=kind;btn?.classList.add('on')}persistFilters();renderList();if(cSpecial==='pendingDeliver')fetchLiveUnsent()}
+function toggleSpecial(kind,btn){_mobileExpand=false;selectedIds.clear();if(cSpecial===kind){cSpecial=null;btn?.classList.remove('on');if(kind==='pendingDeliver')_liveUnsentSet=null}else{document.querySelectorAll('.filter-row .fbtn[data-fg="special"]').forEach(x=>x.classList.remove('on'));cSpecial=kind;btn?.classList.add('on')}persistFilters();renderList();if(cSpecial==='pendingDeliver')fetchLiveUnsent();if((cSpecial==='momoUnreported'||cSpecial==='momoDiff')&&!_momoLiveAt)syncMomoLive()}
 
 // ===== IMPORT =====
 function runParse(){const r=document.getElementById('raw-input').value;if(!r.trim())return;const p=parseAll(r);if(!p.length){document.getElementById('preview-area').innerHTML='<div class="card"><div class="card-b" style="color:var(--pc)">⚠ 無法辨識</div></div>';return}const txt=p.map(fmtS).join('\n---\n');const pl=p[0]?.platform||'';document.getElementById('preview-area').innerHTML=`<div class="card"><div class="card-h"><div style="display:flex;align-items:center;gap:8px"><h3>預覽</h3><span class="badge">${p.length} 筆</span>${platformPill(pl)}</div><button class="btn btn-g" onclick="copyText(document.getElementById('pv').textContent,'已複製！')">複製</button></div><div class="card-b"><div class="result" id="pv">${esc(txt)}</div></div></div>`}
@@ -2168,6 +2174,10 @@ const momoConfigReady=new Promise(resolve=>{
     resolve();
   }).catch(()=>resolve());
 });
+// 開頁後背景抓一次 MOMO 平台狀態（快取超過 15 分鐘才抓）。silent 模式不會跳 Token 輸入框。
+momoConfigReady.then(()=>{setTimeout(()=>{
+  try{if(Date.now()-_momoLiveAt>15*60*1000)syncMomoLive({silent:true}).catch(()=>{});else updateMomoLiveBtn()}catch(e){}
+},1500)});
 function getMomoApi(){return MOMO_API}
 function getMomoToken(){
   let t=localStorage.getItem(MOMO_TK_KEY);
@@ -2662,6 +2672,165 @@ function splitProductSpecs(o){
   return result;
 }
 
+// ===== MOMO 平台狀態（唯讀同步）=====
+// 杰哥 2026-08-22：列表每筆 MOMO 單要同時看到「MOMO 平台狀態」跟「我們本機狀態」，兩個並排，
+// 對不上就標出來；之後再統整成一個，以 MOMO 平台為準。
+// 資料來源：/api/orders/momo/unsent + /api/orders/momo/third/unsent 回的 remark5VStr。
+// 限制：MOMO 只有「未出貨」的單查得到配送狀態，已出貨/已結案查不到 → 那種標「平台已結案」。
+// 這整段只讀不寫：不碰 Firebase，也不碰任何送 MOMO 的 API。
+const MOMO_LIVE_KEY='momoLiveStatus';
+let _momoLive={},_momoLivePrefix={},_momoLiveWin=null,_momoLiveAt=0,_momoLiveSyncing=false;
+try{const _c=JSON.parse(localStorage.getItem(MOMO_LIVE_KEY)||'null');
+  if(_c&&_c.map){_momoLive=_c.map;_momoLivePrefix=_c.prefix||{};_momoLiveWin=_c.win||null;_momoLiveAt=_c.at||0}}catch(e){}
+
+// MOMO 的日期一律 "2026/08/21 16:50" 這種 → 轉成本機統一的 "2026-08-21"
+function _momoDateISO(s){const m=String(s||'').match(/(\d{4})[\/\-](\d{1,2})[\/\-](\d{1,2})/);
+  return m?`${m[1]}-${String(m[2]).padStart(2,'0')}-${String(m[3]).padStart(2,'0')}`:''}
+
+// 只留下判斷/顯示會用到的欄位（原始一筆有 50+ 欄，全存進 localStorage 太肥）
+function _momoLiveEntry(row){return{
+  st:String(row.remark5VStr||'').trim(),           // 配送狀態（"請回覆"＝還沒回報，就是會被罰錢那個）
+  scm:_momoDateISO(row.scmDelyDate),               // 已回押的指定配送日
+  hope:_momoDateISO(row.delyHopeDate),             // 客戶希望配送日
+  priced:_momoDateISO(row.lastPricDate),           // 進單日（D+1 算回報期限用）
+  cantContact:String(row.cantContactYn||'')==='1', // MOMO 自己標的「電聯不上」→ 罰款判斷要排除
+  fines:String(row.finesFlag||'')==='1',           // MOMO 罰款旗標
+  red:String(row.isRedStr||'').trim(),             // 正常 / 延遲
+  slip:String(row.slipNo||'').trim(),
+  dely:String(row.delyGbStr||'').trim(),
+}}
+
+async function syncMomoLive(opt){
+  const silent=!!(opt&&opt.silent);
+  // silent（開頁背景同步）絕不能走 getMomoToken() —— 那支沒 token 會跳 prompt 卡住使用者
+  const _raw=localStorage.getItem(MOMO_TK_KEY)||'';
+  const token=silent?((_raw&&!looksLikeUrl(_raw))?_raw:null):((typeof getMomoToken==='function')&&getMomoToken());
+  if(!token){if(!silent)showToast&&showToast('要先設定 API Token 才能抓 MOMO 平台狀態');return{ok:false,err:'no-token'}}
+  if(_momoLiveSyncing)return{ok:false,err:'busy'};
+  _momoLiveSyncing=true;updateMomoLiveBtn();
+  const base=getMomoApi(),days=60; // MOMO 查詢區間上限兩個月
+  const eps=[['廠配','/api/orders/momo/unsent?days='+days],['三方','/api/orders/momo/third/unsent?days='+days]];
+  const map={},prefixHits={},fail=[];let win=null;
+  try{
+    await Promise.all(eps.map(async ([name,ep])=>{
+      try{
+        const r=await fetch(base+ep,{headers:{'X-API-Token':token}});
+        const j=await r.json().catch(()=>({}));
+        if(!r.ok||!j||j.ok===false){fail.push(name+'：'+((j&&j.error)||('HTTP '+r.status)));return}
+        if(j.window&&!win)win=j.window;
+        for(const row of (j.orders||[])){
+          const no=String(row.completeOrderNo||'').trim();if(!no)continue;
+          const e=_momoLiveEntry(row);map[no]=e;
+          const p=no.split('-')[0];(prefixHits[p]=prefixHits[p]||[]).push(e);
+        }
+      }catch(err){fail.push(name+'：'+String(err&&err.message||err).slice(0,50))}
+    }));
+    // 兩支都掛掉 → 保留上次快照，不要清成空的害列表全部變「平台已結案」
+    if(fail.length===eps.length){
+      if(!silent)alert('MOMO 平台狀態同步失敗（保留上次資料）：\n\n'+fail.join('\n'));
+      return{ok:false,err:fail.join('; ')};
+    }
+    // 同一張單多品項（14 碼前綴相同）狀態若不一致，就不給前綴查表，避免標錯到別的品項
+    const prefix={};
+    for(const p in prefixHits){const a=prefixHits[p];if(a.every(x=>x.st===a[0].st&&x.scm===a[0].scm))prefix[p]=a[0]}
+    _momoLive=map;_momoLivePrefix=prefix;_momoLiveWin=win;_momoLiveAt=Date.now();
+    try{localStorage.setItem(MOMO_LIVE_KEY,JSON.stringify({map,prefix,win,at:_momoLiveAt}))}catch(e){}
+    renderList();
+    if(!silent)showToast&&showToast('MOMO 平台狀態已更新：未出貨 '+Object.keys(map).length+' 筆'+(fail.length?'（'+fail.join('；')+'）':''));
+    return{ok:true,count:Object.keys(map).length,fail};
+  }finally{_momoLiveSyncing=false;updateMomoLiveBtn()}
+}
+
+// 這筆單在 MOMO 平台上的狀態。
+// null = 還沒同步過 / 不是 MOMO 單 / 在查詢窗之外（不敢下判斷）
+// {gone:true} = 平台未出貨清單裡沒有這筆（＝已出貨或已結案）
+function momoLiveOf(o){
+  if(!o||(o.platform!=='MO'&&o.platform!=='MO3'))return null;
+  if(!_momoLiveAt)return null;
+  const no=String(o.orderNo||'').trim();if(!no)return null;
+  const hit=_momoLive[no]||_momoLivePrefix[no.split('-')[0]];
+  if(hit)return hit;
+  if(_momoLiveWin&&o.date){const from=_momoDateISO(_momoLiveWin.from);if(from&&o.date<from)return null}
+  return {gone:true};
+}
+
+// 平台九個狀態字太長，列表塞不下 → 縮寫
+const _MOMO_ST_SHORT={'請回覆':'未回報','已電聯，尚未確認配送日期':'已電聯','已確認指定配送日':'指配','已配送':'已配送',
+ '暫時電聯不上(無須momo協助)':'電聯不上','多次電聯不上(2天3次以上)':'電聯不上×3','需配送加價協調中':'加價協調',
+ '無貨取消訂單':'無貨取消','收件資料有誤/不配送地區':'資料有誤','無適當選項，momo請協助':'請momo協助'};
+
+// 罰款回報期限＝進單日 +1 個工作日。週六日順延（禮拜五的單禮拜一壓即可）。
+// 註：國定假日還沒進表，目前只跳過週末；要精確再補假日表。
+function _nextWorkday(iso){
+  const p=String(iso||'').split('-').map(Number);if(p.length!==3||!p[0])return '';
+  const x=new Date(p[0],p[1]-1,p[2]);
+  do{x.setDate(x.getDate()+1)}while(x.getDay()===0||x.getDay()===6);
+  return localDateISO(x);
+}
+// 平台狀態還是「請回覆」＝還沒回報，過了期限 MOMO 會罰錢。MOMO 已標電聯不上的排除。
+function momoFineRisk(o){
+  const L=momoLiveOf(o);if(!L||L.gone)return null;
+  if(L.st&&L.st!=='請回覆')return null;
+  if(L.cantContact)return null;
+  const base=L.priced||o.date;if(!base)return null;
+  const due=_nextWorkday(base);if(!due)return null;
+  const today=localDateISO();
+  return {due,base,level:today>due?'over':today===due?'today':'soon'};
+}
+function isMomoUnreported(o){return !!momoFineRisk(o)}
+
+// MOMO 平台狀態 vs 本機狀態 對不上 → 回一句話說哪裡不一樣（以平台為準）
+const _MOMO_LOCAL_DONE=['已出貨','已完成','線下完成','已取消','轉線下'];
+function momoMismatch(o){
+  const L=momoLiveOf(o);if(!L)return '';
+  const st=o.status||'';
+  if(L.gone)return _MOMO_LOCAL_DONE.includes(st)?'':'平台已不在未出貨清單（已出貨或已結案），本機還掛在「'+st+'」';
+  if(_MOMO_LOCAL_DONE.includes(st))return '本機是「'+st+'」，但平台還掛在未出貨（平台狀態：'+(L.st||'請回覆')+'）';
+  const localScm=_momoDateISO(o.scmDelyDate);
+  if(L.st==='已確認指定配送日'){
+    if(!localScm)return '平台已壓指定配送日 '+L.scm+'，本機沒記到';
+    if(L.scm&&localScm!==L.scm)return '指定配送日不一致：平台 '+L.scm+' / 本機 '+localScm;
+  }
+  if((!L.st||L.st==='請回覆')&&localScm)return '本機記了指定配送日 '+localScm+'，但平台還是「請回覆」（沒送出去）';
+  return '';
+}
+function isMomoDiff(o){return !!momoMismatch(o)}
+
+// 列表徽章：MOMO 平台狀態（＋逾期罰款警示）。桌面/手機/區域卡片三處共用。
+function momoLiveBadge(o){
+  const L=momoLiveOf(o);if(!L)return '';
+  if(L.gone)return '<span class="ct-badge ct-gone" title="MOMO 平台的未出貨清單裡已經沒有這筆（已出貨或已結案）">MOMO 已結案</span>';
+  const short=_MOMO_ST_SHORT[L.st]||L.st||'未回報';
+  const cls=(!L.st||L.st==='請回覆')?'ct-none':L.st==='已確認指定配送日'?'ct-dated':L.st==='已配送'?'ct-gone':'ct-called';
+  const label=(L.st==='已確認指定配送日'&&L.scm)?short+' '+L.scm.slice(5).replace('-','/'):short;
+  const risk=momoFineRisk(o);
+  const tip=['MOMO 平台狀態：'+(L.st||'（空白）')];
+  if(L.priced)tip.push('進單日：'+L.priced);
+  if(L.hope)tip.push('客戶希望配送日：'+L.hope);
+  if(L.cantContact)tip.push('MOMO 標記：電聯不上（罰款不計）');
+  if(L.fines)tip.push('MOMO 標記：已罰款');
+  if(L.red&&L.red!=='正常')tip.push('MOMO 標記：'+L.red);
+  if(risk)tip.push('回報期限：'+risk.due+'（進單日 +1 工作日，假日順延）');
+  let h='<span class="ct-badge '+cls+'" title="'+esc(tip.join('\n'))+'">MOMO '+esc(label)+'</span>';
+  if(risk&&risk.level!=='soon'){
+    const ftip='進單日 '+risk.base+' → 回報期限 '+risk.due+'（假日順延）。平台狀態還是「請回覆」，逾期 MOMO 會罰款。';
+    h+='<span class="ct-badge ct-fine" title="'+esc(ftip)+'">'+(risk.level==='over'?'逾期罰款':'今天到期')+'</span>';
+  }
+  return h;
+}
+function momoDiffBadge(o){const m=momoMismatch(o);return m?'<span class="ct-badge ct-diff" title="'+esc(m)+'">≠ 不一致</span>':''}
+
+// 篩選列上那顆同步鈕的文字（帶上次同步時間）
+function updateMomoLiveBtn(){
+  const b=document.getElementById('momo-live-btn');if(!b)return;
+  if(_momoLiveSyncing){b.textContent='同步中…';b.disabled=true;return}
+  b.disabled=false;
+  if(!_momoLiveAt){b.textContent='同步MOMO狀態';b.title='去 MOMO 平台抓每筆單的實際配送狀態（唯讀，不會改任何東西）';return}
+  const d=new Date(_momoLiveAt),p=n=>String(n).padStart(2,'0');
+  b.textContent='MOMO '+p(d.getHours())+':'+p(d.getMinutes());
+  b.title='上次同步：'+d.toLocaleString('zh-TW')+'\n平台未出貨 '+Object.keys(_momoLive).length+' 筆\n點擊重新同步（唯讀）';
+}
+
 // ===== LIST =====
 // 兩套 render（desktop table / mobile card）共用的衍生資料 — 一次算好，兩邊都用，避免分歧
 // MOMO 配送聯絡三態（徽章 + 「尚未電聯」篩選鈕共用同一份判斷，避免看得到卻篩不出來）
@@ -2712,7 +2881,10 @@ function prepareOrderRow(o,opts){
   if(_ct==='dated')scmBadge=`<span class="ct-badge ct-dated" title="MOMO 已確認指定配送日 ${esc(scmDate)}">確認指配 ${esc(scmDate.slice(5))}</span>`;
   else if(_ct==='called')scmBadge=`<span class="ct-badge ct-called" title="已電聯客戶，尚未確認配送日">已電聯待指配</span>`;
   else if(_ct==='none')scmBadge=`<span class="ct-badge ct-none" title="MOMO 尚未電聯客戶排配送">尚未電聯</span>`;
-  return{ps,ph,qty,addrAttrs,noteShort,installInfo,addonInfo,newBadge,addrBadge,trackInfo,region,remoteBadge,scmDate,scmActive,scmBadge};
+  // MOMO 平台實際狀態（唯讀同步來的）＋ 跟本機狀態對不上的標記
+  const momoBadge=momoLiveBadge(o);
+  const momoDiff=momoDiffBadge(o);
+  return{ps,ph,qty,addrAttrs,noteShort,installInfo,addonInfo,newBadge,addrBadge,trackInfo,region,remoteBadge,scmDate,scmActive,scmBadge,momoBadge,momoDiff};
 }
 // 從地址抽「縣市 + 區」簡化字串 — 第一頁就能看出大概在哪
 // 「桃園市八德區介壽路二段455巷20號」→「桃園八德」
@@ -3301,18 +3473,20 @@ function filterListOrders(){const q=_curQuery();return orders.filter(o=>{if(!pla
   if(cSpecial==='scmFiled'&&!isScmFiled(o))return false;
   if(cSpecial==='scmUnfiled'&&!isScmUnfiled(o))return false;
   if(cSpecial==='ctNone'&&!isCtNone(o))return false;
+  if(cSpecial==='momoUnreported'&&!isMomoUnreported(o))return false;
+  if(cSpecial==='momoDiff'&&!isMomoDiff(o))return false;
   if(q&&!_matchSearch(o,q))return false;return true})}
 function updateFilterCounts(){
   // 每個篩選按鈕後面的數字（小灰色 pill）— 之前每組各跑一次 orders.filter，現在合併為單次 pass
   // 平台組的 count 用「當前 cStatus + special + q」當前提；狀態組用「當前 cFilter + special + q」
   const q=_curQuery();
-  const matchSpecial=o=>{if(cSpecial==='changeAddr')return hasPendingAddrChange(o);if(cSpecial==='newToday')return isNewOrder(o);if(cSpecial==='unpaidFee')return hasAnyUnpaidFee(o);if(cSpecial==='pendingDeliver')return needsDeliverAction(o);if(cSpecial==='scmFiled')return isScmFiled(o);if(cSpecial==='scmUnfiled')return isScmUnfiled(o);if(cSpecial==='ctNone')return isCtNone(o);return true};
+  const matchSpecial=o=>{if(cSpecial==='changeAddr')return hasPendingAddrChange(o);if(cSpecial==='newToday')return isNewOrder(o);if(cSpecial==='unpaidFee')return hasAnyUnpaidFee(o);if(cSpecial==='pendingDeliver')return needsDeliverAction(o);if(cSpecial==='scmFiled')return isScmFiled(o);if(cSpecial==='scmUnfiled')return isScmUnfiled(o);if(cSpecial==='ctNone')return isCtNone(o);if(cSpecial==='momoUnreported')return isMomoUnreported(o);if(cSpecial==='momoDiff')return isMomoDiff(o);return true};
   const matchQ=q?(o=>_matchSearch(o,q)):()=>true;
   const platCnt={all:0,MO:0,PC:0,ST:0,SCH:0,MO3:0,EXPO:0};
   const statCnt={all:0,'待收費':0};
   // special button 也算 count（改址 / 今日新單 / 未收款 / MOMO 指定配）— 用「當前 plat+status+q」當前提
   // unpaidFee 例外：跨狀態（含已完成），count 用「plat+q」不過 status filter
-  let changeAddrCnt=0,newTodayCnt=0,unpaidFeeCnt=0,scmFiledCnt=0,scmUnfiledCnt=0,ctNoneCnt=0;
+  let changeAddrCnt=0,newTodayCnt=0,unpaidFeeCnt=0,scmFiledCnt=0,scmUnfiledCnt=0,ctNoneCnt=0,momoUnrepCnt=0,momoDiffCnt=0;
   for(const o of orders){
     if(!matchQ(o))continue;
     // 已完成現在跟其他狀態一樣顯示，不再特殊處理（成交 tab 移除後行為對齊）
@@ -3324,6 +3498,8 @@ function updateFilterCounts(){
       if(isScmFiled(o))scmFiledCnt++;
       if(isScmUnfiled(o))scmUnfiledCnt++;
       if(isCtNone(o))ctNoneCnt++;
+      if(isMomoUnreported(o))momoUnrepCnt++;
+      if(isMomoDiff(o))momoDiffCnt++;
     }
     // 未收款 count — 純粹「平台 + 搜尋 + 未收款」，不過 cStatus filter
     if(platMatch(o)&&hasAnyUnpaidFee(o))unpaidFeeCnt++;
@@ -3340,7 +3516,7 @@ function updateFilterCounts(){
   }
   document.querySelectorAll('#tab-list .fbtn[data-fg="plat"]').forEach(btn=>{setBtnCount(btn,platCnt[btn.dataset.stat]||0)});
   document.querySelectorAll('#tab-list .fbtn[data-fg="status"]').forEach(btn=>{const v=(btn.dataset.stat||'').replace('status:','');setBtnCount(btn,statCnt[v]||0)});
-  document.querySelectorAll('#tab-list .fbtn[data-fg="special"]').forEach(btn=>{const oc=btn.getAttribute('onclick')||'';if(oc.includes('changeAddr'))setBtnCount(btn,changeAddrCnt);else if(oc.includes('newToday'))setBtnCount(btn,newTodayCnt);else if(oc.includes('unpaidFee'))setBtnCount(btn,unpaidFeeCnt);else if(oc.includes('scmUnfiled'))setBtnCount(btn,scmUnfiledCnt);else if(oc.includes('scmFiled'))setBtnCount(btn,scmFiledCnt);else if(oc.includes('ctNone'))setBtnCount(btn,ctNoneCnt)});
+  document.querySelectorAll('#tab-list .fbtn[data-fg="special"]').forEach(btn=>{const oc=btn.getAttribute('onclick')||'';if(oc.includes('changeAddr'))setBtnCount(btn,changeAddrCnt);else if(oc.includes('newToday'))setBtnCount(btn,newTodayCnt);else if(oc.includes('unpaidFee'))setBtnCount(btn,unpaidFeeCnt);else if(oc.includes('scmUnfiled'))setBtnCount(btn,scmUnfiledCnt);else if(oc.includes('scmFiled'))setBtnCount(btn,scmFiledCnt);else if(oc.includes('ctNone'))setBtnCount(btn,ctNoneCnt);else if(oc.includes('momoUnreported'))setBtnCount(btn,momoUnrepCnt);else if(oc.includes('momoDiff'))setBtnCount(btn,momoDiffCnt)});
 }
 function setBtnCount(btn,cnt){
   let pill=btn.querySelector('.cnt-pill');
@@ -3394,7 +3570,7 @@ const checked=selectedIds.has(o.id);
 // 規格併入品名 cell — 用小 pill 顯示，省一整欄寬度給操作欄
 // 規格放最前面 — 之前放品名後面，品名太長會被 truncate 切掉，看不到規格要點編輯。
 const prodSpecCombined=`${r.ps.specs?`<span class="spec-pill" title="${esc(r.ps.specs)}" style="margin-right:6px;flex-shrink:0">${esc(r.ps.specs)}</span>`:''}${escWithHL(r.ps.name)}`;
-h+=`<tr${r.scmActive?' class="row-scm"':''}><td class="batch-cell"><input type="checkbox" data-oid="${o.id}" ${checked?'checked':''} onclick="toggleRowSelected('${o.id}')"></td><td class="mono" style="width:56px">${fmtD(o.date)}${r.newBadge?' '+r.newBadge:''}</td><td style="width:44px;text-align:center">${platformPill(o.platform)}${r.addrBadge?' '+r.addrBadge:''}</td><td class="prod-cell" onclick="openEdit('${oid}')" style="cursor:pointer" title="點擊編輯：${esc(o.product)}">${prodSpecCombined}</td><td class="tab-list-mobile-hide qty-cell"><input type="text" inputmode="numeric" value="${r.qty}" oninput="this.value=cn(this.value);setQty('${oid}',this.value)" class="fee-input qty-input" style="width:34px${r.qty>1?';border-color:var(--mo);background:var(--mo-bg);color:var(--mo);font-weight:800':''}"></td><td class="name-cell" title="${r.ph?'電話 '+esc(r.ph):''}${o.address?'\n地址 '+esc(o.address):''}${r.noteShort?'\n備註 '+esc(r.noteShort):''}"><span style="white-space:normal">${o.name?`<span style="cursor:pointer;white-space:nowrap;text-decoration:underline;text-decoration-style:dotted;text-decoration-color:var(--ht);text-underline-offset:2px" onclick="event.stopPropagation();searchCustomerOrders(${JSON.stringify(o.name).replace(/"/g,'&quot;')})" title="🔒 鎖定看「${esc(o.name)}」的所有訂單">${escWithHL(o.name)}</span>`:'(無姓名)'}${r.region?`<span style="font-size:9px;color:#1657b5;background:#e8eef9;border-radius:3px;padding:1px 5px;margin-left:5px;font-weight:700;white-space:nowrap;display:inline-block" title="${esc(o.address||'')}">${esc(r.region)}</span>`:''}${r.remoteBadge?`<span style="margin-left:4px">${r.remoteBadge}</span>`:''}${r.scmBadge?`<span style="margin-left:4px">${r.scmBadge}</span>`:''}</span>${r.ph?`<div style="font-size:9px;color:var(--dm);font-family:var(--mono);margin-top:1px;max-width:140px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${phoneTel(r.ph)}</div>`:''}${r.noteShort?`<div style="font-size:9px;color:#b45309;background:#fef9ec;border-radius:3px;padding:2px 5px;margin-top:2px;max-width:190px;white-space:normal;line-height:1.3;overflow:hidden;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical" title="${esc(r.noteShort)}">${escWithHL(r.noteShort)}</div>`:''}</td><td class="tab-list-mobile-hide acc-cell">${ib}</td><td class="tab-list-mobile-hide acc-cell">${ab}</td><td class="total-cell" id="tot-${oid}" style="width:78px">${$(tot(o))}${r.trackInfo}</td><td style="width:64px;white-space:nowrap"><button class="${stCls(o.status)}" onclick="openStatusMenu('${oid}',event)" title="點擊選擇狀態">${o.status} ▾</button></td><td class="act-cell"><div class="act-wrap">${a.addrAck}${a.ship}${a.shipDone}${a.instPaid}${a.addonPaid}${a.prodLink}${a.sms}${a.edit}${a.copy}${a.cam}${a.del}</div></td></tr>`});
+h+=`<tr${r.scmActive?' class="row-scm"':''}><td class="batch-cell"><input type="checkbox" data-oid="${o.id}" ${checked?'checked':''} onclick="toggleRowSelected('${o.id}')"></td><td class="mono" style="width:56px">${fmtD(o.date)}${r.newBadge?' '+r.newBadge:''}</td><td style="width:44px;text-align:center">${platformPill(o.platform)}${r.addrBadge?' '+r.addrBadge:''}</td><td class="prod-cell" onclick="openEdit('${oid}')" style="cursor:pointer" title="點擊編輯：${esc(o.product)}">${prodSpecCombined}</td><td class="tab-list-mobile-hide qty-cell"><input type="text" inputmode="numeric" value="${r.qty}" oninput="this.value=cn(this.value);setQty('${oid}',this.value)" class="fee-input qty-input" style="width:34px${r.qty>1?';border-color:var(--mo);background:var(--mo-bg);color:var(--mo);font-weight:800':''}"></td><td class="name-cell" title="${r.ph?'電話 '+esc(r.ph):''}${o.address?'\n地址 '+esc(o.address):''}${r.noteShort?'\n備註 '+esc(r.noteShort):''}"><span style="white-space:normal">${o.name?`<span style="cursor:pointer;white-space:nowrap;text-decoration:underline;text-decoration-style:dotted;text-decoration-color:var(--ht);text-underline-offset:2px" onclick="event.stopPropagation();searchCustomerOrders(${JSON.stringify(o.name).replace(/"/g,'&quot;')})" title="🔒 鎖定看「${esc(o.name)}」的所有訂單">${escWithHL(o.name)}</span>`:'(無姓名)'}${r.region?`<span style="font-size:9px;color:#1657b5;background:#e8eef9;border-radius:3px;padding:1px 5px;margin-left:5px;font-weight:700;white-space:nowrap;display:inline-block" title="${esc(o.address||'')}">${esc(r.region)}</span>`:''}${r.remoteBadge?`<span style="margin-left:4px">${r.remoteBadge}</span>`:''}${r.scmBadge?`<span style="margin-left:4px">${r.scmBadge}</span>`:''}</span>${r.ph?`<div style="font-size:9px;color:var(--dm);font-family:var(--mono);margin-top:1px;max-width:140px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${phoneTel(r.ph)}</div>`:''}${r.noteShort?`<div style="font-size:9px;color:#b45309;background:#fef9ec;border-radius:3px;padding:2px 5px;margin-top:2px;max-width:190px;white-space:normal;line-height:1.3;overflow:hidden;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical" title="${esc(r.noteShort)}">${escWithHL(r.noteShort)}</div>`:''}</td><td class="tab-list-mobile-hide acc-cell">${ib}</td><td class="tab-list-mobile-hide acc-cell">${ab}</td><td class="total-cell" id="tot-${oid}" style="width:78px">${$(tot(o))}${r.trackInfo}</td><td style="width:96px;white-space:nowrap"><button class="${stCls(o.status)}" onclick="openStatusMenu('${oid}',event)" title="本機狀態（點擊修改）">${o.status} ▾</button>${(r.momoBadge||r.momoDiff)?`<div style="margin-top:3px;display:flex;flex-direction:column;gap:2px;align-items:flex-start">${r.momoBadge}${r.momoDiff}</div>`:''}</td><td class="act-cell"><div class="act-wrap">${a.addrAck}${a.ship}${a.shipDone}${a.instPaid}${a.addonPaid}${a.prodLink}${a.sms}${a.edit}${a.copy}${a.cam}${a.del}</div></td></tr>`});
 h+='</tbody></table></div>';if(dtrunc)h+=`<div style="text-align:center;padding:12px 8px"><button class="btn" onclick="_deskExpand=true;renderList()">顯示全部 ${fl.length} 筆（目前先顯示前 ${DLIMIT} 筆，避免大量訂單卡頓）</button></div>`;h+='</div>';
 // 水平捲動位置沿用上一次 render — 視窗不夠寬要滑到右邊看操作鈕時，按一下鈕就整個彈回最左邊（姓名/尚未電聯 那排跟著跳掉）很難用
 const _prevSL=document.querySelector('#list-area .tbl-scroll')?.scrollLeft||0;
@@ -3435,7 +3611,7 @@ ${platformPill(o.platform)}${r.addrBadge}${r.newBadge}${r.scmBadge}
 <div class="ord-card-name">${o.name?`<span style="cursor:pointer;text-decoration:underline;text-decoration-style:dotted;text-decoration-color:var(--ht);text-underline-offset:3px" onclick="event.stopPropagation();searchCustomerOrders(${JSON.stringify(o.name).replace(/"/g,'&quot;')})" title="🔒 鎖定看「${esc(o.name)}」的所有訂單">${escWithHL(o.name)}</span>`:'(無姓名)'}${r.region?`<span style="font-size:10px;color:#1657b5;background:#e8eef9;border-radius:4px;padding:2px 7px;font-weight:700;margin-left:6px;vertical-align:middle" title="${esc(o.address||'')}">${esc(r.region)}</span>`:''}${r.remoteBadge?`<span style="margin-left:4px;vertical-align:middle">${r.remoteBadge}</span>`:''}${r.qty>1?` <span class="qty-pill large">× ${r.qty}</span>`:''}${copyBtn(o.name,'姓名')}</div>
 <div class="ord-card-prod" onclick="openEdit('${oid}')" style="cursor:pointer">${r.ps.specs?`<span class="spec-pill" style="margin-right:6px">${esc(r.ps.specs)}</span>`:''}${escWithHL(r.ps.name||o.product||'')}</div>
 <div class="ord-card-meta">
-<button class="${stCls(o.status)}" onclick="openStatusMenu('${oid}',event)" style="min-height:30px" title="點擊選擇狀態">${o.status} ▾</button>
+<button class="${stCls(o.status)}" onclick="openStatusMenu('${oid}',event)" style="min-height:30px" title="本機狀態（點擊修改）">${o.status} ▾</button>${r.momoBadge||''}${r.momoDiff||''}
 ${r.qty===1?`<span class="qty-pill">數量 1</span>`:''}
 ${installPill}
 ${addonPill}
@@ -5095,7 +5271,7 @@ function _regionCard(o){
 <div class="ord-card-h"><span class="ord-date">${fmtD(o.date)}</span>${platformPill(o.platform)}${r.remoteBadge||''}${r.scmBadge||''}<span class="ord-total">${$(tot(o))}</span></div>
 <div class="ord-card-name">${o.name?`<span style="cursor:pointer;text-decoration:underline;text-decoration-style:dotted;text-decoration-color:var(--ht);text-underline-offset:3px" onclick="event.stopPropagation();searchCustomerOrders(${JSON.stringify(o.name).replace(/"/g,'&quot;')})" title="🔒 看「${esc(o.name)}」所有訂單">${escWithHL(o.name)}</span>`:'(無姓名)'}${r.remoteBadge?'':''}</div>
 <div class="ord-card-prod" onclick="openEdit('${oid}')" style="cursor:pointer">${r.ps.specs?`<span class="spec-pill" style="margin-right:6px">${esc(r.ps.specs)}</span>`:''}${escWithHL(r.ps.name||o.product||'')}</div>
-<div class="ord-card-meta"><button class="${stCls(o.status)}" onclick="openStatusMenu('${oid}',event)" style="min-height:30px" title="點擊選擇狀態">${o.status} ▾</button>${instPill}${addonPill}</div>
+<div class="ord-card-meta"><button class="${stCls(o.status)}" onclick="openStatusMenu('${oid}',event)" style="min-height:30px" title="本機狀態（點擊修改）">${o.status} ▾</button>${r.momoBadge||''}${r.momoDiff||''}${instPill}${addonPill}</div>
 ${o.address?`<div class="ord-card-addr">📍 ${mapsLink(o.address)}${copyBtn(o.address,'地址')}</div>`:''}
 ${r.ph?`<div class="ord-card-phone">📞 ${phoneTel(r.ph)}${copyBtn(r.ph,'電話')}${o.realPhone?`<span class="real-ph">📱 ${phoneTel(o.realPhone)}</span>${copyBtn(o.realPhone,'手機')}`:''}</div>`:''}
 ${r.noteShort?`<div class="ord-card-note">${esc(r.noteShort)}</div>`:''}
