@@ -991,6 +991,13 @@ body.has-batch-bar .main{padding-bottom:140px}
 
 .pmod .pk-rest{font-size:9.5px;font-weight:800;color:var(--amb);background:var(--amb-bg);border:1px solid var(--amb);border-radius:4px;padding:1px 5px;margin-left:6px;white-space:nowrap}
 .pmod .side2{display:block;font-size:10px;color:var(--ht);font-family:var(--mono);margin-top:2px}
+
+.tdmod .dn-bar{display:flex;gap:6px;flex-wrap:wrap;padding:2px 0 10px;border-bottom:1px solid var(--bd);margin-bottom:10px}
+.tdmod .dn-day{font-size:11px;font-weight:800;color:var(--dm);font-family:var(--mono);margin:12px 0 6px;display:flex;align-items:center;gap:8px}
+.tdmod .dn-day:first-of-type{margin-top:0}
+.tdmod .dn-day span{font-weight:400;color:var(--ht)}
+.tdmod .dn-n{font-family:var(--mono);color:var(--dm)}
+.tdmod .dn-more{font-size:10.5px;color:var(--ht);font-family:var(--mono);margin-left:8px;font-weight:400}
 </style>
 </head>
 <body>
@@ -1062,7 +1069,7 @@ body.has-batch-bar .main{padding-bottom:140px}
 </div>
 
 <div id="td-layer" class="tdmod"></div>
-<div class="overlay hidden" id="login-overlay" style="z-index:400"><div class="modal" style="max-width:380px"><h3>🔐 訂單管理系統 登入</h3><div class="fg full" style="margin-top:10px"><div class="fi"><label>選擇使用者</label><div id="login-userchips" style="display:grid;grid-template-columns:1fr 1fr;gap:6px;margin-top:6px"></div><input id="login-user" type="hidden"></div></div><div class="fg full"><div class="fi"><label>密碼</label><input id="login-pass" type="password" autocomplete="current-password" onkeypress="if(event.key==='Enter')doLogin()"></div></div><div id="login-err" style="color:var(--pc);font-size:12px;min-height:18px;margin-top:6px"></div><div class="modal-ft"><button class="btn btn-g" onclick="doLogin()">登入</button></div><div style="font-size:11px;color:var(--dm);margin-top:10px;line-height:1.6">📌 點選名字 → 輸入密碼。開發者：Allie／阿淵　夥伴：雨停／建杰／詠璇／芷瑜<br>密碼預設同名字（建杰／詠璇／芷瑜 預設 0000），請登入後盡速更改</div></div></div>
+<div class="overlay hidden" id="login-overlay" style="z-index:400"><div class="modal" style="max-width:380px"><h3>🔐 訂單管理系統 登入</h3><div class="fg full" style="margin-top:10px"><div class="fi"><label>選擇使用者</label><div id="login-userchips" style="display:grid;grid-template-columns:1fr 1fr;gap:6px;margin-top:6px"></div><input id="login-user" type="hidden"></div></div><div class="fg full"><div class="fi"><label>密碼</label><input id="login-pass" type="password" autocomplete="current-password" onkeypress="if(event.key==='Enter'&&!imeBusy(event))doLogin()"></div></div><div id="login-err" style="color:var(--pc);font-size:12px;min-height:18px;margin-top:6px"></div><div class="modal-ft"><button class="btn btn-g" onclick="doLogin()">登入</button></div><div style="font-size:11px;color:var(--dm);margin-top:10px;line-height:1.6">📌 點選名字 → 輸入密碼。開發者：Allie／阿淵　夥伴：雨停／建杰／詠璇／芷瑜<br>密碼預設同名字（建杰／詠璇／芷瑜 預設 0000），請登入後盡速更改</div></div></div>
 <div class="overlay hidden" id="modal-overlay"><div class="modal" id="modal-body"></div><button class="modal-x" type="button" onclick="closeModal()" title="關閉編輯 (Esc)">✕</button></div>
 <button class="fs-toggle" id="fs-toggle" onclick="toggleFullscreenMode()" title="全螢幕閱讀模式" aria-label="切換全螢幕模式">⛶</button>
 
@@ -4068,7 +4075,7 @@ document.getElementById('modal-body').innerHTML=`<h3>編輯訂單${customerHisto
 ${o.platform==='ST'?`<div style="border:1px solid var(--bd);border-radius:8px;padding:12px;margin:8px 0;background:var(--sf2)"><div style="font-size:12px;font-weight:700;margin-bottom:8px">📦 物流 <span style="font-weight:400;color:var(--dm);font-size:10px">（外送/寄送才需填）</span></div><div class="fg"><div class="fi"><label>物流公司</label><select id="e-dely"><option value="">— 未填（現場取走） —</option>${MOMO_DELY_COMPANIES.map(c=>`<option ${o.delyGbStr===c?'selected':''}>${c}</option>`).join('')}</select></div><div class="fi"><label>物流單號</label><input id="e-tracking" value="${esc(o.trackingNo||'')}" placeholder="(可空)" style="font-family:var(--mono)"></div></div><div style="margin-top:6px;font-size:10px;color:var(--dm)">店內訂單通常現場取走，物流可空</div></div>`:`<div style="border:1px solid var(--bd);border-radius:8px;padding:12px;margin:8px 0;background:var(--sf2)"><div style="font-size:12px;font-weight:700;margin-bottom:8px">📦 物流</div><div class="fg"><div class="fi"><label>物流公司</label><select id="e-dely"><option value="">— 未填 —</option>${(o.platform==='PC'?[...MOMO_DELY_COMPANIES,'廠商自行出貨']:MOMO_DELY_COMPANIES).map(c=>`<option ${o.delyGbStr===c?'selected':''}>${c}</option>`).join('')}</select></div><div class="fi"><label>物流單號</label><input id="e-tracking" value="${esc(o.trackingNo||'')}" placeholder="物流單號" style="font-family:var(--mono)"></div></div>${o.platform==='MO'?`<div style="margin-top:8px;display:flex;gap:8px;align-items:center;flex-wrap:wrap"><button type="button" class="btn" onclick="syncShipFromEdit()" style="background:var(--mo);color:#fff;border-color:var(--mo);font-size:11px;font-weight:700">📤 同步到 MOMO 後台</button><span style="font-size:10px;color:var(--dm)">用上面的單號開「出貨確認」回填到 MOMO（會跳 DRY RUN 預覽）</span></div>`:o.platform==='MO3'?`<div style="margin-top:8px;display:flex;gap:8px;align-items:center;flex-wrap:wrap"><button type="button" class="btn" onclick="fetchThirdLabelForEdit(this)" style="background:var(--mo);color:#fff;border-color:var(--mo);font-size:11px;font-weight:700">📥 補抓託運單電話/地址</button><span style="font-size:10px;color:var(--dm)">第三方單個資遮罩 → 從 MOMO 託運單解出代撥電話＋完整地址</span></div>`:o.platform==='PC'?`<div style="margin-top:8px;display:flex;gap:8px;align-items:center;flex-wrap:wrap"><button type="button" class="btn" onclick="syncShipPchomeFromEdit()" style="background:var(--pc);color:#fff;border-color:var(--pc);font-size:11px;font-weight:700">📤 回填到 PChome 後台</button><span style="font-size:10px;color:var(--dm)">用上面的單號開「出貨回填」送到 PChome</span></div>`:''}</div>`}
 <div class="fg" style="margin-top:10px"><div class="fi"><label>狀態</label><select id="e-st">${ST.map(s=>`<option ${o.status===s?'selected':''}>${s}</option>`).join('')}</select></div></div>
 ${(o.photos&&o.photos.length)?`<div class="fg full"><div class="fi"><label>📷 出貨照片（${o.photos.length} 張，點圖放大）</label><div style="display:flex;gap:6px;flex-wrap:wrap;padding:8px;background:var(--sf2);border:1px solid var(--bd);border-radius:8px">${o.photos.map((p,i)=>`<div style="position:relative"><a href="${esc(p.url)}" target="_blank" rel="noopener" style="display:block;width:88px;height:88px;border-radius:6px;overflow:hidden;border:1px solid var(--bd);background:#fff"><img src="${esc(p.url)}" style="width:100%;height:100%;object-fit:cover;display:block" loading="lazy"></a><button onclick="removeOrderPhoto('${o.id}',${i})" style="position:absolute;top:-6px;right:-6px;width:22px;height:22px;border-radius:50%;background:var(--pc);color:#fff;border:0;font-size:12px;cursor:pointer;font-weight:700;line-height:1" title="刪除此照片">×</button><div style="font-size:9px;color:var(--dm);text-align:center;margin-top:2px;font-family:var(--mono)">${new Date(p.ts).toLocaleString('zh-TW',{month:'2-digit',day:'2-digit',hour:'2-digit',minute:'2-digit'})}</div></div>`).join('')}</div></div></div>`:''}
-<div class="fg full"><div class="fi"><label>備註（新增即時同步・自動記錄誰＋時間）</label><div class="note-presets">${['不安裝不加購-直接出貨！','壓SP.貨到直接出！','日期壓後面一點，貨到出貨。','已加line交涉中','要到電話！'].map(t=>`<button type="button" class="note-preset-chip" data-preset="${esc(t)}" onclick="noteQuickAdd(this.dataset.preset)">${esc(t)}</button>`).join('')}</div><div style="display:flex;gap:6px;margin-top:2px"><input id="e-note-add" placeholder="輸入備註，Enter 或按新增（即時同步）" onkeydown="if(event.key==='Enter'){event.preventDefault();noteAddFromInput()}" style="flex:1;padding:6px 10px;border:1px solid var(--grn);border-radius:6px;font-size:12px;font-family:var(--sans);outline:none;background:var(--grn-bg)"><button type="button" class="btn btn-g" onclick="noteAddFromInput()" style="white-space:nowrap">＋ 新增</button></div><div id="e-note-timeline" style="margin-top:8px;max-height:230px;overflow:auto;background:var(--sf2);border:1px solid var(--bd);border-radius:8px;padding:4px 10px">${noteHistoryHTML(o.note)}</div><div style="margin-top:6px"><button type="button" class="btn" style="font-size:11px" onclick="toggleNoteRaw(this)">✎ 編輯／刪除舊備註（整段覆蓋）</button></div><textarea id="e-note" data-dirty="0" oninput="this.dataset.dirty='1';_modalDirty=true" style="display:none;margin-top:6px" placeholder="直接改整段（含舊紀錄）；儲存會覆蓋整段，請小心">${esc(o.note)}</textarea></div></div>
+<div class="fg full"><div class="fi"><label>備註（新增即時同步・自動記錄誰＋時間）</label><div class="note-presets">${['不安裝不加購-直接出貨！','壓SP.貨到直接出！','日期壓後面一點，貨到出貨。','已加line交涉中','要到電話！'].map(t=>`<button type="button" class="note-preset-chip" data-preset="${esc(t)}" onclick="noteQuickAdd(this.dataset.preset)">${esc(t)}</button>`).join('')}</div><div style="display:flex;gap:6px;margin-top:2px"><input id="e-note-add" placeholder="輸入備註，Enter 或按新增（即時同步）" onkeydown="if(event.key==='Enter'&&!imeBusy(event)){event.preventDefault();noteAddFromInput()}" style="flex:1;padding:6px 10px;border:1px solid var(--grn);border-radius:6px;font-size:12px;font-family:var(--sans);outline:none;background:var(--grn-bg)"><button type="button" class="btn btn-g" onclick="noteAddFromInput()" style="white-space:nowrap">＋ 新增</button></div><div id="e-note-timeline" style="margin-top:8px;max-height:230px;overflow:auto;background:var(--sf2);border:1px solid var(--bd);border-radius:8px;padding:4px 10px">${noteHistoryHTML(o.note)}</div><div style="margin-top:6px"><button type="button" class="btn" style="font-size:11px" onclick="toggleNoteRaw(this)">✎ 編輯／刪除舊備註（整段覆蓋）</button></div><textarea id="e-note" data-dirty="0" oninput="this.dataset.dirty='1';_modalDirty=true" style="display:none;margin-top:6px" placeholder="直接改整段（含舊紀錄）；儲存會覆蓋整段，請小心">${esc(o.note)}</textarea></div></div>
 <div class="modal-ft"><button class="btn" onclick="closeModal()">取消</button><button class="btn btn-g" onclick="saveEdit()">儲存</button></div>`;
 document.getElementById('modal-overlay').classList.remove('hidden');document.body.style.overflow='hidden';
 // 初始化 mismatch hint（如果開啟編輯的單已經有客戶希望 + 實際排程不符 → 馬上顯示提示）
@@ -4369,6 +4376,23 @@ function closeModal(){
 document.getElementById('modal-body').addEventListener('input',()=>{if(isModalOpen())_modalDirty=true});
 document.getElementById('modal-body').addEventListener('change',()=>{if(isModalOpen())_modalDirty=true});
 // 全域鍵盤捷徑
+
+/* ===== 中文選字保護（杰哥 2026-08-22 回報）=====
+   打注音選字的時候按 Enter 是在選字，不是要送出。原本的 Enter 處理沒有擋，
+   所以選一個字就送出一次備註。
+   兩層保險：
+     1. 組字中的 keydown 會有 isComposing=true（Safari/舊引擎是 keyCode 229）
+     2. 有些輸入法是「先 compositionend 再補一個 Enter keydown」，這種 isComposing
+        已經是 false 了，所以再擋剛結束組字後的 250ms。
+   純英數打字不受影響 —— 沒有組字就不會進這兩個條件。 */
+let _imeEndAt = 0;
+document.addEventListener('compositionstart', ()=>{ _imeEndAt = 0 }, true);
+document.addEventListener('compositionend',   ()=>{ _imeEndAt = Date.now() }, true);
+function imeBusy(e){
+  if(e && (e.isComposing || e.keyCode === 229)) return true;
+  return (Date.now() - _imeEndAt) < 250;
+}
+
 document.addEventListener('keydown',e=>{
   // 不在輸入框時才響應字母快捷鍵
   const inInput=['INPUT','TEXTAREA','SELECT'].includes(document.activeElement?.tagName);
@@ -6115,6 +6139,7 @@ let users = {};                                   // {name:{password, role}}
 let settings = {enabled:true, everyMin:DEFAULT_EVERY};
 let snoozeUntil = 0;                              // 我自己的（存 Firebase，換裝置也生效）
 let fCat = 'all', fMine = false;
+let doneRange = 'today';   // 已完成要看多遠：today | 7 | 30 | all
 let goals = [];
 let ancs = [];                                    // 公告（常駐提醒，不進提醒輪迴）
 let view = 'notes';                               // 'notes' | 'goals'
@@ -6223,6 +6248,7 @@ function onReady(){
     lsSet('todoSysDoneOpen', !g.classList.contains('hidden'));
   };
   if(lsGet('todoSysDoneOpen', false)){ $('done-grid').classList.remove('hidden'); $('done-h').classList.add('open') }
+  try{ const _dr = localStorage.getItem('todoDoneRange'); if(_dr) doneRange = _dr }catch(_){}
   setView(lsGet('todoSysView', 'notes') === 'goals' ? 'goals' : 'notes');
 
   setInterval(tick, 20000);
@@ -6271,14 +6297,50 @@ function render(){
       + '</div>';
   }).join('');
 
-  // done — 只留今天完成的，隔天自動收起來
+  // done — 可以往回看（杰哥 2026-08-22）。
+  // 原本只留今天的，更早的只寫「已收起」卻沒有地方可以打開，
+  // 等於做過的事過一天就查不到了。
   const t0 = new Date(); t0.setHours(0,0,0,0);
-  const todayDone = doneList.filter(t=>(t.doneAt||0) >= t0.getTime());
-  const older = doneList.length - todayDone.length;
-  $('done-h-t').textContent = '今日已完成 ' + todayDone.length + (older>0 ? '（更早的 '+older+' 筆已收起）' : '');
-  $('done-grid').innerHTML = todayDone.length
-    ? '<div class="col" style="grid-column:1/-1">'+todayDone.map(noteHTML).join('')+'</div>'
-    : '<div class="col" style="grid-column:1/-1"><div class="col-empty">今天還沒有完成的事項</div></div>';
+  const cut = doneRange === 'today' ? t0.getTime()
+            : doneRange === 'all'   ? 0
+            : t0.getTime() - (parseInt(doneRange) - 1) * 86400000;
+  const doneShown = doneList.filter(t=>(t.doneAt||0) >= cut);
+  const RANGES = [['today','今天'], ['7','近 7 天'], ['30','近 30 天'], ['all','全部']];
+  const label = (RANGES.find(r=>r[0]===doneRange) || RANGES[0])[1];
+  $('done-h-t').innerHTML = '已完成・' + esc(label) + ' <span class="dn-n">' + doneShown.length + '</span>'
+    + (doneList.length > doneShown.length ? '<span class="dn-more">共 ' + doneList.length + ' 筆</span>' : '');
+
+  // 依日期分組，往回看的時候才知道哪件是哪天做的
+  const byDay = {};
+  doneShown.forEach(t=>{
+    const d = t.doneAt ? new Date(t.doneAt) : null;
+    const k = d ? (d.getFullYear()+'-'+two2(d.getMonth()+1)+'-'+two2(d.getDate())) : '不明';
+    (byDay[k] = byDay[k] || []).push(t);
+  });
+  const days = Object.keys(byDay).sort().reverse();
+  const todayKey = t0.getFullYear()+'-'+two2(t0.getMonth()+1)+'-'+two2(t0.getDate());
+
+  $('done-grid').innerHTML =
+      '<div class="col" style="grid-column:1/-1">'
+    +   '<div class="dn-bar">' + RANGES.map(r=>
+          '<button class="chip' + (doneRange===r[0] ? ' on' : '') + '" data-dn="' + r[0] + '">' + r[1] + '</button>'
+        ).join('') + '</div>'
+    +   (doneShown.length
+        ? days.map(k=>
+            '<div class="dn-day">' + (k===todayKey ? '今天' : esc(k)) + '　<span>' + byDay[k].length + ' 件</span></div>'
+            + byDay[k].map(noteHTML).join('')
+          ).join('')
+        : '<div class="col-empty">這段期間沒有完成的事項</div>')
+    + '</div>';
+  $('done-grid').querySelectorAll('.chip[data-dn]').forEach(b=>b.onclick = e=>{
+    e.stopPropagation();
+    doneRange = b.dataset.dn;
+    try{ localStorage.setItem('todoDoneRange', doneRange) }catch(_){}
+    render();
+    // 切範圍的時候把區塊維持在打開的狀態，不然按一下就收起來很怪
+    const g = $('done-grid'), h = $('done-h');
+    g.classList.remove('hidden'); h.classList.add('open');
+  });
 
   bindNotes();
   updateBell(open);
@@ -6395,6 +6457,7 @@ async function delAnc(id){
   }catch(e){ toast('撤下失敗：'+e.message) }
 }
 
+function two2(n){ return String(n).padStart(2,'0') }
 function noteHTML(t){
   const d = dueInfo(t.due);
   const mine = t.assignee === me;
