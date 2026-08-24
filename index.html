@@ -257,6 +257,8 @@ td{padding:7px 10px;border-bottom:1px solid #f0ede6}tr:hover td{background:var(-
 .ct-gone{color:#475569;background:#f1f5f9;border:1px solid #cbd5e1}
 .ct-fine{color:#fff;background:#dc2626;border:1px solid #dc2626}
 .ct-diff{color:#9a3412;background:#ffedd5;border:1px solid #fdba74}
+.ct-cancel{color:#7f1d1d;background:#fee2e2;border:1px solid #f87171}
+[data-theme="dark"] .ct-cancel{color:#fca5a5;background:#3f1212;border-color:#b91c1c}
 [data-theme="dark"] .ct-gone{color:#cbd5e1;background:#1e293b;border-color:#475569}
 [data-theme="dark"] .ct-fine{color:#fff;background:#b91c1c;border-color:#ef4444}
 [data-theme="dark"] .ct-diff{color:#fdba74;background:#3a2410;border-color:#c2410c}
@@ -1021,7 +1023,7 @@ body.has-batch-bar .main{padding-bottom:140px}
 <div class="card" style="background:#fff1f2;border:1px solid #fda4af"><div class="card-h" style="background:transparent"><h3>🚚 自動抓 MOMO 第三方</h3><div class="btn-row" style="justify-content:flex-end"><button class="btn btn-g" id="momo3-auto-btn" onclick="fetchMomoThirdAuto()" style="background:#f43f5e;border-color:#f43f5e;flex:0 0 auto;min-width:130px" title="抓 MOMO 第三方物流 未出貨訂單（跑遍物流商合併）">🔄 抓取</button></div></div><div class="card-b" style="padding:8px 16px"><div id="momo3-auto-status" style="font-size:11px;color:var(--dm);font-family:var(--mono)"></div></div></div>
 <div class="card" style="background:var(--card-pc-bg);border:1px solid var(--card-pc-bd)"><div class="card-h" style="background:transparent"><h3>🛒 自動抓 PChome</h3><div class="btn-row" style="justify-content:flex-end"><button class="btn btn-g" id="pchome-auto-btn" onclick="fetchPchomeAuto()" style="background:var(--pc);border-color:var(--pc);flex:0 0 auto;min-width:130px" title="自動抓 PChome 未出貨訂單（共用 MOMO API Token）">🔄 抓取</button></div></div><div class="card-b" style="padding:8px 16px"><div id="pchome-auto-status" style="font-size:11px;color:var(--dm);font-family:var(--mono)"></div></div></div><div class="card" style="background:#f5f3ff;border:1px solid #c4b5fd"><div class="card-h" style="background:transparent"><h3>📩 簡訊設定</h3><div class="btn-row" style="justify-content:flex-end"><button class="btn" onclick="editSmsTemplate()" style="border-color:#a78bfa;color:#7c3aed;flex:0 0 auto;min-width:130px" title="編輯發給客戶的簡訊範本">✏️ 改範本</button></div></div><div class="card-b" style="padding:8px 16px"><div id="sms-balance" style="font-size:11px;color:var(--dm);font-family:var(--mono)">剩餘點數：發送後自動更新</div></div></div></div>
 
-<div class="main hidden" id="tab-list"><div class="filter-row"><span class="fg-grp" data-grp="plat" title="Ctrl/Cmd 或 Shift + 點擊可多選（同時看 Mo＋Pc＋展場…）"><button class="fbtn on" data-fg="plat" data-stat="all" onclick="setF('all',this,event)">全部</button><button class="fbtn" data-fg="plat" data-stat="MO" onclick="setF('MO',this,event)">Mo</button><button class="fbtn" data-fg="plat" data-stat="PC" onclick="setF('PC',this,event)">Pc</button><button class="fbtn" data-fg="plat" data-stat="MO3" onclick="setF('MO3',this,event)" title="MOMO 第三方物流">三方</button><button class="fbtn" data-fg="plat" data-stat="ST" onclick="setF('ST',this,event)">店內</button><button class="fbtn" data-fg="plat" data-stat="SCH" onclick="setF('SCH',this,event)">學校</button><button class="fbtn" data-fg="plat" data-stat="EXPO" onclick="setF('EXPO',this,event)" title="樂器展場現場收單">展場</button><button id="mob-stat-cycle" class="fbtn st-cycle" onclick="cycleStatus()" title="點擊循環切換狀態篩選">狀態</button></span><span class="fb-divider">｜</span><span class="fg-grp" data-grp="status" title="Ctrl/Cmd + 點擊可多選"><button class="fbtn on" data-fg="status" data-stat="status:all" onclick="setSF('all',this,event)">全狀態</button><button class="fbtn" data-fg="status" data-stat="status:active" onclick="setActiveStatuses(this)" title="一鍵選所有「進行中」狀態（排除 已完成 / 線下完成 / 已取消；轉線下算進行中）" style="color:#b45309;border-color:#b45309;font-weight:700">進行中</button><button class="fbtn" data-fg="status" data-stat="status:未確認" onclick="setSF('未確認',this,event)">未確認</button><button class="fbtn" data-fg="status" data-stat="status:已確認" onclick="setSF('已確認',this,event)">已確認</button><button class="fbtn" data-fg="status" data-stat="status:交涉中" onclick="setSF('交涉中',this,event)">交涉中</button><button class="fbtn" data-fg="status" data-stat="status:要安裝" onclick="setSF('要安裝',this,event)" title="狀態：要安裝" style="color:#0e7490;border-color:#67e8f9;font-weight:700">要安裝</button><button class="fbtn" data-fg="status" data-stat="status:自己配" onclick="setSF('自己配',this,event)" title="狀態：自己配送" style="color:#be185d;border-color:#f9a8d4;font-weight:700">自己配</button><button class="fbtn" data-fg="status" data-stat="status:未接電" onclick="setSF('未接電',this,event)">未接電</button><button class="fbtn" data-fg="status" data-stat="status:已出貨" onclick="setSF('已出貨',this,event)">已出貨</button><button class="fbtn" data-fg="status" data-stat="status:直接出" onclick="setSF('直接出',this,event)" title="直接出貨（不安裝）" style="color:#3f6212;border-color:#a3e635;font-weight:700">直接出</button><button class="fbtn" data-fg="status" data-stat="status:待收費" onclick="setSF('待收費',this,event)" title="安裝/加購款還沒收 — 自動連動偵測" style="color:#dc2626;border-color:#dc2626;font-weight:700">待收費</button><button class="fbtn" data-fg="status" data-stat="status:補貨中" onclick="setSF('補貨中',this,event)">補貨中</button><button class="fbtn" data-fg="status" data-stat="status:未收錢" onclick="setSF('未收錢',this,event)" title="團購：未收錢" style="color:#b91c1c;border-color:#fca5a5;font-weight:700">未收錢</button><button class="fbtn" data-fg="status" data-stat="status:已收錢" onclick="setSF('已收錢',this,event)" title="團購：已收錢" style="color:#15803d;border-color:#86efac;font-weight:700">已收錢</button><button class="fbtn" data-fg="status" data-stat="status:已完成" onclick="setSF('已完成',this,event)" title="只看已完成單" style="color:var(--grn);border-color:#8cc4a0;font-weight:700">已完成</button><button class="fbtn" data-fg="status" data-stat="status:已取消" onclick="setSF('已取消',this,event)">已取消</button><button class="fbtn" data-fg="status" data-stat="status:轉線下" onclick="setSF('轉線下',this,event)">轉線下</button><button class="fbtn" data-fg="status" data-stat="status:線下完成" onclick="setSF('線下完成',this,event)" title="線下完成（改到線下成交／安裝已在線下處理完）" style="color:#0f766e;border-color:#5eead4;font-weight:700">線下完成</button></span><span class="fb-divider">｜</span><span class="fg-grp" data-grp="special"><button class="fbtn" data-fg="special" onclick="toggleSpecial('changeAddr',this)" title="只看客戶有申請改地址的訂單">改址</button><button class="fbtn" data-fg="special" onclick="toggleSpecial('newToday',this)" title="只看今日新單">今日</button><button class="fbtn" data-fg="special" onclick="toggleSpecial('unpaidFee',this)" title="只看有未收款的訂單（安裝/加購費>0 但未收）— 含已完成的單，跨所有狀態篩" style="color:#dc2626;border-color:#dc2626;font-weight:700">未收款</button><button class="fbtn" data-fg="special" onclick="toggleSpecial('pendingDeliver',this)" title="按下會即時抓 MOMO/PChome 平台『線上還沒出貨』的單來比對（約配去後台確認配送日、一般單壓自行出貨）— 以平台實際狀態為準" style="color:#2563eb;border-color:#2563eb;font-weight:700">🚚 待確認配送/出貨</button><button class="fbtn" data-fg="special" onclick="toggleSpecial('scmFiled',this)" title="只看 MOMO 已回押『指定配送日』的進行中訂單" style="color:#6d28d9;border-color:#c4b5fd;font-weight:700">🚚 已壓指定配</button><button class="fbtn" data-fg="special" onclick="toggleSpecial('scmUnfiled',this)" title="只看 MOMO 還沒壓『指定配送日』的進行中訂單" style="color:#7c3aed;border-color:#c4b5fd;font-weight:700">未壓指定配</button><button class="fbtn" data-fg="special" onclick="toggleSpecial('ctNone',this)" title="只看還沒電聯客戶排配送的 MOMO／三方進行中訂單（＝列表上紅色『尚未電聯』那些）" style="color:#b91c1c;border-color:#fca5a5;font-weight:700">📞 尚未電聯</button><button class="fbtn" data-fg="special" onclick="toggleSpecial('momoUnreported',this)" title="MOMO 平台狀態還是「請回覆」＝還沒回報。進單日 +1 個工作日（週末順延）還沒回報，MOMO 會罰款。MOMO 已標「電聯不上」的不算。" style="color:#dc2626;border-color:#dc2626;font-weight:700">MOMO未回報</button><button class="fbtn" data-fg="special" onclick="toggleSpecial('momoDiff',this)" title="MOMO 平台狀態跟我們本機狀態對不上的單（以平台為準）" style="color:#c2410c;border-color:#fdba74;font-weight:700">狀態不一致</button><button id="momo-live-btn" class="fbtn" onclick="syncMomoLive()" title="去 MOMO 平台抓每筆單的實際配送狀態（唯讀，不會改任何東西）" style="color:#2563eb;border-color:#93c5fd;font-weight:700">同步MOMO狀態</button></span><span style="flex:1"></span><span id="filter-applied-info" style="display:none"></span><button class="btn" onclick="openActivityLog()" style="font-size:11px;padding:4px 10px;margin-right:6px;background:#fef0f5;border-color:#f0c4d8;color:var(--mo)" title="看最近所有訂單的操作紀錄（找「剛剛動了哪一筆」用）">紀錄</button><input class="search" id="q" placeholder="搜尋姓名/單號/商品..." oninput="this.value=fwToHw(this.value);searchListDebounced()" title="按 / 或 Ctrl+K 快速聚焦（全形數字自動轉半形）"></div><div id="list-area"></div></div>
+<div class="main hidden" id="tab-list"><div class="filter-row"><span class="fg-grp" data-grp="plat" title="Ctrl/Cmd 或 Shift + 點擊可多選（同時看 Mo＋Pc＋展場…）"><button class="fbtn on" data-fg="plat" data-stat="all" onclick="setF('all',this,event)">全部</button><button class="fbtn" data-fg="plat" data-stat="MO" onclick="setF('MO',this,event)">Mo</button><button class="fbtn" data-fg="plat" data-stat="PC" onclick="setF('PC',this,event)">Pc</button><button class="fbtn" data-fg="plat" data-stat="MO3" onclick="setF('MO3',this,event)" title="MOMO 第三方物流">三方</button><button class="fbtn" data-fg="plat" data-stat="ST" onclick="setF('ST',this,event)">店內</button><button class="fbtn" data-fg="plat" data-stat="SCH" onclick="setF('SCH',this,event)">學校</button><button class="fbtn" data-fg="plat" data-stat="EXPO" onclick="setF('EXPO',this,event)" title="樂器展場現場收單">展場</button><button id="mob-stat-cycle" class="fbtn st-cycle" onclick="cycleStatus()" title="點擊循環切換狀態篩選">狀態</button></span><span class="fb-divider">｜</span><span class="fg-grp" data-grp="status" title="Ctrl/Cmd + 點擊可多選"><button class="fbtn on" data-fg="status" data-stat="status:all" onclick="setSF('all',this,event)">全狀態</button><button class="fbtn" data-fg="status" data-stat="status:active" onclick="setActiveStatuses(this)" title="一鍵選所有「進行中」狀態（排除 已完成 / 線下完成 / 已取消；轉線下算進行中）" style="color:#b45309;border-color:#b45309;font-weight:700">進行中</button><button class="fbtn" data-fg="status" data-stat="status:未確認" onclick="setSF('未確認',this,event)">未確認</button><button class="fbtn" data-fg="status" data-stat="status:已確認" onclick="setSF('已確認',this,event)">已確認</button><button class="fbtn" data-fg="status" data-stat="status:交涉中" onclick="setSF('交涉中',this,event)">交涉中</button><button class="fbtn" data-fg="status" data-stat="status:要安裝" onclick="setSF('要安裝',this,event)" title="狀態：要安裝" style="color:#0e7490;border-color:#67e8f9;font-weight:700">要安裝</button><button class="fbtn" data-fg="status" data-stat="status:自己配" onclick="setSF('自己配',this,event)" title="狀態：自己配送" style="color:#be185d;border-color:#f9a8d4;font-weight:700">自己配</button><button class="fbtn" data-fg="status" data-stat="status:未接電" onclick="setSF('未接電',this,event)">未接電</button><button class="fbtn" data-fg="status" data-stat="status:已出貨" onclick="setSF('已出貨',this,event)">已出貨</button><button class="fbtn" data-fg="status" data-stat="status:直接出" onclick="setSF('直接出',this,event)" title="直接出貨（不安裝）" style="color:#3f6212;border-color:#a3e635;font-weight:700">直接出</button><button class="fbtn" data-fg="status" data-stat="status:待收費" onclick="setSF('待收費',this,event)" title="安裝/加購款還沒收 — 自動連動偵測" style="color:#dc2626;border-color:#dc2626;font-weight:700">待收費</button><button class="fbtn" data-fg="status" data-stat="status:補貨中" onclick="setSF('補貨中',this,event)">補貨中</button><button class="fbtn" data-fg="status" data-stat="status:未收錢" onclick="setSF('未收錢',this,event)" title="團購：未收錢" style="color:#b91c1c;border-color:#fca5a5;font-weight:700">未收錢</button><button class="fbtn" data-fg="status" data-stat="status:已收錢" onclick="setSF('已收錢',this,event)" title="團購：已收錢" style="color:#15803d;border-color:#86efac;font-weight:700">已收錢</button><button class="fbtn" data-fg="status" data-stat="status:已完成" onclick="setSF('已完成',this,event)" title="只看已完成單" style="color:var(--grn);border-color:#8cc4a0;font-weight:700">已完成</button><button class="fbtn" data-fg="status" data-stat="status:已取消" onclick="setSF('已取消',this,event)">已取消</button><button class="fbtn" data-fg="status" data-stat="status:轉線下" onclick="setSF('轉線下',this,event)">轉線下</button><button class="fbtn" data-fg="status" data-stat="status:線下完成" onclick="setSF('線下完成',this,event)" title="線下完成（改到線下成交／安裝已在線下處理完）" style="color:#0f766e;border-color:#5eead4;font-weight:700">線下完成</button></span><span class="fb-divider">｜</span><span class="fg-grp" data-grp="special"><button class="fbtn" data-fg="special" onclick="toggleSpecial('changeAddr',this)" title="只看客戶有申請改地址的訂單">改址</button><button class="fbtn" data-fg="special" onclick="toggleSpecial('newToday',this)" title="只看今日新單">今日</button><button class="fbtn" data-fg="special" onclick="toggleSpecial('unpaidFee',this)" title="只看有未收款的訂單（安裝/加購費>0 但未收）— 含已完成的單，跨所有狀態篩" style="color:#dc2626;border-color:#dc2626;font-weight:700">未收款</button><button class="fbtn" data-fg="special" onclick="toggleSpecial('pendingDeliver',this)" title="按下會即時抓 MOMO/PChome 平台『線上還沒出貨』的單來比對（約配去後台確認配送日、一般單壓自行出貨）— 以平台實際狀態為準" style="color:#2563eb;border-color:#2563eb;font-weight:700">🚚 待確認配送/出貨</button><button class="fbtn" data-fg="special" onclick="toggleSpecial('scmFiled',this)" title="只看 MOMO 已回押『指定配送日』的進行中訂單" style="color:#6d28d9;border-color:#c4b5fd;font-weight:700">🚚 已壓指定配</button><button class="fbtn" data-fg="special" onclick="toggleSpecial('scmUnfiled',this)" title="只看 MOMO 還沒壓『指定配送日』的進行中訂單" style="color:#7c3aed;border-color:#c4b5fd;font-weight:700">未壓指定配</button><button class="fbtn" data-fg="special" onclick="toggleSpecial('ctNone',this)" title="只看還沒電聯客戶排配送的 MOMO／三方進行中訂單（＝列表上紅色『尚未電聯』那些）" style="color:#b91c1c;border-color:#fca5a5;font-weight:700">📞 尚未電聯</button><button class="fbtn" data-fg="special" onclick="toggleSpecial('momoUnreported',this)" title="MOMO 平台狀態還是「請回覆」＝還沒回報。進單日 +1 個工作日（週末順延）還沒回報，MOMO 會罰款。MOMO 已標「電聯不上」的不算。" style="color:#dc2626;border-color:#dc2626;font-weight:700">MOMO未回報</button><button class="fbtn" data-fg="special" onclick="toggleSpecial('momoDiff',this)" title="MOMO 平台狀態跟我們本機狀態對不上的單（以平台為準）" style="color:#c2410c;border-color:#fdba74;font-weight:700">狀態不一致</button><button class="fbtn" onclick="openMomoRecon()" title="以 MOMO 平台為準，列出本機跟平台對不上的單，打勾才會改（只改本機，不會送東西到 MOMO）" style="color:#15803d;border-color:#86efac;font-weight:700">跟MOMO對狀態</button><button id="momo-live-btn" class="fbtn" onclick="syncMomoLive()" title="去 MOMO 平台抓每筆單的實際配送狀態（唯讀，不會改任何東西）" style="color:#2563eb;border-color:#93c5fd;font-weight:700">同步MOMO狀態</button></span><span style="flex:1"></span><span id="filter-applied-info" style="display:none"></span><button class="btn" onclick="openActivityLog()" style="font-size:11px;padding:4px 10px;margin-right:6px;background:#fef0f5;border-color:#f0c4d8;color:var(--mo)" title="看最近所有訂單的操作紀錄（找「剛剛動了哪一筆」用）">紀錄</button><input class="search" id="q" placeholder="搜尋姓名/單號/商品..." oninput="this.value=fwToHw(this.value);searchListDebounced()" title="按 / 或 Ctrl+K 快速聚焦（全形數字自動轉半形）"></div><div id="list-area"></div></div>
 
 <div class="main hidden" id="tab-schedule"><div class="filter-row" style="flex-wrap:wrap;gap:6px;align-items:center"><span class="fg-grp"><span style="font-size:11px;color:var(--dm)">週次</span><select id="sched-week" onchange="setSchedWeek(this.value)" style="font-size:11px;padding:3px 6px;border:1px solid var(--bd);border-radius:6px;background:var(--sf)"></select></span><span class="fb-divider">｜</span><span class="fg-grp" id="sched-installer-row"><span style="font-size:11px;color:var(--dm)">師傅</span><button class="fbtn on" data-installer="all" onclick="setSchedInstaller('all',this)">全部</button></span><span style="flex:1"></span><span style="font-size:11px;color:var(--dm)">共 <strong id="sched-show-cnt">0</strong> 筆</span></div><div id="schedule-area"></div></div>
 
@@ -2696,8 +2698,13 @@ function splitProductSpecs(o){
 // 這整段只讀不寫：不碰 Firebase，也不碰任何送 MOMO 的 API。
 const MOMO_LIVE_KEY='momoLiveStatus';
 let _momoLive={},_momoLivePrefix={},_momoLiveWin=null,_momoLiveAt=0,_momoLiveSyncing=false;
+// 已結案索引（對帳出庫明細）— 一張單離開「未出貨」之後只有這裡查得到它到底是出貨還是取消
+let _momoClosed={},_momoClosedPrefix={},_momoClosedAt=0,_momoClosedFrom='';
 try{const _c=JSON.parse(localStorage.getItem(MOMO_LIVE_KEY)||'null');
-  if(_c&&_c.map){_momoLive=_c.map;_momoLivePrefix=_c.prefix||{};_momoLiveWin=_c.win||null;_momoLiveAt=_c.at||0}}catch(e){}
+  if(_c&&_c.map){_momoLive=_c.map;_momoLivePrefix=_c.prefix||{};_momoLiveWin=_c.win||null;_momoLiveAt=_c.at||0}
+  if(_c&&_c.closed){_momoClosed=_c.closed;_momoClosedPrefix=_c.closedPrefix||{};_momoClosedAt=_c.closedAt||0;_momoClosedFrom=_c.closedFrom||''}}catch(e){}
+const MOMO_CLOSED_DAYS=120;          // 對帳查詢區間（沒有兩個月上限，實測半年也行）
+const MOMO_CLOSED_REFRESH_MS=60*60*1000; // 結案的單不會再變，一小時抓一次就夠
 
 // MOMO 的日期一律 "2026/08/21 16:50" 這種 → 轉成本機統一的 "2026-08-21"
 function _momoDateISO(s){const m=String(s||'').match(/(\d{4})[\/\-](\d{1,2})[\/\-](\d{1,2})/);
@@ -2750,7 +2757,10 @@ async function syncMomoLive(opt){
     const prefix={};
     for(const p in prefixHits){const a=prefixHits[p];if(a.every(x=>x.st===a[0].st&&x.scm===a[0].scm))prefix[p]=a[0]}
     _momoLive=map;_momoLivePrefix=prefix;_momoLiveWin=win;_momoLiveAt=Date.now();
-    try{localStorage.setItem(MOMO_LIVE_KEY,JSON.stringify({map,prefix,win,at:_momoLiveAt}))}catch(e){}
+    // 順便更新「已結案」索引（一小時一次就好，結案的單不會再變）
+    if(Date.now()-_momoClosedAt>MOMO_CLOSED_REFRESH_MS)await _syncMomoClosed(base,token).catch(()=>{});
+    try{localStorage.setItem(MOMO_LIVE_KEY,JSON.stringify({map,prefix,win,at:_momoLiveAt,
+      closed:_momoClosed,closedPrefix:_momoClosedPrefix,closedAt:_momoClosedAt,closedFrom:_momoClosedFrom}))}catch(e){}
     renderList();
     if(!silent)showToast&&showToast('MOMO 平台狀態已更新：未出貨 '+Object.keys(map).length+' 筆'+(fail.length?'（'+fail.join('；')+'）':''));
     return{ok:true,count:Object.keys(map).length,fail};
@@ -2789,6 +2799,27 @@ function momoLiveAutoSync(minAgeMs){
 setInterval(()=>momoLiveAutoSync(),5*60*1000);
 try{document.addEventListener('visibilitychange',()=>{if(document.visibilityState==='visible')momoLiveAutoSync()})}catch(e){}
 
+// 對帳出庫明細 → 已結案索引。SLIP_NO 是關鍵：「未出即退」＝出貨前取消；真單號＝真的出貨。
+async function _syncMomoClosed(base,token){
+  const to=localDateISO();
+  const from=localDateISO(new Date(Date.now()-MOMO_CLOSED_DAYS*24*60*60*1000));
+  const r=await fetch(base+'/api/orders/momo/accounting?from='+from+'&to='+to,{headers:{'X-API-Token':token}});
+  const j=await r.json().catch(()=>({}));
+  if(!r.ok||!j||j.ok===false)throw new Error((j&&j.error)||('HTTP '+r.status));
+  const closed={},hits={};
+  for(const row of (j.rows||[])){
+    const no=String(row.COMPLETE_ORDER_NO||'').trim();if(!no)continue;
+    const slip=String(row.SLIP_NO||'').trim();
+    const e={close:_momoDateISO(row.OUT_CLOSE_DATE),slip,dely:String(row.DELY_GB_NAME||'').trim(),
+      cancelled:slip.indexOf('未出即退')>=0};
+    closed[no]=e;
+    const p=no.split('-')[0];(hits[p]=hits[p]||[]).push(e);
+  }
+  const prefix={};
+  for(const p in hits){const a=hits[p];if(a.every(x=>x.cancelled===a[0].cancelled&&x.slip===a[0].slip))prefix[p]=a[0]}
+  _momoClosed=closed;_momoClosedPrefix=prefix;_momoClosedAt=Date.now();_momoClosedFrom=from;
+}
+
 // 這筆單在 MOMO 平台上的狀態。
 // null = 還沒同步過 / 不是 MOMO 單 / 在查詢窗之外（不敢下判斷）
 // {gone:true} = 平台未出貨清單裡沒有這筆（＝已出貨或已結案）
@@ -2798,6 +2829,10 @@ function momoLiveOf(o){
   const no=String(o.orderNo||'').trim();if(!no)return null;
   const hit=_momoLive[no]||_momoLivePrefix[no.split('-')[0]];
   if(hit)return hit;
+  // 不在未出貨 → 去對帳找，找得到才說得出是「出貨」還是「未出即退」
+  const c=_momoClosed[no]||_momoClosedPrefix[no.split('-')[0]];
+  if(c)return {gone:true,closed:c};
+  // 兩份資料的窗都涵蓋不到就別下判斷（舊單一律標「已結案」會誤導）
   if(_momoLiveWin&&o.date){const from=_momoDateISO(_momoLiveWin.from);if(from&&o.date<from)return null}
   return {gone:true};
 }
@@ -2832,7 +2867,15 @@ const _MOMO_LOCAL_DONE=['已出貨','已完成','線下完成','已取消','轉�
 function momoMismatch(o){
   const L=momoLiveOf(o);if(!L)return '';
   const st=o.status||'';
-  if(L.gone)return _MOMO_LOCAL_DONE.includes(st)?'':'平台已不在未出貨清單（已出貨或已結案），本機還掛在「'+st+'」';
+  if(L.gone){
+    const c=L.closed;
+    if(c&&c.cancelled)return ['已取消','轉線下','線下完成'].includes(st)?'':'平台 '+c.close+' 未出即退（出貨前就被取消），本機還是「'+st+'」';
+    if(c){
+      if(['已出貨','已完成','線下完成'].includes(st))return (c.slip&&!o.trackingNo)?('平台有貨運單號 '+c.dely+' '+c.slip+'，本機沒回填'):'';
+      return '平台 '+c.close+' 已出貨（'+c.dely+(c.slip?' '+c.slip:'')+'），本機還是「'+st+'」';
+    }
+    return _MOMO_LOCAL_DONE.includes(st)?'':'平台已不在未出貨清單（已出貨或已結案），本機還掛在「'+st+'」';
+  }
   if(_MOMO_LOCAL_DONE.includes(st))return '本機是「'+st+'」，但平台還掛在未出貨（平台狀態：'+(L.st||'請回覆')+'）';
   const localScm=_momoDateISO(o.scmDelyDate);
   if(L.st==='已確認指定配送日'){
@@ -2850,7 +2893,12 @@ function momoLiveBadge(o){
   const L=momoLiveOf(o);if(!L)return '';
   const stale=momoLiveStale();
   if(stale)setTimeout(()=>momoLiveAutoSync(0),0); // 看到過期資料就順手補抓（延到 render 之後，內部有防重入 + 冷卻）
-  if(L.gone)return '<span class="ct-badge ct-gone" title="MOMO 平台的未出貨清單裡已經沒有這筆（已出貨或已結案）'+(stale?'｜資料是 '+momoLiveAgeText()+'的，同步中':'')+'">MOMO 已結案</span>';
+  if(L.gone){
+    const c=L.closed,age=stale?'｜資料是 '+momoLiveAgeText()+'的，同步中':'';
+    if(c&&c.cancelled)return '<span class="ct-badge '+(stale?'ct-gone':'ct-cancel')+'" title="'+esc('MOMO 平台：'+c.close+' 未出即退（還沒出貨就被退掉／取消）'+age)+'">MOMO 未出即退 '+esc(c.close.slice(5).replace('-','/'))+'</span>';
+    if(c)return '<span class="ct-badge ct-gone" title="'+esc('MOMO 平台：'+c.close+' 已出貨'+(c.dely?'｜'+c.dely:'')+(c.slip?' '+c.slip:'')+age)+'">MOMO 已出貨 '+esc(c.close.slice(5).replace('-','/'))+'</span>';
+    return '<span class="ct-badge ct-gone" title="MOMO 平台的未出貨清單裡已經沒有這筆（已出貨或已結案）'+(stale?'｜資料是 '+momoLiveAgeText()+'的，同步中':'')+'">MOMO 已結案</span>';
+  }
   const short=_MOMO_ST_SHORT[L.st]||L.st||'未回報';
   const cls=stale?'ct-gone':(!L.st||L.st==='請回覆')?'ct-none':L.st==='已確認指定配送日'?'ct-dated':L.st==='已配送'?'ct-gone':'ct-called';
   const label=(L.st==='已確認指定配送日'&&L.scm)?short+' '+L.scm.slice(5).replace('-','/'):short;
@@ -2885,6 +2933,179 @@ function updateMomoLiveBtn(){
   b.style.color=stale?'#c2410c':'';b.style.borderColor=stale?'#fdba74':'';
   b.title='上次同步：'+d.toLocaleString('zh-TW')+'（'+momoLiveAgeText()+'）\n平台未出貨 '+Object.keys(_momoLive).length+' 筆'+
     (stale?'\n※ 資料已過期，畫面暫時不顯示平台狀態判斷':'')+'\n點擊重新同步（唯讀）';
+}
+
+// ===== MOMO 對狀態（以平台為準）=====
+// 阿淵/杰哥 2026-08-24：「MOMO 已結案」要講清楚是哪一種，並且把對不上的單列出來讓人一次修。
+// 平台真相有兩個來源：未出貨查詢（remark5VStr）＋ 對帳出庫明細（結案的單）。
+// 對帳那支的 SLIP_NO 是關鍵：填「未出即退」＝出貨前就被取消；填真的單號＝真的出貨了。
+
+// 本機狀態視為「已結案」的集合（分別對應出貨完成／取消兩種收尾）
+const _MOMO_SHIP_DONE=['已出貨','已完成','線下完成'];
+const _MOMO_CANCEL_DONE=['已取消','轉線下','線下完成'];
+
+// 這筆單照平台看應該怎麼修 —— 回 null 代表沒事。
+// 回傳 {kind,title,detail,safe,patch}：safe=false 的預設不打勾（動到已完成的單＝碰錢，要人自己決定）
+function momoFixPlan(o){
+  const L=momoLiveOf(o);
+  if(!L||momoLiveStale())return null;
+  const st=o.status||'';
+  const c=L.closed;
+
+  if(L.gone){
+    if(!c)return null; // 只知道不在未出貨，說不出是出貨還取消 → 不給建議
+    if(c.cancelled){
+      if(_MOMO_CANCEL_DONE.includes(st))return null;
+      return {
+        kind:'cancel',
+        title:'平台已取消（未出即退）',
+        detail:'平台 '+c.close+' 未出即退（出貨前就被退掉），本機還是「'+st+'」',
+        safe:!_MOMO_SHIP_DONE.includes(st), // 本機已完成/已出貨 → 可能是轉線下成交，別亂改
+        check:!_MOMO_SHIP_DONE.includes(st),
+        patch:{status:'已取消'},
+      };
+    }
+    if(_MOMO_SHIP_DONE.includes(st)){
+      // 本機已收尾，但單號沒回填 → 順便補（不動狀態）
+      // 這類多半是很久以前結案的單，安全但數量大 → 預設不打勾，要補再自己勾（或按「全選」）
+      if(c.slip&&!o.trackingNo)return {kind:'slip',title:'補貨運單號',
+        detail:'平台 '+c.close+' 已出貨（'+c.dely+' '+c.slip+'），本機沒有單號',
+        safe:true,check:false,patch:{trackingNo:c.slip,delyGbStr:c.dely}};
+      return null;
+    }
+    if(st==='已取消'||st==='轉線下')return null; // 本機說取消、平台說出貨 → 太衝突，不自動建議
+    return {
+      kind:'ship',
+      title:'平台已出貨',
+      detail:'平台 '+c.close+' 已出貨（'+c.dely+(c.slip?' '+c.slip:'')+'），本機還是「'+st+'」',
+      safe:true,check:true,
+      patch:{status:'已出貨',trackingNo:c.slip||o.trackingNo||'',delyGbStr:c.dely||o.delyGbStr||'',shippedAt:c.close},
+    };
+  }
+
+  // 還在未出貨清單
+  const localScm=_momoDateISO(o.scmDelyDate);
+  if(_MOMO_SHIP_DONE.includes(st)||st==='已取消'){
+    return {kind:'note',title:'本機已收尾但平台還掛著',
+      detail:'本機是「'+st+'」，平台卻還在未出貨（狀態：'+(L.st||'請回覆')+'）→ 要去 MOMO 回報，本機先不動',
+      safe:false,patch:null};
+  }
+  if(L.st==='已確認指定配送日'&&L.scm&&localScm!==L.scm){
+    return {kind:'scm',title:localScm?'指定配送日不一致':'補指定配送日',
+      detail:localScm?('平台 '+L.scm+' / 本機 '+localScm+' → 以平台為準'):('平台已壓 '+L.scm+'，本機沒記到'),
+      safe:true,check:true,patch:{scmDelyDate:L.scm.replace(/-/g,'/'),momoContacted:true}};
+  }
+  if((!L.st||L.st==='請回覆')&&localScm){
+    return {kind:'note',title:'指配日沒送出去',
+      detail:'本機記了 '+localScm+'，但平台還是「請回覆」→ 要重新做一次出貨回報，本機先不動',
+      safe:false,patch:null};
+  }
+  return null;
+}
+
+const _MOMO_FIX_ORDER=['ship','cancel','scm','slip','note'];
+const _MOMO_FIX_GROUP={ship:'平台已出貨 → 本機補成已出貨',cancel:'平台未出即退（取消）→ 本機補成已取消',
+  scm:'指定配送日以平台為準',slip:'補貨運單號（歷史已完成的單，只補資料不動狀態，預設不勾）',
+  note:'要去 MOMO 那邊處理（本機不動）'};
+
+let _momoReconRows=[];
+function openMomoRecon(){
+  if(momoLiveStale()){
+    if(!confirm('MOMO 平台資料已經過期（'+momoLiveAgeText()+'）。\n要先重新同步再對嗎？\n\n按確定＝先同步（建議），取消＝不對了'))return;
+    syncMomoLive().then(r=>{if(r&&r.ok)openMomoRecon()});
+    return;
+  }
+  _momoReconRows=[];
+  for(const o of orders){
+    const plan=momoFixPlan(o);
+    if(plan)_momoReconRows.push({oid:o.id,plan});
+  }
+  _momoReconRows.sort((a,b)=>_MOMO_FIX_ORDER.indexOf(a.plan.kind)-_MOMO_FIX_ORDER.indexOf(b.plan.kind));
+
+  const fixable=_momoReconRows.filter(r=>r.plan.patch).length;
+  let h='<h3>跟 MOMO 對狀態</h3>'+
+    '<div style="background:#eff6ff;border:1px solid #93c5fd;color:#1e3a8a;border-radius:8px;padding:10px 14px;font-size:11px;line-height:1.7;margin-bottom:12px">'+
+    '平台資料 '+momoLiveAgeText()+'更新。以 MOMO 平台為準，找出本機跟平台對不上的單。<br>'+
+    '<b>打勾的才會改，沒打勾的完全不動。</b>只改本機狀態，不會送任何東西到 MOMO。'+
+    '</div>';
+
+  if(!_momoReconRows.length){
+    h+='<div style="padding:24px;text-align:center;color:var(--grn);font-weight:700">兩邊完全一致，沒有要處理的單</div>'+
+       '<div class="modal-ft"><button class="btn" onclick="closeModal()">關閉</button></div>';
+    document.getElementById('modal-body').innerHTML=h;
+    document.getElementById('modal-overlay').classList.remove('hidden');document.body.style.overflow='hidden';
+    return;
+  }
+
+  let lastKind='';
+  h+='<div style="max-height:56vh;overflow:auto;border:1px solid var(--bd);border-radius:8px">';
+  _momoReconRows.forEach((r,i)=>{
+    const o=findO(r.oid);if(!o)return;
+    const p=r.plan;
+    if(p.kind!==lastKind){
+      lastKind=p.kind;
+      const n=_momoReconRows.filter(x=>x.plan.kind===p.kind).length;
+      h+='<div style="background:var(--sf2);padding:6px 12px;font-size:11px;font-weight:800;color:var(--tx);border-top:1px solid var(--bd);position:sticky;top:0">'+
+         esc(_MOMO_FIX_GROUP[p.kind]||p.kind)+' <span style="color:var(--dm);font-weight:600">'+n+' 筆</span></div>';
+    }
+    const canFix=!!p.patch;
+    h+='<label style="display:flex;gap:10px;align-items:flex-start;padding:9px 12px;border-top:1px solid var(--bd);cursor:'+(canFix?'pointer':'default')+';'+(canFix?'':'opacity:.75')+'">'+
+      (canFix?'<input type="checkbox" class="momo-recon-cb" data-i="'+i+'" '+(p.check?'checked':'')+' onchange="_momoReconCount()" style="margin-top:3px;flex:none">':'<span style="width:13px;flex:none"></span>')+
+      '<span style="flex:1;min-width:0">'+
+        '<span style="font-size:11px;font-weight:800">'+esc(o.name||'(無姓名)')+'</span>'+
+        '<span style="font-size:10px;color:var(--dm);margin-left:6px;font-family:var(--mono)">'+esc(o.date||'')+' '+esc(o.orderNo||'')+'</span>'+
+        '<div style="font-size:10px;color:var(--dm);margin-top:1px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">'+esc(String(o.product||'').slice(0,42))+'</div>'+
+        '<div style="font-size:11px;margin-top:3px;color:'+(canFix?'var(--tx)':'#b45309')+'">'+esc(p.detail)+'</div>'+
+        (canFix?'<div style="font-size:10px;color:var(--grn);margin-top:2px;font-weight:700">→ 會改成：'+esc(_patchText(p.patch))+'</div>':'')+
+        (canFix&&!p.safe?'<div style="font-size:10px;color:var(--pc);margin-top:2px;font-weight:700">本機已經收尾過，可能是轉線下成交，預設不勾，確定要改再自己打勾</div>':'')+
+      '</span></label>';
+  });
+  h+='</div>';
+  h+='<div class="modal-ft">'+
+     '<button class="btn" onclick="closeModal()">取消</button>'+
+     '<button class="btn" onclick="_momoReconSelectAll(true)" style="font-size:11px">全選</button>'+
+     '<button class="btn" onclick="_momoReconSelectAll(false)" style="font-size:11px">全不選</button>'+
+     '<button class="btn btn-g" id="momo-recon-apply" onclick="applyMomoRecon()">套用打勾的</button>'+
+     '</div>'+
+     '<div style="font-size:10px;color:var(--dm);text-align:right;margin-top:4px">全部可改 '+fixable+' 筆</div>';
+  document.getElementById('modal-body').innerHTML=h;
+  document.getElementById('modal-overlay').classList.remove('hidden');document.body.style.overflow='hidden';
+  _momoReconCount();
+}
+function _patchText(p){
+  const bits=[];
+  if(p.status)bits.push('狀態 '+p.status);
+  if(p.trackingNo)bits.push('單號 '+p.trackingNo);
+  if(p.delyGbStr)bits.push(p.delyGbStr);
+  if(p.scmDelyDate)bits.push('指定配送日 '+p.scmDelyDate);
+  if(p.shippedAt)bits.push('出貨日 '+p.shippedAt);
+  return bits.join('｜');
+}
+function _momoReconSelectAll(on){document.querySelectorAll('.momo-recon-cb').forEach(cb=>{cb.checked=on});_momoReconCount()}
+// 按鈕上的數字跟著打勾的筆數走 —— 顯示「總共可改幾筆」會讓人以為按下去要改那麼多
+function _momoReconCount(){
+  const b=document.getElementById('momo-recon-apply');if(!b)return;
+  const n=document.querySelectorAll('.momo-recon-cb:checked').length;
+  b.textContent=n?'套用打勾的 '+n+' 筆':'套用打勾的';
+  b.disabled=!n;
+}
+
+function applyMomoRecon(){
+  const picked=[...document.querySelectorAll('.momo-recon-cb')].filter(cb=>cb.checked).map(cb=>_momoReconRows[parseInt(cb.dataset.i,10)]).filter(Boolean);
+  if(!picked.length){alert('沒有打勾的項目');return}
+  const risky=picked.filter(r=>!r.plan.safe).length;
+  if(!confirm('要把 '+picked.length+' 筆的本機狀態改成跟 MOMO 一致嗎？'+(risky?'\n\n其中 '+risky+' 筆本機已經收尾過（已完成/已出貨），改了會蓋掉原本的狀態。':'')+'\n\n只改本機，不會送任何東西到 MOMO。'))return;
+  let n=0;
+  for(const r of picked){
+    const o=findO(r.oid);if(!o||!r.plan.patch)continue;
+    const before=o.status;
+    Object.assign(o,r.plan.patch);
+    if(r.plan.patch.status==='已出貨'&&!o.shippedBy){o.shippedBy=currentUser||'';o.shippedVia='MOMO對狀態'}
+    logActivity(o,'跟 MOMO 對狀態：'+r.plan.title+'（'+before+' → '+_patchText(r.plan.patch)+'）');
+    saveOne(o);n++;
+  }
+  closeModal();renderList();
+  alert('已更新 '+n+' 筆。每一筆的備註都留了紀錄，可以在訂單裡看到是什麼時候、誰改的。');
 }
 
 // ===== LIST =====
