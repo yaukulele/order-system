@@ -7810,6 +7810,10 @@ let me = null, myRole = '';
 let ym = '';                 // 目前看的月份 YYYY-MM
 let punches = {};            // {user:{id:{...}}}
 let shifts = {};             // {DD:{user:{...}}}
+// 週視圖跨月的時候要讀兩個月（例:8/31 那一週是 8/31 + 9/1~9/6）。
+// 原本只讀 ym 那一包,結果九月那六天整片顯示「休」,看起來像沒排班,
+// 但資料庫裡其實排好了 —— 杰哥 2026-08-24 就是被這個嚇到。
+let shifts2 = {}, ym2 = null, _bound2 = [];
 let users = {};
 let who = '';                // 管理員在看誰的（空＝自己）
 let userOrder = [];          // 管理員拖出來的員工顯示順序（全店共用）
@@ -7908,6 +7912,16 @@ function init(){
 }
 
 let _bound = [];
+function listenSecond(m){
+  if(ym2 === m) return;
+  _bound2.forEach(r=>{ try{ r.off() }catch(e){} });
+  _bound2 = [];
+  ym2 = m; shifts2 = {};
+  if(!m){ renderShift(); return }
+  const r = db.ref(P.shifts+'/'+m);
+  r.on('value', s=>{ shifts2 = s.val() || {}; renderShift() }, ()=>{});
+  _bound2 = [r];
+}
 function listen(){
   _bound.forEach(r=>{ try{ r.off() }catch(e){} });
   _bound = [];
@@ -8628,6 +8642,9 @@ function renderShift(){
   for(let i=0;i<7;i++){ const d=new Date(start); d.setDate(d.getDate()+i); days.push(d) }
   const wd = ['一','二','三','四','五','六','日'];
   const t = today();
+  // 這一週如果跨到別的月份,把那個月也訂起來,不然那幾天會整片變成「休」
+  const other = days.map(d=>ymOf(d)).find(m=>m !== ym) || null;
+  if(other !== ym2) { listenSecond(other); }
   const names = isAdmin() ? orderedUsers() : [me];
 
   let html = '<div class="pk-h"><span class="sh-nav">'
@@ -8656,8 +8673,10 @@ function renderShift(){
       + esc(u) + '</td>';
     days.forEach(d=>{
       const ds = dstr(d);
-      const same = ds.slice(0,7) === ym;
-      const sh = same ? ((shifts[ds.slice(8,10)]||{})[u]) : null;
+      const mm = ds.slice(0,7);
+      // 這一天屬於哪個月就去哪一包拿,不要只認 ym
+      const src = mm === ym ? shifts : (mm === ym2 ? shifts2 : null);
+      const sh = src ? ((src[ds.slice(8,10)]||{})[u]) : null;
       const extra = [];
       if(sh && sh.rest) extra.push('休' + sh.rest);
       if(sh && sh.note) extra.push(esc(sh.note));
