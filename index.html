@@ -1671,7 +1671,7 @@ function clearInput(){document.getElementById('raw-input').value='';document.get
 async function copyPCScript(){try{const r=await fetch('pchome-scraper.js?_='+Date.now());if(!r.ok)throw new Error('HTTP '+r.status);const code=await r.text();await navigator.clipboard.writeText(code);alert('✅ PChome F12 撈單 script 已複製到剪貼簿！\n\n下一步：\n1. 切到 PChome 廠商後台「印貨資料 / 商品明細」view（看得到 商品名稱、收貨人、訂單編號 那個 view）\n2. F12 → Console → Ctrl+V → Enter\n3. 跳出 alert 顯示抓到 N 筆 → 訂單 JSON 已自動複製\n4. 回來這頁 → 在下方大框 Ctrl+V → 按「匯入雲端」')}catch(e){alert('複製失敗：'+e.message+'\n\n你可以直接打開 yaukulele.github.io/order-system/pchome-scraper.js 手動 copy')}}
 
 // ===== TABS =====
-function showTab(t){const tabs=['import','list','schedule','region','delivery','output','stats','recon','customers','account','todo','punch'];try{localStorage.setItem('orderSysTab',t)}catch(_){}tabs.forEach(id=>document.getElementById('tab-'+id).classList.toggle('hidden',id!==t));document.querySelectorAll('.tabs .tab').forEach((b,i)=>b.classList.toggle('active',tabs[i]===t));window.scrollTo({top:0,behavior:'instant'});if(t==='list')renderList();if(t==='schedule')renderSchedule();if(t==='region')renderRegion();if(t==='delivery')setDelivMode(_delivMode);if(t==='output')renderOutput();if(t==='stats')renderStats();if(t==='recon')renderRecon();if(t==='customers')renderCustomers();if(t==='account')renderAccount();if(t==='todo'&&window.__tdRender)window.__tdRender();if(t==='punch'&&window.PUNCH)PUNCH.render()}
+function showTab(t){const tabs=['import','list','schedule','region','delivery','output','stats','recon','customers','account','todo','punch'];try{localStorage.setItem('orderSysTab',t)}catch(_){}tabs.forEach(id=>document.getElementById('tab-'+id).classList.toggle('hidden',id!==t));document.querySelectorAll('.tabs .tab').forEach((b,i)=>b.classList.toggle('active',tabs[i]===t));window.scrollTo({top:0,behavior:'instant'});if(t==='list'){renderList();if(typeof momoLiveAutoSync==='function')momoLiveAutoSync(5*60*1000)}if(t==='schedule')renderSchedule();if(t==='region')renderRegion();if(t==='delivery')setDelivMode(_delivMode);if(t==='output')renderOutput();if(t==='stats')renderStats();if(t==='recon')renderRecon();if(t==='customers')renderCustomers();if(t==='account')renderAccount();if(t==='todo'&&window.__tdRender)window.__tdRender();if(t==='punch'&&window.PUNCH)PUNCH.render()}
 
 // ===== AUTH / 使用者帳號系統 =====
 let currentUser=null,currentRole='';
@@ -2120,7 +2120,7 @@ function updateStatCycleBtn(){const btn=document.getElementById('mob-stat-cycle'
   const tail=(all||cStatus.length>1)?'':` ${stCls(cStatus[0]).replace('st-btn ','')}`;
   btn.className='fbtn st-cycle'+(all?' on':'')+tail;
 }
-function toggleSpecial(kind,btn){_mobileExpand=false;selectedIds.clear();if(cSpecial===kind){cSpecial=null;btn?.classList.remove('on');if(kind==='pendingDeliver')_liveUnsentSet=null}else{document.querySelectorAll('.filter-row .fbtn[data-fg="special"]').forEach(x=>x.classList.remove('on'));cSpecial=kind;btn?.classList.add('on')}persistFilters();renderList();if(cSpecial==='pendingDeliver')fetchLiveUnsent();if((cSpecial==='momoUnreported'||cSpecial==='momoDiff')&&!_momoLiveAt)syncMomoLive()}
+function toggleSpecial(kind,btn){_mobileExpand=false;selectedIds.clear();if(cSpecial===kind){cSpecial=null;btn?.classList.remove('on');if(kind==='pendingDeliver')_liveUnsentSet=null}else{document.querySelectorAll('.filter-row .fbtn[data-fg="special"]').forEach(x=>x.classList.remove('on'));cSpecial=kind;btn?.classList.add('on')}persistFilters();renderList();if(cSpecial==='pendingDeliver')fetchLiveUnsent();if((cSpecial==='momoUnreported'||cSpecial==='momoDiff')&&momoLiveStale())syncMomoLive()}
 
 // ===== IMPORT =====
 function runParse(){const r=document.getElementById('raw-input').value;if(!r.trim())return;const p=parseAll(r);if(!p.length){document.getElementById('preview-area').innerHTML='<div class="card"><div class="card-b" style="color:var(--pc)">⚠ 無法辨識</div></div>';return}const txt=p.map(fmtS).join('\n---\n');const pl=p[0]?.platform||'';document.getElementById('preview-area').innerHTML=`<div class="card"><div class="card-h"><div style="display:flex;align-items:center;gap:8px"><h3>預覽</h3><span class="badge">${p.length} 筆</span>${platformPill(pl)}</div><button class="btn btn-g" onclick="copyText(document.getElementById('pv').textContent,'已複製！')">複製</button></div><div class="card-b"><div class="result" id="pv">${esc(txt)}</div></div></div>`}
@@ -2757,6 +2757,38 @@ async function syncMomoLive(opt){
   }finally{_momoLiveSyncing=false;updateMomoLiveBtn()}
 }
 
+// ===== 快照新鮮度 =====
+// 杰哥 2026-08-24 回報：畫面顯示「MOMO未回報／今天到期／不一致」，但平台其實早就壓好指定配送日 9/7。
+// 原因是他的 PWA 一直開著沒重新載入，快照卡在兩天前 —— 拿舊資料當事實去嚇人。
+// 對策：(a) 過期資料一律不下結論、不跳紅牌 (b) 多個時機自動補抓。
+const MOMO_LIVE_STALE_MS=30*60*1000;   // 超過這個時間就當「不知道」，不敢再下判斷
+const MOMO_LIVE_REFRESH_MS=10*60*1000; // 背景自動重抓的間隔
+function momoLiveStale(){return !_momoLiveAt||(Date.now()-_momoLiveAt>MOMO_LIVE_STALE_MS)}
+function momoLiveAgeText(){
+  if(!_momoLiveAt)return '從未同步';
+  const m=Math.floor((Date.now()-_momoLiveAt)/60000);
+  if(m<1)return '剛剛';
+  if(m<60)return m+' 分鐘前';
+  const h=Math.floor(m/60);
+  return h<24?h+' 小時前':Math.floor(h/24)+' 天前';
+}
+// 背景補抓：沒 token 不吵、頁面在背景不抓、正在抓不重抓
+let _momoLiveTryAt=0; // 上次「嘗試」時間（成功失敗都算）— 失敗時 _momoLiveAt 不動，要靠這個擋
+function momoLiveAutoSync(minAgeMs){
+  try{
+    if(_momoLiveSyncing)return;
+    if(typeof document!=='undefined'&&document.visibilityState==='hidden')return;
+    if(Date.now()-_momoLiveTryAt<60*1000)return; // 冷卻 60 秒，API 掛掉時不會被 render 打爆
+    if(Date.now()-_momoLiveAt<(minAgeMs===undefined?MOMO_LIVE_REFRESH_MS:minAgeMs))return;
+    const raw=localStorage.getItem(MOMO_TK_KEY)||'';
+    if(!raw||looksLikeUrl(raw))return;
+    _momoLiveTryAt=Date.now();
+    syncMomoLive({silent:true}).catch(()=>{});
+  }catch(e){}
+}
+setInterval(()=>momoLiveAutoSync(),5*60*1000);
+try{document.addEventListener('visibilitychange',()=>{if(document.visibilityState==='visible')momoLiveAutoSync()})}catch(e){}
+
 // 這筆單在 MOMO 平台上的狀態。
 // null = 還沒同步過 / 不是 MOMO 單 / 在查詢窗之外（不敢下判斷）
 // {gone:true} = 平台未出貨清單裡沒有這筆（＝已出貨或已結案）
@@ -2793,7 +2825,7 @@ function momoFineRisk(o){
   const today=localDateISO();
   return {due,base,level:today>due?'over':today===due?'today':'soon'};
 }
-function isMomoUnreported(o){return !!momoFineRisk(o)}
+function isMomoUnreported(o){return !momoLiveStale()&&!!momoFineRisk(o)}
 
 // MOMO 平台狀態 vs 本機狀態 對不上 → 回一句話說哪裡不一樣（以平台為準）
 const _MOMO_LOCAL_DONE=['已出貨','已完成','線下完成','已取消','轉線下'];
@@ -2810,17 +2842,21 @@ function momoMismatch(o){
   if((!L.st||L.st==='請回覆')&&localScm)return '本機記了指定配送日 '+localScm+'，但平台還是「請回覆」（沒送出去）';
   return '';
 }
-function isMomoDiff(o){return !!momoMismatch(o)}
+// 快照過期時一律不下結論（下面 momoLiveBadge 也一樣）—— 寧可暫時沒東西看，也不要報假的
+function isMomoDiff(o){return !momoLiveStale()&&!!momoMismatch(o)}
 
 // 列表徽章：MOMO 平台狀態（＋逾期罰款警示）。桌面/手機/區域卡片三處共用。
 function momoLiveBadge(o){
   const L=momoLiveOf(o);if(!L)return '';
-  if(L.gone)return '<span class="ct-badge ct-gone" title="MOMO 平台的未出貨清單裡已經沒有這筆（已出貨或已結案）">MOMO 已結案</span>';
+  const stale=momoLiveStale();
+  if(stale)setTimeout(()=>momoLiveAutoSync(0),0); // 看到過期資料就順手補抓（延到 render 之後，內部有防重入 + 冷卻）
+  if(L.gone)return '<span class="ct-badge ct-gone" title="MOMO 平台的未出貨清單裡已經沒有這筆（已出貨或已結案）'+(stale?'｜資料是 '+momoLiveAgeText()+'的，同步中':'')+'">MOMO 已結案</span>';
   const short=_MOMO_ST_SHORT[L.st]||L.st||'未回報';
-  const cls=(!L.st||L.st==='請回覆')?'ct-none':L.st==='已確認指定配送日'?'ct-dated':L.st==='已配送'?'ct-gone':'ct-called';
+  const cls=stale?'ct-gone':(!L.st||L.st==='請回覆')?'ct-none':L.st==='已確認指定配送日'?'ct-dated':L.st==='已配送'?'ct-gone':'ct-called';
   const label=(L.st==='已確認指定配送日'&&L.scm)?short+' '+L.scm.slice(5).replace('-','/'):short;
   const risk=momoFineRisk(o);
-  const tip=['MOMO 平台狀態：'+(L.st||'（空白）')];
+  const tip=['MOMO 平台狀態：'+(L.st||'（空白）')+'（資料 '+momoLiveAgeText()+'）'];
+  if(stale)tip.push('※ 這份資料已經過期，正在重新同步，先不下判斷');
   if(L.priced)tip.push('進單日：'+L.priced);
   if(L.hope)tip.push('客戶希望配送日：'+L.hope);
   if(L.cantContact)tip.push('MOMO 標記：電聯不上（罰款不計）');
@@ -2828,13 +2864,14 @@ function momoLiveBadge(o){
   if(L.red&&L.red!=='正常')tip.push('MOMO 標記：'+L.red);
   if(risk)tip.push('回報期限：'+risk.due+'（進單日 +1 工作日，假日順延）');
   let h='<span class="ct-badge '+cls+'" title="'+esc(tip.join('\n'))+'">MOMO '+esc(label)+'</span>';
-  if(risk&&risk.level!=='soon'){
+  // 紅色罰款牌只在資料新鮮時才准跳 —— 拿兩天前的快照嚇人是 2026-08-24 那個 bug 的成因
+  if(risk&&risk.level!=='soon'&&!stale){
     const ftip='進單日 '+risk.base+' → 回報期限 '+risk.due+'（假日順延）。平台狀態還是「請回覆」，逾期 MOMO 會罰款。';
     h+='<span class="ct-badge ct-fine" title="'+esc(ftip)+'">'+(risk.level==='over'?'逾期罰款':'今天到期')+'</span>';
   }
   return h;
 }
-function momoDiffBadge(o){const m=momoMismatch(o);return m?'<span class="ct-badge ct-diff" title="'+esc(m)+'">≠ 不一致</span>':''}
+function momoDiffBadge(o){if(momoLiveStale())return '';const m=momoMismatch(o);return m?'<span class="ct-badge ct-diff" title="'+esc(m)+'">≠ 不一致</span>':''}
 
 // 篩選列上那顆同步鈕的文字（帶上次同步時間）
 function updateMomoLiveBtn(){
@@ -2843,8 +2880,11 @@ function updateMomoLiveBtn(){
   b.disabled=false;
   if(!_momoLiveAt){b.textContent='同步MOMO狀態';b.title='去 MOMO 平台抓每筆單的實際配送狀態（唯讀，不會改任何東西）';return}
   const d=new Date(_momoLiveAt),p=n=>String(n).padStart(2,'0');
-  b.textContent='MOMO '+p(d.getHours())+':'+p(d.getMinutes());
-  b.title='上次同步：'+d.toLocaleString('zh-TW')+'\n平台未出貨 '+Object.keys(_momoLive).length+' 筆\n點擊重新同步（唯讀）';
+  const stale=momoLiveStale();
+  b.textContent=stale?'MOMO 待同步':'MOMO '+p(d.getHours())+':'+p(d.getMinutes());
+  b.style.color=stale?'#c2410c':'';b.style.borderColor=stale?'#fdba74':'';
+  b.title='上次同步：'+d.toLocaleString('zh-TW')+'（'+momoLiveAgeText()+'）\n平台未出貨 '+Object.keys(_momoLive).length+' 筆'+
+    (stale?'\n※ 資料已過期，畫面暫時不顯示平台狀態判斷':'')+'\n點擊重新同步（唯讀）';
 }
 
 // ===== LIST =====
@@ -4783,6 +4823,7 @@ async function submitShip(force){
     // 其他狀態（需配送加價協調中/收件資料有誤/無適當選項，momo請協助）保持原狀，使用者手動再決定
     logActivity(o,`出貨回報：${status}${item.delyGbStr?' ｜ '+item.delyGbStr:''}${item.slipNo?' ｜ '+item.slipNo:''}${item.scmDelyDate?' ｜ 配送日 '+item.scmDelyDate:''}${item.msgNote?' ｜ '+item.msgNote:''}`);
     saveOne(o);renderList();
+    syncMomoLive({silent:true}).catch(()=>{}); // 剛回報完平台狀態就變了，馬上重抓免得徽章還是舊的
     _modalDirty=false; // 已成功送出，關閉時不再警告未儲存
     const localMsg=status==='已配送'?'已出貨':status==='無貨取消訂單'?'已取消':(status==='暫時電聯不上(無須momo協助)'||status==='多次電聯不上(2天3次以上)')?'未接電':o.status;
     setTimeout(()=>{closeModal();alert(`✅ 出貨確認完成，訂單狀態已更新為「${localMsg}」`)},800);
