@@ -2759,8 +2759,11 @@ async function syncMomoLive(opt){
     _momoLive=map;_momoLivePrefix=prefix;_momoLiveWin=win;_momoLiveAt=Date.now();
     // 順便更新「已結案」索引（一小時一次就好，結案的單不會再變）
     if(Date.now()-_momoClosedAt>MOMO_CLOSED_REFRESH_MS)await _syncMomoClosed(base,token).catch(()=>{});
-    // PChome 平台狀態（30 分一次 —— 這支要跑十幾趟 PChome API，比 MOMO 重，不能跟著 10 分鐘跑）
-    if(Date.now()-_pcLiveAt>30*60*1000)await _syncPcLive(base,token).catch(e=>{fail.push('PChome：'+String(e&&e.message||e).slice(0,50))});
+    // PChome 平台狀態：自動跑的時候 30 分一次（這支要跑十幾趟 PChome API，比 MOMO 重）。
+    // 但「手動按同步」代表使用者就是想看最新的，被 30 分鐘擋住等於按了沒反應 ——
+    // 手動時改成 2 分鐘冷卻（只防連按打爆 PChome），不再沿用 30 分。
+    const _pcMinAge = silent ? 30*60*1000 : 2*60*1000;
+    if(Date.now()-_pcLiveAt>_pcMinAge)await _syncPcLive(base,token).catch(e=>{fail.push('PChome：'+String(e&&e.message||e).slice(0,50))});
     try{localStorage.setItem(MOMO_LIVE_KEY,JSON.stringify({map,prefix,win,at:_momoLiveAt,
       closed:_momoClosed,closedPrefix:_momoClosedPrefix,closedAt:_momoClosedAt,closedFrom:_momoClosedFrom,
       pc:_pcLive,pcAt:_pcLiveAt}))}catch(e){}
@@ -2978,6 +2981,30 @@ async function _syncPcLive(base,token){
       trans:_momoDateISO(o.transDate),vship:_momoDateISO(o.vendorShipDate),ship:_momoDateISO(o.shipDate)};
   }
   _pcLive=m;_pcLiveAt=Date.now();
+}
+
+
+/* 壓完單之後，平台狀態標籤還會停在「未結單」最多 30 分鐘（杰哥 2026-08-25 回報）。
+   原因：PChome 平台狀態是快取，而回填成功時只更新了本機訂單，沒動那份快取。
+   我們自己送出去的自己最清楚 —— 直接把那張標成 checking（PChome 收件後就是這個狀態），
+   不用等下一次同步。下次真的同步回來會覆蓋掉，以平台為準。 */
+function _pcMarkLocal(orderNo, kind, slip, vendor){
+  const no = String(orderNo||'').trim();
+  if(!no) return;
+  const prev = _pcLive[no] || {};
+  _pcLive[no] = Object.assign({}, prev, {
+    kind: kind,
+    st: kind === 'checking' ? 'Checking' : (prev.st||''),
+    slip: slip || prev.slip || '',
+    vendor: vendor || prev.vendor || '',
+    _local: true                      // 標記這是本機推測的，不是平台回來的
+  });
+  try{
+    const raw = JSON.parse(localStorage.getItem(MOMO_LIVE_KEY)||'{}');
+    raw.pc = _pcLive; raw.pcAt = _pcLiveAt;
+    localStorage.setItem(MOMO_LIVE_KEY, JSON.stringify(raw));
+  }catch(e){}
+  try{ renderList() }catch(e){}
 }
 
 // PChome 訂單編號在本機可能帶 -01 尾碼，平台那邊也是同一個格式 → 直接對，對不到再試前綴
@@ -5280,6 +5307,7 @@ async function submitShipPchome(real){
     result.innerHTML=`<div style="background:var(--grn-bg);border:1px solid var(--grn);color:var(--grn);padding:10px;border-radius:6px;font-size:12px"><b>✅ PChome 已收到${mode==='ship'?'出貨回填':'不出貨標記'}</b><br>HTTP ${data.status||''}</div>`;
     if(mode==='ship'){o.trackingNo=payload.shipId;o.delyGbStr=(PC_SHIP_VENDORS.find(v=>v.code===payload.shipVendorId)||{}).name||payload.shipVendorId;o.status='已出貨';o.shippedAt=new Date().toISOString();o.shippedBy=currentUser||'';o.shippedVia='出貨'}
     else{o.status='已取消'}
+    _pcMarkLocal(o.orderNo, mode==='ship' ? 'checking' : 'cancelled', payload.shipId, payload.shipVendorId);
     logActivity(o,mode==='ship'?`PChome 出貨回填：${summary}`:`PChome ${summary}`);
     saveOne(o);renderList();_modalDirty=false;
     const localMsg=mode==='ship'?'已出貨':'已取消';
@@ -5306,6 +5334,7 @@ async function quickShipPchomeSelf(oid){
     // 但要留「按過」的痕跡（狀態沒變 → 沒痕跡會不知道按過沒）
     o.delyGbStr='廠商自行出貨';
     o.shippedAt=new Date().toISOString();o.shippedBy=currentUser||'';o.shippedVia='自行出貨';
+    _pcMarkLocal(o.orderNo, 'sp', 'SP', 'SP');
     logActivity(o,`PChome 一鍵自行出貨（已回報 PChome，狀態未變）：${qty} 件`);
     saveOne(o);renderList();
     alert(`✅ 已送出「廠商自行出貨」給 PChome\n訂單 ${o.orderNo} 狀態維持不動（等實際到貨你再自己改）`);
