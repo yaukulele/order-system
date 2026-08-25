@@ -3466,11 +3466,11 @@ function buildOrderActions(o,variant){
         :`<button class="act" onclick="openShipMomo('${oid}')" title="回填物流單號到 MOMO" style="border-color:var(--mo);color:var(--mo);font-weight:700">出貨</button> `)
       :o.platform==='PC'
       ?(isMob
-        ?`<button class="primary" onclick="quickShipPchomeSelf('${oid}')" style="background:#0d9488;border-color:#0d9488">自行出貨</button> <button class="primary" onclick="openShipPchome('${oid}')" style="background:var(--pc);border-color:var(--pc)">出貨</button>`
-        :`<button class="act" onclick="quickShipPchomeSelf('${oid}')" title="一鍵用「廠商自行出貨」方式出貨（會先確認）" style="border-color:#0d9488;color:#0d9488;font-weight:700">自行出貨</button> <button class="act" onclick="openShipPchome('${oid}')" title="回填物流單號到 PChome" style="border-color:var(--pc);color:var(--pc);font-weight:700">出貨</button> `)
+        ?`<button class="primary" onclick="quickShipPchomeSelf('${oid}')" title="一鍵用 PChome 的「廠商自行出貨 (SP)」方式壓單（會先確認）" style="background:#0d9488;border-color:#0d9488">SP</button> <button class="primary" onclick="openShipPchome('${oid}')" style="background:var(--pc);border-color:var(--pc)">出貨</button>`
+        :`<button class="act" onclick="quickShipPchomeSelf('${oid}')" title="一鍵用 PChome 的「廠商自行出貨 (SP)」方式壓單（會先確認）" style="border-color:#0d9488;color:#0d9488;font-weight:700">SP</button> <button class="act" onclick="openShipPchome('${oid}')" title="回填物流單號到 PChome" style="border-color:var(--pc);color:var(--pc);font-weight:700">出貨</button> `)
       :'')
     :'';
-  // 出貨痕跡：按過「出貨／自行出貨」後蓋一個綠色 ✓ 記號（含時間/誰按的），避免不確定按過沒
+  // 出貨痕跡：按過「出貨／SP（自行出貨）」後蓋一個綠色 ✓ 記號（含時間/誰按的），避免不確定按過沒
   const shipDone=o.shippedAt?(()=>{
     const d=new Date(o.shippedAt);const md=(d.getMonth()+1)+'/'+d.getDate();const via=o.shippedVia||'出貨';
     const tip=`${via}已回填 ${d.toLocaleString('zh-TW',{month:'2-digit',day:'2-digit',hour:'2-digit',minute:'2-digit',hour12:false})}${o.shippedBy?'（'+o.shippedBy+'）':''}`;
