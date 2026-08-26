@@ -1009,12 +1009,31 @@ body.has-batch-bar .main{padding-bottom:140px}
 .pmod .rest-sum b{color:var(--tx);font-family:var(--mono)}
 .pmod .rest-sum b.hit{color:var(--grn)}
 .pmod .rest-sum .mini{font-size:10.5px;color:var(--ht)}
+
+/* ===== 超商取貨分頁 ===== */
+.tdmod .st-top{display:flex;align-items:center;gap:9px;flex-wrap:wrap;padding:14px 0 4px}
+.tdmod .st-h{font-size:15px;font-weight:800}
+.tdmod .st-sp{flex:1}
+.tdmod .st-sel{width:auto;padding:6px 9px;font-size:12px}
+.tdmod .st-bar{display:flex;align-items:center;gap:8px;flex-wrap:wrap;padding:8px 0}
+.tdmod .st-wrap{overflow-x:auto;-webkit-overflow-scrolling:touch;border:1px solid var(--bd);border-radius:12px;background:var(--sf)}
+.tdmod .st-tbl{border-collapse:collapse;width:100%;min-width:820px}
+.tdmod .st-tbl th,.tdmod .st-tbl td{border-bottom:1px solid var(--bd);padding:8px 10px;font-size:12.5px;text-align:left;vertical-align:top}
+.tdmod .st-tbl th{background:var(--sf2);font-size:11.5px;font-weight:800;color:var(--dm);white-space:nowrap}
+.tdmod .st-tbl tr:last-child td{border-bottom:0}
+.tdmod .st-tbl tr.pick{background:var(--grn-bg)}
+.tdmod .st-no{font-family:var(--mono);font-size:11.5px;white-space:nowrap}
+.tdmod .st-store{font-weight:700}
+.tdmod .st-warn{color:var(--dm);font-size:11px}
+.tdmod .st-empty{text-align:center;padding:44px 16px;color:var(--ht);font-size:13px;line-height:2}
+.tdmod .st-err{background:var(--red-bg);border:1px solid var(--red);color:var(--red);border-radius:10px;padding:10px 13px;font-size:12.5px;line-height:1.8;margin:10px 0;white-space:pre-wrap;word-break:break-word}
+.tdmod .st-note{font-size:11.5px;color:var(--dm);line-height:1.8;padding:10px 2px}
 </style>
 </head>
 <body>
 <div class="offline-banner hidden" id="offline-banner">⚠️ 已離線 — 你的修改會在連線恢復後同步</div>
 <div class="hdr"><h1>📦 訂單管理系統<small>MOMO + PChome</small></h1><div style="display:flex;align-items:center;gap:8px"><span id="sync-badge" class="sync-dot sync-off"><span class="dot dot-off"></span>連線中...</span><button class="btn tdmod" id="bell" style="font-size:13px;position:relative" title="待辦提醒（點開便利貼）">🔔<span class="bell-badge hidden" id="bell-n">0</span></button><button class="btn" id="theme-btn" onclick="toggleTheme()" style="font-size:11px" title="切換亮色/暗色">🌙</button><button class="btn" id="notif-btn" onclick="toggleNotifications()" style="font-size:11px" title="桌面通知">🔕</button><button class="btn" onclick="showShortcutsHelp()" style="font-size:11px" title="鍵盤捷徑（按 ? 快速打開）">⌨️</button><button class="btn" onclick="location.reload()" style="font-size:11px">🔄</button></div></div>
-<div class="tabs"><button class="tab active" onclick="showTab('import')">匯入</button><button class="tab" onclick="showTab('list')">列表 <span class="badge" id="cnt">0</span></button><button class="tab" onclick="showTab('schedule')">安裝 <span class="badge" id="sched-cnt" style="background:#fef9ec;color:#b45309">0</span></button><button class="tab" onclick="showTab('region')">區域 <span class="badge" id="region-cnt" style="background:#e8eef9;color:#1657b5">0</span></button><button class="tab" onclick="showTab('delivery')">親送 <span class="badge" id="deliv-cnt" style="background:#fce7f3;color:#be185d">0</span></button><button class="tab" onclick="showTab('output')">輸出</button><button class="tab" onclick="showTab('stats')">統計</button><button class="tab" onclick="showTab('recon')">對帳</button><button class="tab" onclick="showTab('customers')">客戶</button><button class="tab" onclick="showTab('account')">帳號 <span id="user-badge" style="font-size:10px;color:var(--dm);margin-left:4px"></span></button><button class="tab" onclick="showTab('todo')">待辦 <span class="badge" id="todo-cnt" style="background:#eef7f1;color:#2d7a4f">0</span></button><button class="tab" onclick="showTab('punch')">打卡 <span class="badge" id="pk-badge" style="background:#e8eef9;color:#1657b5">—</span></button></div>
+<div class="tabs"><button class="tab active" onclick="showTab('import')">匯入</button><button class="tab" onclick="showTab('list')">列表 <span class="badge" id="cnt">0</span></button><button class="tab" onclick="showTab('schedule')">安裝 <span class="badge" id="sched-cnt" style="background:#fef9ec;color:#b45309">0</span></button><button class="tab" onclick="showTab('region')">區域 <span class="badge" id="region-cnt" style="background:#e8eef9;color:#1657b5">0</span></button><button class="tab" onclick="showTab('delivery')">親送 <span class="badge" id="deliv-cnt" style="background:#fce7f3;color:#be185d">0</span></button><button class="tab" onclick="showTab('output')">輸出</button><button class="tab" onclick="showTab('stats')">統計</button><button class="tab" onclick="showTab('recon')">對帳</button><button class="tab" onclick="showTab('customers')">客戶</button><button class="tab" onclick="showTab('account')">帳號 <span id="user-badge" style="font-size:10px;color:var(--dm);margin-left:4px"></span></button><button class="tab" onclick="showTab('todo')">待辦 <span class="badge" id="todo-cnt" style="background:#eef7f1;color:#2d7a4f">0</span></button><button class="tab" onclick="showTab('punch')">打卡 <span class="badge" id="pk-badge" style="background:#e8eef9;color:#1657b5">—</span></button><button class="tab" onclick="showTab('stores')">超商 <span class="badge" id="stores-cnt" style="background:#eef7f1;color:#2d7a4f">-</span></button></div>
 
 <div class="main" id="tab-import"><div id="today-summary" style="display:none"></div><div class="card" style="background:linear-gradient(135deg,#f3e8ff,#fff);border:1px solid #d8b4fe"><div class="card-h" style="background:transparent"><h3>🏪 店內銷售</h3><div class="btn-row" style="justify-content:flex-end"><button class="btn" onclick="openStoreSaleModal()" style="background:#7e22ce;border-color:#7e22ce;color:#fff;font-weight:700;flex:0 0 auto;min-width:130px" title="櫃台現金/刷卡直購用">+ 新增訂單</button></div></div></div>
 <div class="card" style="background:linear-gradient(135deg,#ccfbf1,#fff);border:1px solid #5eead4"><div class="card-h" style="background:transparent"><h3>🎓 學校團購</h3><div class="btn-row" style="justify-content:flex-end"><button class="btn" onclick="openSchoolModal()" style="background:#0d9488;border-color:#0d9488;color:#fff;font-weight:700;flex:0 0 auto;min-width:130px" title="學校班級團購建單（學生 / 團購學校 / 年級班級）">+ 新增訂單</button></div></div></div>
@@ -1079,6 +1098,22 @@ body.has-batch-bar .main{padding-bottom:140px}
   <div id="pk-shift"></div>
 </div>
 
+
+<div class="main hidden tdmod" id="tab-stores">
+  <div class="st-top">
+    <div class="st-h">MOMO 超商取貨</div>
+    <span class="st-sp"></span>
+    <select id="st-days" class="st-sel">
+      <option value="7">近 7 天</option>
+      <option value="14">近 14 天</option>
+      <option value="30" selected>近 30 天</option>
+      <option value="59">近 59 天（最大）</option>
+    </select>
+    <button class="btn" id="st-reload">重新抓取</button>
+  </div>
+  <div class="st-bar" id="st-bar"></div>
+  <div id="st-body"></div>
+</div>
 <div id="td-layer" class="tdmod"></div>
 <div class="overlay hidden" id="login-overlay" style="z-index:400"><div class="modal" style="max-width:380px"><h3>🔐 訂單管理系統 登入</h3><div class="fg full" style="margin-top:10px"><div class="fi"><label>選擇使用者</label><div id="login-userchips" style="display:grid;grid-template-columns:1fr 1fr;gap:6px;margin-top:6px"></div><input id="login-user" type="hidden"></div></div><div class="fg full"><div class="fi"><label>密碼</label><input id="login-pass" type="password" autocomplete="current-password" onkeypress="if(event.key==='Enter'&&!imeBusy(event))doLogin()"></div></div><div id="login-err" style="color:var(--pc);font-size:12px;min-height:18px;margin-top:6px"></div><div class="modal-ft"><button class="btn btn-g" onclick="doLogin()">登入</button></div><div style="font-size:11px;color:var(--dm);margin-top:10px;line-height:1.6">📌 點選名字 → 輸入密碼。開發者：Allie／阿淵　夥伴：雨停／建杰／詠璇／芷瑜<br>密碼預設同名字（建杰／詠璇／芷瑜 預設 0000），請登入後盡速更改</div></div></div>
 <div class="overlay hidden" id="modal-overlay"><div class="modal" id="modal-body"></div><button class="modal-x" type="button" onclick="closeModal()" title="關閉編輯 (Esc)">✕</button></div>
@@ -1673,7 +1708,7 @@ function clearInput(){document.getElementById('raw-input').value='';document.get
 async function copyPCScript(){try{const r=await fetch('pchome-scraper.js?_='+Date.now());if(!r.ok)throw new Error('HTTP '+r.status);const code=await r.text();await navigator.clipboard.writeText(code);alert('✅ PChome F12 撈單 script 已複製到剪貼簿！\n\n下一步：\n1. 切到 PChome 廠商後台「印貨資料 / 商品明細」view（看得到 商品名稱、收貨人、訂單編號 那個 view）\n2. F12 → Console → Ctrl+V → Enter\n3. 跳出 alert 顯示抓到 N 筆 → 訂單 JSON 已自動複製\n4. 回來這頁 → 在下方大框 Ctrl+V → 按「匯入雲端」')}catch(e){alert('複製失敗：'+e.message+'\n\n你可以直接打開 yaukulele.github.io/order-system/pchome-scraper.js 手動 copy')}}
 
 // ===== TABS =====
-function showTab(t){const tabs=['import','list','schedule','region','delivery','output','stats','recon','customers','account','todo','punch'];try{localStorage.setItem('orderSysTab',t)}catch(_){}tabs.forEach(id=>document.getElementById('tab-'+id).classList.toggle('hidden',id!==t));document.querySelectorAll('.tabs .tab').forEach((b,i)=>b.classList.toggle('active',tabs[i]===t));window.scrollTo({top:0,behavior:'instant'});if(t==='list'){renderList();if(typeof momoLiveAutoSync==='function')momoLiveAutoSync(5*60*1000)}if(t==='schedule')renderSchedule();if(t==='region')renderRegion();if(t==='delivery')setDelivMode(_delivMode);if(t==='output')renderOutput();if(t==='stats')renderStats();if(t==='recon')renderRecon();if(t==='customers')renderCustomers();if(t==='account')renderAccount();if(t==='todo'&&window.__tdRender)window.__tdRender();if(t==='punch'&&window.PUNCH)PUNCH.render()}
+function showTab(t){const tabs=['import','list','schedule','region','delivery','output','stats','recon','customers','account','todo','punch','stores'];try{localStorage.setItem('orderSysTab',t)}catch(_){}tabs.forEach(id=>document.getElementById('tab-'+id).classList.toggle('hidden',id!==t));document.querySelectorAll('.tabs .tab').forEach((b,i)=>b.classList.toggle('active',tabs[i]===t));window.scrollTo({top:0,behavior:'instant'});if(t==='list'){renderList();if(typeof momoLiveAutoSync==='function')momoLiveAutoSync(5*60*1000)}if(t==='schedule')renderSchedule();if(t==='region')renderRegion();if(t==='delivery')setDelivMode(_delivMode);if(t==='output')renderOutput();if(t==='stats')renderStats();if(t==='recon')renderRecon();if(t==='customers')renderCustomers();if(t==='account')renderAccount();if(t==='todo'&&window.__tdRender)window.__tdRender();if(t==='punch'&&window.PUNCH)PUNCH.render();if(t==='stores'&&window.__stRender)window.__stRender()}
 
 // ===== AUTH / 使用者帳號系統 =====
 let currentUser=null,currentRole='';
@@ -8803,6 +8838,166 @@ return {
 };
 })();
 
+</script>
+<script>
+/* =========================================================================
+   MOMO 超商取貨（杰哥 2026-08-26）
+   查超商單 → 勾選 → 一鍵轉店到店 → 印標籤。原本這三件事都要進 SCM 後台一張張點。
+
+   ⚠ 轉店到店不可逆（要改回去得人工進後台），而且 MOMO 文件對那個參數
+     寫得不清楚（「傳入原門市類型」但備註又列了 28/29）。所以：
+       1. 按下去一定跳確認，寫明不可逆
+       2. 預設照文件字面送「原門市類型」
+       3. 失敗時把 MOMO 的原文錯誤原封不動顯示出來，並給一顆「換另一種傳法再試」
+     用一張真單就能問出正確答案，不用猜也不用亂試一堆。
+   ========================================================================= */
+(function(){
+let stRows = [], stPick = new Set(), stLoading = false, stErr = '', stLoadedAt = 0;
+const $s = id => document.getElementById(id);
+const esc2 = s => String(s==null?'':s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+
+function stApi(){ try{ return getMomoApi() }catch(e){ return '' } }
+function stTok(){ try{ return (localStorage.getItem(MOMO_TK_KEY)||'') }catch(e){ return '' } }
+
+async function stLoad(silent){
+  const api = stApi(), tok = stTok();
+  if(!api || !tok){ stErr = '還沒設定 MOMO 的 API 網址或 Token（跟抓訂單用的是同一組）'; stRender(); return }
+  stLoading = true; stErr = ''; stRender();
+  const days = ($s('st-days')||{}).value || '30';
+  try{
+    const r = await fetch(api + '/api/orders/momo/stores/unsent?days=' + encodeURIComponent(days), { headers:{ 'X-API-Token': tok } });
+    const j = await r.json().catch(()=>({}));
+    if(!r.ok || !j || j.ok === false){ stErr = (j && (j.error || (j.errors||[]).join('；'))) || ('HTTP ' + r.status); stRows = [] }
+    else {
+      stRows = j.orders || [];
+      stLoadedAt = Date.now();
+      if((j.errors||[]).length) stErr = '部分門市查詢失敗：' + j.errors.join('；');
+    }
+  }catch(e){ stErr = '連不上：' + e.message; stRows = [] }
+  stLoading = false;
+  stPick.clear();
+  stRender();
+}
+
+function stRender(){
+  const box = $s('st-body'); if(!box) return;
+  const cnt = $s('stores-cnt');
+  if(cnt) cnt.textContent = stLoading ? '…' : String(stRows.length);
+
+  const bar = $s('st-bar');
+  const canPick = stRows.filter(r=>r.canS2S).length;
+  bar.innerHTML = stRows.length
+    ? '<button class="btn" id="st-all">' + (stPick.size ? '取消全選' : '全選可轉的 ' + canPick + ' 張') + '</button>'
+      + '<button class="btn btn-g" id="st-conv"' + (stPick.size?'':' disabled') + '>轉店到店' + (stPick.size?('（'+stPick.size+'）'):'') + '</button>'
+      + '<button class="btn" id="st-label"' + (stPick.size?'':' disabled') + '>印標籤</button>'
+      + '<button class="btn" id="st-dt"' + (stPick.size?'':' disabled') + '>印明細</button>'
+      + '<span class="st-sp"></span>'
+      + (stLoadedAt ? '<span class="st-warn">抓取於 ' + new Date(stLoadedAt).toLocaleTimeString('zh-TW',{hour:'2-digit',minute:'2-digit'}) + '</span>' : '')
+    : '';
+
+  let html = '';
+  if(stErr) html += '<div class="st-err">' + esc2(stErr) + '</div>';
+  if(stLoading) html += '<div class="st-empty">抓取中…</div>';
+  else if(!stRows.length) html += '<div class="st-empty">目前沒有超商取貨的未出貨單。<br>有單進來按上面「重新抓取」就會出現。</div>';
+  else {
+    html += '<div class="st-wrap"><table class="st-tbl"><thead><tr>'
+      + '<th style="width:34px"></th><th>訂單編號</th><th>門市</th><th>取貨門市</th>'
+      + '<th>收件人</th><th>商品</th><th>配送狀態</th><th>轉單日</th></tr></thead><tbody>';
+    stRows.forEach((r, i)=>{
+      const no = r.completeOrderNo || '';
+      const on = stPick.has(no);
+      html += '<tr class="' + (on?'pick':'') + '">'
+        + '<td>' + (r.canS2S ? '<input type="checkbox" data-st="' + esc2(no) + '"' + (on?' checked':'') + '>' : '') + '</td>'
+        + '<td class="st-no">' + esc2(no) + '</td>'
+        + '<td class="st-store">' + esc2(r.delyGbName||'') + (r.canS2S?'':'<div class="st-warn">沒有店到店</div>') + '</td>'
+        + '<td>' + esc2(r.storeIdName||'') + '</td>'
+        + '<td>' + esc2(r.Receiver || r.receiverMask || '') + '</td>'
+        + '<td>' + esc2((r.goodsName||r.goodsCode||'')).slice(0,40) + '</td>'
+        + '<td>' + esc2(r.remark5VStr||'') + '</td>'
+        + '<td class="st-no">' + esc2(r.lastPricDate||'') + '</td>'
+        + '</tr>';
+    });
+    html += '</tbody></table></div>';
+    html += '<div class="st-note">只有 7-11 跟全家有「店到店」，OK 跟萊爾富 MOMO 沒開，所以那幾張不能勾。<br>'
+      + '轉店到店會直接改 MOMO 上的配送方式，改完要還原得自己進後台，所以按下去會再問一次。</div>';
+  }
+  box.innerHTML = html;
+
+  box.querySelectorAll('input[data-st]').forEach(c=>c.onchange=()=>{
+    if(c.checked) stPick.add(c.dataset.st); else stPick.delete(c.dataset.st);
+    stRender();
+  });
+  const ab = $s('st-all');
+  if(ab) ab.onclick = ()=>{
+    if(stPick.size) stPick.clear();
+    else stRows.filter(r=>r.canS2S).forEach(r=>stPick.add(r.completeOrderNo));
+    stRender();
+  };
+  const cb = $s('st-conv'); if(cb) cb.onclick = ()=>stConvert(false);
+  const lb = $s('st-label'); if(lb) lb.onclick = ()=>stPrint('label');
+  const db = $s('st-dt'); if(db) db.onclick = ()=>stPrint('dt');
+}
+
+async function stConvert(targetMode){
+  const picked = stRows.filter(r=>stPick.has(r.completeOrderNo) && r.canS2S);
+  if(!picked.length) return;
+  const names = picked.map(r=>r.completeOrderNo + '（' + r.delyGbName + '）').join('\n');
+  const way = targetMode ? '第二種傳法（送店到店代碼）' : '第一種傳法（送原門市類型，照文件字面）';
+  if(!confirm('要把這 ' + picked.length + ' 張轉成店到店嗎？\n\n' + names
+    + '\n\n這個動作會直接改 MOMO 上的配送方式，改完要還原得自己進 SCM 後台。\n目前用的是' + way + '。')) return;
+
+  const api = stApi(), tok = stTok();
+  try{
+    const r = await fetch(api + '/api/orders/momo/stores/to-s2s', {
+      method:'POST',
+      headers:{ 'Content-Type':'application/json', 'X-API-Token': tok },
+      body: JSON.stringify({
+        confirm: 'YES',
+        targetMode: !!targetMode,
+        items: picked.map(x=>({ orderNo: x.completeOrderNo, delyGb: x.delyGb })),
+      }),
+    });
+    const j = await r.json().catch(()=>({}));
+    if(j && j.ok){
+      alert('轉換成功 ' + (j.success||0) + ' 張' + (j.failed ? ('，失敗 ' + j.failed + ' 張：' + (j.failMessage||'')) : '')
+        + '\n\n（這次用的是' + way + '，記住這個，以後就用這種）');
+      stLoad();
+      return;
+    }
+    // 失敗 —— 把 MOMO 的原文顯示出來，不要自己翻譯或吞掉
+    const msg = (j && (j.error || j.failMessage)) || ('HTTP ' + r.status);
+    if(!targetMode){
+      if(confirm('轉換沒成功。MOMO 回的原文是：\n\n' + msg
+        + '\n\n這有可能是因為文件寫得不清楚、參數傳錯邊。\n要不要換另一種傳法再試一次？（送店到店代碼）')){
+        return stConvert(true);
+      }
+    } else {
+      alert('兩種傳法都失敗了。MOMO 回的原文是：\n\n' + msg + '\n\n把這段訊息給我，我拿去對文件。');
+    }
+  }catch(e){ alert('連不上：' + e.message) }
+}
+
+function stPrint(type){
+  const nos = stRows.filter(r=>stPick.has(r.completeOrderNo)).map(r=>r.completeOrderNo);
+  if(!nos.length) return;
+  const api = stApi(), tok = stTok();
+  // PDF 直接開新分頁，token 走 query（後端有支援）
+  const url = api + '/api/orders/momo/stores/label?printType=' + type
+    + '&orderNo=' + encodeURIComponent(nos.join(','))
+    + '&token=' + encodeURIComponent(tok);
+  const w = window.open(url, '_blank');
+  if(!w) alert('瀏覽器擋掉彈出視窗了，請允許彈出視窗才能開 PDF');
+}
+
+window.__stRender = function(){
+  // 第一次切到這頁自動抓一次，之後靠「重新抓取」
+  if(!stLoadedAt && !stLoading) stLoad(true); else stRender();
+};
+document.addEventListener('DOMContentLoaded', ()=>{
+  const rb = $s('st-reload'); if(rb) rb.onclick = ()=>stLoad();
+  const ds = $s('st-days'); if(ds) ds.onchange = ()=>stLoad();
+});
+})();
 </script>
 </body>
 </html>
