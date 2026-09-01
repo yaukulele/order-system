@@ -221,6 +221,65 @@ td{padding:7px 10px;border-bottom:1px solid #f0ede6}tr:hover td{background:var(-
  .rgn-city{flex:0 1 auto;padding:6px 11px}
  .rgn-c-cnt{margin-left:4px}
 }
+/* 配送路線：區域頁挑單 → 排順序 → 算車程（2026-09-01 阿淵）*/
+.rt-bar,.rt-panel{background:var(--sf);border:1px solid var(--bd);border-radius:10px;margin-bottom:10px}
+.rt-bar{display:flex;align-items:center;gap:8px;padding:8px 12px;flex-wrap:wrap}
+.rt-panel{padding:10px 12px}
+.rt-hd{display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin-bottom:8px}
+.rt-ttl{font-weight:800;font-size:14px;color:var(--tx)}
+.rt-pill{font-size:11px;font-weight:700;color:#1657b5;background:#e8eef9;padding:2px 8px;border-radius:9px}
+.rt-total{font-size:11.5px;color:var(--dm)}
+.rt-tag{font-size:10px;font-weight:700;padding:1px 7px;border-radius:8px}
+.rt-tag.ok{background:#dcfce7;color:#15803d}
+.rt-tag.warn{background:#fef3c7;color:#b45309}
+.rt-tag.blue{background:#e8eef9;color:#1657b5}
+.rt-tag.pink{background:#fce7f3;color:#be185d}
+.rt-tools{display:flex;flex-wrap:wrap;gap:6px;align-items:center;margin-bottom:6px}
+.rt-b{font-size:11px!important;padding:5px 10px!important;min-height:0!important}
+.rt-b.go{border-color:var(--blu)!important;color:var(--blu)!important;font-weight:700}
+.rt-b.nav{border-color:#15803d!important;color:#15803d!important;font-weight:700}
+.rt-b.danger{border-color:#dc2626!important;color:#dc2626!important}
+.rt-b.sub{opacity:.72}
+.rt-start{font-size:11px;color:var(--dm);display:flex;align-items:center;gap:4px}
+.rt-start input{font-size:11.5px;padding:4px 8px;border:1px solid var(--bd);border-radius:6px;background:var(--bg);color:var(--tx);min-width:190px;font-family:var(--sans)}
+.rt-status{font-size:11.5px;color:var(--blu);min-height:15px}
+.rt-list{display:flex;flex-direction:column;gap:4px}
+.rt-row{display:flex;align-items:flex-start;gap:8px;padding:6px 8px;background:var(--bg);border:1px solid var(--bd);border-radius:8px;cursor:grab}
+.rt-row.drop{border-color:var(--blu);box-shadow:0 0 0 2px rgba(22,87,181,.18)}
+.rt-no{flex:0 0 22px;height:22px;line-height:22px;text-align:center;background:var(--blu);color:#fff;border-radius:6px;font-size:11px;font-weight:800}
+.rt-ord{flex:1;min-width:0;display:flex;flex-direction:column;gap:1px}
+.rt-l1{display:flex;align-items:baseline;gap:6px;flex-wrap:wrap;font-size:13px}
+.rt-st{font-size:10px;color:var(--dm)}
+.rt-leg{font-size:10.5px;color:#15803d;font-weight:700}
+.rt-leg.bad{color:#dc2626}
+.rt-l2{font-size:11.5px;color:var(--tx);line-height:1.25}
+.rt-l3{font-size:11px;color:var(--dm);line-height:1.2;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.rt-btns{display:flex;gap:3px;flex:0 0 auto}
+.rt-ib{font-size:11px!important;padding:3px 7px!important;min-height:0!important;line-height:1.2}
+.rt-ib.x{color:#dc2626!important;border-color:#f3b0b0!important}
+.rt-foot{font-size:10.5px;color:var(--dm);margin-top:6px;line-height:1.4}
+.rt-warn{font-size:11px;line-height:1.45;color:#b45309;background:#fef3c7;border:1px solid #fcd34d;border-radius:7px;padding:6px 9px;margin:2px 0 7px}
+[data-theme="dark"] .rt-warn{background:#332b14;color:#fcd34d;border-color:#5a4818}
+.rt-cb{width:18px;height:18px;accent-color:var(--blu);cursor:pointer;flex:0 0 auto;margin-right:2px}
+#rt-openbtn{border-color:#15803d;color:#15803d;font-weight:700}
+#rt-openbtn.on{background:#15803d;color:#fff;border-color:#15803d}
+#rt-openbtn.on .badge{background:rgba(255,255,255,.25)!important;color:#fff!important}
+[data-theme="dark"] .rt-pill{background:#132a4a;color:#8ab4f8}
+[data-theme="dark"] .rt-tag.ok{background:#0e2914;color:#5fd07a}
+[data-theme="dark"] .rt-tag.warn{background:#3a2f10;color:#e3b341}
+[data-theme="dark"] .rt-tag.blue{background:#132a4a;color:#8ab4f8}
+[data-theme="dark"] .rt-tag.pink{background:#3a1626;color:#ff9dc0}
+[data-theme="dark"] .rt-leg{color:#5fd07a}
+[data-theme="dark"] .rt-row{background:var(--sf2)}
+[data-theme="dark"] #rt-openbtn{color:#5fd07a;border-color:#2f6b3f}
+[data-theme="dark"] #rt-openbtn.on{background:#1f5f3a;color:#fff;border-color:#2f6b3f}
+@media(max-width:768px){
+ .rt-l3{white-space:normal}
+ .rt-start{width:100%}
+ .rt-start input{min-width:0;flex:1}
+ .rt-row{gap:6px;padding:7px 7px}
+ .rt-ib{padding:5px 9px!important}
+}
 /* 區域頁：區(district)第三層 nav + 縣市/區 標題 + 迷你按鈕 */
 .rgn-dist{display:flex;align-items:center;gap:6px;padding:5px 9px 5px 22px;border-radius:7px;cursor:pointer;font-size:11.5px;color:var(--dm);font-weight:600}
 .rgn-dist:hover{background:var(--sf2)}
@@ -1046,7 +1105,7 @@ body.has-batch-bar .main{padding-bottom:140px}
 
 <div class="main hidden" id="tab-schedule"><div class="filter-row" style="flex-wrap:wrap;gap:6px;align-items:center"><span class="fg-grp"><span style="font-size:11px;color:var(--dm)">週次</span><select id="sched-week" onchange="setSchedWeek(this.value)" style="font-size:11px;padding:3px 6px;border:1px solid var(--bd);border-radius:6px;background:var(--sf)"></select></span><span class="fb-divider">｜</span><span class="fg-grp" id="sched-installer-row"><span style="font-size:11px;color:var(--dm)">師傅</span><button class="fbtn on" data-installer="all" onclick="setSchedInstaller('all',this)">全部</button></span><span style="flex:1"></span><span style="font-size:11px;color:var(--dm)">共 <strong id="sched-show-cnt">0</strong> 筆</span></div><div id="schedule-area"></div></div>
 
-<div class="main hidden" id="tab-region"><div class="filter-row" style="flex-wrap:wrap;gap:8px;align-items:center"><button class="fbtn" onclick="printCurrentRegion()" title="把目前選的地區印成 A4 直式名單（省紙、放大好讀、雙欄）" style="border-color:#2563eb;color:#2563eb;font-weight:700">🖨 列印 A4</button><span class="fb-divider">｜</span><span class="fg-grp"><span style="font-size:11px;color:var(--dm)">顯示：</span><button class="fbtn on" data-fg="rmode" onclick="setRegionShowAll(false,this)" title="只看需安裝／自送且尚未完成的訂單 — 依地區統一安排安裝">🔧 需安裝／配送</button><button class="fbtn" data-fg="rmode" onclick="setRegionShowAll(true,this)" title="所有未取消的訂單，依地區分組">全部訂單</button></span><span class="fb-divider">｜</span><span class="fg-grp"><button class="fbtn" data-fg="rdone" onclick="setRegionDone('all',this)" title="不分完成狀態">全部</button><button class="fbtn on" data-fg="rdone" onclick="setRegionDone('undone',this)" title="只看還沒完成的（已完成以外都算未完成）— 預設">未完成</button><button class="fbtn" data-fg="rdone" onclick="setRegionDone('done',this)" title="只看已完成" style="color:var(--grn);border-color:#8cc4a0">已完成</button></span><span style="flex:1"></span><input class="search" id="rq" placeholder="🔍 搜尋姓名/地址/電話/商品/單號" oninput="this.value=fwToHw(this.value);setRegionQuery(this.value)" title="在目前地區分組內搜尋" style="max-width:260px;font-size:12px"><span style="font-size:11px;color:var(--dm);white-space:nowrap">共 <strong id="region-show-cnt">0</strong> 筆</span></div><div id="region-area"></div></div>
+<div class="main hidden" id="tab-region"><div class="filter-row" style="flex-wrap:wrap;gap:8px;align-items:center"><button class="fbtn" onclick="printCurrentRegion()" title="把目前選的地區印成 A4 直式名單（省紙、放大好讀、雙欄）" style="border-color:#2563eb;color:#2563eb;font-weight:700">🖨 列印 A4</button><button class="fbtn" id="rt-openbtn" onclick="rtToggleOpen()" title="打勾的單會跑到這裡：可拖曳排順序、算車程、一鍵 Google 導航">🚚 配送路線 <span class="badge" id="rt-cnt" style="background:#dcfce7;color:#15803d">0</span></button><button class="fbtn" onclick="rtAddCurrent()" title="把目前選的這一區（含搜尋條件）整批丟進配送路線">＋ 這區全加入</button><span class="fb-divider">｜</span><span class="fg-grp"><span style="font-size:11px;color:var(--dm)">顯示：</span><button class="fbtn on" data-fg="rmode" onclick="setRegionShowAll(false,this)" title="只看需安裝／自送且尚未完成的訂單 — 依地區統一安排安裝">🔧 需安裝／配送</button><button class="fbtn" data-fg="rmode" onclick="setRegionShowAll(true,this)" title="所有未取消的訂單，依地區分組">全部訂單</button></span><span class="fb-divider">｜</span><span class="fg-grp"><button class="fbtn" data-fg="rdone" onclick="setRegionDone('all',this)" title="不分完成狀態">全部</button><button class="fbtn on" data-fg="rdone" onclick="setRegionDone('undone',this)" title="只看還沒完成的（已完成以外都算未完成）— 預設">未完成</button><button class="fbtn" data-fg="rdone" onclick="setRegionDone('done',this)" title="只看已完成" style="color:var(--grn);border-color:#8cc4a0">已完成</button></span><span style="flex:1"></span><input class="search" id="rq" placeholder="🔍 搜尋姓名/地址/電話/商品/單號" oninput="this.value=fwToHw(this.value);setRegionQuery(this.value)" title="在目前地區分組內搜尋" style="max-width:260px;font-size:12px"><span style="font-size:11px;color:var(--dm);white-space:nowrap">共 <strong id="region-show-cnt">0</strong> 筆</span></div><div id="route-area"></div><div id="region-area"></div></div>
 
 <div class="main hidden" id="tab-delivery"><div class="filter-row" style="flex-wrap:wrap;gap:8px;align-items:center"><span class="fg-grp"><span style="font-size:11px;color:var(--dm)">檢視：</span><button class="fbtn on" id="deliv-mode-kanban" onclick="setDelivMode('kanban')" title="工作流看板：還沒確認／待二次聯繫／已約好">📋 工作流看板</button><button class="fbtn" id="deliv-mode-schedule" onclick="setDelivMode('schedule')" title="依配送／施工日排程">📅 排程</button><button class="fbtn" id="deliv-mode-region" onclick="setDelivMode('region')" title="依地區分組・規劃路線">📍 依地區</button><button class="fbtn" id="deliv-mode-product" onclick="setDelivMode('product')" title="同品相分組，排出貨順位">📦 依品相排順位</button></span><span class="fb-divider">｜</span><span id="deliv-scope-wrap" class="fg-grp" style="display:none"><input id="dv-prodq" oninput="this.value=fwToHw(this.value);setDvProdQ(this.value)" placeholder="🔍 商品名(如 FP-30X)" style="font-size:11px;padding:4px 8px;border:1px solid var(--bd);border-radius:14px;width:150px" title="打商品名只看這款，任何商品都可以"><span class="fb-divider">｜</span><span style="font-size:11px;color:var(--dm)">範圍：</span><button class="fbtn on" id="dv-scope-deliver" onclick="setDvScope('deliver')" title="要安裝＋自己配">親送</button><button class="fbtn" id="dv-scope-restock" onclick="setDvScope('restock')" title="等到貨才寄的單（補貨中）">補貨/等到貨</button><button class="fbtn" id="dv-scope-all" onclick="setDvScope('all')" title="要安裝＋自己配＋補貨中">親送＋補貨</button><button class="fbtn" id="dv-scope-pending" onclick="setDvScope('pending')" title="所有還沒出貨/完成的單（含未確認/已確認/補貨…）">全部未出貨</button><span class="fb-divider">｜</span><span style="font-size:11px;color:var(--dm)">排序：</span><button class="fbtn on" id="dv-sortdir-fifo" onclick="setDvSortDir('fifo')" title="先下單先寄，要先出的排第一">🔼 先出優先</button><button class="fbtn" id="dv-sortdir-recent" onclick="setDvSortDir('recent')" title="最新的排前面（純瀏覽）">最新在前</button></span><span class="fb-divider">｜</span><span id="deliv-sort-wrap" class="fg-grp" style="display:none"><span style="font-size:11px;color:var(--dm)">自動排序依：</span><select id="deliv-sort" style="font-size:11px;padding:3px 6px;border:1px solid var(--bd);border-radius:6px;background:var(--sf)"><option value="date">下單日（早→晚）</option><option value="est">預計送達日</option><option value="unconfirmed">未確認優先</option></select><span style="font-size:11px;color:var(--dm)">（在各品相組按「⚡自動排序」套用）</span></span><span style="flex:1"></span><span style="font-size:11px;color:var(--dm)">共 <strong id="deliv-show-cnt">0</strong> 筆（要安裝＋自己配）</span></div><div id="delivery-area"></div></div>
 
@@ -5782,7 +5841,7 @@ function _regionCard(o){
   const instPill=isServiceActive(o)?`<span class="qty-pill" style="color:${isSelfDeliver(o)?'#be185d':'var(--blu)'};border-color:${isSelfDeliver(o)?'#f9a8d4':'var(--blu)'};cursor:pointer" onclick="event.stopPropagation();openEdit('${oid}')" title="${r.installInfo?esc(r.installInfo):'未排日期 — 點擊編輯'}">${isSelfDeliver(o)?'自己配':'安裝'+(o.installFee?' +$'+o.installFee:'')}${r.installInfo?' '+esc(r.installInfo):''}</span>`:'';
   const addonPill=o.addon==='是'?`<span class="qty-pill" style="color:var(--mo);border-color:var(--mo);cursor:pointer" onclick="event.stopPropagation();openEdit('${oid}')" title="${r.addonInfo?esc(r.addonInfo):''} — 點擊編輯">加購${o.addonFee?' +$'+o.addonFee:''}${r.addonInfo?' '+esc(r.addonInfo):''}</span>`:'';
   return `<div class="ord-card${r.scmActive?' row-scm':''}" data-oid="${oid}">
-<div class="ord-card-h"><span class="ord-date">${fmtD(o.date)}</span>${platformPill(o.platform)}${r.remoteBadge||''}${r.scmBadge||''}<span class="ord-total">${$(tot(o))}</span></div>
+<div class="ord-card-h"><input type="checkbox" class="rt-cb" data-oid="${oid}" ${rtHas(oid)?'checked':''} onclick="event.stopPropagation()" onchange="rtToggle('${oid}',this.checked)" title="打勾→加進上面的配送路線"><span class="ord-date">${fmtD(o.date)}</span>${platformPill(o.platform)}${r.remoteBadge||''}${r.scmBadge||''}<span class="ord-total">${$(tot(o))}</span></div>
 <div class="ord-card-name">${o.name?`<span style="cursor:pointer;text-decoration:underline;text-decoration-style:dotted;text-decoration-color:var(--ht);text-underline-offset:3px" onclick="event.stopPropagation();searchCustomerOrders(${JSON.stringify(o.name).replace(/"/g,'&quot;')})" title="🔒 看「${esc(o.name)}」所有訂單">${escWithHL(o.name)}</span>`:'(無姓名)'}${r.remoteBadge?'':''}</div>
 <div class="ord-card-prod" onclick="openEdit('${oid}')" style="cursor:pointer">${r.ps.specs?`<span class="spec-pill" style="margin-right:6px">${esc(r.ps.specs)}</span>`:''}${escWithHL(r.ps.name||o.product||'')}</div>
 <div class="ord-card-meta"><button class="${stCls(o.status)}" onclick="openStatusMenu('${oid}',event)" style="min-height:30px" title="本機狀態（點擊修改）">${o.status} ▾</button>${r.momoBadge||''}${r.momoDiff||''}${instPill}${addonPill}</div>
@@ -6017,6 +6076,7 @@ function delivShipped(oid){const o=findO(oid);if(!o)return;if(!confirm(`確定�
 function renderRegion(){
   const area=document.getElementById('region-area');if(!area)return;
   const cntEl=document.getElementById('region-show-cnt');
+  if(typeof renderRoutePanel==='function')renderRoutePanel();
   if(!ordersLoaded){area.innerHTML='<div class="card"><div class="card-b" style="text-align:center;padding:40px;color:var(--dm)">⏳ 載入訂單中...</div></div>';return}
   const pool=_regionPool();
   if(cntEl)cntEl.textContent=pool.length;
@@ -6037,13 +6097,13 @@ function renderRegion(){
   const distBlock=(c,d,cfg)=>{
     const rk=findRk(c);const list=g[rk][c][d].slice().sort((a,b)=>(a.address||'').localeCompare(b.address||'','zh-TW'));
     const jc=JSON.stringify(c),jd=JSON.stringify(d);
-    return `<div class="rgn-dist-hd"><span class="nm">${esc(d)}</span><span class="rgn-dist-cnt">${list.length}</span><span style="flex:1"></span><button class="btn rgn-mini" onclick='copyRegionList(${jc},${jd})' title="複製本區名單">📋 複製</button><button class="btn rgn-mini" onclick='downloadRegionList(${jc},${jd})' title="下載成 Excel／Numbers 表單">⬇️ Excel</button></div>`
+    return `<div class="rgn-dist-hd"><span class="nm">${esc(d)}</span><span class="rgn-dist-cnt">${list.length}</span><span style="flex:1"></span><button class="btn rgn-mini" onclick='copyRegionList(${jc},${jd})' title="複製本區名單">📋 複製</button><button class="btn rgn-mini" onclick='downloadRegionList(${jc},${jd})' title="下載成 Excel／Numbers 表單">⬇️ Excel</button><button class="btn rgn-mini" style="border-color:#15803d;color:#15803d;font-weight:700" onclick='rtAddDistrict(${jc},${jd})' title="整區丟進配送路線">🚚 加路線</button></div>`
       +'<div class="ord-cards">'+list.map(_regionCard).join('')+'</div>';
   };
   // 右邊：單一「縣市」區塊（市大標 + 各區）
   const cityBlock=(rk,c)=>{
     const cfg=RCFG[rk];const dns=distNamesOf(rk,c);const cnt=cityCount(rk,c);const jc=JSON.stringify(c);
-    let h=`<div class="rgn-city-blk-hd" style="border-color:${cfg.bg}"><span class="nm">${esc(c)}</span><span class="rgn-dist-cnt">${cnt}</span><span style="font-size:10px;color:var(--dm)">${dns.length} 區</span><span style="flex:1"></span><button class="btn rgn-mini" onclick='copyRegionList(${jc})' title="複製整個${esc(c)}名單">📋 整市</button><button class="btn rgn-mini" onclick='downloadRegionList(${jc})' title="下載整個${esc(c)} Excel">⬇️ Excel</button></div>`;
+    let h=`<div class="rgn-city-blk-hd" style="border-color:${cfg.bg}"><span class="nm">${esc(c)}</span><span class="rgn-dist-cnt">${cnt}</span><span style="font-size:10px;color:var(--dm)">${dns.length} 區</span><span style="flex:1"></span><button class="btn rgn-mini" onclick='copyRegionList(${jc})' title="複製整個${esc(c)}名單">📋 整市</button><button class="btn rgn-mini" onclick='downloadRegionList(${jc})' title="下載整個${esc(c)} Excel">⬇️ Excel</button><button class="btn rgn-mini" style="border-color:#15803d;color:#15803d;font-weight:700" onclick='rtAddCity(${jc})' title="整個${esc(c)}丟進配送路線">🚚 加路線</button></div>`;
     dns.forEach(d=>h+=distBlock(c,d,cfg));
     return h;
   };
@@ -6051,7 +6111,7 @@ function renderRegion(){
   const regionBlock=rk=>{
     const cfg=RCFG[rk];const cns=cityNamesOf(rk);const cnt=cns.reduce((s,c)=>s+cityCount(rk,c),0);
     const rbtn=`background:rgba(255,255,255,.7);border:1px solid ${cfg.fg};color:${cfg.fg};font-size:11px;font-weight:700;padding:3px 10px;border-radius:6px;cursor:pointer;font-family:var(--sans)`;
-    let h=`<div style="margin:0 0 6px;padding:9px 14px;background:${cfg.bg};color:${cfg.fg};border-radius:8px;font-weight:800;font-size:15px;display:flex;align-items:center;gap:10px"><span>${cfg.label}</span><span style="font-weight:600;font-size:12px;opacity:.85">${cnt} 筆・${cns.length} 縣市</span><span style="flex:1"></span><button style="${rbtn}" onclick="copyBigRegion('${rk}')" title="複製整個${cfg.label}名單">📋 整區複製</button><button style="${rbtn}" onclick="downloadBigRegion('${rk}')" title="下載整個${cfg.label} Excel／Numbers">⬇️ Excel</button></div>`;
+    let h=`<div style="margin:0 0 6px;padding:9px 14px;background:${cfg.bg};color:${cfg.fg};border-radius:8px;font-weight:800;font-size:15px;display:flex;align-items:center;gap:10px"><span>${cfg.label}</span><span style="font-weight:600;font-size:12px;opacity:.85">${cnt} 筆・${cns.length} 縣市</span><span style="flex:1"></span><button style="${rbtn}" onclick="copyBigRegion('${rk}')" title="複製整個${cfg.label}名單">📋 整區複製</button><button style="${rbtn}" onclick="downloadBigRegion('${rk}')" title="下載整個${cfg.label} Excel／Numbers">⬇️ Excel</button><button style="${rbtn}" onclick="rtAddBig('${rk}')" title="整個${cfg.label}丟進配送路線">🚚 加路線</button></div>`;
     cns.forEach(c=>h+=cityBlock(rk,c));
     return h;
   };
@@ -6073,6 +6133,416 @@ function renderRegion(){
   else if(regionSel.startsWith('C:')){const c=regionSel.slice(2);panel=cityBlock(findRk(c),c)}
   else if(regionSel.startsWith('D:')){const p=regionSel.slice(2).split('|');const c=p[0],d=p[1];const cfg=RCFG[findRk(c)];panel=`<div class="rgn-city-blk-hd" style="border-color:${cfg.bg}"><span class="nm">${esc(c)}</span><span style="font-size:11px;color:var(--dm)">只看 ${esc(d)}</span></div>`+distBlock(c,d,cfg)}
   area.innerHTML=`<div class="rgn-wrap"><div class="rgn-nav">${nav}</div><div class="rgn-panel">${panel}</div></div>`;
+  if(typeof renderRoutePanel==='function')renderRoutePanel();
+}
+
+// ===== 配送路線規劃：區域打勾挑單 → 排順序 → 算車程（2026-09-01 阿淵）=====
+// 為什麼自己算：Google Directions API 要金鑰＋開帳單。這裡改用兩支免費、免註冊、
+//   瀏覽器可直接打的服務：
+//     1) Nominatim(OpenStreetMap) 把中文地址轉座標（有本機快取，同地址只查一次）
+//     2) OSRM 公開路由伺服器算「真實道路」的兩兩車程矩陣
+//   拿到矩陣後在本機跑 最近鄰 + 2-opt 排出最短順序（起點固定＝門市，終點不限）。
+//   任一步失敗 → 退回直線距離×1.35、市區均速 32km/h 估算，畫面會標「估算」。
+//   不管有沒有算成功，都給一顆「Google 導航」— 真的上路還是 Google Maps 最準。
+const RT_LS='rtRouteIds',RT_GEO_LS='rtGeoCache_v3',RT_START_LS='rtStartAddr';
+const RT_DEFAULT_START='新北市三峽區大德路216號';
+const RT_DETOUR=1.35;      // 直線→實際道路的繞路係數（估算用）
+const RT_KMH=32;           // 市區含停車平均時速（估算用）
+const RT_STOP_MIN=8;       // 每站落地作業時間（分）— 搬貨/簽收
+let routeIds=(()=>{try{return JSON.parse(localStorage.getItem(RT_LS))||[]}catch(_){return[]}})();
+let routeOpen=(()=>{try{return localStorage.getItem('rtOpen')!=='0'}catch(_){return true}})();
+let routeStartAddr=(()=>{try{return localStorage.getItem(RT_START_LS)||RT_DEFAULT_START}catch(_){return RT_DEFAULT_START}})();
+let rtGeo=(()=>{try{return JSON.parse(localStorage.getItem(RT_GEO_LS))||{}}catch(_){return{}}})();
+let routeLegs=null;        // {orderId:{km,min}}；起點→第一站放在 routeLegs.__first
+let routeTotal=null;       // {km,min}
+let routeMode='';          // '' | 'osrm'（真實道路） | 'est'（直線估算）
+let routeBusy=false;
+let _rtDrag=null,_rtLastReq=0;
+
+function _rtSave(){try{localStorage.setItem(RT_LS,JSON.stringify(routeIds))}catch(_){}}
+function _rtGeoSave(){try{const k=Object.keys(rtGeo);if(k.length>900){const t={};k.slice(-700).forEach(x=>t[x]=rtGeo[x]);rtGeo=t}localStorage.setItem(RT_GEO_LS,JSON.stringify(rtGeo))}catch(_){}}
+function _rtSleep(ms){return new Promise(r=>setTimeout(r,ms))}
+async function _rtThrottle(ms){const w=ms-(Date.now()-_rtLastReq);if(w>0)await _rtSleep(w);_rtLastReq=Date.now()}
+function _rtStatus(msg){const el=document.getElementById('rt-status');if(el)el.textContent=msg||''}
+
+// ---- 挑單 / 順序 ----
+function rtHas(id){return routeIds.indexOf(id)>=0}
+function rtOrders(){
+  const m=new Map();orders.forEach(o=>{if(o&&o.id)m.set(o.id,o)});
+  const keep=[],out=[];
+  routeIds.forEach(id=>{const o=m.get(id);if(o){keep.push(id);out.push(o)}});
+  if(keep.length!==routeIds.length){routeIds=keep;_rtSave()}   // 單被刪掉 → 自動清掉
+  return out;
+}
+function rtToggle(id,on){
+  const i=routeIds.indexOf(id);
+  if(on&&i<0)routeIds.push(id);else if(!on&&i>=0)routeIds.splice(i,1);
+  routeLegs=null;routeTotal=null;_rtSave();renderRoutePanel();
+}
+function _rtAddMany(list,label){
+  if(!list||!list.length){showToast('這區目前沒有訂單');return}
+  let n=0;list.forEach(o=>{if(o&&o.id&&routeIds.indexOf(o.id)<0){routeIds.push(o.id);n++}});
+  routeLegs=null;routeTotal=null;_rtSave();routeOpen=true;try{localStorage.setItem('rtOpen','1')}catch(_){}
+  renderRoutePanel();_rtSyncChecks();
+  showToast(n?`🚚 已把「${label}」${n} 筆加入配送路線`:`「${label}」的單都已經在路線裡了`);
+}
+function rtAddDistrict(c,d){_rtAddMany(_regionOrders(c,d),_regionLabel(c,d))}
+function rtAddCity(c){_rtAddMany(_regionOrders(c),c)}
+function rtAddBig(rk){_rtAddMany(_bigRegionOrders(rk),_BIGREGION_LABEL[rk]||rk)}
+// 目前左邊選到的那一層，整批加入（＝「篩選後的區域全部丟進路線」）
+function rtAddCurrent(){
+  if(regionSel&&regionSel.indexOf('D:')===0){const p=regionSel.slice(2).split('|');rtAddDistrict(p[0],p[1])}
+  else if(regionSel&&regionSel.indexOf('C:')===0)rtAddCity(regionSel.slice(2));
+  else if(regionSel&&regionSel.indexOf('R:')===0)rtAddBig(regionSel.slice(2));
+  else _rtAddMany(_regionPool(),'目前畫面');
+}
+function rtRemove(id){const i=routeIds.indexOf(id);if(i>=0){routeIds.splice(i,1);routeLegs=null;routeTotal=null;_rtSave();renderRoutePanel();_rtSyncChecks()}}
+function rtMove(id,dir){
+  const i=routeIds.indexOf(id),j=i+dir;
+  if(i<0||j<0||j>=routeIds.length)return;
+  routeIds.splice(j,0,routeIds.splice(i,1)[0]);
+  routeLegs=null;routeTotal=null;_rtSave();renderRoutePanel();
+}
+function rtReverse(){routeIds.reverse();routeLegs=null;routeTotal=null;_rtSave();renderRoutePanel();showToast('🔁 已反轉順序')}
+function rtClear(){
+  if(!routeIds.length)return;
+  if(!confirm(`清空配送路線的 ${routeIds.length} 筆訂單？（只清這個清單，訂單本身不動）`))return;
+  routeIds=[];routeLegs=null;routeTotal=null;_rtSave();renderRoutePanel();_rtSyncChecks();showToast('已清空配送路線');
+}
+function rtDropDone(){
+  const before=routeIds.length;const m=new Map();orders.forEach(o=>{if(o&&o.id)m.set(o.id,o)});
+  routeIds=routeIds.filter(id=>{const o=m.get(id);return o&&!_isDoneStatus(o.status)});
+  if(routeIds.length===before){showToast('路線裡沒有已完成的單');return}
+  routeLegs=null;routeTotal=null;_rtSave();renderRoutePanel();_rtSyncChecks();
+  showToast(`已移除 ${before-routeIds.length} 筆已完成的單`);
+}
+function rtToggleOpen(){routeOpen=!routeOpen;try{localStorage.setItem('rtOpen',routeOpen?'1':'0')}catch(_){}renderRoutePanel();if(routeOpen){const el=document.getElementById('route-area');if(el)el.scrollIntoView({behavior:'smooth',block:'start'})}}
+function rtSetStart(v){routeStartAddr=(v||'').trim()||RT_DEFAULT_START;try{localStorage.setItem(RT_START_LS,routeStartAddr)}catch(_){}routeLegs=null;routeTotal=null}
+// 把畫面上每張卡的打勾狀態拉回跟 routeIds 一致（整批加入/移除後用，不用整頁重畫）
+function _rtSyncChecks(){document.querySelectorAll('#region-area input.rt-cb').forEach(cb=>{cb.checked=rtHas(cb.dataset.oid)})}
+
+// ---- 地址 → 座標（Nominatim，含降級查法與本機快取）----
+function _rtKey(a){return String(a||'').replace(/\s+/g,'').replace(/臺/g,'台')}
+// 實測結論：中文地址整串黏在一起丟給 Nominatim 命中率很差（「新北市三峽區大德路216號」查不到），
+// 改成歐美習慣的「街段, 區, 縣市」逗號格式命中率大幅提升（同一條大德路就查得到、連 168 巷都定得出來）。
+// 由細到粗：門牌 → 巷弄 → 路名 → 區 → 縣市。台灣門牌 OSM 多半沒有，退到路名/巷弄已足夠排順序。
+function _rtVariants(addr){
+  let raw=String(addr||'').replace(/^\d{3,6}\s*/,'').replace(/臺/g,'台').replace(/（/g,'(').replace(/）/g,')');
+  raw=raw.replace(/\([^)]*\)/g,' ').replace(/\s+/g,' ').trim();
+  const city=addrCity(addr),dist=addrDistrict(addr);
+  let rest=raw;
+  if(city){const i=rest.indexOf(city);if(i>=0)rest=rest.slice(i+city.length)}
+  if(dist){const i=rest.indexOf(dist);if(i>=0)rest=rest.slice(i+dist.length)}
+  rest=rest.replace(/^[,，\s]+/,'').trim();
+  const tail=(city&&dist)?(', '+dist+', '+city):(city?(', '+city):'');
+  const out=[];const push=s=>{s=String(s||'').trim().replace(/[,，]\s*$/,'');if(s&&out.indexOf(s)<0)out.push(s)};
+  if(rest){
+    const nf=rest.replace(/\d+\s*[樓FfＦ].*$/,'').replace(/之\s*\d+\s*$/,'').trim();
+    // 實測：帶「號」的查法在台灣 100% 落空（OSM 沒有台灣門牌），所以直接跳過不查，省一半時間
+    const mLane=nf.match(/^(.*?\d+\s*[巷弄])/);if(mLane)push(mLane[1]+tail);
+    const mRd=nf.match(/^(.*?(?:路|街|大道|大路)(?:[一二三四五六七八九\d]{1,3}段)?)/);if(mRd)push(mRd[1]+tail);
+    if(!mLane&&!mRd&&nf)push(nf.replace(/\d+\s*號.*$/,'').trim()+tail);
+  }
+  if(city&&dist)push(dist+', '+city);
+  if(city)push(city);
+  return out.slice(0,6);
+}
+function _rtAcc(q){return /[巷弄]/.test(q)?'巷弄':(/[路街道]/.test(q)?'路段':'區級')}
+// 守門：查回來的地方必須落在同一個縣市，不然「我家」這種鬼地址會被配到別的縣市去，
+// 整條路線的里程就會爆掉（實測曾經被丟到 500 公里外）。
+function _rtCityOk(addr,where){
+  const c=addrCity(addr);if(!c)return false;
+  return String(where||'').replace(/臺/g,'台').indexOf(c.replace(/臺/g,'台'))>=0;
+}
+async function _rtGeocode(addr,force){
+  const key=_rtKey(addr);if(!key)return null;
+  if(!force&&rtGeo[key])return rtGeo[key].fail?null:rtGeo[key];
+  // 連縣市都認不出來的地址（「我家」「同上」）根本無從驗證 → 直接當定位失敗，別亂猜
+  if(!addrCity(addr)){rtGeo[key]={fail:1,why:'no-city'};_rtGeoSave();return null}
+  for(const v of _rtVariants(addr)){
+    await _rtThrottle(1100);   // Nominatim 使用規範：每秒最多 1 次
+    try{
+      const u='https://nominatim.openstreetmap.org/search?format=jsonv2&limit=1&addressdetails=1&countrycodes=tw&accept-language=zh-TW&q='+encodeURIComponent(v);
+      const r=await fetch(u,{headers:{Accept:'application/json'}});
+      if(r.ok){
+        const j=await r.json();
+        if(j&&j.length&&j[0].lat&&_rtCityOk(addr,j[0].display_name)){
+          const hit={lat:+j[0].lat,lon:+j[0].lon,acc:_rtAcc(v),q:v};
+          rtGeo[key]=hit;_rtGeoSave();return hit;
+        }
+      }
+    }catch(_){}
+  }
+  // Nominatim 全部落空 → 換 Photon（也是 OSM 資料但比對邏輯不同，救得回一部分）
+  for(const v of _rtVariants(addr).slice(0,2)){
+    await _rtThrottle(1100);
+    try{
+      const u='https://photon.komoot.io/api/?limit=1&lang=default&q='+encodeURIComponent(v.replace(/,/g,' '));
+      const r=await fetch(u);
+      if(r.ok){
+        const j=await r.json();
+        const f=j&&j.features&&j.features[0];
+        const pr=f&&f.properties||{};
+        const where=[pr.state,pr.county,pr.city,pr.district,pr.name].filter(Boolean).join(' ');
+        if(f&&f.geometry&&f.geometry.coordinates&&_rtCityOk(addr,where)){
+          const hit={lat:+f.geometry.coordinates[1],lon:+f.geometry.coordinates[0],acc:_rtAcc(v),q:v,src:'photon'};
+          rtGeo[key]=hit;_rtGeoSave();return hit;
+        }
+      }
+    }catch(_){}
+  }
+  rtGeo[key]={fail:1};_rtGeoSave();return null;
+}
+function rtClearGeoCache(){
+  if(!confirm('清掉地址定位的快取？下次算路線會重新查一次（比較慢但可修正抓錯的位置）'))return;
+  rtGeo={};_rtGeoSave();routeLegs=null;routeTotal=null;renderRoutePanel();showToast('已清除定位快取');
+}
+
+// ---- 車程矩陣 ----
+function _rtHav(a,b){const R=6371,t=Math.PI/180,dLat=(b.lat-a.lat)*t,dLon=(b.lon-a.lon)*t;
+  const s=Math.sin(dLat/2)**2+Math.cos(a.lat*t)*Math.cos(b.lat*t)*Math.sin(dLon/2)**2;return 2*R*Math.asin(Math.sqrt(s))}
+async function _rtTable(pts){
+  const coords=pts.map(p=>p.lon.toFixed(6)+','+p.lat.toFixed(6)).join(';');
+  const u='https://router.project-osrm.org/table/v1/driving/'+coords+'?annotations=duration,distance';
+  const c=new AbortController();const t=setTimeout(()=>c.abort(),20000);
+  try{
+    const r=await fetch(u,{signal:c.signal});
+    if(!r.ok)throw new Error('OSRM HTTP '+r.status);
+    const j=await r.json();
+    if(j.code!=='Ok'||!j.durations)throw new Error(j.code||'OSRM 無資料');
+    const n=pts.length;const dist=j.distances||null;
+    const D=[],KM=[];
+    for(let i=0;i<n;i++){D.push([]);KM.push([]);for(let k=0;k<n;k++){
+      const s=j.durations[i][k];D[i].push(s==null?_rtHav(pts[i],pts[k])/RT_KMH*3600*RT_DETOUR:s);
+      KM[i].push(dist&&dist[i]&&dist[i][k]!=null?dist[i][k]/1000:_rtHav(pts[i],pts[k])*RT_DETOUR);
+    }}
+    return{D:D,KM:KM,mode:'osrm'};
+  }finally{clearTimeout(t)}
+}
+function _rtEstTable(pts){
+  const n=pts.length,D=[],KM=[];
+  for(let i=0;i<n;i++){D.push([]);KM.push([]);for(let k=0;k<n;k++){
+    const km=_rtHav(pts[i],pts[k])*RT_DETOUR;KM[i].push(km);D[i].push(km/RT_KMH*3600)}}
+  return{D:D,KM:KM,mode:'est'};
+}
+// 最近鄰起手 + 2-opt 收斂（起點 index 0 固定，終點不限＝開放路徑）
+function _rtNN(D,n){
+  const path=[0];const left=[];for(let i=1;i<n;i++)left.push(i);
+  let cur=0;
+  while(left.length){let bi=0,bv=Infinity;
+    for(let i=0;i<left.length;i++){const v=D[cur][left[i]];if(v<bv){bv=v;bi=i}}
+    cur=left[bi];path.push(cur);left.splice(bi,1)}
+  return path;
+}
+function _rt2opt(D,path){
+  const cost=p=>{let s=0;for(let i=0;i<p.length-1;i++)s+=D[p[i]][p[i+1]];return s};
+  let best=path.slice(),bc=cost(best),improved=true,guard=0;
+  while(improved&&guard++<80){improved=false;
+    for(let i=1;i<best.length-1;i++)for(let j=i+1;j<best.length;j++){
+      const cand=best.slice(0,i).concat(best.slice(i,j+1).reverse(),best.slice(j+1));
+      const cc=cost(cand);
+      if(cc<bc-1e-6){best=cand;bc=cc;improved=true}
+    }}
+  return best;
+}
+
+// ---- 主流程：定位 → 算矩陣 →（可選）重排 → 算每段車程 ----
+async function rtCompute(optimize){
+  if(routeBusy)return;
+  const stops=rtOrders();
+  if(!stops.length){showToast('路線裡還沒有訂單，先在下面的訂單卡打勾');return}
+  routeBusy=true;renderRoutePanel();
+  try{
+    _rtStatus('定位起點…');
+    const startPt=await _rtGeocode(routeStartAddr);
+    const pts=[];const bad=[];
+    for(let i=0;i<stops.length;i++){
+      _rtStatus(`定位地址 ${i+1}/${stops.length}…（第一次比較慢，之後有快取）`);
+      const g=await _rtGeocode(stops[i].address);
+      pts.push(g);if(!g)bad.push(stops[i]);
+    }
+    const okIdx=[];pts.forEach((p,i)=>{if(p)okIdx.push(i)});
+    if(okIdx.length<1){routeLegs=null;routeTotal=null;routeMode='';showToast('⚠️ 這批地址都定不出位置，只能手動排順序');return}
+    // 矩陣節點：[起點(若有)] + 定位成功的站
+    const nodes=[];if(startPt)nodes.push(startPt);
+    okIdx.forEach(i=>nodes.push(pts[i]));
+    const base=startPt?1:0;
+    _rtStatus('計算車程中…');
+    let tb;
+    // OSRM 公開伺服器一次最多 ~100 個點；超過就別打了，直接用估算
+    if(nodes.length>95)tb=_rtEstTable(nodes);
+    else{try{tb=await _rtTable(nodes)}catch(e){tb=_rtEstTable(nodes)}}
+    routeMode=tb.mode;
+    // 重排：只排定位成功的站，起點固定
+    let order=okIdx.slice();
+    if(optimize){
+      let path;
+      if(startPt){path=_rt2opt(tb.D,_rtNN(tb.D,nodes.length)).filter(x=>x!==0)}
+      else{
+        // 沒起點 → 以第一站當固定頭
+        path=_rt2opt(tb.D,_rtNN(tb.D,nodes.length));
+      }
+      order=path.map(x=>okIdx[x-base]);
+      const newIds=order.map(i=>stops[i].id).concat(bad.map(o=>o.id));
+      routeIds=newIds;_rtSave();
+    }
+    // 算每段（依目前 routeIds 的實際順序）
+    const idxOfOrder=new Map();okIdx.forEach((i,j)=>idxOfOrder.set(stops[i].id,base+j));
+    const seq=rtOrders();
+    const legs={};let tKm=0,tMin=0,prev=startPt?0:null;
+    seq.forEach((o,k)=>{
+      const ni=idxOfOrder.has(o.id)?idxOfOrder.get(o.id):null;
+      if(ni==null){legs[o.id]=null;return}
+      if(prev==null){legs[o.id]={first:true};prev=ni;return}
+      const km=tb.KM[prev][ni],min=tb.D[prev][ni]/60;
+      legs[o.id]={km:km,min:min};tKm+=km;tMin+=min;prev=ni;
+    });
+    routeLegs=legs;
+    routeTotal={km:tKm,min:tMin,stopMin:seq.length*RT_STOP_MIN,bad:bad.length};
+    if(optimize)showToast(`🧭 已排出最短順序：${seq.length} 站・${tKm.toFixed(1)} km・車程 ${_rtMin(tMin)}${routeMode==='est'?'（估算）':''}`);
+    else showToast(`已算出車程：${tKm.toFixed(1)} km・${_rtMin(tMin)}${routeMode==='est'?'（估算）':''}`);
+    if(bad.length)showToast(`⚠️ 有 ${bad.length} 筆地址定不出位置，已排到最後面，請手動調`,null,null,4500);
+  }catch(e){
+    showToast('算路線失敗：'+(e.message||e));
+  }finally{routeBusy=false;renderRoutePanel()}
+}
+function _rtMin(m){m=Math.round(m||0);return m>=60?`${Math.floor(m/60)} 小時 ${m%60} 分`:`${m} 分`}
+
+// ---- Google 導航（每段最多 起點+9 個途經+終點；超過自動切段）----
+function rtNav(seg){
+  const stops=rtOrders().filter(o=>o.address);
+  if(!stops.length){showToast('沒有可導航的地址');return}
+  const CH=10;                      // 每段最多 10 個停靠點
+  const segs=[];for(let i=0;i<stops.length;i+=CH)segs.push(stops.slice(i,i+CH));
+  const k=Math.max(0,Math.min(seg||0,segs.length-1));
+  const list=segs[k];
+  const origin=k===0?routeStartAddr:(segs[k-1][segs[k-1].length-1].address);
+  const dest=list[list.length-1].address;
+  const way=list.slice(0,-1).map(o=>o.address);
+  const u='https://www.google.com/maps/dir/?api=1&travelmode=driving'
+    +'&origin='+encodeURIComponent(origin)+'&destination='+encodeURIComponent(dest)
+    +(way.length?'&waypoints='+way.map(encodeURIComponent).join('%7C'):'');
+  window.open(u,'_blank','noopener');
+  if(segs.length>1)showToast(`已開第 ${k+1}/${segs.length} 段（Google 一次最多 10 站）`,null,null,4000);
+}
+function rtCopyList(){
+  const stops=rtOrders();if(!stops.length){showToast('路線裡還沒有訂單');return}
+  const lines=stops.map((o,i)=>{
+    const ph=o.realPhone||(o.phone&&!String(o.phone).includes('#')?o.phone:'')||'';
+    const lg=routeLegs&&routeLegs[o.id]&&routeLegs[o.id].km!=null?`（${routeLegs[o.id].km.toFixed(1)}km/${Math.round(routeLegs[o.id].min)}分）`:'';
+    return `${i+1}. ${o.name||'(無名)'}｜${ph}｜${o.address||''}${lg}`;
+  });
+  const head=`【配送路線】起點 ${routeStartAddr}・共 ${stops.length} 站`
+    +(routeTotal?`・${routeTotal.km.toFixed(1)} km・車程 ${_rtMin(routeTotal.min)}${routeMode==='est'?'（估算）':''}`:'');
+  copyText(head+'\n'+lines.join('\n'),`✅ 已複製路線 ${stops.length} 站`);
+}
+function rtPrint(){
+  const stops=rtOrders();if(!stops.length){showToast('路線裡還沒有訂單');return}
+  const w=window.open('','_blank');if(!w){alert('請允許彈出視窗才能列印');return}
+  const rows=stops.map((o,i)=>{
+    const ph=o.realPhone||(o.phone&&!String(o.phone).includes('#')?o.phone:'')||'';
+    const lg=routeLegs&&routeLegs[o.id]&&routeLegs[o.id].km!=null?`${routeLegs[o.id].km.toFixed(1)} km・${Math.round(routeLegs[o.id].min)} 分`:'';
+    const note=(typeof _printNoteLine==='function')?_printNoteLine(o):'';
+    return `<div class="r"><div class="l1"><span class="n">${i+1}</span><span class="nm">${esc(o.name||'')}</span>`
+      +`${o.status?`<span class="st">${esc(o.status)}</span>`:''}<span class="ph">${esc(ph)}</span>`
+      +`${lg?`<span class="lg">↳ ${lg}</span>`:''}</div>`
+      +`<div class="l2">📍 ${esc(o.address||'')||'<span style=color:#c00>未填地址</span>'}</div>`
+      +`<div class="l3"><b>${esc(String(o.product||'').replace(/\s+/g,' '))}</b>${note?`<span class="nt">　📝 ${esc(note)}</span>`:''}</div>`
+      +`<div class="ck">□ 已送達　□ 已收款　簽收：____________</div></div>`;
+  }).join('');
+  const sum=routeTotal?`總里程 ${routeTotal.km.toFixed(1)} km・純車程 ${_rtMin(routeTotal.min)}・加每站 ${RT_STOP_MIN} 分作業約 ${_rtMin(routeTotal.min+routeTotal.stopMin)}${routeMode==='est'?'（直線估算）':'（實際道路）'}`:'（尚未計算車程）';
+  const html=`<!doctype html><html><head><meta charset="utf-8"><title>配送路線單</title><style>@page{size:A4 portrait;margin:9mm}*{box-sizing:border-box}body{font-family:'Microsoft JhengHei',sans-serif;color:#111;margin:0;font-size:12px;line-height:1.35}h1{font-size:18px;margin:0 0 2px}.sub{font-size:11px;color:#555;margin-bottom:8px}.st0{font-size:12px;background:#eef;padding:4px 8px;border-radius:5px;margin-bottom:8px}.r{padding:5px 6px;border-bottom:1px solid #ddd;break-inside:avoid}.l1{display:flex;gap:8px;align-items:baseline;flex-wrap:wrap}.n{background:#111;color:#fff;min-width:20px;text-align:center;border-radius:4px;font-weight:800;font-size:11px}.nm{font-weight:800;font-size:14px}.st{font-size:10px;background:#eef;color:#446;padding:0 6px;border-radius:6px}.ph{font-family:monospace;font-size:12px}.lg{font-size:11px;color:#0a6}.l2{font-size:12px;margin:1px 0 1px 26px}.l3{font-size:11.5px;color:#333;margin-left:26px}.nt{color:#8a5a1a}.ck{margin-left:26px;font-size:11px;color:#666;margin-top:2px}.no-print{padding:12px;background:#f0f0f0;text-align:center}@media print{.no-print{display:none}}</style></head><body>`
+    +`<div class="no-print"><b>配送路線單・${stops.length} 站</b>　<button onclick="window.print()" style="padding:8px 18px;font-size:14px;cursor:pointer">🖨 列印</button> <button onclick="window.close()" style="padding:8px 18px;font-size:14px;cursor:pointer">關閉</button></div>`
+    +`<h1>配送路線單</h1><div class="sub">起點：${esc(routeStartAddr)}　・　印於 ${new Date().toLocaleString('zh-TW')}</div>`
+    +`<div class="st0">${esc(sum)}</div>${rows}</body></html>`;
+  w.document.write(html);w.document.close();
+}
+
+// ---- 拖曳排序（桌機）----
+function rtDragStart(ev,id){_rtDrag=id;try{ev.dataTransfer.setData('text/plain',id);ev.dataTransfer.effectAllowed='move'}catch(_){}}
+function rtDragOver(ev,id){ev.preventDefault();try{ev.dataTransfer.dropEffect='move'}catch(_){}
+  const el=ev.currentTarget;document.querySelectorAll('.rt-row.drop').forEach(x=>{if(x!==el)x.classList.remove('drop')});el.classList.add('drop')}
+function rtDragLeave(ev){ev.currentTarget.classList.remove('drop')}
+function rtDrop(ev,id){
+  ev.preventDefault();ev.currentTarget.classList.remove('drop');
+  const src=_rtDrag||(ev.dataTransfer&&ev.dataTransfer.getData('text/plain'));_rtDrag=null;
+  if(!src||src===id)return;
+  const i=routeIds.indexOf(src);if(i<0)return;
+  routeIds.splice(i,1);
+  const j=routeIds.indexOf(id);routeIds.splice(j<0?routeIds.length:j,0,src);
+  routeLegs=null;routeTotal=null;_rtSave();renderRoutePanel();
+}
+
+// ---- 畫面 ----
+function renderRoutePanel(){
+  const host=document.getElementById('route-area');if(!host)return;
+  const badge=document.getElementById('rt-cnt');
+  const stops=rtOrders();
+  if(badge)badge.textContent=stops.length;
+  const btn=document.getElementById('rt-openbtn');if(btn)btn.classList.toggle('on',routeOpen&&stops.length>0);
+  if(!stops.length){host.innerHTML='';return}
+  if(!routeOpen){
+    host.innerHTML=`<div class="rt-bar"><span class="rt-ttl">🚚 配送路線</span><span class="rt-pill">${stops.length} 站</span>`
+      +(routeTotal?`<span class="rt-pill">${routeTotal.km.toFixed(1)} km</span><span class="rt-pill">${_rtMin(routeTotal.min)}</span>`:'')
+      +`<span style="flex:1"></span><button class="btn rgn-mini" onclick="rtToggleOpen()">展開 ▾</button></div>`;
+    return;
+  }
+  const modeTag=routeMode==='osrm'?'<span class="rt-tag ok">實際道路</span>':(routeMode==='est'?'<span class="rt-tag warn">直線估算</span>':'');
+  const totalTxt=routeTotal
+    ? `${routeTotal.km.toFixed(1)} km・純車程 ${_rtMin(routeTotal.min)}・含每站 ${RT_STOP_MIN} 分作業約 ${_rtMin(routeTotal.min+routeTotal.stopMin)}`
+    : '尚未計算車程';
+  // 定位品質：只定到「區」的話同區訂單會擠在同一點，里程會被低估，一定要講清楚別讓人照著跑
+  let nArea=0,nFail=0;
+  if(routeLegs)stops.forEach(o=>{const g=rtGeo[_rtKey(o.address)];if(!g||g.fail)nFail++;else if(g.acc==='區級')nArea++});
+  const warn=(nArea||nFail)?`<div class="rt-warn">${nFail?`<div>⚠️ <b>${nFail} 筆定不出位置</b>（地址太簡略或打錯），已排到最後面，請自己插到對的位置。</div>`:''}${nArea?`<div>⚠️ <b>${nArea} 筆只定位到「區」</b>，同一區的幾筆會擠在同一個點 → 這幾段公里數會偏低，順序請自己再確認。</div>`:''}</div>`:'';
+  const rows=stops.map((o,i)=>{
+    const lg=routeLegs?routeLegs[o.id]:undefined;
+    const legTxt=lg&&lg.km!=null?(lg.km<0.05
+        ?`<span class="rt-leg bad">↳ 跟上一站定到同一個點（沒有實際距離）</span>`
+        :`<span class="rt-leg">↳ 上一站 ${lg.km.toFixed(1)} km・${Math.round(lg.min)} 分</span>`)
+      :(lg&&lg.first?'<span class="rt-leg bad">↳ 起點定不出位置，從這站起算</span>'
+      :(routeLegs?'<span class="rt-leg bad">↳ 地址定不出位置</span>':''));
+    const ph=o.realPhone||(o.phone&&!String(o.phone).includes('#')?o.phone:'')||'';
+    const svc=isServiceActive(o)?(isSelfDeliver(o)?'<span class="rt-tag pink">自己配</span>':'<span class="rt-tag blue">需安裝</span>'):'';
+    const gk=_rtKey(o.address),gg=rtGeo[gk];
+    const accTag=(gg&&!gg.fail&&gg.acc==='區級')?'<span class="rt-tag warn" title="這個地址只定到「區」，同區的幾筆位置會重疊，車程僅供參考">定位只到區</span>':'';
+    return `<div class="rt-row" draggable="true" ondragstart="rtDragStart(event,'${o.id}')" ondragover="rtDragOver(event,'${o.id}')" ondragleave="rtDragLeave(event)" ondrop="rtDrop(event,'${o.id}')">
+<span class="rt-no">${i+1}</span>
+<span class="rt-ord">
+  <span class="rt-l1"><b>${esc(o.name||'(無名)')}</b><span class="rt-st">${esc(o.status||'')}</span>${svc}${accTag}${legTxt}</span>
+  <span class="rt-l2">📍 ${mapsLink(o.address||'')}</span>
+  <span class="rt-l3">${ph?`📞 ${esc(ph)}　`:''}${esc(String(o.product||'').replace(/\s+/g,' ').slice(0,44))}</span>
+</span>
+<span class="rt-btns">
+  <button class="btn rt-ib" onclick="rtMove('${o.id}',-1)" title="往前一站">▲</button>
+  <button class="btn rt-ib" onclick="rtMove('${o.id}',1)" title="往後一站">▼</button>
+  <button class="btn rt-ib x" onclick="rtRemove('${o.id}')" title="從路線移除">✕</button>
+</span></div>`;
+  }).join('');
+  const segCount=Math.ceil(stops.length/10);
+  const navBtns=segCount<=1
+    ? `<button class="btn rt-b nav" onclick="rtNav(0)" title="用 Google 地圖照這個順序導航">🧭 Google 導航</button>`
+    : Array.from({length:segCount},(_,k)=>`<button class="btn rt-b nav" onclick="rtNav(${k})" title="Google 一次最多 10 站，分段導航">🧭 導航 第${k+1}段</button>`).join('');
+  host.innerHTML=`<div class="rt-panel">
+<div class="rt-hd"><span class="rt-ttl">🚚 配送路線</span><span class="rt-pill">${stops.length} 站</span>${modeTag}
+  <span class="rt-total">${esc(totalTxt)}</span><span style="flex:1"></span>
+  <button class="btn rgn-mini" onclick="rtToggleOpen()">收起 ▴</button></div>
+<div class="rt-tools">
+  <span class="rt-start">起點 <input id="rt-start" value="${esc(routeStartAddr)}" onchange="rtSetStart(this.value)" placeholder="出發地址" title="路線從這裡出發（預設門市）"></span>
+  <button class="btn rt-b go" ${routeBusy?'disabled':''} onclick="rtCompute(true)" title="用真實道路車程排出最短順序（起點固定，終點不限）">🧭 自動排順序</button>
+  <button class="btn rt-b" ${routeBusy?'disabled':''} onclick="rtCompute(false)" title="不動順序，只算目前這個順序的里程與車程">⏱ 只算車程</button>
+  ${navBtns}
+  <button class="btn rt-b" onclick="rtReverse()" title="反過來跑">🔁 反轉</button>
+  <button class="btn rt-b" onclick="rtPrint()" title="印成 A4 路線單（含簽收欄）">🖨 路線單</button>
+  <button class="btn rt-b" onclick="rtCopyList()">📋 複製</button>
+  <button class="btn rt-b" onclick="rtDropDone()" title="把已完成／線下完成的單踢出路線">✅ 清掉已完成</button>
+  <button class="btn rt-b danger" onclick="rtClear()">🗑 清空</button>
+  <button class="btn rt-b sub" onclick="rtClearGeoCache()" title="覺得某站位置抓錯，清掉快取重新定位">↺ 重新定位</button>
+</div>
+<div id="rt-status" class="rt-status">${routeBusy?'處理中…':''}</div>${warn}
+<div class="rt-list">${rows}</div>
+<div class="rt-foot">拖曳整列或用 ▲▼ 調順序・順序改了記得再按一次「只算車程」・Google 導航一次最多 10 站，超過會自動分段</div>
+</div>`;
 }
 
 // ===== 週表 grid 視圖 =====
