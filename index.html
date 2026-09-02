@@ -1084,6 +1084,7 @@ body.has-batch-bar .main{padding-bottom:140px}
 .tdmod .st-no{font-family:var(--mono);font-size:11.5px;white-space:nowrap}
 .tdmod .st-store{font-weight:700}
 .tdmod .st-warn{color:var(--dm);font-size:11px}
+.tdmod .st-done{color:var(--grn);font-size:11px;font-weight:600}
 .tdmod .st-empty{text-align:center;padding:44px 16px;color:var(--ht);font-size:13px;line-height:2}
 .tdmod .st-err{background:var(--red-bg);border:1px solid var(--red);color:var(--red);border-radius:10px;padding:10px 13px;font-size:12.5px;line-height:1.8;margin:10px 0;white-space:pre-wrap;word-break:break-word}
 .tdmod .st-note{font-size:11.5px;color:var(--dm);line-height:1.8;padding:10px 2px}
@@ -9326,6 +9327,8 @@ let stRows = [], stPick = new Set(), stLoading = false, stErr = '', stLoadedAt =
 const $s = id => document.getElementById(id);
 const esc2 = s => String(s==null?'':s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
 
+// 28=7-11店到店 29=全家店到店：這兩種是「已經轉好」的，不是「不能轉」的，畫面要分清楚。
+function isS2S(r){ const g = String(r && r.delyGb || ''); return g === '28' || g === '29' }
 function stApi(){ try{ return getMomoApi() }catch(e){ return '' } }
 function stTok(){ try{ return (localStorage.getItem(MOMO_TK_KEY)||'') }catch(e){ return '' } }
 
@@ -9355,10 +9358,11 @@ function stRender(){
   if(cnt) cnt.textContent = stLoading ? '…' : String(stRows.length);
 
   const bar = $s('st-bar');
-  const canPick = stRows.filter(r=>r.canS2S).length;
+  // 可轉的只算「還沒轉」的（7-11 / 全家直配）。已經是店到店的仍然要能勾 —— 印貼紙要用。
+  const convPick = stRows.filter(r=>r.canS2S && stPick.has(r.completeOrderNo)).length;
   bar.innerHTML = stRows.length
-    ? '<button class="btn" id="st-all">' + (stPick.size ? '取消全選' : '全選可轉的 ' + canPick + ' 張') + '</button>'
-      + '<button class="btn btn-g" id="st-conv"' + (stPick.size?'':' disabled') + '>轉店到店' + (stPick.size?('（'+stPick.size+'）'):'') + '</button>'
+    ? '<button class="btn" id="st-all">' + (stPick.size ? '取消全選' : '全選 ' + stRows.length + ' 張') + '</button>'
+      + '<button class="btn btn-g" id="st-conv"' + (convPick?'':' disabled') + '>轉店到店' + (convPick?('（'+convPick+'）'):'') + '</button>'
       + '<button class="btn" id="st-label"' + (stPick.size?'':' disabled') + '>印標籤</button>'
       + '<button class="btn" id="st-dt"' + (stPick.size?'':' disabled') + '>印明細</button>'
       + '<span class="st-sp"></span>'
@@ -9377,9 +9381,11 @@ function stRender(){
       const no = r.completeOrderNo || '';
       const on = stPick.has(no);
       html += '<tr class="' + (on?'pick':'') + '">'
-        + '<td>' + (r.canS2S ? '<input type="checkbox" data-st="' + esc2(no) + '"' + (on?' checked':'') + '>' : '') + '</td>'
+        + '<td><input type="checkbox" data-st="' + esc2(no) + '"' + (on?' checked':'') + '></td>'
         + '<td class="st-no">' + esc2(no) + '</td>'
-        + '<td class="st-store">' + esc2(r.delyGbName||'') + (r.canS2S?'':'<div class="st-warn">沒有店到店</div>') + '</td>'
+        + '<td class="st-store">' + esc2(r.delyGbName||'')
+          + (r.canS2S ? ''
+             : (isS2S(r) ? '<div class="st-done">已是店到店</div>' : '<div class="st-warn">沒有店到店</div>')) + '</td>'
         + '<td>' + esc2(r.storeIdName||'') + '</td>'
         + '<td>' + esc2(r.Receiver || r.receiverMask || '') + '</td>'
         + '<td>' + esc2((r.goodsName||r.goodsCode||'')).slice(0,40) + '</td>'
@@ -9388,7 +9394,8 @@ function stRender(){
         + '</tr>';
     });
     html += '</tbody></table></div>';
-    html += '<div class="st-note">只有 7-11 跟全家有「店到店」，OK 跟萊爾富 MOMO 沒開，所以那幾張不能勾。<br>'
+    html += '<div class="st-note">只有 7-11 跟全家有「店到店」，OK 跟萊爾富 MOMO 沒開，那幾張轉不了（但還是可以勾起來印貼紙）。<br>'
+      + '標「已是店到店」的是已經轉好的，勾起來可以直接印貼紙。<br>'
       + '轉店到店會直接改 MOMO 上的配送方式，改完要還原得自己進後台，所以按下去會再問一次。</div>';
   }
   box.innerHTML = html;
@@ -9400,7 +9407,7 @@ function stRender(){
   const ab = $s('st-all');
   if(ab) ab.onclick = ()=>{
     if(stPick.size) stPick.clear();
-    else stRows.filter(r=>r.canS2S).forEach(r=>stPick.add(r.completeOrderNo));
+    else stRows.forEach(r=>stPick.add(r.completeOrderNo));
     stRender();
   };
   const cb = $s('st-conv'); if(cb) cb.onclick = ()=>stConvert(false);
@@ -9434,15 +9441,18 @@ async function stConvert(targetMode){
       stLoad();
       return;
     }
-    // 失敗 —— 把 MOMO 的原文顯示出來，不要自己翻譯或吞掉
-    const msg = (j && (j.error || j.failMessage)) || ('HTTP ' + r.status);
+    // 失敗 —— 把後端整理過的原因＋MOMO 原始回應顯示出來，不要自己翻譯或吞掉。
+    // ⚠「HTTP 502」是我們自己伺服器的狀態碼，不是 MOMO 講的話，所以要標清楚是誰講的。
+    const detail = (j && (j.error || j.failMessage)) || '';
+    const raw = (j && j.raw) ? ('\n\nMOMO 原始回應：\n' + j.raw) : '';
+    const msg = detail ? (detail + raw) : ('（後端回 HTTP ' + r.status + '，而且沒帶原因，可能是服務本身掛了）');
     if(!targetMode){
-      if(confirm('轉換沒成功。MOMO 回的原文是：\n\n' + msg
+      if(confirm('轉換沒成功：\n\n' + msg
         + '\n\n這有可能是因為文件寫得不清楚、參數傳錯邊。\n要不要換另一種傳法再試一次？（送店到店代碼）')){
         return stConvert(true);
       }
     } else {
-      alert('兩種傳法都失敗了。MOMO 回的原文是：\n\n' + msg + '\n\n把這段訊息給我，我拿去對文件。');
+      alert('兩種傳法都失敗了：\n\n' + msg + '\n\n把這段訊息給我，我拿去對文件。');
     }
   }catch(e){ alert('連不上：' + e.message) }
 }
