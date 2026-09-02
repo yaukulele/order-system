@@ -1096,6 +1096,7 @@ body.has-batch-bar .main{padding-bottom:140px}
 .tdmod .st-boxchk{font-weight:600;color:var(--tx)}
 .tdmod .st-boxbad{color:var(--red);font-weight:600;font-size:12px}
 .tdmod .st-same{font-size:11px;color:var(--blu);font-weight:600}
+.tdmod .st-manual{padding:6px 9px;border:1px solid var(--bd);border-radius:8px;font-size:12px;background:var(--sf);color:var(--tx)}
 .tdmod .st-empty{text-align:center;padding:44px 16px;color:var(--ht);font-size:13px;line-height:2}
 .tdmod .st-err{background:var(--red-bg);border:1px solid var(--red);color:var(--red);border-radius:10px;padding:10px 13px;font-size:12.5px;line-height:1.8;margin:10px 0;white-space:pre-wrap;word-break:break-word}
 .tdmod .st-note{font-size:11.5px;color:var(--dm);line-height:1.8;padding:10px 2px}
@@ -9426,7 +9427,14 @@ function stRender(){
   const bar = $s('st-bar');
   // 可轉的只算「還沒轉」的（7-11 / 全家直配）。已經是店到店的仍然要能勾 —— 印貼紙要用。
   const convPick = stRows.filter(r=>r.canS2S && stPick.has(r.completeOrderNo)).length;
-  bar.innerHTML = stRows.length
+  // 手動框：出貨確認後那張單在 MOMO 那邊已經查不到，如果本機也沒記到
+  // （例如出貨那次還是舊版），就只能用訂單編號把它撈回來。也順便當補印工具用。
+  const manual = '<span class="st-sp"></span>'
+    + '<input id="st-manual" class="st-manual" placeholder="訂單編號（出貨後補印用）" size="26">'
+    + '<button class="btn" id="st-manual-print">直接印標籤</button>'
+    + '<button class="btn" id="st-manual-add">加回清單</button>';
+
+  bar.innerHTML = (stRows.length
     ? '<button class="btn" id="st-all">' + (stPick.size ? '取消全選' : '全選 ' + stRows.length + ' 張') + '</button>'
       + '<button class="btn btn-g" id="st-conv"' + (convPick?'':' disabled') + '>轉店到店' + (convPick?('（'+convPick+'）'):'') + '</button>'
       + '<button class="btn" id="st-ship"' + (stPick.size?'':' disabled') + '>出貨確認' + (stPick.size?('（'+stPick.size+'）'):'') + '</button>'
@@ -9434,13 +9442,15 @@ function stRender(){
       + '<button class="btn" id="st-dt"' + (stPick.size?'':' disabled') + '>印明細</button>'
       + '<span class="st-sp"></span>'
       + (stLoadedAt ? '<span class="st-warn">抓取於 ' + new Date(stLoadedAt).toLocaleTimeString('zh-TW',{hour:'2-digit',minute:'2-digit'}) + '</span>' : '')
-    : '';
+    : '') + manual;
 
   let html = '';
   if(stErr) html += '<div class="st-err">' + esc2(stErr) + '</div>';
   if(stShipOpen) html += stShipPanel();
   if(stLoading) html += '<div class="st-empty">抓取中…</div>';
-  else if(!stRows.length) html += '<div class="st-empty">目前沒有超商取貨的未出貨單。<br>有單進來按上面「重新抓取」就會出現。</div>';
+  else if(!stRows.length) html += '<div class="st-empty">目前沒有超商取貨的未出貨單。<br>有單進來按上面「重新抓取」就會出現。'
+      + '<br><br>已經做過出貨確認的單，MOMO 這邊就查不到了 —— 要補印標籤的話，'
+      + '把訂單編號貼到上面那個欄位，按「直接印標籤」。</div>';
   else {
     html += '<div class="st-wrap"><table class="st-tbl"><thead><tr>'
       + '<th style="width:34px"></th><th>訂單編號</th><th>門市</th><th>取貨門市</th>'
@@ -9488,6 +9498,17 @@ function stRender(){
   const sb = $s('st-ship'); if(sb) sb.onclick = ()=>{ stShipOpen = true; stRender(); stLoadShipTypes(); };
   const sx = $s('st-ship-x'); if(sx) sx.onclick = ()=>{ stShipOpen = false; stRender() };
   const sg = $s('st-ship-go'); if(sg) sg.onclick = ()=>stShipGo();
+  const mp = $s('st-manual-print'); if(mp) mp.onclick = ()=>{
+    const no = (($s('st-manual')||{}).value || '').trim();
+    if(!no) { alert('請先貼上訂單編號'); return }
+    stPrintNos([no], 'label');
+  };
+  const ma = $s('st-manual-add'); if(ma) ma.onclick = ()=>{
+    const no = (($s('st-manual')||{}).value || '').trim();
+    if(!no) { alert('請先貼上訂單編號'); return }
+    stAddShipped([{ completeOrderNo:no, delyGb:'', delyGbName:'（手動加入）', storeIdName:'', Receiver:'', goodsName:'' }]);
+    stLoad();
+  };
   const cl = $s('st-clr'); if(cl) cl.onclick = ()=>{
     if(!confirm('清掉本機記著的「已出貨」清單？清掉之後那幾張就不會再出現在這裡（MOMO 那邊本來就查不到了），標籤要重印就得進 SCM 後台。')) return;
     stClearShipped(); stLoad();
@@ -9672,6 +9693,10 @@ async function stShipGo(){
 function stPrint(type){
   const nos = stRows.filter(r=>stPick.has(r.completeOrderNo)).map(r=>r.completeOrderNo);
   if(!nos.length) return;
+  stPrintNos(nos, type);
+}
+
+function stPrintNos(nos, type){
   const api = stApi(), tok = stTok();
   // PDF 直接開新分頁，token 走 query（後端有支援）
   const url = api + '/api/orders/momo/stores/label?printType=' + type
