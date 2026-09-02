@@ -1085,6 +1085,14 @@ body.has-batch-bar .main{padding-bottom:140px}
 .tdmod .st-store{font-weight:700}
 .tdmod .st-warn{color:var(--dm);font-size:11px}
 .tdmod .st-done{color:var(--grn);font-size:11px;font-weight:600}
+.tdmod .st-ship{background:var(--sf2);border:1px solid var(--bd);border-radius:10px;padding:12px 14px;margin:10px 0}
+.tdmod .st-ship-t{font-size:12.5px;font-weight:700;margin-bottom:10px}
+.tdmod .st-ship-row{display:flex;gap:12px;align-items:center;flex-wrap:wrap;margin-bottom:8px}
+.tdmod .st-ship-row label{display:flex;align-items:center;gap:6px;font-size:12px;color:var(--dm)}
+.tdmod .st-ship-row select,.tdmod .st-ship-row input{padding:6px 8px;border:1px solid var(--bd);border-radius:8px;font-size:12.5px;background:var(--sf);color:var(--tx)}
+.tdmod .st-ship-row input[type=number]{width:90px}
+.tdmod .st-u{font-size:11px;color:var(--dm)}
+.tdmod .st-ship-msg{font-size:12px;color:var(--dm);padding-top:4px}
 .tdmod .st-empty{text-align:center;padding:44px 16px;color:var(--ht);font-size:13px;line-height:2}
 .tdmod .st-err{background:var(--red-bg);border:1px solid var(--red);color:var(--red);border-radius:10px;padding:10px 13px;font-size:12.5px;line-height:1.8;margin:10px 0;white-space:pre-wrap;word-break:break-word}
 .tdmod .st-note{font-size:11.5px;color:var(--dm);line-height:1.8;padding:10px 2px}
@@ -9325,6 +9333,15 @@ return {
    ========================================================================= */
 (function(){
 let stRows = [], stPick = new Set(), stLoading = false, stErr = '', stLoadedAt = 0;
+// 出貨三步驟（貨源確認→併箱→出貨確認）用的狀態。包材設定記在 localStorage，
+// 因為同一家店的包材幾乎每次都一樣，不該每張單重打一次。
+let stShipOpen = false, stShipTypes = null, stShipLoading = false, stShipMsg = '';
+const ST_CFG_KEY = 'store_ship_cfg_v1';
+function stCfg(){
+  try{ return Object.assign({shipType:'原箱', packType:'', packUnit:'', boxYn:'00'}, JSON.parse(localStorage.getItem(ST_CFG_KEY)||'{}')) }
+  catch(e){ return {shipType:'原箱', packType:'', packUnit:'', boxYn:'00'} }
+}
+function stSaveCfg(c){ try{ localStorage.setItem(ST_CFG_KEY, JSON.stringify(c)) }catch(e){} }
 const $s = id => document.getElementById(id);
 const esc2 = s => String(s==null?'':s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
 
@@ -9364,6 +9381,7 @@ function stRender(){
   bar.innerHTML = stRows.length
     ? '<button class="btn" id="st-all">' + (stPick.size ? '取消全選' : '全選 ' + stRows.length + ' 張') + '</button>'
       + '<button class="btn btn-g" id="st-conv"' + (convPick?'':' disabled') + '>轉店到店' + (convPick?('（'+convPick+'）'):'') + '</button>'
+      + '<button class="btn" id="st-ship"' + (stPick.size?'':' disabled') + '>出貨確認' + (stPick.size?('（'+stPick.size+'）'):'') + '</button>'
       + '<button class="btn" id="st-label"' + (stPick.size?'':' disabled') + '>印標籤</button>'
       + '<button class="btn" id="st-dt"' + (stPick.size?'':' disabled') + '>印明細</button>'
       + '<span class="st-sp"></span>'
@@ -9372,6 +9390,7 @@ function stRender(){
 
   let html = '';
   if(stErr) html += '<div class="st-err">' + esc2(stErr) + '</div>';
+  if(stShipOpen) html += stShipPanel();
   if(stLoading) html += '<div class="st-empty">抓取中…</div>';
   else if(!stRows.length) html += '<div class="st-empty">目前沒有超商取貨的未出貨單。<br>有單進來按上面「重新抓取」就會出現。</div>';
   else {
@@ -9412,6 +9431,19 @@ function stRender(){
     stRender();
   };
   const cb = $s('st-conv'); if(cb) cb.onclick = ()=>stConvert(false);
+  const sb = $s('st-ship'); if(sb) sb.onclick = ()=>{ stShipOpen = true; stRender(); stLoadShipTypes(); };
+  const sx = $s('st-ship-x'); if(sx) sx.onclick = ()=>{ stShipOpen = false; stRender() };
+  const sg = $s('st-ship-go'); if(sg) sg.onclick = ()=>stShipGo();
+  const stt = $s('st-shiptype'); if(stt) stt.onchange = ()=>{
+    // 換包材 → 包材類型的選項要跟著換。重畫前先把已經打好的重量/箱號收起來，
+    // 不然使用者打到一半換個包材，打的字就沒了。
+    const c = stCfg();
+    c.shipType = stt.value;
+    c.packType = '';
+    c.packUnit = ($s('st-packunit')||{}).value || c.packUnit || '';
+    c.boxYn = (($s('st-boxyn')||{}).value || c.boxYn || '00').trim() || '00';
+    stSaveCfg(c); stRender();
+  };
   const lb = $s('st-label'); if(lb) lb.onclick = ()=>stPrint('label');
   const db = $s('st-dt'); if(db) db.onclick = ()=>stPrint('dt');
 }
@@ -9451,6 +9483,93 @@ async function stConvert(targetMode){
     alert('轉換沒成功：\n\n' + msg
       + '\n\n先別重複按。把這段截圖給我，我對文件查原因。');
   }catch(e){ alert('連不上：' + e.message) }
+}
+
+/* 出貨確認面板。MOMO 要求：出貨包材 / 包材類型 / 包材重量(公克)，包材重量會被稽查，
+   所以不自動亂填，讓人確認一次；填過的記起來，下次直接沿用。 */
+function stShipPanel(){
+  const c = stCfg();
+  const picked = stRows.filter(r=>stPick.has(r.completeOrderNo));
+  let opts = '';
+  if(stShipLoading) opts = '<option>讀取包材列表中…</option>';
+  else if(stShipTypes && stShipTypes.length){
+    opts = stShipTypes.map(t=>'<option value="' + esc2(t.name) + '"' + (t.name===c.shipType?' selected':'') + '>' + esc2(t.name) + '</option>').join('');
+  } else {
+    // 拿不到列表也要能出貨 —— 直接讓他打字，不要卡住整個流程
+    opts = '<option value="' + esc2(c.shipType||'原箱') + '" selected>' + esc2(c.shipType||'原箱') + '</option>';
+  }
+  const cur = (stShipTypes||[]).find(t=>t.name===c.shipType);
+  const subs = cur ? cur.subTypes : [];
+  const subOpts = ['<option value="">（不指定）</option>'].concat(
+    subs.map(x=>'<option value="' + esc2(x) + '"' + (x===c.packType?' selected':'') + '>' + esc2(x) + '</option>')).join('');
+  return '<div class="st-ship">'
+    + '<div class="st-ship-t">出貨確認（會跑 1.貨源確認 → 2.併箱 → 3.出貨確認，跑完才印得出標籤）</div>'
+    + '<div class="st-ship-row">'
+      + '<label>出貨包材<select id="st-shiptype">' + opts + '</select></label>'
+      + '<label>包材類型<select id="st-packtype">' + subOpts + '</select></label>'
+      + '<label>包材重量<input id="st-packunit" type="number" min="0" step="1" value="' + esc2(c.packUnit) + '" placeholder="公克"><span class="st-u">公克</span></label>'
+      + '<label>併箱編號<input id="st-boxyn" type="text" value="' + esc2(c.boxYn||'00') + '" size="4"></label>'
+    + '</div>'
+    + '<div class="st-ship-row">'
+      + '<button class="btn btn-g" id="st-ship-go">確認出貨 ' + picked.length + ' 張</button>'
+      + '<button class="btn" id="st-ship-x">取消</button>'
+      + '<span class="st-warn">不併箱就填 00。包材重量 momo 會稽查，請照實填。</span>'
+    + '</div>'
+    + (stShipMsg ? '<div class="st-ship-msg">' + esc2(stShipMsg) + '</div>' : '')
+    + '</div>';
+}
+
+async function stLoadShipTypes(){
+  if(stShipTypes || stShipLoading) return;
+  stShipLoading = true; stRender();
+  try{
+    const r = await fetch(stApi() + '/api/orders/momo/stores/ship-types', { headers:{ 'X-API-Token': stTok() } });
+    const j = await r.json().catch(()=>({}));
+    stShipTypes = (j && j.ok && j.types) ? j.types : [];
+    if(!stShipTypes.length) stShipMsg = '拿不到 MOMO 的包材列表，先用預設值出貨也可以。';
+  }catch(e){ stShipTypes = []; stShipMsg = '拿不到包材列表：' + e.message }
+  stShipLoading = false; stRender();
+}
+
+async function stShipGo(){
+  const picked = stRows.filter(r=>stPick.has(r.completeOrderNo));
+  if(!picked.length) return;
+  const cfg = {
+    shipType: ($s('st-shiptype')||{}).value || '原箱',
+    packType: ($s('st-packtype')||{}).value || '',
+    packUnit: ($s('st-packunit')||{}).value || '',
+    boxYn:    (($s('st-boxyn')||{}).value || '00').trim() || '00',
+  };
+  stSaveCfg(cfg);
+  const names = picked.map(r=>r.completeOrderNo).join('\n');
+  if(!confirm('要把這 ' + picked.length + ' 張做出貨確認嗎？\n\n' + names
+    + '\n\n包材：' + cfg.shipType + (cfg.packType?('／'+cfg.packType):'') + (cfg.packUnit?('／'+cfg.packUnit+'g'):'')
+    + '\n併箱編號：' + cfg.boxYn
+    + '\n\n⚠ 第三步是真的出庫，做完 MOMO 那邊就算已出貨了。')) return;
+
+  stShipMsg = '處理中…'; stRender();
+  try{
+    const r = await fetch(stApi() + '/api/orders/momo/stores/ship', {
+      method:'POST',
+      headers:{ 'Content-Type':'application/json', 'X-API-Token': stTok() },
+      body: JSON.stringify(Object.assign({ confirm:'YES', orderNos: picked.map(x=>x.completeOrderNo) }, cfg)),
+    });
+    const j = await r.json().catch(()=>({}));
+    const steps = (j && j.steps || []).map(s2=>s2.step + (s2.ok?' ✓':' ✗' + (s2.error?('（'+s2.error+'）'):''))).join('\n');
+    if(j && j.ok){
+      stShipMsg = '';
+      alert('出貨確認完成 ' + (j.success||0) + ' 張\n\n' + steps
+        + '\n\n現在可以按「印標籤」印貼紙了。');
+      stShipOpen = false;
+      stLoad();
+      return;
+    }
+    stShipMsg = '';
+    alert('出貨沒有完成：\n\n' + ((j && j.error) || ('後端回 HTTP ' + r.status))
+      + (steps ? ('\n\n各步驟：\n' + steps) : '')
+      + '\n\n先別重複按，把這段截圖給我。');
+  }catch(e){ stShipMsg = ''; alert('連不上：' + e.message) }
+  stRender();
 }
 
 function stPrint(type){
