@@ -1093,6 +1093,9 @@ body.has-batch-bar .main{padding-bottom:140px}
 .tdmod .st-ship-row input[type=number]{width:90px}
 .tdmod .st-u{font-size:11px;color:var(--dm)}
 .tdmod .st-ship-msg{font-size:12px;color:var(--dm);padding-top:4px}
+.tdmod .st-boxchk{font-weight:600;color:var(--tx)}
+.tdmod .st-boxbad{color:var(--red);font-weight:600;font-size:12px}
+.tdmod .st-same{font-size:11px;color:var(--blu);font-weight:600}
 .tdmod .st-empty{text-align:center;padding:44px 16px;color:var(--ht);font-size:13px;line-height:2}
 .tdmod .st-err{background:var(--red-bg);border:1px solid var(--red);color:var(--red);border-radius:10px;padding:10px 13px;font-size:12.5px;line-height:1.8;margin:10px 0;white-space:pre-wrap;word-break:break-word}
 .tdmod .st-note{font-size:11.5px;color:var(--dm);line-height:1.8;padding:10px 2px}
@@ -9345,6 +9348,15 @@ function stSaveCfg(c){ try{ localStorage.setItem(ST_CFG_KEY, JSON.stringify(c)) 
 const $s = id => document.getElementById(id);
 const esc2 = s => String(s==null?'':s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
 
+// 併箱判斷：同一個收件人 + 同一家取貨門市才可能是「同一人多筆」。
+// 只比對收件人名字不夠 —— MOMO 給的名字是遮罩過的（陳O宇），同名不同人很有機會，
+// 但「同名 + 同一家門市」湊在一起就相當可信了。
+function stBoxKey(r){ return String((r&&r.Receiver)||(r&&r.receiverMask)||'') + '@' + String((r&&r.storeIdName)||'') }
+function stGroups(){
+  const m = {};
+  stRows.forEach(r=>{ const k = stBoxKey(r); (m[k] = m[k] || []).push(r) });
+  return m;
+}
 // 28=7-11店到店 29=全家店到店：這兩種是「已經轉好」的，不是「不能轉」的，畫面要分清楚。
 function isS2S(r){ const g = String(r && r.delyGb || ''); return g === '28' || g === '29' }
 function stApi(){ try{ return getMomoApi() }catch(e){ return '' } }
@@ -9397,9 +9409,11 @@ function stRender(){
     html += '<div class="st-wrap"><table class="st-tbl"><thead><tr>'
       + '<th style="width:34px"></th><th>訂單編號</th><th>門市</th><th>取貨門市</th>'
       + '<th>收件人</th><th>商品</th><th>配送狀態</th><th>轉單日</th></tr></thead><tbody>';
+    const groups = stGroups();
     stRows.forEach((r, i)=>{
       const no = r.completeOrderNo || '';
       const on = stPick.has(no);
+      const g = groups[stBoxKey(r)] || [];
       html += '<tr class="' + (on?'pick':'') + '">'
         + '<td><input type="checkbox" data-st="' + esc2(no) + '"' + (on?' checked':'') + '></td>'
         + '<td class="st-no">' + esc2(no) + '</td>'
@@ -9407,7 +9421,8 @@ function stRender(){
           + (r.canS2S ? ''
              : (isS2S(r) ? '<div class="st-done">已是店到店</div>' : '<div class="st-warn">沒有店到店</div>')) + '</td>'
         + '<td>' + esc2(r.storeIdName||'') + '</td>'
-        + '<td>' + esc2(r.Receiver || r.receiverMask || '') + '</td>'
+        + '<td>' + esc2(r.Receiver || r.receiverMask || '')
+          + (g.length > 1 ? '<div class="st-same">同人 ' + g.length + ' 單</div>' : '') + '</td>'
         + '<td>' + esc2((r.goodsName||r.goodsCode||'')).slice(0,40) + '</td>'
         + '<td>' + esc2(r.remark5VStr||'') + '</td>'
         + '<td class="st-no">' + esc2(r.lastPricDate||'') + '</td>'
@@ -9434,6 +9449,12 @@ function stRender(){
   const sb = $s('st-ship'); if(sb) sb.onclick = ()=>{ stShipOpen = true; stRender(); stLoadShipTypes(); };
   const sx = $s('st-ship-x'); if(sx) sx.onclick = ()=>{ stShipOpen = false; stRender() };
   const sg = $s('st-ship-go'); if(sg) sg.onclick = ()=>stShipGo();
+  const bo = $s('st-boxyn-on'); if(bo) bo.onchange = ()=>{
+    const c = stCfg();
+    c.boxOn = bo.checked;
+    c.packUnit = ($s('st-packunit')||{}).value || c.packUnit || '';
+    stSaveCfg(c); stRender();
+  };
   const stt = $s('st-shiptype'); if(stt) stt.onchange = ()=>{
     // 換包材 → 包材類型的選項要跟著換。重畫前先把已經打好的重量/箱號收起來，
     // 不然使用者打到一半換個包材，打的字就沒了。
@@ -9508,8 +9529,14 @@ function stShipPanel(){
       + '<label>出貨包材<select id="st-shiptype">' + opts + '</select></label>'
       + '<label>包材類型<select id="st-packtype">' + subOpts + '</select></label>'
       + '<label>包材重量<input id="st-packunit" type="number" min="0" step="1" value="' + esc2(c.packUnit) + '" placeholder="公克"><span class="st-u">公克</span></label>'
-      + '<label>併箱編號<input id="st-boxyn" type="text" value="' + esc2(c.boxYn||'00') + '" size="4"></label>'
+      + '<label class="st-boxchk"><input id="st-boxyn-on" type="checkbox"' + (c.boxOn?' checked':'') + '> 這幾張併成一箱</label>'
+      + (c.boxOn ? '<label>併箱編號<input id="st-boxyn" type="text" value="' + esc2(c.boxYn && c.boxYn !== '00' ? c.boxYn : '1') + '" size="4"></label>' : '')
     + '</div>'
+    + (c.boxOn ? ('<div class="st-ship-row"><span class="' + (stSameBox(picked) ? 'st-warn' : 'st-boxbad') + '">'
+        + (stSameBox(picked)
+            ? '這 ' + picked.length + ' 張是同一個收件人＋同一家門市，可以併箱。'
+            : '⚠ 您勾的單不是同一個收件人／同一家門市，併箱會把不同人的東西裝成一箱。請再確認。')
+        + '</span></div>') : '')
     + '<div class="st-ship-row">'
       + '<button class="btn btn-g" id="st-ship-go">確認出貨 ' + picked.length + ' 張</button>'
       + '<button class="btn" id="st-ship-x">取消</button>'
@@ -9517,6 +9544,13 @@ function stShipPanel(){
     + '</div>'
     + (stShipMsg ? '<div class="st-ship-msg">' + esc2(stShipMsg) + '</div>' : '')
     + '</div>';
+}
+
+// 這批選起來的單是不是同一人＋同一門市（可以安全併箱）
+function stSameBox(list){
+  if(!list || list.length < 2) return true;
+  const k = stBoxKey(list[0]);
+  return list.every(r=>stBoxKey(r) === k);
 }
 
 async function stLoadShipTypes(){
@@ -9534,17 +9568,30 @@ async function stLoadShipTypes(){
 async function stShipGo(){
   const picked = stRows.filter(r=>stPick.has(r.completeOrderNo));
   if(!picked.length) return;
+  const boxOn = !!(($s('st-boxyn-on')||{}).checked);
   const cfg = {
     shipType: ($s('st-shiptype')||{}).value || '原箱',
     packType: ($s('st-packtype')||{}).value || '',
     packUnit: ($s('st-packunit')||{}).value || '',
-    boxYn:    (($s('st-boxyn')||{}).value || '00').trim() || '00',
+    boxOn: boxOn,
+    // 不併箱一律 00。要併箱時同一批用同一個編號即可（MOMO 的規則）。
+    boxYn: boxOn ? ((($s('st-boxyn')||{}).value || '1').trim() || '1') : '00',
   };
   stSaveCfg(cfg);
+
+  if(boxOn && picked.length < 2){
+    alert('併箱至少要兩張單。只有一張就不用勾併箱。');
+    return;
+  }
+  if(boxOn && !stSameBox(picked)){
+    if(!confirm('⚠ 您勾起來的單不是同一個收件人／同一家取貨門市。' + '\n\n'
+      + '併箱＝把它們裝進同一箱寄出，寄錯人是很麻煩的事。' + '\n\n'
+      + '確定還是要併箱嗎？')) return;
+  }
   const names = picked.map(r=>r.completeOrderNo).join('\n');
   if(!confirm('要把這 ' + picked.length + ' 張做出貨確認嗎？\n\n' + names
     + '\n\n包材：' + cfg.shipType + (cfg.packType?('／'+cfg.packType):'') + (cfg.packUnit?('／'+cfg.packUnit+'g'):'')
-    + '\n併箱編號：' + cfg.boxYn
+    + '\n併箱：' + (cfg.boxOn ? ('是，編號 ' + cfg.boxYn + '（' + picked.length + ' 張裝一箱）') : '否')
     + '\n\n⚠ 第三步是真的出庫，做完 MOMO 那邊就算已出貨了。')) return;
 
   stShipMsg = '處理中…'; stRender();
