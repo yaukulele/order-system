@@ -9340,6 +9340,35 @@ let stRows = [], stPick = new Set(), stLoading = false, stErr = '', stLoadedAt =
 // 因為同一家店的包材幾乎每次都一樣，不該每張單重打一次。
 let stShipOpen = false, stShipTypes = null, stShipLoading = false, stShipMsg = '';
 const ST_CFG_KEY = 'store_ship_cfg_v1';
+// 出貨確認之後，那張單就從「未出貨」變成「出貨中」，MOMO 的未出貨查詢就撈不到了。
+// 但印標籤是出貨確認**之後**才做的事 —— 資料在那個時間點消失，等於印不了。
+// 所以出完貨把它們留在本機 7 天，畫面照樣列出來、照樣可以勾起來印（含重印）。
+const ST_SHIPPED_KEY = 'store_shipped_v1';
+const ST_SHIPPED_DAYS = 7;
+function stShipped(){
+  try{
+    const raw = JSON.parse(localStorage.getItem(ST_SHIPPED_KEY)||'[]');
+    const cut = Date.now() - ST_SHIPPED_DAYS*86400000;
+    const keep = raw.filter(x=>x && x.at && x.at > cut);
+    if(keep.length !== raw.length) localStorage.setItem(ST_SHIPPED_KEY, JSON.stringify(keep));
+    return keep;
+  }catch(e){ return [] }
+}
+function stAddShipped(rows){
+  try{
+    const now = Date.now();
+    const cur = stShipped();
+    const have = new Set(cur.map(x=>x.completeOrderNo));
+    rows.forEach(r=>{
+      if(have.has(r.completeOrderNo)) return;
+      cur.push({ completeOrderNo:r.completeOrderNo, delyGb:r.delyGb, delyGbName:r.delyGbName,
+                 storeIdName:r.storeIdName, Receiver:(r.Receiver||r.receiverMask||''),
+                 goodsName:(r.goodsName||r.goodsCode||''), at:now });
+    });
+    localStorage.setItem(ST_SHIPPED_KEY, JSON.stringify(cur));
+  }catch(e){}
+}
+function stClearShipped(){ try{ localStorage.removeItem(ST_SHIPPED_KEY) }catch(e){} }
 function stCfg(){
   try{ return Object.assign({shipType:'原箱', packType:'', packUnit:'', boxYn:'00'}, JSON.parse(localStorage.getItem(ST_CFG_KEY)||'{}')) }
   catch(e){ return {shipType:'原箱', packType:'', packUnit:'', boxYn:'00'} }
@@ -9373,6 +9402,13 @@ async function stLoad(silent){
     if(!r.ok || !j || j.ok === false){ stErr = (j && (j.error || (j.errors||[]).join('；'))) || ('HTTP ' + r.status); stRows = [] }
     else {
       stRows = j.orders || [];
+      // 把本機記著的「剛出貨」補回來（MOMO 的未出貨查詢已經撈不到它們了）
+      const have = new Set(stRows.map(r=>r.completeOrderNo));
+      stShipped().forEach(x=>{
+        if(have.has(x.completeOrderNo)) return;
+        stRows.push(Object.assign({}, x, { canS2S:false, shipped:true, remark5VStr:'已出貨',
+                                           lastPricDate:new Date(x.at).toLocaleDateString('zh-TW') }));
+      });
       stLoadedAt = Date.now();
       if((j.errors||[]).length) stErr = '部分門市查詢失敗：' + j.errors.join('；');
     }
@@ -9418,8 +9454,9 @@ function stRender(){
         + '<td><input type="checkbox" data-st="' + esc2(no) + '"' + (on?' checked':'') + '></td>'
         + '<td class="st-no">' + esc2(no) + '</td>'
         + '<td class="st-store">' + esc2(r.delyGbName||'')
-          + (r.canS2S ? ''
-             : (isS2S(r) ? '<div class="st-done">已是店到店</div>' : '<div class="st-warn">沒有店到店</div>')) + '</td>'
+          + (r.shipped ? '<div class="st-done">已出貨・可印標籤</div>'
+             : (r.canS2S ? ''
+                : (isS2S(r) ? '<div class="st-done">已是店到店</div>' : '<div class="st-warn">沒有店到店</div>'))) + '</td>'
         + '<td>' + esc2(r.storeIdName||'') + '</td>'
         + '<td>' + esc2(r.Receiver || r.receiverMask || '')
           + (g.length > 1 ? '<div class="st-same">同人 ' + g.length + ' 單</div>' : '') + '</td>'
@@ -9431,7 +9468,9 @@ function stRender(){
     html += '</tbody></table></div>';
     html += '<div class="st-note">只有 7-11 跟全家有「店到店」，OK 跟萊爾富 MOMO 沒開，那幾張轉不了（但還是可以勾起來印貼紙）。<br>'
       + '標「已是店到店」的是已經轉好的，勾起來可以直接印貼紙。<br>'
-      + '轉店到店會直接改 MOMO 上的配送方式，改完要還原得自己進後台，所以按下去會再問一次。</div>';
+      + '轉店到店會直接改 MOMO 上的配送方式，改完要還原得自己進後台，所以按下去會再問一次。<br>'
+      + '出貨確認之後 MOMO 那邊就查不到那張單了（變成出貨中），所以我們自己留 7 天讓您可以印／重印標籤。'
+      + '<a href="javascript:void(0)" id="st-clr" style="margin-left:6px">清掉已出貨紀錄</a></div>';
   }
   box.innerHTML = html;
 
@@ -9449,6 +9488,10 @@ function stRender(){
   const sb = $s('st-ship'); if(sb) sb.onclick = ()=>{ stShipOpen = true; stRender(); stLoadShipTypes(); };
   const sx = $s('st-ship-x'); if(sx) sx.onclick = ()=>{ stShipOpen = false; stRender() };
   const sg = $s('st-ship-go'); if(sg) sg.onclick = ()=>stShipGo();
+  const cl = $s('st-clr'); if(cl) cl.onclick = ()=>{
+    if(!confirm('清掉本機記著的「已出貨」清單？清掉之後那幾張就不會再出現在這裡（MOMO 那邊本來就查不到了），標籤要重印就得進 SCM 後台。')) return;
+    stClearShipped(); stLoad();
+  };
   const bo = $s('st-boxyn-on'); if(bo) bo.onchange = ()=>{
     const c = stCfg();
     c.boxOn = bo.checked;
@@ -9566,8 +9609,11 @@ async function stLoadShipTypes(){
 }
 
 async function stShipGo(){
-  const picked = stRows.filter(r=>stPick.has(r.completeOrderNo));
-  if(!picked.length) return;
+  const picked = stRows.filter(r=>stPick.has(r.completeOrderNo) && !r.shipped);
+  if(!picked.length){
+    alert('沒有需要出貨的單。（已經標「已出貨」的那幾張不用再做一次，直接按印標籤就好）');
+    return;
+  }
   const boxOn = !!(($s('st-boxyn-on')||{}).checked);
   const cfg = {
     shipType: ($s('st-shiptype')||{}).value || '原箱',
@@ -9605,11 +9651,14 @@ async function stShipGo(){
     const steps = (j && j.steps || []).map(s2=>s2.step + (s2.ok?' ✓':' ✗' + (s2.error?('（'+s2.error+'）'):''))).join('\n');
     if(j && j.ok){
       stShipMsg = '';
+      // 先記起來再重抓 —— 不記的話重抓完它們就從畫面上消失，就沒東西可以印了。
+      stAddShipped(picked);
       alert('出貨確認完成 ' + (j.success||0) + ' 張\n\n' + steps
         + (j.note ? ('\n\n' + j.note) : '')
-        + '\n\n現在可以按「印標籤」印貼紙了。');
+        + '\n\n這幾張已經標成「已出貨」留在列表上（保留 7 天），現在直接按「印標籤」就可以印。');
       stShipOpen = false;
-      stLoad();
+      const keep = new Set(picked.map(x=>x.completeOrderNo));
+      stLoad().then(()=>{ stPick = new Set(keep); stRender() });
       return;
     }
     stShipMsg = '';
