@@ -9606,6 +9606,7 @@ async function stShipGo(){
     if(j && j.ok){
       stShipMsg = '';
       alert('出貨確認完成 ' + (j.success||0) + ' 張\n\n' + steps
+        + (j.note ? ('\n\n' + j.note) : '')
         + '\n\n現在可以按「印標籤」印貼紙了。');
       stShipOpen = false;
       stLoad();
