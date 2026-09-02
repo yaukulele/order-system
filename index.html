@@ -1097,6 +1097,7 @@ body.has-batch-bar .main{padding-bottom:140px}
 .tdmod .st-boxbad{color:var(--red);font-weight:600;font-size:12px}
 .tdmod .st-same{font-size:11px;color:var(--blu);font-weight:600}
 .tdmod .st-manual{padding:6px 9px;border:1px solid var(--bd);border-radius:8px;font-size:12px;background:var(--sf);color:var(--tx)}
+.tdmod .st-del{font-size:11px;color:var(--red);margin-left:6px;text-decoration:underline}
 .tdmod .st-empty{text-align:center;padding:44px 16px;color:var(--ht);font-size:13px;line-height:2}
 .tdmod .st-err{background:var(--red-bg);border:1px solid var(--red);color:var(--red);border-radius:10px;padding:10px 13px;font-size:12.5px;line-height:1.8;margin:10px 0;white-space:pre-wrap;word-break:break-word}
 .tdmod .st-note{font-size:11.5px;color:var(--dm);line-height:1.8;padding:10px 2px}
@@ -9370,6 +9371,28 @@ function stAddShipped(rows){
   }catch(e){}
 }
 function stClearShipped(){ try{ localStorage.removeItem(ST_SHIPPED_KEY) }catch(e){} }
+function stRemoveShipped(no){
+  try{
+    const cur = stShipped().filter(x=>x.completeOrderNo !== no);
+    localStorage.setItem(ST_SHIPPED_KEY, JSON.stringify(cur));
+  }catch(e){}
+}
+// MOMO 的完整訂單編號格式：14 碼 + -3碼 -3碼 -3碼。少一碼 MOMO 會回
+// 「'completeOrderNo'參數有誤」，那訊息看不出是打錯字，所以在這裡先擋下來講清楚。
+const ST_NO_RE = /^\d{14}-\d{3}-\d{3}-\d{3}$/;
+function stNormNo(raw){
+  return String(raw||'').trim()
+    .replace(/[－‐-―−]/g, '-')   // 全形/各種破折號 → 半形
+    .replace(/[\s　]/g, '');                      // 去掉空白（含全形空白）
+}
+function stCheckNo(raw){
+  const no = stNormNo(raw);
+  if(ST_NO_RE.test(no)) return { ok:true, no:no };
+  return { ok:false, no:no,
+    msg:'訂單編號格式不對：「' + no + '」（' + no.length + ' 個字）\n\n'
+      + '正確格式是 14 碼數字 + -001-001-001，例如：\n26090221735633-001-001-001\n\n'
+      + '看起來像是少打或多打了字，從 MOMO 後台整串複製過來最保險。' };
+}
 function stCfg(){
   try{ return Object.assign({shipType:'原箱', packType:'', packUnit:'', boxYn:'00'}, JSON.parse(localStorage.getItem(ST_CFG_KEY)||'{}')) }
   catch(e){ return {shipType:'原箱', packType:'', packUnit:'', boxYn:'00'} }
@@ -9422,7 +9445,14 @@ async function stLoad(silent){
 function stRender(){
   const box = $s('st-body'); if(!box) return;
   const cnt = $s('stores-cnt');
-  if(cnt) cnt.textContent = stLoading ? '…' : String(stRows.length);
+  if(cnt){
+    // 徽章要的是「還要處理幾筆」，已出貨的那幾張留著只是為了補印，不該算進去。
+    const todo = stRows.filter(r=>!r.shipped).length;
+    cnt.textContent = stLoading ? '…' : String(todo);
+    // 有事情要做就變橘色，沒事維持綠色 —— 工讀生掃一眼就知道要不要點進來
+    cnt.style.background = todo > 0 ? '#fef9ec' : '#eef7f1';
+    cnt.style.color = todo > 0 ? '#b45309' : '#2d7a4f';
+  }
 
   const bar = $s('st-bar');
   // 可轉的只算「還沒轉」的（7-11 / 全家直配）。已經是店到店的仍然要能勾 —— 印貼紙要用。
@@ -9472,7 +9502,9 @@ function stRender(){
           + (g.length > 1 ? '<div class="st-same">同人 ' + g.length + ' 單</div>' : '') + '</td>'
         + '<td>' + esc2((r.goodsName||r.goodsCode||'')).slice(0,40) + '</td>'
         + '<td>' + esc2(r.remark5VStr||'') + '</td>'
-        + '<td class="st-no">' + esc2(r.lastPricDate||'') + '</td>'
+        + '<td class="st-no">' + esc2(r.lastPricDate||'')
+          + (r.shipped ? ' <a href="javascript:void(0)" class="st-del" data-del="' + esc2(no) + '" title="從本機清單移除這筆">移除</a>' : '')
+          + '</td>'
         + '</tr>';
     });
     html += '</tbody></table></div>';
@@ -9484,6 +9516,11 @@ function stRender(){
   }
   box.innerHTML = html;
 
+  box.querySelectorAll('a[data-del]').forEach(a=>a.onclick=()=>{
+    stRemoveShipped(a.dataset.del);
+    stPick.delete(a.dataset.del);
+    stLoad();
+  });
   box.querySelectorAll('input[data-st]').forEach(c=>c.onchange=()=>{
     if(c.checked) stPick.add(c.dataset.st); else stPick.delete(c.dataset.st);
     stRender();
@@ -9499,14 +9536,18 @@ function stRender(){
   const sx = $s('st-ship-x'); if(sx) sx.onclick = ()=>{ stShipOpen = false; stRender() };
   const sg = $s('st-ship-go'); if(sg) sg.onclick = ()=>stShipGo();
   const mp = $s('st-manual-print'); if(mp) mp.onclick = ()=>{
-    const no = (($s('st-manual')||{}).value || '').trim();
-    if(!no) { alert('請先貼上訂單編號'); return }
-    stPrintNos([no], 'label');
+    const raw = ($s('st-manual')||{}).value || '';
+    if(!raw.trim()) { alert('請先貼上訂單編號'); return }
+    const c = stCheckNo(raw);
+    if(!c.ok){ alert(c.msg); return }
+    stPrintNos([c.no], 'label');
   };
   const ma = $s('st-manual-add'); if(ma) ma.onclick = ()=>{
-    const no = (($s('st-manual')||{}).value || '').trim();
-    if(!no) { alert('請先貼上訂單編號'); return }
-    stAddShipped([{ completeOrderNo:no, delyGb:'', delyGbName:'（手動加入）', storeIdName:'', Receiver:'', goodsName:'' }]);
+    const raw = ($s('st-manual')||{}).value || '';
+    if(!raw.trim()) { alert('請先貼上訂單編號'); return }
+    const c = stCheckNo(raw);
+    if(!c.ok){ alert(c.msg); return }
+    stAddShipped([{ completeOrderNo:c.no, delyGb:'', delyGbName:'（手動加入）', storeIdName:'', Receiver:'', goodsName:'' }]);
     stLoad();
   };
   const cl = $s('st-clr'); if(cl) cl.onclick = ()=>{
@@ -9697,6 +9738,12 @@ function stPrint(type){
 }
 
 function stPrintNos(nos, type){
+  const bad = nos.filter(n=>!ST_NO_RE.test(stNormNo(n)));
+  if(bad.length){
+    alert('這幾筆的訂單編號格式不對，MOMO 會退回：\n\n' + bad.join('\n')
+      + '\n\n正確格式是 14 碼數字 + -001-001-001。手動加入的可以按那一列的「移除」再重加一次。');
+    return;
+  }
   const api = stApi(), tok = stTok();
   // PDF 直接開新分頁，token 走 query（後端有支援）
   const url = api + '/api/orders/momo/stores/label?printType=' + type
@@ -9710,9 +9757,33 @@ window.__stRender = function(){
   // 第一次切到這頁自動抓一次，之後靠「重新抓取」
   if(!stLoadedAt && !stLoading) stLoad(true); else stRender();
 };
+
+/* 背景自動抓（杰哥 2026-09-02：「讓工讀生不用登入 momo 頁面」）
+   跟訂單那支 momoLiveAutoSync 同一套規矩：沒 token 不吵、分頁在背景不抓、
+   正在抓不重抓、失敗有冷卻。另外多一條：使用者正在超商頁上勾選時不要重抓，
+   不然他勾到一半選取會被洗掉。 */
+let _stTryAt = 0;
+const ST_AUTO_MS = 10 * 60 * 1000;
+function stAutoSync(minAgeMs){
+  try{
+    if(stLoading) return;
+    if(typeof document !== 'undefined' && document.visibilityState === 'hidden') return;
+    if(Date.now() - _stTryAt < 60*1000) return;
+    if(stLoadedAt && Date.now() - stLoadedAt < (minAgeMs === undefined ? ST_AUTO_MS : minAgeMs)) return;
+    if(stPick.size) return;                       // 正在勾選 → 不要動他的畫面
+    if(!stApi() || !stTok()) return;              // 沒設 token 就安靜跳過，不要跳輸入框
+    _stTryAt = Date.now();
+    stLoad(true).catch(()=>{});
+  }catch(e){}
+}
+setInterval(()=>stAutoSync(), 5*60*1000);
+try{ document.addEventListener('visibilitychange', ()=>{ if(document.visibilityState==='visible') stAutoSync() }) }catch(e){}
+
 document.addEventListener('DOMContentLoaded', ()=>{
   const rb = $s('st-reload'); if(rb) rb.onclick = ()=>stLoad();
   const ds = $s('st-days'); if(ds) ds.onchange = ()=>stLoad();
+  // 開頁就先抓一次，讓上面的徽章直接有數字（等登入/token 就緒，所以延遲幾秒）
+  setTimeout(()=>stAutoSync(0), 4000);
 });
 })();
 </script>
