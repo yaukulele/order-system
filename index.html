@@ -9315,12 +9315,13 @@ return {
    MOMO 超商取貨（杰哥 2026-08-26）
    查超商單 → 勾選 → 一鍵轉店到店 → 印標籤。原本這三件事都要進 SCM 後台一張張點。
 
-   ⚠ 轉店到店不可逆（要改回去得人工進後台），而且 MOMO 文件對那個參數
-     寫得不清楚（「傳入原門市類型」但備註又列了 28/29）。所以：
-       1. 按下去一定跳確認，寫明不可逆
-       2. 預設照文件字面送「原門市類型」
-       3. 失敗時把 MOMO 的原文錯誤原封不動顯示出來，並給一顆「換另一種傳法再試」
-     用一張真單就能問出正確答案，不用猜也不用亂試一堆。
+   ⚠ 2026-09-02 用真單問出答案了：
+     - 正確傳法就是「送原門市類型」，MOMO 會把它切到店到店。
+     - 那支 API 是**開關**：送原類型→轉過去，送店到店代碼(28/29)→轉回來。
+       所以「換另一種傳法再試」這種設計很危險（會把剛轉好的單轉回去），已移除。
+     - MOMO 實際回 {"successCount":1,...}，計數在**最外層**，不是文件寫的 resultInfo 裡。
+       之前讀不到就一律判成失敗，杰哥才會一直重按。後端已修。
+   ⚠ 轉店到店會直接改 MOMO 上的配送方式，要還原得人工進後台，所以按下去一定跳確認。
    ========================================================================= */
 (function(){
 let stRows = [], stPick = new Set(), stLoading = false, stErr = '', stLoadedAt = 0;
@@ -9419,9 +9420,8 @@ async function stConvert(targetMode){
   const picked = stRows.filter(r=>stPick.has(r.completeOrderNo) && r.canS2S);
   if(!picked.length) return;
   const names = picked.map(r=>r.completeOrderNo + '（' + r.delyGbName + '）').join('\n');
-  const way = targetMode ? '第二種傳法（送店到店代碼）' : '第一種傳法（送原門市類型，照文件字面）';
   if(!confirm('要把這 ' + picked.length + ' 張轉成店到店嗎？\n\n' + names
-    + '\n\n這個動作會直接改 MOMO 上的配送方式，改完要還原得自己進 SCM 後台。\n目前用的是' + way + '。')) return;
+    + '\n\n這個動作會直接改 MOMO 上的配送方式，改完要還原得自己進 SCM 後台。')) return;
 
   const api = stApi(), tok = stTok();
   try{
@@ -9437,7 +9437,7 @@ async function stConvert(targetMode){
     const j = await r.json().catch(()=>({}));
     if(j && j.ok){
       alert('轉換成功 ' + (j.success||0) + ' 張' + (j.failed ? ('，失敗 ' + j.failed + ' 張：' + (j.failMessage||'')) : '')
-        + '\n\n（這次用的是' + way + '，記住這個，以後就用這種）');
+        + '\n\n列表會重新抓一次，轉好的那幾張會變成綠字「已是店到店」，可以直接勾起來印貼紙。');
       stLoad();
       return;
     }
@@ -9446,14 +9446,10 @@ async function stConvert(targetMode){
     const detail = (j && (j.error || j.failMessage)) || '';
     const raw = (j && j.raw) ? ('\n\nMOMO 原始回應：\n' + j.raw) : '';
     const msg = detail ? (detail + raw) : ('（後端回 HTTP ' + r.status + '，而且沒帶原因，可能是服務本身掛了）');
-    if(!targetMode){
-      if(confirm('轉換沒成功：\n\n' + msg
-        + '\n\n這有可能是因為文件寫得不清楚、參數傳錯邊。\n要不要換另一種傳法再試一次？（送店到店代碼）')){
-        return stConvert(true);
-      }
-    } else {
-      alert('兩種傳法都失敗了：\n\n' + msg + '\n\n把這段訊息給我，我拿去對文件。');
-    }
+    // ⚠ 這裡刻意不提供「換另一種傳法再試」。那個傳法(送 28/29)是「轉回直配」的開關，
+    //   失敗時再按等於把單轉回去 —— 2026-09-02 就是這樣白轉了兩張。
+    alert('轉換沒成功：\n\n' + msg
+      + '\n\n先別重複按。把這段截圖給我，我對文件查原因。');
   }catch(e){ alert('連不上：' + e.message) }
 }
 
