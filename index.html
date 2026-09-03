@@ -318,6 +318,8 @@ td{padding:7px 10px;border-bottom:1px solid #f0ede6}tr:hover td{background:var(-
 .ct-badge{display:inline-block;font-size:10px;font-weight:800;padding:1px 6px;border-radius:4px;white-space:nowrap;vertical-align:middle}
 .ct-dated{color:#6d28d9;background:#f3e8ff;border:1px solid #c4b5fd}
 .ct-called{color:#b45309;background:#fffbeb;border:1px solid #fcd34d}
+/* PChome 預購單 —— 預購出貨日（藍色：不是警示，是「那天前記得壓單」） */
+.ct-pre{color:#1657b5;background:#e8eef9;border:1px solid #9dbbe8}
 .ct-none{color:#b91c1c;background:#fef2f2;border:1px solid #fca5a5}
 .ct-gone{color:#475569;background:#f1f5f9;border:1px solid #cbd5e1}
 .ct-fine{color:#fff;background:#dc2626;border:1px solid #dc2626}
@@ -3098,6 +3100,7 @@ async function _syncPcLive(base,token){
     const id=String(o.id||'').trim();if(!id)continue;
     m[id]={kind:o.kind,st:o.shipCheckStatus||'',slip:o.shipId||'',vendor:o.shipVendorId||'',
       trans:_momoDateISO(o.transDate),vship:_momoDateISO(o.vendorShipDate),ship:_momoDateISO(o.shipDate),
+      pre:_momoDateISO(o.preOrderDate),   // 預購出貨日（只有預購商品的單才有）
       at:Date.now()};
   }
   _pcLive=m;_pcLiveAt=Date.now();
@@ -3162,15 +3165,43 @@ const _PC_LABEL={open:'未結單',error:'壓單失敗',checking:'已結單 檢�
 const _PC_CLS={open:'ct-none',error:'ct-fine',checking:'ct-called',shipped:'ct-gone',
   sp:'ct-dated',spDone:'ct-gone',cancelled:'ct-cancel'};
 
+/* 預購出貨日（杰哥 2026-09-03：「商品有顯示預購日，撈單後台也要看得到」）。
+   本機欄位 preOrderDate 只有新進的單才有；舊單靠「同步平台狀態」把平台那份補回來。
+   PChome 後台規則：「預購日前填宅配單號或填不出貨」→ 這個日期同時就是壓單期限。 */
+function pcPreOrderDate(o){
+  if(!o) return '';
+  const own=_momoDateISO(o.preOrderDate||'');
+  if(own) return own;
+  const L=pcLiveOf(o);
+  return (L&&L.pre)||'';
+}
+function preOrderBadge(o){
+  if(!o||o.platform!=='PC') return '';
+  const d=pcPreOrderDate(o);
+  if(!d) return '';
+  const today=localDateISO();
+  const late=today>d, soon=!late&&today===d;
+  const tip=['PChome 預購單，預購出貨日：'+d,
+             'PChome 規定：預購日前要填宅配單號，不然要填「不出貨」。',
+             late?'※ 已經過了預購日':(soon?'※ 今天就是預購日':'')].filter(Boolean);
+  return '<span class="ct-badge '+(late?'ct-fine':(soon?'ct-called':'ct-pre'))
+    +'" title="'+esc(tip.join('\n'))+'">預購 '+esc(d.slice(5).replace('-','/'))+'</span>';
+}
+
 // 壓單期限＝轉單日 +1 個工作日（週末順延），跟 MOMO 同一套。
 // 只有「還沒壓成功」的才算風險：未結單、壓單失敗。SP 不算（已經在處理了）。
 function pcFineRisk(o){
   const L=pcLiveOf(o);if(!L)return null;
   if(L.kind!=='open'&&L.kind!=='error')return null;
   const base=L.trans||o.date;if(!base)return null;
-  const due=_nextWorkday(base);if(!due)return null;
+  let due=_nextWorkday(base);if(!due)return null;
+  /* 預購單期限不一樣：規定是「預購日前」壓單。不特別處理的話，9/3 進的預購單
+     （預購日 9/17）9/4 就會被標成「逾期未壓單」，把人嚇去壓一張還不能出的單。 */
+  const pre=pcPreOrderDate(o);
+  let preOrder=false;
+  if(pre&&pre>due){due=pre;preOrder=true}
   const today=localDateISO();
-  return {due,base,level:today>due?'over':today===due?'today':'soon',failed:L.kind==='error'};
+  return {due,base,preOrder,pre,level:today>due?'over':today===due?'today':'soon',failed:L.kind==='error'};
 }
 function isPcUnclosed(o){return !_pcStaleFor(o)&&!!pcFineRisk(o)}
 
@@ -3206,11 +3237,12 @@ function pcLiveBadge(o){
   if(L.trans)tip.push('轉單日：'+L.trans);
   if(L.vendor)tip.push('物流：'+L.vendor+(L.slip&&L.slip!=='SP'?' '+L.slip:''));
   if(L.vship)tip.push('廠商出貨日：'+L.vship);
+  { const _pre=pcPreOrderDate(o); if(_pre)tip.push('預購出貨日：'+_pre+'（預購日前要壓單或填不出貨）'); }
   if(L.ship)tip.push('實際出貨日：'+L.ship);
   if(s==='error')tip.push('※ PChome 檢核沒過＝這單其實沒壓成功，要重壓');
   if(s==='sp')tip.push('※ 廠商自行出貨，跟客人約時間，不算未結單');
   const risk=pcFineRisk(o);
-  if(risk)tip.push('壓單期限：'+risk.due+'（轉單日 +1 工作日，假日順延）');
+  if(risk)tip.push('壓單期限：'+risk.due+(risk.preOrder?'（預購單，看預購日）':'（轉單日 +1 工作日，假日順延）'));
   if(stale)tip.push('※ 資料 '+pcEntryAgeText(L)+'，已過期，正在重新同步');
   // 要掛紅牌（壓單失敗／逾期未壓單）之前，資料太舊就先跟平台重問一次，問完再說
   if((alarm||(risk&&risk.level==='over'))&&!verifying&&Date.now()-_pcEntryAt(L)>PC_ALARM_MAX_AGE)_pcQueueVerify(no);
@@ -3260,6 +3292,7 @@ async function pcRecheckIds(nos){
     const prev=_pcLive[id];
     const next={kind:o.kind,st:o.shipCheckStatus||'',slip:o.shipId||'',vendor:o.shipVendorId||'',
       trans:_momoDateISO(o.transDate),vship:_momoDateISO(o.vendorShipDate),ship:_momoDateISO(o.shipDate),
+      pre:_momoDateISO(o.preOrderDate),   // 預購出貨日（只有預購商品的單才有）
       at:Date.now()};
     if(prev&&prev.kind!==next.kind)changed.push({no:id,from:prev.kind,to:next.kind});
     _pcLive[id]=next;
@@ -3586,7 +3619,7 @@ function prepareOrderRow(o,opts){
   else if(_ct==='called')scmBadge=`<span class="ct-badge ct-called" title="已電聯客戶，尚未確認配送日">已電聯待指配</span>`;
   else if(_ct==='none')scmBadge=`<span class="ct-badge ct-none" title="MOMO 尚未電聯客戶排配送">尚未電聯</span>`;
   // MOMO 平台實際狀態（唯讀同步來的）＋ 跟本機狀態對不上的標記
-  const momoBadge=platformLiveBadge(o);
+  const momoBadge=platformLiveBadge(o)+preOrderBadge(o);
   const momoDiff=platformDiffBadge(o);
   return{ps,ph,qty,addrAttrs,noteShort,installInfo,addonInfo,newBadge,addrBadge,trackInfo,region,remoteBadge,scmDate,scmActive,scmBadge,momoBadge,momoDiff};
 }
