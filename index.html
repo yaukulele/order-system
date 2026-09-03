@@ -315,6 +315,10 @@ td{padding:7px 10px;border-bottom:1px solid #f0ede6}tr:hover td{background:var(-
 .ct-none{color:#b91c1c;background:#fef2f2;border:1px solid #fca5a5}
 .ct-gone{color:#475569;background:#f1f5f9;border:1px solid #cbd5e1}
 .ct-fine{color:#fff;background:#dc2626;border:1px solid #dc2626}
+.ct-recheck{cursor:pointer;color:#1657b5;background:var(--sf);border:1px solid #93c5fd;font-family:var(--sans);line-height:1.4;margin-left:2px}
+.ct-recheck:hover{background:#e8eef9}
+[data-theme="dark"] .ct-recheck{color:#8ab4f8;background:var(--sf);border-color:#2f4a72}
+[data-theme="dark"] .ct-recheck:hover{background:#132a4a}
 .ct-diff{color:#9a3412;background:#ffedd5;border:1px solid #fdba74}
 .ct-cancel{color:#7f1d1d;background:#fee2e2;border:1px solid #f87171}
 [data-theme="dark"] .ct-cancel{color:#fca5a5;background:#3f1212;border-color:#b91c1c}
@@ -2888,14 +2892,15 @@ async function syncMomoLive(opt){
 const MOMO_LIVE_STALE_MS=30*60*1000;   // 超過這個時間就當「不知道」，不敢再下判斷
 const MOMO_LIVE_REFRESH_MS=10*60*1000; // 背景自動重抓的間隔
 function momoLiveStale(){return !_momoLiveAt||(Date.now()-_momoLiveAt>MOMO_LIVE_STALE_MS)}
-function momoLiveAgeText(){
-  if(!_momoLiveAt)return '從未同步';
-  const m=Math.floor((Date.now()-_momoLiveAt)/60000);
+function _ageText(ts){
+  if(!ts)return '從未同步';
+  const m=Math.floor((Date.now()-ts)/60000);
   if(m<1)return '剛剛';
   if(m<60)return m+' 分鐘前';
   const h=Math.floor(m/60);
   return h<24?h+' 小時前':Math.floor(h/24)+' 天前';
 }
+function momoLiveAgeText(){return _ageText(_momoLiveAt)}
 // 背景補抓：沒 token 不吵、頁面在背景不抓、正在抓不重抓
 let _momoLiveTryAt=0; // 上次「嘗試」時間（成功失敗都算）— 失敗時 _momoLiveAt 不動，要靠這個擋
 function momoLiveAutoSync(minAgeMs){
@@ -3038,7 +3043,7 @@ function momoDiffBadge(o){if(momoLiveStale())return '';const m=momoMismatch(o);r
 // ===== 依平台分派（MOMO / 三方走 momo*，PChome 走 pc*）=====
 function platformLiveBadge(o){return (o&&o.platform==='PC')?pcLiveBadge(o):momoLiveBadge(o)}
 function platformDiffBadge(o){
-  if(momoLiveStale())return '';
+  if((o&&o.platform==='PC')?_pcStaleFor(o):momoLiveStale())return '';
   const m=(o&&o.platform==='PC')?pcMismatch(o):momoMismatch(o);
   return m?'<span class="ct-badge ct-diff" title="'+esc(m)+'">≠ 不一致</span>':'';
 }
@@ -3086,7 +3091,8 @@ async function _syncPcLive(base,token){
   for(const o of (j.orders||[])){
     const id=String(o.id||'').trim();if(!id)continue;
     m[id]={kind:o.kind,st:o.shipCheckStatus||'',slip:o.shipId||'',vendor:o.shipVendorId||'',
-      trans:_momoDateISO(o.transDate),vship:_momoDateISO(o.vendorShipDate),ship:_momoDateISO(o.shipDate)};
+      trans:_momoDateISO(o.transDate),vship:_momoDateISO(o.vendorShipDate),ship:_momoDateISO(o.shipDate),
+      at:Date.now()};
   }
   _pcLive=m;_pcLiveAt=Date.now();
 }
@@ -3114,6 +3120,22 @@ function _pcMarkLocal(orderNo, kind, slip, vendor){
   }catch(e){}
   try{ renderList() }catch(e){}
 }
+
+/* PChome 的快照有自己的時間，不能沿用 MOMO 的（杰哥 2026-09-03 被嚇到的根因）。
+   舊寫法所有 PC 判斷都問 momoLiveStale()：MOMO 那兩支抓成功、PChome 這支掛掉時，
+   _momoLiveAt 是新的但 _pcLiveAt 可能停在好幾天前 —— 畫面照樣把舊快照當事實掛紅牌
+   「壓單失敗」。而且背景同步對 PChome 有 30 分鐘冷卻（這支要打十幾趟 API），
+   壓單這種幾分鐘內就會變的事，30 分鐘的舊資料根本不能拿來下結論。
+   對策：(a) PChome 逐筆記自己的抓取時間 at (b) 過期就不下結論、不掛紅牌
+        (c) 要掛紅牌之前先跟平台「指定這幾筆」重問一次（見 _pcQueueVerify）。 */
+const PC_LIVE_STALE_MS=30*60*1000;   // 超過這麼久就當「不知道」
+const PC_ALARM_MAX_AGE=3*60*1000;    // 要嚇人之前，資料不能超過 3 分鐘
+function pcLiveStale(){return !_pcLiveAt||(Date.now()-_pcLiveAt>PC_LIVE_STALE_MS)}
+function pcLiveAgeText(){return _ageText(_pcLiveAt)}
+function _pcEntryAt(L){return (L&&L.at)||_pcLiveAt||0}          // 舊快取沒有 at 就沿用整批時間
+function pcEntryAgeText(L){return _ageText(_pcEntryAt(L))}
+function pcEntryStale(L){const t=_pcEntryAt(L);return !t||(Date.now()-t>PC_LIVE_STALE_MS)}
+function _pcStaleFor(o){return pcEntryStale(pcLiveOf(o))}
 
 // PChome 訂單編號在本機可能帶 -01 尾碼，平台那邊也是同一個格式 → 直接對，對不到再試前綴
 function pcLiveOf(o){
@@ -3144,7 +3166,7 @@ function pcFineRisk(o){
   const today=localDateISO();
   return {due,base,level:today>due?'over':today===due?'today':'soon',failed:L.kind==='error'};
 }
-function isPcUnclosed(o){return !momoLiveStale()&&!!pcFineRisk(o)}
+function isPcUnclosed(o){return !_pcStaleFor(o)&&!!pcFineRisk(o)}
 
 const _PC_LOCAL_SHIP_DONE=['已出貨','已完成','線下完成'];
 const _PC_LOCAL_CANCEL_DONE=['已取消','轉線下','線下完成'];
@@ -3160,17 +3182,21 @@ function pcMismatch(o){
   if(s==='open')return _PC_LOCAL_SHIP_DONE.includes(st)?'本機是「'+st+'」，但平台完全沒壓單':'';
   return '';
 }
-function isPcDiff(o){return !momoLiveStale()&&!!pcMismatch(o)}
+function isPcDiff(o){return !_pcStaleFor(o)&&!!pcMismatch(o)}
 
 function pcLiveBadge(o){
   const L=pcLiveOf(o);if(!L)return '';
-  const stale=momoLiveStale();
+  const stale=pcEntryStale(L);
   const s=_pcState(L);
   const cls=stale?'ct-gone':(_PC_CLS[s]||'ct-called');
   let label=_PC_LABEL[s]||s;
   if(s==='shipped'&&L.ship)label+=' '+L.ship.slice(5).replace('-','/');
   if(s==='spDone'&&L.ship)label+=' '+L.ship.slice(5).replace('-','/');
-  const tip=['PChome 平台：'+(_PC_LABEL[s]||s)];
+  const no=String(o.orderNo||'').trim();
+  const verifying=_pcVerifying.has(no);
+  const alarm=(s==='error');
+  const tip=['PChome 平台：'+(_PC_LABEL[s]||s),'資料：'+pcEntryAgeText(L)+'抓的'];
+  if(L.missing)tip.push('※ 上次重問時 PChome 查無這個訂單編號');
   if(L.trans)tip.push('轉單日：'+L.trans);
   if(L.vendor)tip.push('物流：'+L.vendor+(L.slip&&L.slip!=='SP'?' '+L.slip:''));
   if(L.vship)tip.push('廠商出貨日：'+L.vship);
@@ -3179,19 +3205,124 @@ function pcLiveBadge(o){
   if(s==='sp')tip.push('※ 廠商自行出貨，跟客人約時間，不算未結單');
   const risk=pcFineRisk(o);
   if(risk)tip.push('壓單期限：'+risk.due+'（轉單日 +1 工作日，假日順延）');
-  if(stale)tip.push('※ 資料 '+momoLiveAgeText()+'，已過期，正在重新同步');
+  if(stale)tip.push('※ 資料 '+pcEntryAgeText(L)+'，已過期，正在重新同步');
+  // 要掛紅牌（壓單失敗／逾期未壓單）之前，資料太舊就先跟平台重問一次，問完再說
+  if((alarm||(risk&&risk.level==='over'))&&!verifying&&Date.now()-_pcEntryAt(L)>PC_ALARM_MAX_AGE)_pcQueueVerify(no);
+  if(verifying){
+    return '<span class="ct-badge ct-called" title="正在跟 PChome 重新確認這一筆的狀態…">PC '+esc(label)+'・確認中…</span>';
+  }
   let h='<span class="ct-badge '+cls+'" title="'+esc(tip.join('\n'))+'">PC '+esc(label)+'</span>';
   if(risk&&risk.level!=='soon'&&!stale){
-    const ftip='轉單日 '+risk.base+' → 壓單期限 '+risk.due+'（假日順延）。'+(risk.failed?'壓單被 PChome 退回，等於沒壓。':'還沒壓單。');
+    const ftip='轉單日 '+risk.base+' → 壓單期限 '+risk.due+'（假日順延）。'+(risk.failed?'壓單被 PChome 退回，等於沒壓。':'還沒壓單。')+'\n這是 '+pcEntryAgeText(L)+'跟平台確認的結果。';
     h+='<span class="ct-badge ct-fine" title="'+esc(ftip)+'">'+(risk.level==='over'?'逾期未壓單':'今天要壓單')+'</span>';
   }
+  // 紅牌一律附一顆「再問平台」—— 人不用相信畫面，可以當場自己驗
+  if((alarm||risk)&&no)h+='<button class="ct-badge ct-recheck" onclick="pcRecheckOne('+JSON.stringify(no).replace(/"/g,'&quot;')+',event)" title="馬上打一次 PChome，看這筆現在到底壓成功了沒">↻ 再問平台</button>';
   return h;
+}
+
+
+/* ===== 壓單失敗／未壓單：掛紅牌之前先跟平台重問一次（杰哥 2026-09-03）=====
+   杰哥的話：「壓單失敗的部分，也要幫我跟平台重複確認。也有可能是平台壓單了，
+   但系統沒同步到。不然很驚恐。」
+   後端新增了 /api/orders/pchome/status?ids=A,B,C —— 跳過 45 天清單，直接打明細，
+   一次幾筆只要一趟 API，所以可以隨時重問，不像整批同步要 30 分鐘冷卻。
+   規則：紅牌（壓單失敗／逾期未壓單）的資料只要超過 3 分鐘，畫面先標「確認中」，
+   背景跟平台重問，問完才決定要不要真的嚇人。 */
+const PC_VERIFY_MAX=60;             // 後端一次最多吃 60 筆
+let _pcVerifyQueue=new Set(),_pcVerifyTm=null,_pcVerifyBusy=false;
+let _pcVerifying=new Set();         // 正在重問的訂單編號（畫面標「確認中」）
+const _pcVerifyDoneAt={};           // 每筆上次重問時間，避免同一筆一直打
+
+function _pcApiToken(){
+  const raw=localStorage.getItem(MOMO_TK_KEY)||'';
+  return (raw&&!looksLikeUrl(raw))?raw:'';
+}
+// 跟平台重問指定的幾筆。回傳 {ok, changed:[{no,from,to}], missing:[]}
+async function pcRecheckIds(nos){
+  const list=[...new Set((nos||[]).map(x=>String(x||'').trim()).filter(Boolean))].slice(0,PC_VERIFY_MAX);
+  if(!list.length)return{ok:false,err:'empty'};
+  const token=_pcApiToken();
+  if(!token)return{ok:false,err:'no-token'};
+  const r=await fetch(getMomoApi()+'/api/orders/pchome/status?ids='+encodeURIComponent(list.join(',')),
+    {headers:{'X-API-Token':token}});
+  const j=await r.json().catch(()=>({}));
+  if(!r.ok||!j||j.ok===false)throw new Error((j&&j.error)||('HTTP '+r.status));
+  const changed=[];
+  for(const o of (j.orders||[])){
+    const id=String(o.id||'').trim();if(!id)continue;
+    const prev=_pcLive[id];
+    const next={kind:o.kind,st:o.shipCheckStatus||'',slip:o.shipId||'',vendor:o.shipVendorId||'',
+      trans:_momoDateISO(o.transDate),vship:_momoDateISO(o.vendorShipDate),ship:_momoDateISO(o.shipDate),
+      at:Date.now()};
+    if(prev&&prev.kind!==next.kind)changed.push({no:id,from:prev.kind,to:next.kind});
+    _pcLive[id]=next;
+    _pcVerifyDoneAt[id]=Date.now();
+  }
+  // 平台查無此單：別留著舊的紅牌當真相，標成不確定
+  for(const id of (j.missing||[])){
+    if(_pcLive[id])_pcLive[id]=Object.assign({},_pcLive[id],{at:Date.now(),missing:true});
+    _pcVerifyDoneAt[id]=Date.now();
+  }
+  try{const raw=JSON.parse(localStorage.getItem(MOMO_LIVE_KEY)||'{}');
+    raw.pc=_pcLive;raw.pcAt=_pcLiveAt;localStorage.setItem(MOMO_LIVE_KEY,JSON.stringify(raw))}catch(e){}
+  return{ok:true,changed,missing:j.missing||[],count:(j.orders||[]).length};
+}
+
+// 畫面上看到「該嚇人但資料有點舊」的單就排進去，400ms 內合併成一次請求
+function _pcQueueVerify(no){
+  if(!no)return;
+  if(_pcVerifying.has(no))return;
+  if(Date.now()-(_pcVerifyDoneAt[no]||0)<PC_ALARM_MAX_AGE)return;
+  if(!_pcApiToken())return;                       // 沒 token 就別吵，維持原本顯示
+  _pcVerifyQueue.add(no);
+  if(_pcVerifyTm||_pcVerifyBusy)return;
+  _pcVerifyTm=setTimeout(()=>{_pcVerifyTm=null;_pcRunVerify()},400);
+}
+async function _pcRunVerify(){
+  if(_pcVerifyBusy)return;
+  const list=[..._pcVerifyQueue].slice(0,PC_VERIFY_MAX);
+  if(!list.length)return;
+  list.forEach(x=>_pcVerifyQueue.delete(x));
+  _pcVerifyBusy=true;list.forEach(x=>_pcVerifying.add(x));
+  try{renderList()}catch(e){}
+  let res=null;
+  try{res=await pcRecheckIds(list)}
+  catch(e){list.forEach(x=>{_pcVerifyDoneAt[x]=Date.now()})}   // 失敗也記時間，別無限重打
+  finally{
+    list.forEach(x=>_pcVerifying.delete(x));
+    _pcVerifyBusy=false;
+    try{renderList()}catch(e){}
+  }
+  // 真的從「壓單失敗／沒壓單」翻成「已收單」→ 這是好消息，要主動講，不然人不知道虛驚一場
+  const good=(res&&res.changed||[]).filter(c=>(c.from==='error'||c.from==='open')&&c.to!=='error'&&c.to!=='open');
+  if(good.length)showToast&&showToast('跟 PChome 重新確認：'+good.length+' 筆其實平台已經收單了（剛剛是舊資料），已更新',null,null,6000);
+  if(_pcVerifyQueue.size)setTimeout(()=>_pcRunVerify(),600);
+}
+
+// 單筆手動重問（卡片上那顆「再問平台」）
+async function pcRecheckOne(no,ev){
+  if(ev&&ev.stopPropagation)ev.stopPropagation();
+  if(!_pcApiToken()){showToast&&showToast('要先設定 API Token 才能跟平台確認');return}
+  const before=_pcLive[no]&&_pcLive[no].kind;
+  _pcVerifying.add(no);try{renderList()}catch(e){}
+  let res=null,err=null;
+  try{res=await pcRecheckIds([no])}catch(e){err=e}
+  _pcVerifying.delete(no);try{renderList()}catch(e){}
+  if(err){showToast&&showToast('問不到平台：'+String(err.message||err).slice(0,60));return}
+  if(res&&res.missing&&res.missing.indexOf(no)>=0){
+    showToast&&showToast('PChome 查無這筆訂單編號（'+no+'），請確認編號對不對',null,null,6000);return;
+  }
+  const after=_pcLive[no]&&_pcLive[no].kind;
+  const name=k=>_PC_LABEL[k]||k;
+  if(before===after)showToast&&showToast('剛剛跟 PChome 確認過：還是「'+name(after)+'」，不是同步的問題',null,null,6000);
+  else showToast&&showToast('平台現在是「'+name(after)+'」（原本畫面顯示「'+name(before)+'」），已更新',null,null,6000);
 }
 
 // 對狀態建議（PChome）。SP 是正常進行中的狀態，不給修改建議，只有徽章顯示。
 function pcFixPlan(o){
   const L=pcLiveOf(o);
-  if(!L||momoLiveStale())return null;
+  if(!L||pcEntryStale(L))return null;
   const st=o.status||'',s=_pcState(L);
   if(s==='cancelled'){
     if(_PC_LOCAL_CANCEL_DONE.includes(st))return null;
