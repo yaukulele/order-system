@@ -291,6 +291,12 @@ td{padding:7px 10px;border-bottom:1px solid #f0ede6}tr:hover td{background:var(-
 .rgn-dist-hd .nm{font-weight:700;font-size:12.5px;color:var(--tx)}
 .rgn-dist-cnt{font-size:10px;font-weight:700;color:var(--dm);background:var(--bg);padding:0 6px;border-radius:8px;line-height:1.6}
 .rgn-mini{font-size:10px!important;padding:3px 8px!important;min-height:0!important}
+.rgn-selbar{display:flex;align-items:center;gap:10px;flex-wrap:wrap;font-size:11.5px;color:#1657b5;background:#e8eef9;border:1px solid #bfd4f2;border-radius:8px;padding:7px 11px;margin-bottom:9px}
+.rgn-selbar .rest{color:#b45309}
+.rgn-widen{font-size:11.5px;line-height:1.6;color:#b45309;background:#fef3c7;border:1px solid #fcd34d;border-radius:8px;padding:7px 11px;margin-bottom:9px}
+[data-theme="dark"] .rgn-selbar{background:#132a4a;color:#8ab4f8;border-color:#2f4a72}
+[data-theme="dark"] .rgn-selbar .rest{color:#e3b341}
+[data-theme="dark"] .rgn-widen{background:#332b14;color:#fcd34d;border-color:#5a4818}
 /* B：區域頁訂單卡片上下壓緊，一頁看更多（左右寬度不動） */
 .rgn-panel .ord-cards{gap:5px}
 .rgn-panel .ord-card{padding:6px 12px;border-radius:9px;contain-intrinsic-size:120px}
@@ -6235,6 +6241,7 @@ function renderRegion(){
   const distNamesOf=(rk,c)=>Object.keys(g[rk][c]).sort((a,b)=>g[rk][c][b].length-g[rk][c][a].length||a.localeCompare(b,'zh-TW'));
   const findRk=c=>ORDER.find(rk=>g[rk]&&g[rk][c]);
   // 選取狀態失效（切換過濾後該縣市/區/大區不存在）→ 退回上層
+  const _selWas=regionSel;
   if(regionSel.startsWith('C:')&&!findRk(regionSel.slice(2)))regionSel='ALL';
   if(regionSel.startsWith('R:')&&!g[regionSel.slice(2)])regionSel='ALL';
   if(regionSel.startsWith('D:')){const p=regionSel.slice(2).split('|');const c=p[0],d=p[1];const rk=findRk(c);if(!(rk&&g[rk][c]&&g[rk][c][d]))regionSel=findRk(c)?'C:'+c:'ALL';}
@@ -6271,13 +6278,52 @@ function renderRegion(){
       if(expanded){distNamesOf(rk,c).forEach(d=>{nav+=`<div class="rgn-dist${regionSel==='D:'+c+'|'+d?' on':''}" onclick='selectRegion(${JSON.stringify('D:'+c+'|'+d)})'><span>${esc(d)}</span><span class="rgn-c-cnt">${g[rk][c][d].length}</span></div>`});}
     });
   });
+  /* 杰哥 2026-09-03：「為什麼這個訂單不會出現在區域裡面？」
+     實際上單就在區域裡（新竹市北區），但他左邊點進了「新竹縣 → 竹北市」，
+     這個模式只render那一區，唯一的提示是一行小灰字「只看 竹北市」，很難發現。
+     新竹市 vs 新竹縣 又長很像 → 人就會以為漏單。
+     對策：(a) 只要不是「全部地區」，就在最上面掛一條講清楚的橫幅＋一鍵看全部
+          (b) 有打搜尋卻在目前這區找不到、別區有 → 自動改看全部地區並說明 */
+  const _selLabel=()=>{
+    if(regionSel.indexOf('R:')===0)return _BIGREGION_LABEL[regionSel.slice(2)]||regionSel.slice(2);
+    if(regionSel.indexOf('C:')===0)return regionSel.slice(2);
+    if(regionSel.indexOf('D:')===0){const p=regionSel.slice(2).split('|');return p[0]+' '+p[1]}
+    return '全部地區';
+  };
+  const _selCount=()=>{
+    if(regionSel.indexOf('R:')===0){const rk=regionSel.slice(2);return g[rk]?cityNamesOf(rk).reduce((s,c)=>s+cityCount(rk,c),0):0}
+    if(regionSel.indexOf('C:')===0){const c=regionSel.slice(2);const rk=findRk(c);return rk?cityCount(rk,c):0}
+    if(regionSel.indexOf('D:')===0){const p=regionSel.slice(2).split('|');const rk=findRk(p[0]);
+      return (rk&&g[rk][p[0]]&&g[rk][p[0]][p[1]])?g[rk][p[0]][p[1]].length:0}
+    return pool.length;
+  };
+  /* 上面的「選取狀態失效 → 退回上層」是靜靜地做的，人只會看到自己點的區莫名其妙跳掉。
+     搜尋的時候最容易踩到（搜的單根本不在你點的那一區）→ 明講一句，不然會以為系統壞了。 */
+  const _wasLabel=(k)=>{
+    if(k.indexOf('R:')===0)return _BIGREGION_LABEL[k.slice(2)]||k.slice(2);
+    if(k.indexOf('C:')===0)return k.slice(2);
+    if(k.indexOf('D:')===0){const q=k.slice(2).split('|');return q[0]+' '+q[1]}
+    return '全部地區';
+  };
+  let widenNote='';
+  if(_selWas!==regionSel&&_selWas!=='ALL'){
+    widenNote='<div class="rgn-widen">'
+      +(regionQuery?'搜尋「'+esc(regionQuery)+'」':'目前的篩選條件下')
+      +'在你原本點的〈'+esc(_wasLabel(_selWas))+'〉裡沒有東西 → 已自動改看<b>'+esc(_selLabel())+'</b>（'+pool.length+' 筆）</div>';
+  }
+  const _selN=_selCount(),_restN=pool.length-_selN;
+  const selBar=regionSel==='ALL'?'':
+    '<div class="rgn-selbar"><span>目前只看 <b>'+esc(_selLabel())+'</b>（'+_selN+' 筆）</span>'
+    +(_restN>0?'<span class="rest">其他地區還有 <b>'+_restN+'</b> 筆沒顯示</span>':'')
+    +'<span style="flex:1"></span><button class="btn rgn-mini" onclick="selectRegion(\'ALL\')" title="取消地區篩選，看全部">看全部地區</button></div>';
+
   // 右邊面板
   let panel='';
   if(regionSel==='ALL'){ORDER.forEach(rk=>{if(g[rk])panel+='<div style="margin-bottom:10px">'+regionBlock(rk)+'</div>'})}
   else if(regionSel.startsWith('R:')){panel=regionBlock(regionSel.slice(2))}
   else if(regionSel.startsWith('C:')){const c=regionSel.slice(2);panel=cityBlock(findRk(c),c)}
   else if(regionSel.startsWith('D:')){const p=regionSel.slice(2).split('|');const c=p[0],d=p[1];const cfg=RCFG[findRk(c)];panel=`<div class="rgn-city-blk-hd" style="border-color:${cfg.bg}"><span class="nm">${esc(c)}</span><span style="font-size:11px;color:var(--dm)">只看 ${esc(d)}</span></div>`+distBlock(c,d,cfg)}
-  area.innerHTML=`<div class="rgn-wrap"><div class="rgn-nav">${nav}</div><div class="rgn-panel">${panel}</div></div>`;
+  area.innerHTML=`<div class="rgn-wrap"><div class="rgn-nav">${nav}</div><div class="rgn-panel">${widenNote}${selBar}${panel}</div></div>`;
   if(typeof renderRoutePanel==='function')renderRoutePanel();
 }
 
