@@ -2965,6 +2965,9 @@ function momoLiveOf(o){
 }
 
 // 平台九個狀態字太長，列表塞不下 → 縮寫
+/* 回報「已電聯，尚未確認配送日期」時，可以自動轉「交涉中」的來源狀態。
+   只列還沒開始出貨的前段狀態 —— 已包裝/已出貨/收錢/完成/取消/線下 一律不動，不能往回拉。 */
+const _SHIP_AUTO_NEGOTIATE=['未確認','已確認','未接電'];
 const _MOMO_ST_SHORT={'請回覆':'未回報','已電聯，尚未確認配送日期':'已電聯','已確認指定配送日':'指配','已配送':'已配送',
  '暫時電聯不上(無須momo協助)':'電聯不上','多次電聯不上(2天3次以上)':'電聯不上×3','需配送加價協調中':'加價協調',
  '無貨取消訂單':'無貨取消','收件資料有誤/不配送地區':'資料有誤','無適當選項，momo請協助':'請momo協助'};
@@ -5496,18 +5499,27 @@ async function submitShip(force){
     if(_realBtn)_realBtn.style.display='none';
     result.innerHTML=`<div style="background:var(--grn-bg);border:1px solid var(--grn);color:var(--grn);padding:10px;border-radius:6px;font-size:12px"><b>✅ MOMO 已收到出貨確認</b><br>HTTP ${data.status} ｜ 重試次數 ${data.attempts||1}<br><pre style="white-space:pre-wrap;font-size:10px;margin-top:6px;background:#fff;padding:8px;border-radius:4px;color:#000">${esc(JSON.stringify(data.data,null,2).slice(0,400))}</pre></div>`;
     // Update local order
+    let _autoStFrom=null;
     if(status==='已配送'){o.trackingNo=item.slipNo;o.delyGbStr=item.delyGbStr;o.shipTypeStr=item.shipTypeStr;o.packTypeStr=item.packTypeStr;o.packUnit=item.packUnit;o.status='已出貨';o.shippedAt=new Date().toISOString();o.shippedBy=currentUser||'';o.shippedVia='出貨'}
     else if(status==='無貨取消訂單'){o.status='已取消'}
     else if(status==='暫時電聯不上(無須momo協助)'||status==='多次電聯不上(2天3次以上)'){o.status='未接電'}
     else if(status==='已確認指定配送日'){o.scmDelyDate=item.scmDelyDate;o.momoContacted=true;/* status 維持，等之後改「已配送」*/}
-    else if(status==='已電聯，尚未確認配送日期'){o.momoContacted=true;o.momoContactedAt=new Date().toISOString()/* 電聯過但還沒喬到配送日 → 三態徽章顯示「已電聯待指配」*/}
+    else if(status==='已電聯，尚未確認配送日期'){
+      o.momoContacted=true;o.momoContactedAt=new Date().toISOString();/* 電聯過但還沒喬到配送日 → 三態徽章顯示「已電聯待指配」*/
+      /* 杰哥 2026-09-04：「回報完通常還要跟客人要真實電話、喬日期，可是常常忘記按狀態」
+         → 回報「已電聯、日期還沒喬」本來就等於正在交涉，本機自動跟著轉「交涉中」。
+         只從前段狀態往前推，已經出貨/收錢/完成/取消的絕對不往回拉。 */
+      if(_SHIP_AUTO_NEGOTIATE.includes(o.status||''))_autoStFrom=o.status||'';
+    }
     // 其他狀態（需配送加價協調中/收件資料有誤/無適當選項，momo請協助）保持原狀，使用者手動再決定
     logActivity(o,`出貨回報：${status}${item.delyGbStr?' ｜ '+item.delyGbStr:''}${item.slipNo?' ｜ '+item.slipNo:''}${item.scmDelyDate?' ｜ 配送日 '+item.scmDelyDate:''}${item.msgNote?' ｜ '+item.msgNote:''}`);
+    if(_autoStFrom!==null){o.status='交涉中';logActivity(o,`狀態：${_autoStFrom||'(空白)'} → 交涉中（回報「已電聯，尚未確認配送日期」自動帶）`)}
     saveOne(o);renderList();
     syncMomoLive({silent:true}).catch(()=>{}); // 剛回報完平台狀態就變了，馬上重抓免得徽章還是舊的
     _modalDirty=false; // 已成功送出，關閉時不再警告未儲存
     const localMsg=status==='已配送'?'已出貨':status==='無貨取消訂單'?'已取消':(status==='暫時電聯不上(無須momo協助)'||status==='多次電聯不上(2天3次以上)')?'未接電':o.status;
-    setTimeout(()=>{closeModal();alert(`✅ 出貨確認完成，訂單狀態已更新為「${localMsg}」`)},800);
+    const autoNote=_autoStFrom!==null?`（原本是「${_autoStFrom||'空白'}」，自動幫你轉的）`:'';
+    setTimeout(()=>{closeModal();alert(`✅ 出貨確認完成，訂單狀態已更新為「${localMsg}」${autoNote}`)},800);
   }catch(err){
     result.innerHTML=`<div style="background:var(--pc-bg);border:1px solid var(--pc);color:var(--pc);padding:10px;border-radius:6px;font-size:12px"><b>❌ 網路錯誤</b><br>${esc(err.message)}</div>`;
     _unlock();
