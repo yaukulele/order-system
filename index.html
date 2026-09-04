@@ -9593,6 +9593,20 @@ function stAddShipped(rows){
   }catch(e){}
 }
 function stClearShipped(){ try{ localStorage.removeItem(ST_SHIPPED_KEY) }catch(e){} }
+
+/* 標籤 PDF 密碼（杰哥 2026-09-04）。MOMO 給的標籤 PDF 有加密，每次開都要打密碼。
+   密碼幾個月才換一次 → 記在**這台電腦的瀏覽器**裡，按列印時自動解開。
+   刻意不存到 Firebase：那個資料庫目前是公開可讀的。也不送到我們的伺服器。 */
+const ST_PDF_PW_KEY = 'store_label_pdf_pw_v1';
+function stPdfPw(){ try{ return localStorage.getItem(ST_PDF_PW_KEY) || '' }catch(e){ return '' } }
+function stSetPdfPw(v){ try{ localStorage.setItem(ST_PDF_PW_KEY, v||'') }catch(e){} }
+function stAskPdfPw(msg){
+  const cur = stPdfPw();
+  const v = prompt((msg||'標籤 PDF 的開啟密碼（MOMO 給的那組，換了就在這裡改）：'), cur);
+  if(v === null) return null;              // 按取消
+  stSetPdfPw(v.trim());
+  return v.trim();
+}
 function stRemoveShipped(no){
   try{
     const cur = stShipped().filter(x=>x.completeOrderNo !== no);
@@ -9734,7 +9748,10 @@ function stRender(){
       + '標「已是店到店」的是已經轉好的，勾起來可以直接印貼紙。<br>'
       + '轉店到店會直接改 MOMO 上的配送方式，改完要還原得自己進後台，所以按下去會再問一次。<br>'
       + '出貨確認之後 MOMO 那邊就查不到那張單了（變成出貨中），所以我們自己留 7 天讓您可以印／重印標籤。'
-      + '<a href="javascript:void(0)" id="st-clr" style="margin-left:6px">清掉已出貨紀錄</a></div>';
+      + '<a href="javascript:void(0)" id="st-clr" style="margin-left:6px">清掉已出貨紀錄</a><br>'
+      + '標籤 PDF 有密碼，系統會自動幫您解開再列印（密碼只存在這台電腦，不會上傳）。'
+      + '<a href="javascript:void(0)" id="st-pw" style="margin-left:6px">'
+      + (stPdfPw() ? '換標籤密碼' : '設定標籤密碼') + '</a></div>';
   }
   box.innerHTML = html;
 
@@ -9772,6 +9789,7 @@ function stRender(){
     stAddShipped([{ completeOrderNo:c.no, delyGb:'', delyGbName:'（手動加入）', storeIdName:'', Receiver:'', goodsName:'' }]);
     stLoad();
   };
+  const pwb = $s('st-pw'); if(pwb) pwb.onclick = ()=>{ if(stAskPdfPw()!==null) stRender() };
   const cl = $s('st-clr'); if(cl) cl.onclick = ()=>{
     if(!confirm('清掉本機記著的「已出貨」清單？清掉之後那幾張就不會再出現在這裡（MOMO 那邊本來就查不到了），標籤要重印就得進 SCM 後台。')) return;
     stClearShipped(); stLoad();
@@ -9953,6 +9971,93 @@ async function stShipGo(){
   stRender();
 }
 
+
+/* 標籤列印視窗（杰哥 2026-09-04：「每次都要輸入密碼」）。
+   MOMO 給的是加密 PDF。伺服器端解密試過兩套 wasm 工具都跑不起來（一套只能在瀏覽器跑、
+   一套載不進 Node），硬解會拖很久又脆弱 —— 改成在瀏覽器用 pdf.js 帶密碼開，
+   好處是密碼完全不離開這台電腦，也不會經過我們的伺服器或資料庫。
+   代價：列印走的是高解析度圖片（約 300dpi），條碼請第一次印出來掃一下確認。 */
+window.__stSavePdfPw = function(pw){ try{ stSetPdfPw(pw) }catch(e){} };
+
+function stOpenLabelViewer(w, arrayBuffer){
+  const bytes = new Uint8Array(arrayBuffer);
+  let bin = '';
+  const CH = 0x8000;
+  for(let i=0;i<bytes.length;i+=CH) bin += String.fromCharCode.apply(null, bytes.subarray(i, i+CH));
+  const b64 = btoa(bin);
+  const pw = stPdfPw();
+  const PDFJS = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/';
+  const html = [
+    '<!doctype html><html lang="zh-Hant"><head><meta charset="utf-8"><title>標籤列印</title>',
+    '<style>',
+    'body{margin:0;font:14px -apple-system,"Noto Sans TC",sans-serif;background:#f4f3ee;color:#1c1b18}',
+    '#bar{padding:10px 14px;background:#fff;border-bottom:1px solid #ddd9cf;position:sticky;top:0}',
+    '#bar input{padding:6px 8px;border:1px solid #ddd9cf;border-radius:6px;font-size:13px}',
+    '#bar button{padding:6px 12px;border:0;border-radius:6px;background:#1c1b18;color:#fff;font-size:13px;cursor:pointer}',
+    '#pages{padding:12px}',
+    'canvas{display:block;margin:0 auto 12px;max-width:100%;box-shadow:0 1px 6px rgba(0,0,0,.15);background:#fff}',
+    '@media print{#bar{display:none}body{background:#fff}#pages{padding:0}',
+    'canvas{box-shadow:none;margin:0;max-width:none;width:100%;page-break-after:always}}',
+    '</style></head><body>',
+    '<div id="bar">解開標籤中…</div><div id="pages"></div>',
+    '<script src="' + PDFJS + 'pdf.min.js"><' + '/script>',
+    '<script>',
+    'var B64=' + JSON.stringify(b64) + ', PW=' + JSON.stringify(pw) + ';',
+    'var bar=document.getElementById("bar");',
+    'var WORKER_URL=' + JSON.stringify(PDFJS + 'pdf.worker.min.js') + ';',
+    'function bytesOf(b64){var r=atob(b64),a=new Uint8Array(r.length);for(var i=0;i<r.length;i++)a[i]=r.charCodeAt(i);return a}',
+    'function askPw(msg){bar.innerHTML="";var s=document.createElement("span");s.textContent=msg+" ";',
+    ' var inp=document.createElement("input");inp.type="text";inp.placeholder="標籤 PDF 密碼";',
+    ' var btn=document.createElement("button");btn.textContent="解開並列印";',
+    ' bar.appendChild(s);bar.appendChild(inp);bar.appendChild(document.createTextNode(" "));bar.appendChild(btn);',
+    ' inp.focus();',
+    ' function go(){var v=inp.value.trim();if(!v)return;bar.textContent="解開標籤中…";render(v,true)}',
+    ' btn.onclick=go;inp.onkeydown=function(e){if(e.key==="Enter")go()};}',
+    'function render(pw, remember){',
+    ' if(typeof pdfjsLib==="undefined"){bar.textContent="PDF 元件沒載進來（網路被擋？）";return}',
+    ' bar.textContent="解開中…（共 "+Math.round(B64.length/1400)+" KB）";',
+    ' pdfjsLib.getDocument({data:bytesOf(B64),password:pw}).promise.then(function(doc){',
+    '  bar.textContent="產生畫面中…（"+doc.numPages+" 頁）";',
+    '  var pages=document.getElementById("pages");pages.innerHTML="";',
+    '  var chain=Promise.resolve();',
+    '  for(var n=1;n<=doc.numPages;n++){(function(n){chain=chain.then(function(){',
+    '    return doc.getPage(n).then(function(page){',
+    '     var v1=page.getViewport({scale:1});',
+    '     var scale=Math.max(2,Math.min(4,2480/v1.width));',
+    '     var vp=page.getViewport({scale:scale});',
+    '     var c=document.createElement("canvas");c.width=Math.floor(vp.width);c.height=Math.floor(vp.height);',
+    '     pages.appendChild(c);',
+    '     return page.render({canvasContext:c.getContext("2d"),viewport:vp}).promise;',
+    '    });});})(n);}',
+    '  chain.then(function(){',
+    '   if(remember){try{window.opener&&window.opener.__stSavePdfPw&&window.opener.__stSavePdfPw(pw)}catch(e){}}',
+    '   bar.textContent="已解開，正在開列印視窗…（沒跳出來就按 Ctrl/Cmd + P）";',
+    '   setTimeout(function(){try{window.print()}catch(e){}},400);',
+    '  }).catch(function(e){bar.textContent="畫面產生失敗："+(e&&e.message||e)});',
+    ' }).catch(function(e){',
+    '  if(e&&(e.name==="PasswordException"||/password/i.test(e.message||""))){',
+    '   askPw(pw?"密碼不對，請重新輸入：":"這份標籤有密碼，請輸入：");',
+    '  } else { bar.textContent="打不開這份 PDF："+(e&&e.message||e); }',
+    ' });}',
+    // pdf.js 的 worker 不能直接從別的網域載（瀏覽器不准跨網域開 Worker），
+    // 所以先把 worker 抓成 blob 再指過去 —— 不這樣做整個流程會靜靜地卡住不動。
+    'bar.textContent="載入 PDF 元件…";',
+    'fetch(WORKER_URL).then(function(r){return r.text()}).then(function(t){',
+    ' bar.textContent="解開標籤中…";',
+    ' pdfjsLib.GlobalWorkerOptions.workerSrc=URL.createObjectURL(new Blob([t],{type:"text/javascript"}));',
+    ' render(PW,false);',
+    '}).catch(function(e){ bar.textContent="載入 PDF 元件失敗（網路擋住了？）："+(e&&e.message||e) });',
+    '<' + '/script></body></html>'
+  ].join('');
+  try{
+    w.document.open();
+    w.document.write(html);
+    w.document.close();
+  }catch(e){
+    alert('開列印視窗失敗：' + e.message);
+  }
+}
+
 function stPrint(type){
   const picked = stRows.filter(r=>stPick.has(r.completeOrderNo));
   if(!picked.length) return;
@@ -9998,8 +10103,8 @@ function stPrintNosImpl(nos, type){
     .then(({r,b})=>{
       const ct = (r.headers.get('content-type')||'').toLowerCase();
       if(r.ok && ct.indexOf('pdf') >= 0){
-        w.location.href = URL.createObjectURL(b);
-        return;
+        // MOMO 的標籤 PDF 有加密，每次開都要打密碼。密碼記在本機，這裡自動帶進去解開再列印。
+        return b.arrayBuffer().then(ab=>{ stOpenLabelViewer(w, ab) });
       }
       // 不是 PDF → 讀出後端寫的原因，講人話
       return b.text().then(t=>{
