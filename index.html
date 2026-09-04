@@ -9954,12 +9954,29 @@ async function stShipGo(){
 }
 
 function stPrint(type){
-  const nos = stRows.filter(r=>stPick.has(r.completeOrderNo)).map(r=>r.completeOrderNo);
-  if(!nos.length) return;
-  stPrintNos(nos, type);
+  const picked = stRows.filter(r=>stPick.has(r.completeOrderNo));
+  if(!picked.length) return;
+  /* MOMO 是在「出貨確認」當下才產生標籤的，沒做過就按印標籤，
+     它只會回 undoList（＝還沒輪到），畫面丟一段看不懂的 JSON。
+     杰哥 2026-09-04 就是這樣卡住，所以在這裡先講人話。
+     r.shipped 是我們自己記的「出貨確認做完了」；沒有這個記號就先提醒，
+     但仍讓他可以硬印 —— 有可能是在 SCM 後台自己確認的，我們這邊沒記到。 */
+  const notShipped = picked.filter(r=>!r.shipped);
+  if(notShipped.length){
+    const names = notShipped.map(r=>r.completeOrderNo).join('\n');
+    if(!confirm('這 ' + notShipped.length + ' 張還沒做「出貨確認」：\n\n' + names
+      + '\n\nMOMO 是在出貨確認的當下才產生標籤，現在印會印不出來。\n\n'
+      + '建議先按「出貨確認」跑完三步，再回來印。\n\n'
+      + '（如果您是在 SCM 後台自己確認過的，那就按確定繼續印）')) return;
+  }
+  stPrintNos(picked.map(r=>r.completeOrderNo), type);
 }
 
 function stPrintNos(nos, type){
+  return stPrintNosImpl(nos, type);
+}
+
+function stPrintNosImpl(nos, type){
   const bad = nos.filter(n=>!ST_NO_RE.test(stNormNo(n)));
   if(bad.length){
     alert('這幾筆的訂單編號格式不對，MOMO 會退回：\n\n' + bad.join('\n')
@@ -9967,12 +9984,37 @@ function stPrintNos(nos, type){
     return;
   }
   const api = stApi(), tok = stTok();
-  // PDF 直接開新分頁，token 走 query（後端有支援）
   const url = api + '/api/orders/momo/stores/label?printType=' + type
     + '&orderNo=' + encodeURIComponent(nos.join(','))
     + '&token=' + encodeURIComponent(tok);
-  const w = window.open(url, '_blank');
-  if(!w) alert('瀏覽器擋掉彈出視窗了，請允許彈出視窗才能開 PDF');
+  /* 先同步開一個空白分頁（不然非同步之後 window.open 會被擋），
+     抓回來是 PDF 才把它放進去；是錯誤就把分頁關掉、用人看得懂的話講。
+     以前直接把網址丟進新分頁，失敗時使用者看到的是一段 JSON。 */
+  const w = window.open('', '_blank');
+  if(!w){ alert('瀏覽器擋掉彈出視窗了，請允許彈出視窗才能開 PDF'); return }
+  try{ w.document.write('<p style="font:14px sans-serif;padding:16px">產生標籤中…</p>') }catch(e){}
+  fetch(url)
+    .then(r=>r.blob().then(b=>({r:r, b:b})))
+    .then(({r,b})=>{
+      const ct = (r.headers.get('content-type')||'').toLowerCase();
+      if(r.ok && ct.indexOf('pdf') >= 0){
+        w.location.href = URL.createObjectURL(b);
+        return;
+      }
+      // 不是 PDF → 讀出後端寫的原因，講人話
+      return b.text().then(t=>{
+        try{ w.close() }catch(e){}
+        let msg = '';
+        try{ const j = JSON.parse(t); msg = j.error || j.message || t }catch(e){ msg = t }
+        if(/undoList|沒有回傳 PDF/.test(msg)){
+          alert('MOMO 說這幾張還不能印標籤（還沒出貨確認）。\n\n'
+            + '請先按「出貨確認」把三步跑完，再回來印。\n\nMOMO 原文：\n' + msg);
+        } else {
+          alert('印標籤失敗：\n\n' + String(msg).slice(0, 500));
+        }
+      });
+    })
+    .catch(e=>{ try{ w.close() }catch(_){} alert('印標籤失敗（連不上）：' + e.message) });
 }
 
 window.__stRender = function(){
