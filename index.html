@@ -5330,11 +5330,11 @@ function openTradeModal(){
   editId=null;shipId=null;_modalDirty=false;
   const today=localDateISO();
   document.getElementById('modal-body').innerHTML=`<h3>新增同行調貨</h3>
-<div style="background:#e0e7ff;border:1px solid #a5b4fc;border-radius:8px;padding:10px 14px;font-size:11px;color:#3730a3;margin-bottom:12px;line-height:1.6">同行之間互相調貨用。單號會是「調-…」，列表徽章顯示「調」。<br><strong>調出</strong>＝同行跟我們調，我們收錢，算營收；<strong>調入</strong>＝我們跟同行調，我們付錢，<strong>不列入營收統計</strong>。</div>
-<div class="fg"><div class="fi"><label>日期</label><input type="date" id="tr-date" value="${today}"></div><div class="fi"><label>方向 <span style="color:var(--pc)">*</span></label><select id="tr-dir"><option value="out">調出（同行跟我們調・我們收錢）</option><option value="in">調入（我們跟同行調・我們付錢）</option></select></div></div>
+<div style="background:#e0e7ff;border:1px solid #a5b4fc;border-radius:8px;padding:10px 14px;font-size:11px;color:#3730a3;margin-bottom:12px;line-height:1.6">同行跟我們調貨用（我們出貨收錢，算營收）。單號會是「調-…」，列表徽章顯示「調」。</div>
+<div class="fg"><div class="fi"><label>日期</label><input type="date" id="tr-date" value="${today}"></div><div class="fi"><label>狀態</label><select id="tr-status"><option>已完成</option><option>未收錢</option><option>已收錢</option><option>已確認</option><option>未確認</option></select></div></div>
 <div class="fg"><div class="fi"><label>同行店家 <span style="color:var(--pc)">*</span></label><input id="tr-name" placeholder="例：○○樂器行"></div><div class="fi"><label>聯絡人 / 電話</label><input id="tr-phone" placeholder="可空"></div></div>
 <div class="fg full"><div class="fi"><label>商品明細 <span style="color:var(--pc)">*</span> <span style="font-size:10px;color:var(--ht)">（多項用換行分開）</span></label><textarea id="tr-items" rows="4" placeholder="Yamaha FS400C 缺角民謠木吉他 x1&#10;琴袋 x1" style="font-family:var(--mono);font-size:13px"></textarea></div></div>
-<div class="fg"><div class="fi"><label>調貨金額 <span style="color:var(--pc)">*</span></label><input type="text" inputmode="numeric" id="tr-amount" placeholder="例：4200" oninput="this.value=cn(this.value)"></div><div class="fi"><label>狀態</label><select id="tr-status"><option>已完成</option><option>未收錢</option><option>已收錢</option><option>已確認</option><option>未確認</option></select></div></div>
+<div class="fg"><div class="fi"><label>調貨金額 <span style="color:var(--pc)">*</span></label><input type="text" inputmode="numeric" id="tr-amount" placeholder="例：4200" oninput="this.value=cn(this.value)"></div></div>
 <div class="fg full"><div class="fi"><label>備註</label><textarea id="tr-note" rows="2" placeholder="例：對方下週還貨；已開發票；先出後補款…"></textarea></div></div>
 <div class="modal-ft"><button class="btn" onclick="closeModal()">取消</button><button class="btn" onclick="saveTradeOrder()" style="background:#4338ca;border-color:#4338ca;color:#fff">儲存</button></div>`;
   document.getElementById('modal-overlay').classList.remove('hidden');document.body.style.overflow='hidden';
@@ -5348,20 +5348,19 @@ function saveTradeOrder(){
   if(!itemsRaw){alert('至少填一行商品明細');return}
   if(!amount||amount<=0){alert('調貨金額需大於 0');return}
   const date=document.getElementById('tr-date').value||localDateISO();
-  const dir=document.getElementById('tr-dir').value==='in'?'in':'out';
   const status=document.getElementById('tr-status').value;
   const phone=document.getElementById('tr-phone').value.trim();
   const userNote=document.getElementById('tr-note').value.trim();
   const lines=itemsRaw.split('\n').map(l=>l.trim()).filter(Boolean);
-  const noteParts=[dir==='in'?'【調入】我們跟同行調貨（不列入營收）':'【調出】同行跟我們調貨'];
+  const noteParts=[];
   if(lines.length>1)noteParts.push('其他品項：'+lines.slice(1).join('、'));
   if(userNote)noteParts.push(userNote);
-  const o={id:gid(),date,dateFmt:fmtD(date),platform:'TR',trDir:dir,orderNo:'調-'+Date.now().toString().slice(-10),product:lines[0],specs:lines.length>1?`共 ${lines.length} 項`:'',name,phone,realPhone:phone,address:'',addrMgmt:'',addrElev:'',install:'否',installFee:0,installDay:'',installTime:'',installPaidAmount:0,addon:'否',addonFee:0,addonItems:'',addonPaidAmount:0,amount,qty:1,status,note:noteParts.join('\n'),delyGbStr:'',trackingNo:''};
+  const o={id:gid(),date,dateFmt:fmtD(date),platform:'TR',trDir:'out',orderNo:'調-'+Date.now().toString().slice(-10),product:lines[0],specs:lines.length>1?`共 ${lines.length} 項`:'',name,phone,realPhone:phone,address:'',addrMgmt:'',addrElev:'',install:'否',installFee:0,installDay:'',installTime:'',installPaidAmount:0,addon:'否',addonFee:0,addonItems:'',addonPaidAmount:0,amount,qty:1,status,note:noteParts.join('\n'),delyGbStr:'',trackingNo:''};
   logActivity(o,'同行調貨建單');
   orders.push(o);
   _setSavingBadge();db.ref('orders/'+o.id).set(o).catch(_saveError);
   _modalDirty=false;closeModal();updateCnt();
-  showToast(`✅ 已新增同行調貨 ${o.orderNo}｜${dir==='in'?'調入':'調出'} ${name}｜${lines[0]}｜$${amount.toLocaleString()}`,null,null,4000);
+  showToast(`✅ 已新增同行調貨 ${o.orderNo}｜${name}｜${lines[0]}｜$${amount.toLocaleString()}`,null,null,4000);
   showTab('list');
 }
 
