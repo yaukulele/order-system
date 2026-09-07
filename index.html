@@ -446,7 +446,14 @@ body.fullscreen-mode .filter-row{top:32px}
  .fl-toggle{display:inline-flex;align-items:center;gap:4px;padding:8px 14px;border-radius:16px;border:1px solid var(--bd);background:var(--sf);font-family:var(--sans);font-size:12.5px;font-weight:700;color:var(--tx);min-height:38px}
  .fl-toggle.on{background:var(--grn);color:#fff;border-color:var(--grn)}
  .fl-sum{font-size:12px;color:var(--dm);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;min-width:0;flex:1}
- body.fl-collapsed #tab-list .filter-row{display:none}
+ /* 收起來時只收「篩選按鈕」，搜尋框一定要留著（愛莉 2026-09-07：
+    「搜尋的這個在全部細節收起來時請它留著，不要一起收掉」）。
+    整條 filter-row 收掉是我上一版的疏忽 —— 搜尋框本來就長在這條裡面。 */
+ /* 這裡一定要 !important：下面那幾條 .fg-grp[data-grp=...] 本身就寫了 display:flex!important，
+    不加的話收合會失效（收不起來）。 */
+ body.fl-collapsed #tab-list .filter-row>*:not(.search){display:none!important}
+ body.fl-collapsed #tab-list .filter-row{padding:0 4px 6px;row-gap:0}
+ body.fl-collapsed #tab-list .filter-row .search{width:100%;margin:0}
 /* 平台組獨佔 row 1，右側塞篩選 chip + 📜 紀錄（透過 order + margin-left:auto） */
 #tab-list .filter-row .fg-grp[data-grp="plat"]{display:flex!important;flex:1 1 100%;flex-wrap:wrap;align-items:center;gap:4px}
 /* 狀態組獨佔 row 2：一行可橫滑（省直向空間，用戶可以撥右看完所有狀態） */
