@@ -9780,6 +9780,38 @@ async function stLoad(silent){
   stLoading = false;
   stPick.clear();
   stRender();
+  stLoadSending(days);   // 出貨中那半邊在背景補，不擋畫面
+}
+
+/* 出貨中的超商單（杰哥 2026-09-07）
+   只問「未出貨」會漏掉已經轉店到店＋印過單的 —— 實際漏過兩張 7-11。
+   這支在伺服器要打 6 門市 × 5 狀態 = 30 趟 MOMO，很慢，所以獨立在背景跑，
+   回來再併進 stRows；併進來的標成 sending，不能再轉店到店（已經印單了），
+   也不算進「待處理」徽章，但可以勾起來補印標籤。 */
+let stSendingLoading = false;
+async function stLoadSending(days){
+  const api = stApi(), tok = stTok();
+  if(!api || !tok) return;
+  stSendingLoading = true; stRender();
+  try{
+    const r = await fetch(api + '/api/orders/momo/stores/sending?days=' + encodeURIComponent(days||'30'),
+                          { headers:{ 'X-API-Token': tok } });
+    const j = await r.json().catch(()=>({}));
+    if(r.ok && j && j.ok !== false){
+      const have = new Set(stRows.map(x=>x.completeOrderNo));
+      (j.orders||[]).forEach(x=>{
+        if(have.has(x.completeOrderNo)) return;
+        have.add(x.completeOrderNo);
+        stRows.push(Object.assign({}, x, {
+          canS2S:false, sending:true,
+          remark5VStr: x.sendingStatusName || '出貨中',
+          lastPricDate: x.lastPricDate || ''
+        }));
+      });
+    }
+  }catch(e){ /* 背景補的，失敗就算了，不要蓋掉主清單已經抓到的東西 */ }
+  stSendingLoading = false;
+  stRender();
 }
 
 function stRender(){
@@ -9787,7 +9819,7 @@ function stRender(){
   const cnt = $s('stores-cnt');
   if(cnt){
     // 徽章要的是「還要處理幾筆」，已出貨的那幾張留著只是為了補印，不該算進去。
-    const todo = stRows.filter(r=>!r.shipped).length;
+    const todo = stRows.filter(r=>!r.shipped && !r.sending).length;
     cnt.textContent = stLoading ? '…' : String(todo);
     // 有事情要做就變橘色，沒事維持綠色 —— 工讀生掃一眼就知道要不要點進來
     cnt.style.background = todo > 0 ? '#fef9ec' : '#eef7f1';
@@ -9811,6 +9843,7 @@ function stRender(){
       + '<button class="btn" id="st-label"' + (stPick.size?'':' disabled') + '>印標籤</button>'
       + '<button class="btn" id="st-dt"' + (stPick.size?'':' disabled') + '>印明細</button>'
       + '<span class="st-sp"></span>'
+      + (stSendingLoading ? '<span class="st-warn">出貨中的單載入中…</span>' : '')
       + (stLoadedAt ? '<span class="st-warn">抓取於 ' + new Date(stLoadedAt).toLocaleTimeString('zh-TW',{hour:'2-digit',minute:'2-digit'}) + '</span>' : '')
     : '') + manual;
 
@@ -9818,7 +9851,7 @@ function stRender(){
   if(stErr) html += '<div class="st-err">' + esc2(stErr) + '</div>';
   if(stShipOpen) html += stShipPanel();
   if(stLoading) html += '<div class="st-empty">抓取中…</div>';
-  else if(!stRows.length) html += '<div class="st-empty">目前沒有超商取貨的未出貨單。<br>有單進來按上面「重新抓取」就會出現。'
+  else if(!stRows.length) html += '<div class="st-empty">目前沒有超商取貨的單（未出貨、出貨中都查過了）。<br>有單進來按上面「重新抓取」就會出現。'
       + '<br><br>已經做過出貨確認的單，MOMO 這邊就查不到了 —— 要補印標籤的話，'
       + '把訂單編號貼到上面那個欄位，按「直接印標籤」。</div>';
   else {
