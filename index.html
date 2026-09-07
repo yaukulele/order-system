@@ -10066,10 +10066,24 @@ async function stLoadShipTypes(){
 }
 
 async function stShipGo(){
-  const picked = stRows.filter(r=>stPick.has(r.completeOrderNo) && !r.shipped);
+  // 出貨確認只能做「還沒印單」的單：
+  //   shipped → 我們自己按過出貨確認的本機紀錄
+  //   sending → MOMO 那邊已經是出貨中（已印單），第一步「貨源確認」會直接回 null 整批失敗
+  // 這兩種都只能印標籤，不能再走一次出貨流程。
+  const selected = stRows.filter(r=>stPick.has(r.completeOrderNo));
+  const picked = selected.filter(r=>!r.shipped && !r.sending);
+  const blocked = selected.filter(r=>r.shipped || r.sending);
   if(!picked.length){
-    alert('沒有需要出貨的單。（已經標「已出貨」的那幾張不用再做一次，直接按印標籤就好）');
+    alert(blocked.length
+      ? ('這 ' + blocked.length + ' 張已經印過單了（MOMO 那邊是「出貨中」），不能再做出貨確認 —— '
+         + '出貨確認的第一步「貨源確認」對已印單的單做不了，按下去只會失敗。\n\n'
+         + '這種單直接按「印標籤」就好，貨已經在往超商走了。')
+      : '沒有需要出貨的單。');
     return;
+  }
+  if(blocked.length){
+    if(!confirm('勾起來的 ' + selected.length + ' 張裡面，有 ' + blocked.length + ' 張已經印過單了，'
+      + '那幾張會自動跳過（它們不能再做出貨確認）。\n\n只處理剩下的 ' + picked.length + ' 張，要繼續嗎？')) return;
   }
   const boxOn = !!(($s('st-boxyn-on')||{}).checked);
   const cfg = {
