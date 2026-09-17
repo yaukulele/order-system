@@ -9995,7 +9995,12 @@ function stRender(){
   const manual = '<span class="st-sp"></span>'
     + '<input id="st-manual" class="st-manual" placeholder="訂單編號（出貨後補印用）" size="26">'
     + '<button class="btn" id="st-manual-print">直接印標籤</button>'
-    + '<button class="btn" id="st-manual-add">加回清單</button>';
+    + '<button class="btn" id="st-manual-add">加回清單</button>'
+    + (stIsThird()
+        ? '<span class="st-sp"></span>'
+          + '<button class="btn btn-g" id="st-pdf-btn" title="把 SCM 後台下載的宅配單 PDF 丟進來，自動把真實姓名/電話/地址填回訂單">📄 出貨單補電話</button>'
+          + '<input type="file" id="st-pdf-file" accept="application/pdf" multiple style="display:none">'
+        : '');
 
   bar.innerHTML = (stRows.length
     ? '<button class="btn" id="st-all">' + (stPick.size ? '取消全選' : '全選 ' + stRows.length + ' 張') + '</button>'
@@ -10132,6 +10137,8 @@ function stRender(){
   if(mT){ mT.onclick = ()=>stSetMode('third');
           mT.style.background = stIsThird() ? 'var(--mo)' : '';
           mT.style.color = stIsThird() ? '#fff' : ''; }
+  const pb = $s('st-pdf-btn'); if(pb) pb.onclick = ()=>{ const f = $s('st-pdf-file'); if(f){ f.value=''; f.click() } };
+  const pf = $s('st-pdf-file'); if(pf) pf.onchange = ()=>stImportLabelPdf(pf.files);
   const lb = $s('st-label'); if(lb) lb.onclick = ()=>stPrint('label');
   const db = $s('st-dt'); if(db) db.onclick = ()=>stPrint('dt');
 }
@@ -10392,6 +10399,118 @@ function stOpenLabelViewer(w, arrayBuffer){
   }catch(e){
     alert('開列印視窗失敗：' + e.message);
   }
+}
+
+/* ───────── 出貨單 PDF 補電話/地址（杰哥 2026-09-17）─────────
+   第三方單 MOMO 回的個資全是遮罩（林O俊 / 三民路2段81巷5OOOO），而且**沒有電話欄位**。
+   真實姓名+代撥電話+完整地址只印在宅配單上。
+
+   本來想全自動：用 API（unsendThirdPrintPdf）把那張 PDF 抓回來自己解。實測不通 ——
+   未出貨、已出貨、已完成的單都試過，61/62/63/6A 四家物流商代碼也都試過，MOMO 一律回
+   「未執行」不給 PDF。那張單只有他在 SCM 後台點得出來。
+
+   所以改成：他在後台下載那份 PDF（一次印很多張就是多頁），丟進這裡 →
+   後端用固定密碼解開、逐頁抽出「訂單編號 + 姓名 + 電話 + 地址 + 宅配單號」→
+   用 14 碼訂單編號對回系統的單（系統存的是 …-001-001-001，同一張單的每筆明細都會一起更新）
+   → 先把要改什麼列給人看，按確定才寫進去。
+
+   不自動寫入的理由：這會蓋掉姓名/地址，萬一版型變了解錯字，無聲蓋掉比解不出來還糟。 */
+async function stImportLabelPdf(files){
+  const list = Array.from(files||[]);
+  if(!list.length) return;
+  const api = stApi(), tok = stTok();
+  if(!api || !tok){ alert('需先設定 MOMO API + Token（在「匯入」分頁的「自動抓 MOMO」卡片）'); return }
+
+  const btn = $s('st-pdf-btn'); const oldTxt = btn ? btn.textContent : '';
+  if(btn){ btn.disabled = true; btn.textContent = '⏳ 解析中…' }
+  const pages = [];      // 解出來的每一張宅配單
+  const fileErr = [];
+  try{
+    for(const f of list){
+      try{
+        const r = await fetch(api + '/api/orders/momo/third/parse-label', {
+          method:'POST',
+          headers:{ 'X-API-Token': tok, 'Content-Type':'application/pdf' },
+          body: f,
+        });
+        const d = await r.json().catch(()=>null);
+        if(!r.ok || !d || !d.ok){ fileErr.push(f.name + '：' + ((d&&d.error) || ('HTTP ' + r.status))); continue }
+        for(const pg of (d.pages||[])) if(pg.ok) pages.push(pg);
+        if(!d.parsedCount) fileErr.push(f.name + '：' + (d.error || '沒解出東西'));
+      }catch(e){ fileErr.push(f.name + '：' + e.message) }
+    }
+  }finally{ if(btn){ btn.disabled = false; btn.textContent = oldTxt } }
+
+  if(!pages.length){
+    alert('沒有解出任何一張宅配單。\n\n' + (fileErr.join('\n') || '')
+      + '\n\n提醒：要的是「宅配單」那份，出貨總表上面沒有電話跟地址。');
+    return;
+  }
+
+  /* 對單：宅配單上印的是 14 碼訂單編號，系統存的是完整編號（14碼-001-001-001）。
+     同一張訂單可能有好幾筆明細（例如買了琴又買背帶），每一筆都要填到。 */
+  const hits = [], misses = [];
+  for(const pg of pages){
+    if(!pg.orderNo){ misses.push('（這頁讀不到訂單編號）'); continue }
+    const matched = orders.filter(o => o && o.platform==='MO3'
+      && String(o.orderNo||'').replace(/-.*$/,'') === pg.orderNo);
+    if(matched.length) hits.push({ pg, matched });
+    else misses.push(pg.orderNo + '（系統裡沒有這張第三方單）');
+  }
+  if(!hits.length){
+    alert('解出 ' + pages.length + ' 張宅配單，但一張都對不到系統裡的第三方訂單：\n\n' + misses.join('\n'));
+    return;
+  }
+
+  // 先列給人看要改什麼 —— 姓名/地址會被蓋掉，不能無聲執行
+  let msg = '讀到 ' + pages.length + ' 張宅配單，其中 ' + hits.length + ' 張對得到系統訂單：\n\n';
+  for(const h of hits){
+    const o = h.matched[0];
+    msg += h.pg.orderNo + '　' + (o.name||'?') + (h.pg.name ? ' → ' + h.pg.name : '') + '\n'
+      + '　電話：' + (h.pg.phone || '—') + '\n'
+      + '　地址：' + (h.pg.address || '—') + '\n'
+      + (h.matched.length>1 ? '　（' + h.matched.length + ' 筆明細一起更新）\n' : '');
+  }
+  if(misses.length) msg += '\n對不到的 ' + misses.length + ' 張：\n' + misses.join('\n') + '\n';
+  if(fileErr.length) msg += '\n讀不到的檔案：\n' + fileErr.join('\n') + '\n';
+  msg += '\n要寫進去嗎？（會蓋掉現在的遮罩姓名／地址）';
+  if(!confirm(msg)) return;
+
+  // 寫入：一次 multi-path update，避免半套
+  const upd = {}, touched = [];
+  for(const h of hits){
+    for(const o of h.matched){
+      const patch = {};
+      if(h.pg.name && h.pg.name !== o.name) patch.name = h.pg.name;
+      if(h.pg.phone && h.pg.phone !== o.phone) patch.phone = h.pg.phone;
+      if(h.pg.address && h.pg.address !== o.address) patch.address = h.pg.address;
+      if(h.pg.trackingNo && !o.trackingNo) patch.trackingNo = h.pg.trackingNo;
+      if(!Object.keys(patch).length) continue;
+      for(const k in patch) upd[o.id + '/' + k] = patch[k];
+      touched.push({ o, patch });
+    }
+  }
+  if(!touched.length){ alert('這些單的姓名／電話／地址都已經是宅配單上的內容了，沒有要改的。'); return }
+
+  _setSavingBadge();
+  try{
+    await db.ref('orders').update(upd);
+  }catch(e){ if(typeof _saveError==='function')_saveError(e); alert('寫入失敗：' + e.message); return }
+
+  // 本地同步 + 留一行紀錄（誰在什麼時候用出貨單補的）
+  const who = (typeof currentUser!=='undefined' && currentUser) ? currentUser : '?';
+  for(const t of touched){
+    Object.assign(t.o, t.patch);
+    const bits = [];
+    if(t.patch.name) bits.push('姓名');
+    if(t.patch.phone) bits.push('電話');
+    if(t.patch.address) bits.push('地址');
+    if(t.patch.trackingNo) bits.push('宅配單號');
+    try{ noteAppendCommit(t.o.id, ['【出貨單】補上' + bits.join('／') + ' ⟨@' + who + ' · ' + _noteShortStamp() + '⟩']) }catch(e){}
+  }
+  _invalidateOrderCaches();
+  try{ renderList() }catch(e){}
+  alert('✅ 已更新 ' + touched.length + ' 筆訂單（' + hits.length + ' 張宅配單）。');
 }
 
 function stPrint(type){
