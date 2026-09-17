@@ -10447,8 +10447,17 @@ async function stImportLabelPdf(files){
     return;
   }
 
-  /* 對單：宅配單上印的是 14 碼訂單編號，系統存的是完整編號（14碼-001-001-001）。
-     同一張訂單可能有好幾筆明細（例如買了琴又買背帶），每一筆都要填到。 */
+  const res = await stApplyLabelPages(pages, { confirm:true, onlyMasked:false });
+  if(res.msg) alert(res.msg);
+}
+
+/* 宅配單解析結果 → 對回系統訂單 → 寫入。上傳流程跟印標籤流程共用這一支。
+   opts.confirm    true = 先把要改什麼列出來讓人按確定（手動上傳走這條）
+   opts.onlyMasked true = 只填「現在是遮罩或空白」的欄位，不動已經是真資料的
+                   （印標籤自動跑的時候走這條 —— 沒有人在看，不可以無聲蓋掉好資料） */
+async function stApplyLabelPages(pages, opts){
+  opts = opts || {};
+  const isMasked = v => { const t = String(v||'').trim(); return !t || /[O○*]/.test(t) };
   const hits = [], misses = [];
   for(const pg of pages){
     if(!pg.orderNo){ misses.push('（這頁讀不到訂單編號）'); continue }
@@ -10458,46 +10467,56 @@ async function stImportLabelPdf(files){
     else misses.push(pg.orderNo + '（系統裡沒有這張第三方單）');
   }
   if(!hits.length){
-    alert('解出 ' + pages.length + ' 張宅配單，但一張都對不到系統裡的第三方訂單：\n\n' + misses.join('\n'));
-    return;
+    return { updated:0, hits:0, misses:misses.length,
+      msg:'解出 ' + pages.length + ' 張宅配單，但一張都對不到系統裡的第三方訂單：\n\n' + misses.join('\n') };
   }
 
-  // 先列給人看要改什麼 —— 姓名/地址會被蓋掉，不能無聲執行
-  let msg = '讀到 ' + pages.length + ' 張宅配單，其中 ' + hits.length + ' 張對得到系統訂單：\n\n';
-  for(const h of hits){
-    const o = h.matched[0];
-    msg += h.pg.orderNo + '　' + (o.name||'?') + (h.pg.name ? ' → ' + h.pg.name : '') + '\n'
-      + '　電話：' + (h.pg.phone || '—') + '\n'
-      + '　地址：' + (h.pg.address || '—') + '\n'
-      + (h.matched.length>1 ? '　（' + h.matched.length + ' 筆明細一起更新）\n' : '');
-  }
-  if(misses.length) msg += '\n對不到的 ' + misses.length + ' 張：\n' + misses.join('\n') + '\n';
-  if(fileErr.length) msg += '\n讀不到的檔案：\n' + fileErr.join('\n') + '\n';
-  msg += '\n要寫進去嗎？（會蓋掉現在的遮罩姓名／地址）';
-  if(!confirm(msg)) return;
-
-  // 寫入：一次 multi-path update，避免半套
-  const upd = {}, touched = [];
+  // 先算出「實際會改什麼」，才有東西可以列給人看，也才知道是不是根本沒東西要改
+  const touched = [], upd = {};
   for(const h of hits){
     for(const o of h.matched){
       const patch = {};
-      if(h.pg.name && h.pg.name !== o.name) patch.name = h.pg.name;
-      if(h.pg.phone && h.pg.phone !== o.phone) patch.phone = h.pg.phone;
-      if(h.pg.address && h.pg.address !== o.address) patch.address = h.pg.address;
+      const take = (field, val) => {
+        if(!val || val === o[field]) return;
+        if(opts.onlyMasked && !isMasked(o[field])) return;
+        patch[field] = val;
+      };
+      take('name', h.pg.name);
+      take('phone', h.pg.phone);
+      take('address', h.pg.address);
       if(h.pg.trackingNo && !o.trackingNo) patch.trackingNo = h.pg.trackingNo;
       if(!Object.keys(patch).length) continue;
       for(const k in patch) upd[o.id + '/' + k] = patch[k];
       touched.push({ o, patch });
     }
   }
-  if(!touched.length){ alert('這些單的姓名／電話／地址都已經是宅配單上的內容了，沒有要改的。'); return }
+  if(!touched.length){
+    return { updated:0, hits:hits.length, misses:misses.length,
+      msg: opts.confirm ? '這些單的姓名／電話／地址都已經是宅配單上的內容了，沒有要改的。' : '' };
+  }
+
+  if(opts.confirm){
+    let msg = '讀到 ' + pages.length + ' 張宅配單，其中 ' + hits.length + ' 張對得到系統訂單：\n\n';
+    for(const h of hits){
+      const o = h.matched[0];
+      msg += h.pg.orderNo + '　' + (o.name||'?') + (h.pg.name ? ' → ' + h.pg.name : '') + '\n'
+        + '　電話：' + (h.pg.phone || '—') + '\n'
+        + '　地址：' + (h.pg.address || '—') + '\n'
+        + (h.matched.length>1 ? '　（' + h.matched.length + ' 筆明細一起更新）\n' : '');
+    }
+    if(misses.length) msg += '\n對不到的 ' + misses.length + ' 張：\n' + misses.join('\n') + '\n';
+    msg += '\n要寫進去嗎？（會蓋掉現在的遮罩姓名／地址）';
+    if(!confirm(msg)) return { updated:0, hits:hits.length, misses:misses.length, msg:'' };
+  }
 
   _setSavingBadge();
   try{
     await db.ref('orders').update(upd);
-  }catch(e){ if(typeof _saveError==='function')_saveError(e); alert('寫入失敗：' + e.message); return }
+  }catch(e){
+    if(typeof _saveError==='function')_saveError(e);
+    return { updated:0, hits:hits.length, misses:misses.length, msg:'寫入失敗：' + e.message };
+  }
 
-  // 本地同步 + 留一行紀錄（誰在什麼時候用出貨單補的）
   const who = (typeof currentUser!=='undefined' && currentUser) ? currentUser : '?';
   for(const t of touched){
     Object.assign(t.o, t.patch);
@@ -10510,7 +10529,30 @@ async function stImportLabelPdf(files){
   }
   _invalidateOrderCaches();
   try{ renderList() }catch(e){}
-  alert('✅ 已更新 ' + touched.length + ' 筆訂單（' + hits.length + ' 張宅配單）。');
+  return { updated:touched.length, hits:hits.length, misses:misses.length,
+    msg:'✅ 已更新 ' + touched.length + ' 筆訂單（' + hits.length + ' 張宅配單）。' };
+}
+
+/* 印標籤的時候順手把電話地址讀回來（阿淵 2026-09-17：「有辦法全自動嗎」）。
+   印標籤本來就已經把那張 PDF 抓進瀏覽器了 —— 同一份資料再送去解析一次就好，
+   不用多打一次 MOMO，也不用他多按任何東西。
+   只填現在還是遮罩/空白的欄位，人工改過的真資料不動。失敗就安靜跳過（列印是主線，不能被拖累）。 */
+async function stAutoFillFromLabelPdf(arrayBuffer){
+  try{
+    const api = stApi(), tok = stTok();
+    if(!api || !tok) return;
+    const r = await fetch(api + '/api/orders/momo/third/parse-label', {
+      method:'POST',
+      headers:{ 'X-API-Token': tok, 'Content-Type':'application/pdf' },
+      body: arrayBuffer,
+    });
+    const d = await r.json().catch(()=>null);
+    if(!r.ok || !d || !d.ok || !d.parsedCount) return;
+    const res = await stApplyLabelPages((d.pages||[]).filter(p=>p.ok), { confirm:false, onlyMasked:true });
+    if(res.updated && typeof showToast==='function'){
+      showToast('📄 已從宅配單補上 ' + res.updated + ' 筆的真實姓名/電話/地址');
+    }
+  }catch(e){}
 }
 
 function stPrint(type){
@@ -10560,6 +10602,8 @@ function stPrintNosImpl(nos, type){
       const ct = (r.headers.get('content-type')||'').toLowerCase();
       if(r.ok && ct.indexOf('pdf') >= 0){
         if(type === 'label') stMarkPrinted(nos);   // 真的拿到 PDF 才算印過
+        // 三方的標籤上就印著真實姓名/電話/地址 —— 同一份 PDF 順手解一次自動補回訂單
+        if(type === 'label' && stIsThird()) b.arrayBuffer().then(ab=>stAutoFillFromLabelPdf(ab)).catch(()=>{});
         // MOMO 的標籤 PDF 有加密，每次開都要打密碼。密碼記在本機，這裡自動帶進去解開再列印。
         return b.arrayBuffer().then(ab=>{ stOpenLabelViewer(w, ab) });
       }
