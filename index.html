@@ -3925,11 +3925,12 @@ function buildOrderActions(o,variant){
 }
 
 // 商品頁網址 — 重複確認訂單買的商品用
-// 有商品編號（MOMO goodsCode=i_code / PChome Prod.Id）→ 直接連到精準商品頁；
+// 有商品編號（MOMO goodsCode / PChome Prod.Id）→ 直接連到精準商品頁；
+// MOMO 一律用 /product/<編號>：舊的 GoodsDetail.jsp?i_code= 在手機上會被轉去 m.momoshop.com.tw 再轉回來，無限轉圈打不開。
 // 沒有編號（舊單 / 店內 / 學校）→ 退回用商品名稱搜尋。
 function prodIsExact(o){return ((o.platform==='MO'||o.platform==='MO3')&&o.goodsCode)||(o.platform==='PC'&&o.prodId)}
 function prodSearchUrl(o){
-  if((o.platform==='MO'||o.platform==='MO3')&&o.goodsCode)return 'https://www.momoshop.com.tw/goods/GoodsDetail.jsp?i_code='+encodeURIComponent(String(o.goodsCode).trim());
+  if((o.platform==='MO'||o.platform==='MO3')&&o.goodsCode)return 'https://www.momoshop.com.tw/product/'+encodeURIComponent(String(o.goodsCode).trim());
   if(o.platform==='PC'&&o.prodId)return 'https://24h.pchome.com.tw/prod/'+encodeURIComponent(String(o.prodId).trim());
   const q=encodeURIComponent((o.product||'').trim());
   if(!q)return '';
