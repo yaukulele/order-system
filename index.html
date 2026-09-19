@@ -5527,10 +5527,118 @@ const blob=new Blob([csv],{type:'text/csv;charset=utf-8'});const url=URL.createO
 // ===== 貨運託運單匯出（勾選訂單 → 範本 9 欄 .xls，備註自動帶品名）=====
 // 欄位對齊貨運託運單範本：出貨日期/收貨人/收貨人電話1/收貨人地址/件數/才數/指送日期/希望配送時段/備註
 function loadXLSX(){return new Promise((res,rej)=>{if(window.XLSX)return res(window.XLSX);const s=document.createElement('script');s.src='https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js';s.onload=()=>window.XLSX?res(window.XLSX):rej(new Error('XLSX undefined'));s.onerror=()=>rej(new Error('load fail'));document.head.appendChild(s)})}
+/* ===== 才數記憶（杰哥 2026-09-19）=====
+   原本匯出託運單時「才數」一律寫死 1，所以每次都要到 Excel 裡重打一次，
+   同一個商品出幾次就重打幾次。這段把「這個商品填過幾才」記起來，下次自動帶出來，
+   沒填過的才提醒要填。
+
+   ── 鑰匙怎麼取 ──
+   優先用平台商品編號（MOMO goodsCode / PChome prodId）—— 品名平台會改，編號不會。
+   沒有編號的（店內、學校、調貨、展場）退回用品名。兩把鑰匙都會寫，所以同一件商品
+   之後不管從哪個平台進來都對得到。
+
+   ── 為什麼連「當時幾件」也一起記 ──
+   才數到底是「整張單的總才」還是「一件的才」，範本上沒寫、我也不敢猜。
+   所以只記「您當時填了什麼」，同時把當時的件數一起記著；下次件數不一樣時會跳提醒，
+   由您決定要不要改，系統不會自己幫您乘。 */
+function _fbKey(s){return String(s||'').replace(/[.#$\[\]\/]/g,'~').slice(0,300)}
+function sizeKeysFor(o){
+  const ks=[];
+  if((o.platform==='MO'||o.platform==='MO3')&&o.goodsCode)ks.push('MO:'+_fbKey(o.goodsCode));
+  if(o.platform==='PC'&&o.prodId)ks.push('PC:'+_fbKey(o.prodId));
+  const nm=String(o.product||'').trim();
+  if(nm)ks.push('N:'+_fbKey(nm));
+  return ks;
+}
+let _shipSizes=null;
+async function loadShipSizes(force){
+  if(_shipSizes&&!force)return _shipSizes;
+  try{const snap=await db.ref('shipSizes').once('value');_shipSizes=snap.val()||{}}
+  catch(e){console.warn('才數記憶讀取失敗',e);_shipSizes={}}
+  return _shipSizes;
+}
+function lookupSize(o,mem){
+  for(const k of sizeKeysFor(o)){const v=mem[k];if(v&&v.cai!=null)return {...v,key:k}}
+  return null;
+}
+
+// 勾選的訂單 → 依商品收斂成一列一商品（同商品多筆訂單只要填一次才數）
+function groupForShipping(sel,mem){
+  const g=new Map();
+  for(const o of sel){
+    const k=sizeKeysFor(o)[0]||('N:'+_fbKey(o.product||o.id));
+    if(!g.has(k))g.set(k,{key:k,name:o.product||'(無品名)',orders:[],qty:0,mem:lookupSize(o,mem)});
+    const row=g.get(k);row.orders.push(o);row.qty+=Number(o.qty)||1;
+  }
+  return [...g.values()];
+}
+
 async function batchExportShipping(){
   const sel=orders.filter(o=>selectedIds.has(o.id));
   if(!sel.length){alert('請先勾選要匯出的訂單');return}
+  const mem=await loadShipSizes();
+  const groups=groupForShipping(sel,mem);
+  _shipExportGroups=groups;
+  const miss=groups.filter(r=>!r.mem).length;
+  document.getElementById('modal-body').innerHTML=`<h3>📦 匯出託運單 — 確認才數</h3>
+    <div style="font-size:11px;color:var(--dm);line-height:1.7;margin:6px 0 10px">
+      已勾選 ${sel.length} 筆訂單、${groups.length} 種商品。填過的會自動帶出來，
+      ${miss?`還有 <b style="color:#b91c1c">${miss} 種沒填過</b>，填完才能匯出。`:'這次全部都有紀錄。'}
+      <br>才數是算運費的數字，Amy 不會自己幫您乘或換算，只會記住您填的。
+    </div>
+    <div style="max-height:52vh;overflow:auto;border:1px solid var(--bd);border-radius:8px">
+    <table style="width:100%;border-collapse:collapse;font-size:12px">
+      <tr style="background:var(--sf2)"><th style="text-align:left;padding:6px 8px">商品</th>
+        <th style="padding:6px 8px;width:64px">件數</th><th style="padding:6px 8px;width:92px">才數</th></tr>
+      ${groups.map((r,i)=>{
+        const qtyChanged=r.mem&&r.mem.qty!=null&&Number(r.mem.qty)!==Number(r.qty);
+        return `<tr style="border-top:1px solid var(--bd)">
+          <td style="padding:6px 8px">
+            <div style="font-weight:600;line-height:1.4">${esc(r.name)}</div>
+            <div style="font-size:10px;color:var(--dm)">${r.orders.length} 筆訂單
+              ${r.mem?`・上次 ${esc(String(r.mem.cai))} 才${r.mem.qty!=null?`（${esc(String(r.mem.qty))} 件）`:''}`
+                     :'・<span style="color:#b91c1c;font-weight:700">沒填過</span>'}
+              ${qtyChanged?`<span style="color:#b45309;font-weight:700">　⚠ 這次是 ${r.qty} 件，跟上次不同，確認才數要不要改</span>`:''}
+            </div>
+          </td>
+          <td style="padding:6px 8px;text-align:center">${r.qty}</td>
+          <td style="padding:6px 8px"><input id="cai_${i}" type="number" min="0" step="0.1"
+            value="${r.mem?esc(String(r.mem.cai)):''}" placeholder="才數"
+            style="width:100%;text-align:right;${r.mem?'':'border-color:#fca5a5;background:#fef2f2'}"></td>
+        </tr>`}).join('')}
+    </table></div>
+    <div class="modal-ft"><button class="btn" onclick="closeModal()">取消</button>
+      <button class="btn btn-g" onclick="doExportShipping()">📦 匯出 Excel</button></div>`;
+  document.getElementById('modal-overlay').classList.remove('hidden');document.body.style.overflow='hidden';
+}
+
+let _shipExportGroups=null;
+async function doExportShipping(){
+  const groups=_shipExportGroups||[];
+  if(!groups.length){alert('沒有要匯出的資料');return}
+  // 先把每一列讀回來，有人沒填就擋下來 —— 才數空白匯出去等於又回到手動填的老路
+  const vals=[];
+  for(let i=0;i<groups.length;i++){
+    const el=document.getElementById('cai_'+i);
+    const v=el?String(el.value).trim():'';
+    if(v===''||!(Number(v)>=0)){alert('「'+groups[i].name+'」的才數還沒填');if(el)el.focus();return}
+    vals.push(Number(v));
+  }
+  const sel=[];const caiOf={};
+  groups.forEach((r,i)=>{r.orders.forEach(o=>{sel.push(o);caiOf[o.id]=vals[i]})});
   let XLSX;try{XLSX=await loadXLSX()}catch(e){alert('Excel 元件載入失敗，請確認網路後再試一次');return}
+  // 記起來（寫失敗不擋匯出 —— 匯出比記憶重要，但要講出來，不然下次又是空的還以為記住了）
+  try{
+    await authReady;
+    const upd={};const now=new Date().toISOString();const who=(typeof currentUser!=='undefined'&&currentUser)||'';
+    groups.forEach((r,i)=>{
+      const payload={cai:vals[i],qty:r.qty,name:r.name,at:now,by:who};
+      for(const k of sizeKeysFor(r.orders[0]))upd[k]=payload;
+    });
+    await db.ref('shipSizes').update(upd);
+    _shipSizes=Object.assign(_shipSizes||{},upd);
+  }catch(e){ alert('才數這次沒記起來（'+e.message+'），Excel 還是會匯出，但下次要再填一次'); }
+  closeModal();
   const today=localDateISO();
   // 出貨日期預設今天、指送日期=出貨日期+1天，皆 YYYYMMDD 格式（杰哥需求：例 20260622 / 20260623）；才數預設 1
   const ymd=s=>s.replace(/-/g,'');
@@ -5541,7 +5649,8 @@ async function batchExportShipping(){
   // 電話：優先帶真實電話 realPhone，空白才退回一般 phone（杰哥需求；MOMO 第三方 phone 常是遮罩號）
   const platPrefix=p=>(p==='MO'||p==='MO3')?'MO_':(p==='PC'?'PC_':'');
   // 電話：realPhone 優先，空白才退回一般 phone（含 MOMO 代撥號 — 阿淵確認社長可轉接，要保留）
-  const rows=sel.map(o=>[shipYmd,(o.name||''),(o.realPhone||o.phone||''),(o.address||''),(o.qty||1),1,arriveYmd,'',platPrefix(o.platform)+(o.product||'')]);
+  // 才數不再寫死 1，改用剛剛在確認視窗填的／記憶帶出來的值
+  const rows=sel.map(o=>[shipYmd,(o.name||''),(o.realPhone||o.phone||''),(o.address||''),(o.qty||1),(caiOf[o.id]??1),arriveYmd,'',platPrefix(o.platform)+(o.product||'')]);
   const ws=XLSX.utils.aoa_to_sheet([header,...rows]);
   ws['!cols']=[{wch:11},{wch:9},{wch:14},{wch:34},{wch:5},{wch:5},{wch:11},{wch:14},{wch:30}];
   const wb=XLSX.utils.book_new();XLSX.utils.book_append_sheet(wb,ws,'SHEET');
