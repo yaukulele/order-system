@@ -10369,6 +10369,19 @@ async function stShipGo(){
     if(!confirm('勾起來的 ' + selected.length + ' 張裡面，有 ' + blocked.length + ' 張已經印過單了，'
       + '那幾張會自動跳過（它們不能再做出貨確認）。\n\n只處理剩下的 ' + picked.length + ' 張，要繼續嗎？')) return;
   }
+  /* 🔴 2026-09-19 杰哥：「你店到店沒有轉成功」——後台 3 張掛在「已印單・7-11」＝還是直配。
+     關鍵限制：轉換那支 API 是「**未出貨**訂單-超商取貨-店到店轉換」（doAction 也是 unsend 開頭），
+     **做完出貨確認（＝已印單）就轉不了了**。所以出貨確認是這件事的最後一道門，
+     過了這道門再想轉店到店就只能進 SCM 後台想辦法。
+     canS2S=true 代表這張還是直配(21/27)而且轉得了 → 出貨前一定要問一次。 */
+  const stillDirect = picked.filter(r=>r.canS2S);
+  if(stillDirect.length){
+    if(!confirm('⚠ 這 ' + stillDirect.length + ' 張還是「直配」，還沒轉成店到店：\n\n'
+      + stillDirect.map(r=>r.completeOrderNo + '（' + (r.delyGbName||'') + '）').join('\n')
+      + '\n\n出貨確認做下去就「不能再轉店到店」了（MOMO 那支轉換只吃未出貨的單）。\n\n'
+      + '要先去轉店到店的話，按「取消」，回上面按「轉店到店」再回來。\n'
+      + '確定就是要用直配出，才按「確定」繼續。')) return;
+  }
   const boxOn = !!(($s('st-boxyn-on')||{}).checked);
   const cfg = {
     shipType: ($s('st-shiptype')||{}).value || '原箱',
