@@ -10253,13 +10253,11 @@ function stRender(){
   const db = $s('st-dt'); if(db) db.onclick = ()=>stPrint('dt');
 }
 
-async function stConvert(targetMode){
-  const picked = stRows.filter(r=>stPick.has(r.completeOrderNo) && r.canS2S);
-  if(!picked.length) return;
-  const names = picked.map(r=>r.completeOrderNo + '（' + r.delyGbName + '）').join('\n');
-  if(!confirm('要把這 ' + picked.length + ' 張轉成店到店嗎？\n\n' + names
-    + '\n\n這個動作會直接改 MOMO 上的配送方式，改完要還原得自己進 SCM 後台。')) return;
-
+/* 轉店到店的實際動作。拆出來是因為出貨確認前要自動跑一次（杰哥：我們只有店到店），
+   那時候不能跳確認視窗、也不能自己 alert，要把結果回給呼叫端決定怎麼辦。
+   回 { ok, success, failed, msg }。 */
+const S2S_NAME = { '28':'7-11店到店', '29':'全家店到店' };
+async function stConvertRun(picked, targetMode){
   const api = stApi(), tok = stTok();
   try{
     const r = await fetch(api + '/api/orders/momo/stores/to-s2s', {
@@ -10272,22 +10270,34 @@ async function stConvert(targetMode){
       }),
     });
     const j = await r.json().catch(()=>({}));
-    if(j && j.ok){
-      alert('轉換成功 ' + (j.success||0) + ' 張' + (j.failed ? ('，失敗 ' + j.failed + ' 張：' + (j.failMessage||'')) : '')
-        + '\n\n列表會重新抓一次，轉好的那幾張會變成綠字「已是店到店」，可以直接勾起來印貼紙。');
-      stLoad();
-      return;
-    }
-    // 失敗 —— 把後端整理過的原因＋MOMO 原始回應顯示出來，不要自己翻譯或吞掉。
+    if(j && j.ok) return { ok:true, success:(j.success||0), failed:(j.failed||0), msg:(j.failMessage||'') };
+    // 失敗 —— 把後端整理過的原因＋MOMO 原始回應交出去，不要自己翻譯或吞掉。
     // ⚠「HTTP 502」是我們自己伺服器的狀態碼，不是 MOMO 講的話，所以要標清楚是誰講的。
     const detail = (j && (j.error || j.failMessage)) || '';
     const raw = (j && j.raw) ? ('\n\nMOMO 原始回應：\n' + j.raw) : '';
-    const msg = detail ? (detail + raw) : ('（後端回 HTTP ' + r.status + '，而且沒帶原因，可能是服務本身掛了）');
-    // ⚠ 這裡刻意不提供「換另一種傳法再試」。那個傳法(送 28/29)是「轉回直配」的開關，
-    //   失敗時再按等於把單轉回去 —— 2026-09-02 就是這樣白轉了兩張。
-    alert('轉換沒成功：\n\n' + msg
-      + '\n\n先別重複按。把這段截圖給我，我對文件查原因。');
-  }catch(e){ alert('連不上：' + e.message) }
+    return { ok:false, success:0, failed:picked.length,
+             msg: detail ? (detail + raw) : ('（後端回 HTTP ' + r.status + '，而且沒帶原因，可能是服務本身掛了）') };
+  }catch(e){ return { ok:false, success:0, failed:picked.length, msg:'連不上：' + e.message } }
+}
+
+// 手動按「轉店到店」——跳確認、跑、報結果
+async function stConvert(targetMode){
+  const picked = stRows.filter(r=>stPick.has(r.completeOrderNo) && r.canS2S);
+  if(!picked.length) return;
+  const names = picked.map(r=>r.completeOrderNo + '（' + r.delyGbName + '）').join('\n');
+  if(!confirm('要把這 ' + picked.length + ' 張轉成店到店嗎？\n\n' + names
+    + '\n\n這個動作會直接改 MOMO 上的配送方式，改完要還原得自己進 SCM 後台。')) return;
+  const res = await stConvertRun(picked, targetMode);
+  if(res.ok){
+    alert('轉換成功 ' + res.success + ' 張' + (res.failed ? ('，失敗 ' + res.failed + ' 張：' + res.msg) : '')
+      + '\n\n列表會重新抓一次，轉好的那幾張會變成綠字「已是店到店」，可以直接勾起來印貼紙。');
+    stLoad();
+    return;
+  }
+  // ⚠ 刻意不提供「換另一種傳法再試」。那個傳法(送 28/29)是「轉回直配」的開關，
+  //   失敗時再按等於把單轉回去 —— 2026-09-02 就是這樣白轉了兩張。
+  alert('轉換沒成功：\n\n' + res.msg
+    + '\n\n先別重複按。把這段截圖給我，我對文件查原因。');
 }
 
 /* 出貨確認面板。MOMO 要求：出貨包材 / 包材類型 / 包材重量(公克)，包材重量會被稽查，
@@ -10369,19 +10379,18 @@ async function stShipGo(){
     if(!confirm('勾起來的 ' + selected.length + ' 張裡面，有 ' + blocked.length + ' 張已經印過單了，'
       + '那幾張會自動跳過（它們不能再做出貨確認）。\n\n只處理剩下的 ' + picked.length + ' 張，要繼續嗎？')) return;
   }
-  /* 🔴 2026-09-19 杰哥：「你店到店沒有轉成功」——後台 3 張掛在「已印單・7-11」＝還是直配。
-     關鍵限制：轉換那支 API 是「**未出貨**訂單-超商取貨-店到店轉換」（doAction 也是 unsend 開頭），
-     **做完出貨確認（＝已印單）就轉不了了**。所以出貨確認是這件事的最後一道門，
-     過了這道門再想轉店到店就只能進 SCM 後台想辦法。
-     canS2S=true 代表這張還是直配(21/27)而且轉得了 → 出貨前一定要問一次。 */
+  /* 🔴 2026-09-19：自動轉店到店
+     杰哥回報「你店到店沒有轉成功」（後台 3 張掛在「已印單・7-11」＝還是直配就出貨了），
+     接著明講「**我們只有店到店，所以就是要自動幫我轉**」。
+
+     關鍵限制：轉換那支 API 是「**未出貨**訂單-超商取貨-店到店轉換」（doAction 也是 unsend
+     開頭）→ **做完出貨確認（＝已印單）就再也轉不了**。出貨確認是唯一的最後一道門。
+
+     為什麼放在這裡、而不是抓單的時候就自動轉：轉換是會改 MOMO 的寫入動作，
+     背景自動抓單每 10 分鐘跑一次，不該在沒人看著的時候寫 MOMO。
+     放在「人按出貨確認」這個明確動作裡，時機一樣對（就在出貨前一刻），但一定有人在場。
+     實際的轉換動作放在最後那個確認視窗**之後**——他沒按確定就什麼都不該寫進 MOMO。 */
   const stillDirect = picked.filter(r=>r.canS2S);
-  if(stillDirect.length){
-    if(!confirm('⚠ 這 ' + stillDirect.length + ' 張還是「直配」，還沒轉成店到店：\n\n'
-      + stillDirect.map(r=>r.completeOrderNo + '（' + (r.delyGbName||'') + '）').join('\n')
-      + '\n\n出貨確認做下去就「不能再轉店到店」了（MOMO 那支轉換只吃未出貨的單）。\n\n'
-      + '要先去轉店到店的話，按「取消」，回上面按「轉店到店」再回來。\n'
-      + '確定就是要用直配出，才按「確定」繼續。')) return;
-  }
   const boxOn = !!(($s('st-boxyn-on')||{}).checked);
   const cfg = {
     shipType: ($s('st-shiptype')||{}).value || '原箱',
@@ -10404,9 +10413,29 @@ async function stShipGo(){
   }
   const names = picked.map(r=>r.completeOrderNo).join('\n');
   if(!confirm('要把這 ' + picked.length + ' 張做出貨確認嗎？\n\n' + names
+    + (stillDirect.length ? ('\n\n其中 ' + stillDirect.length + ' 張還是直配，會先自動幫您轉成店到店再出貨。') : '')
     + '\n\n包材：' + cfg.shipType + (cfg.packType?('／'+cfg.packType):'') + (cfg.packUnit?('／'+cfg.packUnit+'g'):'')
     + '\n併箱：' + (cfg.boxOn ? ('是，編號 ' + cfg.boxYn + '（' + picked.length + ' 張裝一箱）') : '否')
     + '\n\n⚠ 第三步是真的出庫，做完 MOMO 那邊就算已出貨了。')) return;
+
+  // 先自動轉店到店（只有超商有這回事，第三方沒有）
+  if(stillDirect.length){
+    stShipMsg = '先自動轉店到店（' + stillDirect.length + ' 張）…'; stRender();
+    const cr = await stConvertRun(stillDirect, false);
+    if(!cr.ok){
+      // 🔴 轉失敗就整個停下來不出貨 —— 出貨確認做下去就再也轉不了，寧可停在這裡讓人處理
+      stShipMsg = ''; stRender();
+      alert('自動轉店到店沒成功，所以停下來沒有出貨：\n\n' + (cr.msg||'')
+        + '\n\n（出貨確認一做下去就再也轉不了店到店，所以寧可停在這一步。）'
+        + '\n先別重複按，把這段截圖給我。');
+      return;
+    }
+    // 轉好了就地更新，不重抓 —— 重抓會把勾選清掉，出貨就接不下去了
+    stillDirect.forEach(function(r){
+      if(r.s2sTarget){ r.delyGb = r.s2sTarget; r.delyGbName = S2S_NAME[r.s2sTarget] || r.delyGbName; }
+      r.canS2S = false;
+    });
+  }
 
   stShipMsg = '處理中…'; stRender();
   try{
