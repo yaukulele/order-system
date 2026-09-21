@@ -5688,6 +5688,13 @@ async function openShipMemory(){
   renderShipMemory();
   document.getElementById('modal-overlay').classList.remove('hidden');document.body.style.overflow='hidden';
 }
+/* 型號建議按鈕。故意不把型號寫進 onclick 屬性裡 ——
+   之前用 JSON.stringify 直接嵌進去，它吐出來的雙引號把屬性切斷，
+   按下去就跳 SyntaxError（杰哥 2026-09-21 截圖回報）。 */
+function useMemGuess(i){
+  const r=(_memGroups||[])[i], el=document.getElementById('mnote_'+i);
+  if(r&&el){ el.value=guessModel(r.name)||''; el.focus(); }
+}
 function memRows(){
   const q=((document.getElementById('mem-q')||{}).value||'').trim().toUpperCase();
   let rows=_memGroups.filter(r=>_memTab==='all'||(_memTab==='done'?r.saved:!r.saved));
@@ -5730,7 +5737,7 @@ function renderShipMemory(){
               <br>${esc(r.keys.join('　'))}</div>
           </td>
           <td style="padding:6px 8px"><input id="mnote_${i}" value="${esc(r.note)}" style="width:100%" placeholder="留空＝用品名">
-            ${gs?`<button type="button" class="btn" style="font-size:10px;padding:1px 7px;margin-top:3px" onclick="document.getElementById('mnote_${i}').value=${JSON.stringify(gs)}">用「${esc(gs)}」</button>`:''}</td>
+            ${gs?`<button type="button" class="btn" style="font-size:10px;padding:1px 7px;margin-top:3px" onclick="useMemGuess(${i})">用「${esc(gs)}」</button>`:''}</td>
           <td style="padding:6px 8px"><input id="mcai_${i}" type="number" min="0" step="0.1" value="${r.cai==null?'':esc(String(r.cai))}" style="width:100%;text-align:right;${r.saved?'':'background:#fffaf0'}"></td>
           <td style="padding:6px 8px;text-align:center">
             ${r.saved?`<button class="btn" style="font-size:10px;padding:2px 7px;color:#b91c1c;border-color:#fca5a5" onclick="delShipMemory(${i})">刪</button>`:''}</td>

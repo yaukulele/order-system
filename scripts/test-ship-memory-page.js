@@ -106,5 +106,13 @@ global.document.body = { style: {} };
   ck("備註不含平台抬頭", !String(one.note).startsWith("PC_") && !String(one.note).startsWith("MO_"));
   ck("存完變成已填", gg[ui].saved === true);
 
+  // 🔴 型號建議鈕：型號絕對不可以直接寫進 onclick 屬性
+  //    之前用 JSON.stringify 嵌進去，它吐出來的雙引號把屬性切斷 → 按下去 SyntaxError
+  const html = els["modal-body"].innerHTML;
+  const onclicks = [...html.matchAll(/onclick="([^"]*)"/g)].map(m => m[1]);
+  ck("沒有 onclick 被引號切斷", !/onclick="[^"]*"[^ >]/.test(html));
+  ck("建議鈕走 helper 不帶字串", onclicks.some(x => /^useMemGuess\(\d+\)$/.test(x)), onclicks.slice(0, 6));
+  ck("onclick 裡沒有裸的雙引號", onclicks.every(x => !x.includes('"')));
+
   process.exit(bad ? 1 : 0);
 })();
