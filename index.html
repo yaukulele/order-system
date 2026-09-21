@@ -3938,11 +3938,25 @@ function prodSearchUrl(o){
   if(o.platform==='PC')return 'https://24h.pchome.com.tw/search/?q='+q;
   return 'https://www.google.com/search?q='+q;
 }
+/* 開新分頁。別用 window.open(url,'_blank','noopener') ——
+   帶了第三個參數瀏覽器就把它當「彈出視窗」，被擋掉時是**靜靜地什麼都不發生**
+   （杰哥 2026-09-21：「我按了商品 網頁沒出來」），而且帶 noopener 時回傳值永遠是 null，
+   連「是不是被擋了」都測不出來。
+   改用 <a target="_blank"> 觸發，那就是一般的連結點擊，不會被當成彈窗。*/
+function openTab(url){
+  if(!url)return false;
+  try{
+    const a=document.createElement('a');
+    a.href=url; a.target='_blank'; a.rel='noopener noreferrer';
+    document.body.appendChild(a); a.click(); a.remove();
+    return true;
+  }catch(e){ return false }
+}
 function openProdPage(oid){
   const o=findO(oid);if(!o)return;
   const url=prodSearchUrl(o);
   if(!url){alert('這筆沒有商品編號也沒有商品名稱可以查');return}
-  window.open(url,'_blank','noopener');
+  openTab(url);
 }
 function logActivity(o,action){const d=new Date();const p=n=>String(n).padStart(2,'0');const ts=`${d.getFullYear()}-${p(d.getMonth()+1)}-${p(d.getDate())} ${p(d.getHours())}:${p(d.getMinutes())}`;const who=currentUser?` @${currentUser}`:'';let note=((o.note||'')+`\n[${ts}${who}] ${action}`).trim();const lines=note.split('\n');if(lines.length>60)note=lines.slice(-60).join('\n');o.note=note}
 // 全部訂單的最近操作紀錄 — 把每筆訂單 note 裡的 [ts @who] action 行抽出來合成全域時間軸
@@ -7165,7 +7179,7 @@ function rtNav(seg){
   const u='https://www.google.com/maps/dir/?api=1&travelmode=driving'
     +'&origin='+encodeURIComponent(origin)+'&destination='+encodeURIComponent(dest)
     +(way.length?'&waypoints='+way.map(encodeURIComponent).join('%7C'):'');
-  window.open(u,'_blank','noopener');
+  openTab(u);
   if(segs.length>1)showToast(`已開第 ${k+1}/${segs.length} 段（Google 一次最多 10 站）`,null,null,4000);
 }
 function rtCopyList(){
@@ -7739,7 +7753,9 @@ function openSchedRouteForDate(dateIso,opts){
     if(!confirm(`URL 長度 ${url.length} 字元，超過建議上限 2000。可能 Google Maps 會載不完整。\n仍要繼續嗎？`))return;
   }
   // PWA / iOS 防 popup block — 嘗試 window.open，失敗就 fallback 用 location 跳轉 + toast 提示
-  const w=window.open(url,'_blank','noopener');
+  // ⚠ 不可以帶 'noopener'：帶了回傳值永遠是 null，下面那句 if(!w) 每次都會成立，
+  //   明明開成功了還跟用戶說「無法自動開啟」。
+  const w=window.open(url,'_blank');
   if(!w){
     // popup 被擋 — 給用戶可手動點的連結
     if(confirm(`無法自動開啟 Google Maps（瀏覽器擋彈窗）。\n按「確定」直接在這個 tab 開啟（會離開系統頁面）\n按「取消」我把 URL 複製到剪貼簿，你自己貼上`)){
