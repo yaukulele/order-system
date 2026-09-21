@@ -28,7 +28,8 @@ global.confirm = () => true;
 
 eval(src.slice(a, b) +
   "\nglobalThis.OPEN=openShipMemory;globalThis.ROWS=memRows;globalThis.SAVE=saveShipMemory;" +
-  "\nglobalThis.setTab=t=>{_memTab=t};globalThis.getGroups=()=>_memGroups;");
+  "\nglobalThis.setTab=t=>{_memTab=t};globalThis.getGroups=()=>_memGroups;" +
+  "\nglobalThis.skipShipMemory=skipShipMemory;globalThis.loadShipSizes=loadShipSizes;globalThis.lookupSize=lookupSize;");
 
 let bad = 0;
 const ck = (n, c, x) => { if (!c) { bad++; console.log("FAIL  " + n, x ?? ""); } else console.log("PASS  " + n); };
@@ -113,6 +114,36 @@ global.document.body = { style: {} };
   ck("沒有 onclick 被引號切斷", !/onclick="[^"]*"[^ >]/.test(html));
   ck("建議鈕走 helper 不帶字串", onclicks.some(x => /^useMemGuess\(\d+\)$/.test(x)), onclicks.slice(0, 6));
   ck("onclick 裡沒有裸的雙引號", onclicks.every(x => !x.includes('"')));
+
+  // ===== 「不用填」標記（倉庫出、廠商直送不走我們託運單）=====
+  await OPEN();
+  const g2 = getGroups();
+  const si = g2.findIndex(r => r.name.includes("AG10"));
+  SAVED = null;
+  els["mem-msg"] = { textContent: "", style: {} };
+  await skipShipMemory(si, true);
+  ck("標不用填會寫進資料庫", SAVED && Object.values(SAVED).every(v => v && v.skip === true));
+  ck("標記不帶才數", SAVED && Object.values(SAVED).every(v => v.cai == null));
+  ck("那一列變成 skip", g2[si].skip === true);
+
+  els["mem-q"] = { value: "" };
+  setTab("todo");
+  ck("標了不用填就不在待辦清單", !ROWS().some(r => r.name.includes("AG10")));
+  setTab("skip");
+  ck("收在「不用填」那疊", ROWS().some(r => r.name.includes("AG10")));
+
+  // 🔴 最重要：標了不用填，匯出託運單時還是要擋下來要才數
+  //    —— 真的寄大榮的話大榮還是要一個才數，不能默默師 1
+  MEM = JSON.parse(JSON.stringify(SAVED));
+  const memNow = await loadShipSizes(true);
+  const skipped = lookupSize({ platform: "ST", product: "店內補寄 AG10 弦" }, memNow);
+  ck("標不用填的商品依然算「沒填過才數」", skipped === null, skipped);
+
+  // 取消標記
+  SAVED = null;
+  await skipShipMemory(si, false);
+  ck("取消標記是把那筆拿掉", SAVED && Object.values(SAVED).every(v => v === null));
+  ck("取消後回到待辦", g2[si].skip === false);
 
   process.exit(bad ? 1 : 0);
 })();

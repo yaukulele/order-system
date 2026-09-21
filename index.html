@@ -5596,7 +5596,10 @@ function groupForShipping(sel,mem){
   for(const o of sel){
     const k=sizeKeysFor(o)[0]||('N:'+_fbKey(o.product||o.id));
     if(!g.has(k))g.set(k,{key:k,name:o.product||'(無品名)',orders:[],qty:0,mem:lookupSize(o,mem),
-                          guess:guessModel(o.product)});
+                          guess:guessModel(o.product),
+                          // 標過「不用填」的商品若真的上了託運單，還是要才數 ——
+                          // 這裡標起來，畫面上才講得出來「為什麼又叫我填」
+                          skipped:sizeKeysFor(o).some(function(kk){return mem[kk]&&mem[kk].skip})});
     const row=g.get(k);row.orders.push(o);row.qty+=Number(o.qty)||1;
   }
   return [...g.values()];
@@ -5633,7 +5636,8 @@ async function batchExportShipping(){
             <div style="font-weight:600;line-height:1.4">${esc(r.name)}</div>
             <div style="font-size:10px;color:var(--dm)">${r.orders.length} 筆訂單
               ${r.mem?`・上次 ${esc(String(r.mem.cai))} 才${r.mem.qty!=null?`（${esc(String(r.mem.qty))} 件）`:''}`
-                     :'・<span style="color:#b91c1c;font-weight:700">沒填過</span>'}
+                     :(r.skipped?'・<span style="color:#b45309;font-weight:700">您標了「不用填」，但這次它上了託運單，大榮還是要一個才數</span>'
+                                :'・<span style="color:#b91c1c;font-weight:700">沒填過</span>')}
               ${qtyChanged?`<span style="color:#b45309;font-weight:700">　⚠ 這次是 ${r.qty} 件，跟上次不同，確認才數要不要改</span>`:''}
             </div>
           </td>
@@ -5666,8 +5670,9 @@ async function openShipMemory(){
   for(const k of Object.keys(mem||{})){
     const v=mem[k]||{}; const name=v.name||k;
     if(!g.has(name))g.set(name,{name,keys:[],cai:v.cai,note:v.note||'',qty:v.qty,at:v.at||'',by:v.by||'',
-                                saved:true,cnt:0,last:''});
+                                saved:v.cai!=null,skip:!!v.skip,cnt:0,last:''});
     const row=g.get(name); row.keys.push(k);
+    if(v.skip)row.skip=true;
     // 同一組的值本來就一樣；真的不一樣時以「有填的」為準，不要顯示 undefined
     if(row.cai==null&&v.cai!=null)row.cai=v.cai;
     if(!row.note&&v.note)row.note=v.note;
@@ -5678,7 +5683,7 @@ async function openShipMemory(){
   (typeof orders!=='undefined'?orders:[]).forEach(function(o){
     const nm=String(o.product||'').trim(); if(!nm)return;
     if(!g.has(nm))g.set(nm,{name:nm,keys:sizeKeysFor(o),cai:null,note:'',qty:null,at:'',by:'',
-                            saved:false,cnt:0,last:''});
+                            saved:false,skip:false,cnt:0,last:''});
     const row=g.get(nm);
     row.cnt++;
     if(String(o.date||'')>row.last)row.last=String(o.date||'');
@@ -5697,7 +5702,14 @@ function useMemGuess(i){
 }
 function memRows(){
   const q=((document.getElementById('mem-q')||{}).value||'').trim().toUpperCase();
-  let rows=_memGroups.filter(r=>_memTab==='all'||(_memTab==='done'?r.saved:!r.saved));
+  /* 四疊：還沒填（不含標了不用填的）／已填／不用填／全部
+     「不用填」是杰哥 2026-09-21：「有些東西會是倉庫 可能就不用預先填」
+     —— 倉庫出、廠商直送的不走我們的大榮託運單，不該占著待辦清單。 */
+  let rows=_memGroups.filter(r=>_memTab==='all'
+    ? true
+    : _memTab==='done' ? r.saved
+    : _memTab==='skip' ? r.skip
+    : (!r.saved && !r.skip));
   if(q)rows=rows.filter(r=>((r.name+' '+r.note).toUpperCase().includes(q)));
   // 還沒填的照「出過幾次」排（先填常出的）；已填的照名字排，好找
   return _memTab==='done'
@@ -5708,15 +5720,17 @@ const MEM_MAX=400;   // 一次畫太多列會卡；搜尋 + 依次數排序之�
 function renderShipMemory(){
   const q=((document.getElementById('mem-q')||{}).value||'').trim().toUpperCase();
   const all=memRows(); const rows=all.slice(0,MEM_MAX);
-  const nTodo=_memGroups.filter(r=>!r.saved).length, nDone=_memGroups.filter(r=>r.saved).length;
+  const nTodo=_memGroups.filter(r=>!r.saved&&!r.skip).length, nDone=_memGroups.filter(r=>r.saved).length,
+        nSkip=_memGroups.filter(r=>r.skip).length;
   const tab=(k,t)=>`<button class="btn" style="font-size:11px;padding:3px 10px;margin-right:5px;${_memTab===k?'background:var(--tx);color:#fff;border-color:var(--tx)':''}" onclick="_memTab='${k}';renderShipMemory()">${t}</button>`;
   document.getElementById('modal-body').innerHTML=`<h3>📐 才數／備註 記憶</h3>
     <div style="font-size:11px;color:var(--dm);line-height:1.7;margin:6px 0 8px">
       匯出託運單時自動帶的就是這些。改完按「<b>儲存</b>」才會寫進去。<br>
       <b>還沒填</b>那疊是從訂單抓出來、出過貨但還沒填才數的商品，<b>依出過幾次由多到少排</b> —— 先填常出的最劃算。<br>
-      備註留空＝那件商品匯出時用完整品名。MO_／PC_ 抬頭是匯出時才加的，這裡不用打。
+      備註留空＝那件商品匯出時用完整品名。MO_／PC_ 抬頭是匯出時才加的，這裡不用打。<br>
+      倉庫出、廠商直送這種不走我們託運單的，按那一列的「<b>不用填</b>」收起來，待辦清單才不會被卡著。
     </div>
-    <div style="margin-bottom:8px">${tab('todo','還沒填（'+nTodo+'）')}${tab('done','已填（'+nDone+'）')}${tab('all','全部（'+_memGroups.length+'）')}</div>
+    <div style="margin-bottom:8px">${tab('todo','還沒填（'+nTodo+'）')}${tab('done','已填（'+nDone+'）')}${tab('skip','不用填（'+nSkip+'）')}${tab('all','全部（'+_memGroups.length+'）')}</div>
     <input id="mem-q" value="${esc(q)}" placeholder="搜尋品名或型號" style="width:100%;margin-bottom:8px" oninput="renderShipMemory()">
     <div style="max-height:52vh;overflow:auto;border:1px solid var(--bd);border-radius:8px">
     <table style="width:100%;border-collapse:collapse;font-size:12px">
@@ -5738,9 +5752,10 @@ function renderShipMemory(){
           </td>
           <td style="padding:6px 8px"><input id="mnote_${i}" value="${esc(r.note)}" style="width:100%" placeholder="留空＝用品名">
             ${gs?`<button type="button" class="btn" style="font-size:10px;padding:1px 7px;margin-top:3px" onclick="useMemGuess(${i})">用「${esc(gs)}」</button>`:''}</td>
-          <td style="padding:6px 8px"><input id="mcai_${i}" type="number" min="0" step="0.1" value="${r.cai==null?'':esc(String(r.cai))}" style="width:100%;text-align:right;${r.saved?'':'background:#fffaf0'}"></td>
-          <td style="padding:6px 8px;text-align:center">
-            ${r.saved?`<button class="btn" style="font-size:10px;padding:2px 7px;color:#b91c1c;border-color:#fca5a5" onclick="delShipMemory(${i})">刪</button>`:''}</td>
+          <td style="padding:6px 8px"><input id="mcai_${i}" type="number" min="0" step="0.1" value="${r.cai==null?'':esc(String(r.cai))}" style="width:100%;text-align:right;${(r.saved||r.skip)?'':'background:#fffaf0'}"></td>
+          <td style="padding:6px 8px;text-align:center;white-space:nowrap">
+            ${r.saved?`<button class="btn" style="font-size:10px;padding:2px 7px;color:#b91c1c;border-color:#fca5a5" onclick="delShipMemory(${i})">刪</button>`
+                     :`<button class="btn" style="font-size:10px;padding:2px 7px" onclick="skipShipMemory(${i},${r.skip?'false':'true'})">${r.skip?'改成要填':'不用填'}</button>`}</td>
         </tr>`}).join(''):'<tr><td colspan="4" style="padding:26px;text-align:center;color:var(--dm)">'
           +(_memGroups.length?'沒有符合的':'還沒有任何資料')+'</td></tr>'}
     </table></div>
@@ -5761,9 +5776,10 @@ async function saveShipMemory(){
     if(String(r.cai??'')===cai&&String(r.note||'')===note)continue;   // 沒改就不寫
     if(cai===''&&note===''&&!r.saved)continue;                       // 本來就沒填、現在也沒填 → 不要寫一筆空的進去
     n++;
-    for(const k of r.keys)upd[k]=Object.assign({},{name:r.name,qty:r.qty},{cai:cai===''?null:Number(cai),note:note,
-      at:new Date().toISOString(),by:(typeof currentUser!=='undefined'&&currentUser)||''});
-    r.cai=cai===''?null:Number(cai); r.note=note; r.saved=true; r.at=new Date().toISOString();
+    // 填了才數就不再是「不用填」，skip 跟著拿掉，不然兩個狀態會打架
+    for(const k of r.keys)upd[k]={name:r.name,qty:r.qty,cai:cai===''?null:Number(cai),note:note,
+      skip:false,at:new Date().toISOString(),by:(typeof currentUser!=='undefined'&&currentUser)||''};
+    r.cai=cai===''?null:Number(cai); r.note=note; r.saved=(cai!==''); r.skip=false; r.at=new Date().toISOString();
   }
   if(!n){ msg.textContent='沒有改到任何一筆'; msg.style.color='var(--dm)'; return }
   msg.textContent='存檔中…'; msg.style.color='var(--dm)';
@@ -5775,6 +5791,29 @@ async function saveShipMemory(){
     const m2=document.getElementById('mem-msg');
     if(m2){ m2.textContent='已存 '+n+' 種商品'; m2.style.color='#166534' }
   }catch(e){ msg.textContent='存不進去：'+e.message; msg.style.color='#b91c1c' }
+}
+/* 標「不用填」。只是把它從待辦清單收起來，
+   **不會讓匯出託運單時跳過才數** —— 真的要寄大榮的話，大榮還是要一個才數，
+   這時它會照樣標紅要求填。所以這個標記是「清單整齊」用的，不是「跳過檢查」用的。*/
+async function skipShipMemory(i,on){
+  const r=_memGroups[i]; if(!r)return;
+  const upd={};
+  r.keys.forEach(function(k){
+    upd[k]= on ? {name:r.name,skip:true,at:new Date().toISOString(),
+                  by:(typeof currentUser!=='undefined'&&currentUser)||''}
+               : null;          // 取消標記就把那筆拿掉，回到「沒填過」的狀態
+  });
+  const msg=document.getElementById('mem-msg');
+  try{
+    await authReady;
+    await db.ref('shipSizes').update(upd);
+    if(on){ _shipSizes=Object.assign(_shipSizes||{},upd); }
+    else { r.keys.forEach(k=>{ if(_shipSizes)delete _shipSizes[k] }); }
+    r.skip=!!on;
+    renderShipMemory();
+    const m2=document.getElementById('mem-msg');
+    if(m2){ m2.textContent=(on?'已收起「':'已改回要填「')+r.name+'」'; m2.style.color='var(--dm)' }
+  }catch(e){ if(msg){ msg.textContent='寫不進去：'+e.message; msg.style.color='#b91c1c' } }
 }
 async function delShipMemory(i){
   const r=_memGroups[i]; if(!r)return;
