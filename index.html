@@ -5542,6 +5542,34 @@ function loadXLSX(){return new Promise((res,rej)=>{if(window.XLSX)return res(win
    所以只記「您當時填了什麼」，同時把當時的件數一起記著；下次件數不一樣時會跳提醒，
    由您決定要不要改，系統不會自己幫您乘。 */
 function _fbKey(s){return String(s||'').replace(/[.#$\[\]\/]/g,'~').slice(0,300)}
+
+/* 從品名猜「型號」給備註用。杰哥 2026-09-21：「上架賣場太多上架規格，似乎很難自動準確抓到」——
+   他說得對，所以這裡**不自動填**，只在看起來真的像型號時給一顆「建議」讓他點。猜不到就什麼都不給。
+   判準故意嚴：英數混合、至少 4 碼、不在常見英文字清單裡。寧可不給建議，也不要給錯的。 */
+const _MODEL_STOP=new Set(['MK2','MKII','USB','LED','PRO','PLUS','SET','KIT','NEW','FREE','GIFT',
+  '4K','3C','24H','BLUETOOTH','WIRELESS','ELECTRIC','ACOUSTIC','GUITAR','BASS','PIANO','DRUM',
+  'BLACK','WHITE','NATURAL','SUNBURST','STANDARD','DELUXE','LIMITED','SPECIAL','ORIGINAL','SERIES']);
+function guessModel(name){
+  const src=String(name||'');
+  // 換成空白而不是刪掉 —— 長度要跟原字串一致，才能用位置回去切「原本的大小寫」
+  const flat=src.toUpperCase().replace(/[【】\[\]（）()「」《》]/g,' ');
+  const cands=[];
+  const take=m=>src.substr(m.index,m[0].length).trim();
+  for(const m of flat.matchAll(/[A-Z][A-Z0-9\-]{3,15}/g)){
+    const w=m[0];
+    if(_MODEL_STOP.has(w.replace(/-/g,'')))continue;
+    if(!/\d/.test(w))continue;            // 沒有數字的多半是英文字不是型號
+    cands.push(take(m));
+  }
+  // 「英文 + 空白 + 數字」也算（Mighty 40 / FG 830）
+  for(const m of flat.matchAll(/([A-Z]{2,12})\s+(\d{2,4}[A-Z]{0,3})(?![A-Z0-9])/g)){
+    if(_MODEL_STOP.has(m[1]))continue;
+    cands.push(take(m));
+  }
+  if(!cands.length)return '';
+  // 有多個就挑最長的（通常最完整，例如 MG-300 勝過 MG3）
+  return cands.sort((a,b)=>b.length-a.length)[0];
+}
 function sizeKeysFor(o){
   const ks=[];
   if((o.platform==='MO'||o.platform==='MO3')&&o.goodsCode)ks.push('MO:'+_fbKey(o.goodsCode));
@@ -5567,7 +5595,8 @@ function groupForShipping(sel,mem){
   const g=new Map();
   for(const o of sel){
     const k=sizeKeysFor(o)[0]||('N:'+_fbKey(o.product||o.id));
-    if(!g.has(k))g.set(k,{key:k,name:o.product||'(無品名)',orders:[],qty:0,mem:lookupSize(o,mem)});
+    if(!g.has(k))g.set(k,{key:k,name:o.product||'(無品名)',orders:[],qty:0,mem:lookupSize(o,mem),
+                          guess:guessModel(o.product)});
     const row=g.get(k);row.orders.push(o);row.qty+=Number(o.qty)||1;
   }
   return [...g.values()];
@@ -5580,18 +5609,25 @@ async function batchExportShipping(){
   const groups=groupForShipping(sel,mem);
   _shipExportGroups=groups;
   const miss=groups.filter(r=>!r.mem).length;
-  document.getElementById('modal-body').innerHTML=`<h3>📦 匯出託運單 — 確認才數</h3>
+  document.getElementById('modal-body').innerHTML=`<h3>📦 匯出託運單 — 確認才數與備註</h3>
     <div style="font-size:11px;color:var(--dm);line-height:1.7;margin:6px 0 10px">
       已勾選 ${sel.length} 筆訂單、${groups.length} 種商品。填過的會自動帶出來，
-      ${miss?`還有 <b style="color:#b91c1c">${miss} 種沒填過</b>，填完才能匯出。`:'這次全部都有紀錄。'}
+      ${miss?`還有 <b style="color:#b91c1c">${miss} 種沒填過才數</b>，填完才能匯出。`:'才數這次全部都有紀錄。'}
       <br>才數是算運費的數字，Amy 不會自己幫您乘或換算，只會記住您填的。
+      <br><b>備註</b>可以留空（留空就用完整品名）。填了就會記起來，下次同商品自動帶。
+      平台抬頭（MO_／PC_）匯出時自動加，不用自己打。
     </div>
     <div style="max-height:52vh;overflow:auto;border:1px solid var(--bd);border-radius:8px">
     <table style="width:100%;border-collapse:collapse;font-size:12px">
       <tr style="background:var(--sf2)"><th style="text-align:left;padding:6px 8px">商品</th>
-        <th style="padding:6px 8px;width:64px">件數</th><th style="padding:6px 8px;width:92px">才數</th></tr>
+        <th style="padding:6px 8px;width:56px">件數</th><th style="padding:6px 8px;width:82px">才數</th>
+        <th style="padding:6px 8px;width:190px">備註（型號）</th></tr>
       ${groups.map((r,i)=>{
         const qtyChanged=r.mem&&r.mem.qty!=null&&Number(r.mem.qty)!==Number(r.qty);
+        const note=(r.mem&&r.mem.note)||'';
+        // 建議只在「看起來真的像型號」時才出現，而且要點了才填進去 —— 不自動代入，免得錯了沒人發現
+        const sug=(!note&&r.guess)?`<div style="margin-top:3px"><button type="button" class="btn"
+              style="font-size:10px;padding:1px 7px" onclick="useGuess(${i})">用「${esc(r.guess)}」</button></div>`:'';
         return `<tr style="border-top:1px solid var(--bd)">
           <td style="padding:6px 8px">
             <div style="font-weight:600;line-height:1.4">${esc(r.name)}</div>
@@ -5605,6 +5641,10 @@ async function batchExportShipping(){
           <td style="padding:6px 8px"><input id="cai_${i}" type="number" min="0" step="0.1"
             value="${r.mem?esc(String(r.mem.cai)):''}" placeholder="才數"
             style="width:100%;text-align:right;${r.mem?'':'border-color:#fca5a5;background:#fef2f2'}"></td>
+          <td style="padding:6px 8px">
+            <input id="note_${i}" value="${esc(note)}" placeholder="留空＝用完整品名" style="width:100%">
+            ${sug}
+          </td>
         </tr>`}).join('')}
     </table></div>
     <div class="modal-ft"><button class="btn" onclick="closeModal()">取消</button>
@@ -5613,6 +5653,10 @@ async function batchExportShipping(){
 }
 
 let _shipExportGroups=null;
+function useGuess(i){
+  const g=(_shipExportGroups||[])[i]; const el=document.getElementById('note_'+i);
+  if(g&&el){ el.value=g.guess||''; el.focus(); }
+}
 async function doExportShipping(){
   const groups=_shipExportGroups||[];
   if(!groups.length){alert('沒有要匯出的資料');return}
@@ -5624,15 +5668,17 @@ async function doExportShipping(){
     if(v===''||!(Number(v)>=0)){alert('「'+groups[i].name+'」的才數還沒填');if(el)el.focus();return}
     vals.push(Number(v));
   }
-  const sel=[];const caiOf={};
-  groups.forEach((r,i)=>{r.orders.forEach(o=>{sel.push(o);caiOf[o.id]=vals[i]})});
+  // 備註可以留空（留空＝沿用完整品名），所以不擋，只是讀回來
+  const notes=groups.map((r,i)=>{const el=document.getElementById('note_'+i);return el?String(el.value).trim():''});
+  const sel=[];const caiOf={};const noteOf={};
+  groups.forEach((r,i)=>{r.orders.forEach(o=>{sel.push(o);caiOf[o.id]=vals[i];noteOf[o.id]=notes[i]})});
   let XLSX;try{XLSX=await loadXLSX()}catch(e){alert('Excel 元件載入失敗，請確認網路後再試一次');return}
   // 記起來（寫失敗不擋匯出 —— 匯出比記憶重要，但要講出來，不然下次又是空的還以為記住了）
   try{
     await authReady;
     const upd={};const now=new Date().toISOString();const who=(typeof currentUser!=='undefined'&&currentUser)||'';
     groups.forEach((r,i)=>{
-      const payload={cai:vals[i],qty:r.qty,name:r.name,at:now,by:who};
+      const payload={cai:vals[i],qty:r.qty,name:r.name,note:notes[i],at:now,by:who};
       for(const k of sizeKeysFor(r.orders[0]))upd[k]=payload;
     });
     await db.ref('shipSizes').update(upd);
@@ -5650,7 +5696,10 @@ async function doExportShipping(){
   const platPrefix=p=>(p==='MO'||p==='MO3')?'MO_':(p==='PC'?'PC_':'');
   // 電話：realPhone 優先，空白才退回一般 phone（含 MOMO 代撥號 — 阿淵確認社長可轉接，要保留）
   // 才數不再寫死 1，改用剛剛在確認視窗填的／記憶帶出來的值
-  const rows=sel.map(o=>[shipYmd,(o.name||''),(o.realPhone||o.phone||''),(o.address||''),(o.qty||1),(caiOf[o.id]??1),arriveYmd,'',platPrefix(o.platform)+(o.product||'')]);
+  // 備註：有記住的型號就用型號，沒有才退回完整品名。平台抬頭一律在這裡加（記憶裡不存抬頭，
+  // 因為同一件商品可能從 MOMO 也可能從 PChome 進來，抬頭要看那一筆訂單是哪個平台）
+  const rows=sel.map(o=>[shipYmd,(o.name||''),(o.realPhone||o.phone||''),(o.address||''),(o.qty||1),(caiOf[o.id]??1),arriveYmd,'',
+    platPrefix(o.platform)+(noteOf[o.id]||o.product||'')]);
   const ws=XLSX.utils.aoa_to_sheet([header,...rows]);
   ws['!cols']=[{wch:11},{wch:9},{wch:14},{wch:34},{wch:5},{wch:5},{wch:11},{wch:14},{wch:30}];
   const wb=XLSX.utils.book_new();XLSX.utils.book_append_sheet(wb,ws,'SHEET');
