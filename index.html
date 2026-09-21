@@ -1189,7 +1189,7 @@ body.has-batch-bar .main{padding-bottom:140px}
 <div class="card" style="background:#fff1f2;border:1px solid #fda4af"><div class="card-h" style="background:transparent"><h3>🚚 自動抓 MOMO 第三方</h3><div class="btn-row" style="justify-content:flex-end"><button class="btn btn-g" id="momo3-auto-btn" onclick="fetchMomoThirdAuto()" style="background:#f43f5e;border-color:#f43f5e;flex:0 0 auto;min-width:130px" title="抓 MOMO 第三方物流 未出貨訂單（跑遍物流商合併）">🔄 抓取</button></div></div><div class="card-b" style="padding:8px 16px"><div id="momo3-auto-status" style="font-size:11px;color:var(--dm);font-family:var(--mono)"></div></div></div>
 <div class="card" style="background:var(--card-pc-bg);border:1px solid var(--card-pc-bd)"><div class="card-h" style="background:transparent"><h3>🛒 自動抓 PChome</h3><div class="btn-row" style="justify-content:flex-end"><button class="btn btn-g" id="pchome-auto-btn" onclick="fetchPchomeAuto()" style="background:var(--pc);border-color:var(--pc);flex:0 0 auto;min-width:130px" title="自動抓 PChome 未出貨訂單（共用 MOMO API Token）">🔄 抓取</button></div></div><div class="card-b" style="padding:8px 16px"><div id="pchome-auto-status" style="font-size:11px;color:var(--dm);font-family:var(--mono)"></div></div></div><div class="card" style="background:#f5f3ff;border:1px solid #c4b5fd"><div class="card-h" style="background:transparent"><h3>📩 簡訊設定</h3><div class="btn-row" style="justify-content:flex-end"><button class="btn" onclick="editSmsTemplate()" style="border-color:#a78bfa;color:#7c3aed;flex:0 0 auto;min-width:130px" title="編輯發給客戶的簡訊範本">✏️ 改範本</button></div></div><div class="card-b" style="padding:8px 16px"><div id="sms-balance" style="font-size:11px;color:var(--dm);font-family:var(--mono)">剩餘點數：發送後自動更新</div></div></div></div>
 
-<div class="main hidden" id="tab-list"><div class="fl-bar" id="fl-bar"><button class="fl-toggle" id="fl-toggle" onclick="toggleFilterPanel()"><span id="fl-toggle-txt">篩選</span> <span id="fl-toggle-arrow">▾</span></button><span class="fl-sum" id="fl-sum"></span></div><div id="restock-alert" class="rs-alert" style="display:none"></div><div class="filter-row"><span class="fg-grp" data-grp="plat" title="Ctrl/Cmd 或 Shift + 點擊可多選（同時看 Mo＋Pc＋展場…）"><button class="fbtn on" data-fg="plat" data-stat="all" onclick="setF('all',this,event)">全部</button><button class="fbtn" data-fg="plat" data-stat="MO" onclick="setF('MO',this,event)">Mo</button><button class="fbtn" data-fg="plat" data-stat="PC" onclick="setF('PC',this,event)">Pc</button><button class="fbtn" data-fg="plat" data-stat="MO3" onclick="setF('MO3',this,event)" title="MOMO 第三方物流">三方</button><button class="fbtn" data-fg="plat" data-stat="ST" onclick="setF('ST',this,event)">店內</button><button class="fbtn" data-fg="plat" data-stat="SCH" onclick="setF('SCH',this,event)">學校</button><button class="fbtn" data-fg="plat" data-stat="EXPO" onclick="setF('EXPO',this,event)" title="樂器展場現場收單">展場</button><button class="fbtn" data-fg="plat" data-stat="MOS" onclick="setF('MOS',this,event)" title="MOMO 超商取貨（客人到門市自取）">超商</button><button class="fbtn" data-fg="plat" data-stat="TR" onclick="setF('TR',this,event)" title="同行之間互相調貨">調貨</button><button id="mob-stat-cycle" class="fbtn st-cycle" onclick="cycleStatus()" title="點擊循環切換狀態篩選">狀態</button></span><span class="fb-divider">｜</span><span class="fg-grp" data-grp="status" title="Ctrl/Cmd + 點擊可多選"><button class="fbtn on" data-fg="status" data-stat="status:all" onclick="setSF('all',this,event)">全狀態</button><button class="fbtn fb-preset" data-fg="status" data-stat="status:active" onclick="setActiveStatuses(this)" title="一鍵選所有「進行中」狀態（排除 已完成 / 線下完 / 已取消；轉線下算進行中）">進行中</button><span class="fb-divider">｜</span><button class="fbtn" data-fg="status" data-stat="status:未確認" onclick="setSF('未確認',this,event)">未確認</button><button class="fbtn" data-fg="status" data-stat="status:已確認" onclick="setSF('已確認',this,event)">已確認</button><button class="fbtn" data-fg="status" data-stat="status:交涉中" onclick="setSF('交涉中',this,event)">交涉中</button><button class="fbtn" data-fg="status" data-stat="status:未接電" onclick="setSF('未接電',this,event)" title="電話沒接到">未接電</button><span class="fb-divider">｜</span><button class="fbtn" data-fg="status" data-stat="status:店補貨" onclick="setSF('店補貨',this,event)" title="店內補貨中 — 等貨進到店裡才出得了（上方紅色提醒條只算這個）">店補貨</button><button class="fbtn" data-fg="status" data-stat="status:倉補貨" onclick="setSF('倉補貨',this,event)" title="倉庫補貨中 — 等倉庫調貨過來">倉補貨</button><button class="fbtn" data-fg="status" data-stat="status:要安裝" onclick="setSF('要安裝',this,event)" title="要到府安裝">要安裝</button><button class="fbtn" data-fg="status" data-stat="status:自己配" onclick="setSF('自己配',this,event)" title="我們自己送">自己配</button><button class="fbtn" data-fg="status" data-stat="status:直接出" onclick="setSF('直接出',this,event)" title="直接出貨（不安裝）">直接出</button><button class="fbtn" data-fg="status" data-stat="status:廠商出" onclick="setSF('廠商出',this,event)" title="由廠商／原廠直接出貨給客人，我們不經手">廠商出</button><span class="fb-divider">｜</span><button class="fbtn" data-fg="status" data-stat="status:已出貨" onclick="setSF('已出貨',this,event)">已出貨</button><button class="fbtn" data-fg="status" data-stat="status:待收費" onclick="setSF('待收費',this,event)" title="安裝/加購款還沒收 — 自動連動偵測">待收費</button><button class="fbtn" data-fg="status" data-stat="status:未收錢" onclick="setSF('未收錢',this,event)" title="團購：未收錢">未收錢</button><button class="fbtn" data-fg="status" data-stat="status:已收錢" onclick="setSF('已收錢',this,event)" title="團購：已收錢">已收錢</button><span class="fb-divider">｜</span><button class="fbtn" data-fg="status" data-stat="status:已完成" onclick="setSF('已完成',this,event)">已完成</button><button class="fbtn" data-fg="status" data-stat="status:線下完" onclick="setSF('線下完',this,event)" title="改到線下成交／安裝已在線下處理完">線下完</button><button class="fbtn" data-fg="status" data-stat="status:轉線下" onclick="setSF('轉線下',this,event)">轉線下</button><button class="fbtn" data-fg="status" data-stat="status:已取消" onclick="setSF('已取消',this,event)">已取消</button></span><span class="fb-divider">｜</span><span class="fg-grp" data-grp="special"><button class="fbtn" data-fg="special" onclick="toggleSpecial('changeAddr',this)" title="只看客戶有申請改地址的訂單">改址</button><button class="fbtn" data-fg="special" onclick="toggleSpecial('newToday',this)" title="只看今日新單">今日</button><button class="fbtn" data-fg="special" onclick="toggleSpecial('unpaidFee',this)" title="只看有未收款的訂單（安裝/加購費>0 但未收）— 含已完成的單，跨所有狀態篩" style="color:#dc2626;border-color:#dc2626;font-weight:700">未收款</button><button class="fbtn" data-fg="special" onclick="toggleSpecial('pendingDeliver',this)" title="按下會即時抓 MOMO/PChome 平台『線上還沒出貨』的單來比對（約配去後台確認配送日、一般單壓自行出貨）— 以平台實際狀態為準" style="color:#2563eb;border-color:#2563eb;font-weight:700">待確認配送</button><button class="fbtn" data-fg="special" onclick="toggleSpecial('scmFiled',this)" title="只看 MOMO 已回押『指定配送日』的進行中訂單" style="color:#6d28d9;border-color:#c4b5fd;font-weight:700">已壓配送日</button><button class="fbtn" data-fg="special" onclick="toggleSpecial('scmUnfiled',this)" title="只看 MOMO 還沒壓『指定配送日』的進行中訂單" style="color:#7c3aed;border-color:#c4b5fd;font-weight:700">未壓配送日</button><button class="fbtn" data-fg="special" onclick="toggleSpecial('ctNone',this)" title="只看還沒電聯客戶排配送的 MOMO／三方進行中訂單（＝列表上紅色『尚未電聯』那些）" style="color:#b91c1c;border-color:#fca5a5;font-weight:700">未電聯</button><button class="fbtn" data-fg="special" onclick="toggleSpecial('momoUnreported',this)" title="MOMO 還沒回報配送狀態（平台顯示「請回覆」），或 PChome 還沒壓單／壓單被退回。期限都是進單日 +1 個工作日、週末順延。MOMO 已標「電聯不上」的不算，PChome 的 SP（自行配送）也不算。" style="color:#dc2626;border-color:#dc2626;font-weight:700">平台未回報</button><button class="fbtn" data-fg="special" onclick="toggleSpecial('momoDiff',this)" title="MOMO／PChome 平台狀態跟我們本機狀態對不上的單（以平台為準）" style="color:#c2410c;border-color:#fdba74;font-weight:700">狀態不符</button><button class="fbtn" onclick="openMomoRecon()" title="以平台為準（MOMO＋PChome），列出本機跟平台對不上的單，打勾才會改（只改本機，不會送東西到平台）" style="color:#15803d;border-color:#86efac;font-weight:700">對狀態</button><button id="momo-live-btn" class="fbtn" onclick="syncMomoLive()" title="去 MOMO／PChome 抓每筆單的實際狀態（唯讀，不會改任何東西）" style="color:#2563eb;border-color:#93c5fd;font-weight:700">抓平台狀態</button></span><span style="flex:1"></span><span id="filter-applied-info" style="display:none"></span><button class="btn" onclick="openActivityLog()" style="font-size:11px;padding:4px 10px;margin-right:6px;background:#fef0f5;border-color:#f0c4d8;color:var(--mo)" title="看最近所有訂單的操作紀錄（找「剛剛動了哪一筆」用）">紀錄</button><input class="search" id="q" placeholder="搜尋姓名/單號/商品..." oninput="this.value=fwToHw(this.value);searchListDebounced()" title="按 / 或 Ctrl+K 快速聚焦（全形數字自動轉半形）"></div><div id="list-area"></div></div>
+<div class="main hidden" id="tab-list"><div class="fl-bar" id="fl-bar"><button class="fl-toggle" id="fl-toggle" onclick="toggleFilterPanel()"><span id="fl-toggle-txt">篩選</span> <span id="fl-toggle-arrow">▾</span></button><span class="fl-sum" id="fl-sum"></span></div><div id="restock-alert" class="rs-alert" style="display:none"></div><div class="filter-row"><span class="fg-grp" data-grp="plat" title="Ctrl/Cmd 或 Shift + 點擊可多選（同時看 Mo＋Pc＋展場…）"><button class="fbtn on" data-fg="plat" data-stat="all" onclick="setF('all',this,event)">全部</button><button class="fbtn" data-fg="plat" data-stat="MO" onclick="setF('MO',this,event)">Mo</button><button class="fbtn" data-fg="plat" data-stat="PC" onclick="setF('PC',this,event)">Pc</button><button class="fbtn" data-fg="plat" data-stat="MO3" onclick="setF('MO3',this,event)" title="MOMO 第三方物流">三方</button><button class="fbtn" data-fg="plat" data-stat="ST" onclick="setF('ST',this,event)">店內</button><button class="fbtn" data-fg="plat" data-stat="SCH" onclick="setF('SCH',this,event)">學校</button><button class="fbtn" data-fg="plat" data-stat="EXPO" onclick="setF('EXPO',this,event)" title="樂器展場現場收單">展場</button><button class="fbtn" data-fg="plat" data-stat="MOS" onclick="setF('MOS',this,event)" title="MOMO 超商取貨（客人到門市自取）">超商</button><button class="fbtn" data-fg="plat" data-stat="TR" onclick="setF('TR',this,event)" title="同行之間互相調貨">調貨</button><button id="mob-stat-cycle" class="fbtn st-cycle" onclick="cycleStatus()" title="點擊循環切換狀態篩選">狀態</button></span><span class="fb-divider">｜</span><span class="fg-grp" data-grp="status" title="Ctrl/Cmd + 點擊可多選"><button class="fbtn on" data-fg="status" data-stat="status:all" onclick="setSF('all',this,event)">全狀態</button><button class="fbtn fb-preset" data-fg="status" data-stat="status:active" onclick="setActiveStatuses(this)" title="一鍵選所有「進行中」狀態（排除 已完成 / 線下完 / 已取消；轉線下算進行中）">進行中</button><span class="fb-divider">｜</span><button class="fbtn" data-fg="status" data-stat="status:未確認" onclick="setSF('未確認',this,event)">未確認</button><button class="fbtn" data-fg="status" data-stat="status:已確認" onclick="setSF('已確認',this,event)">已確認</button><button class="fbtn" data-fg="status" data-stat="status:交涉中" onclick="setSF('交涉中',this,event)">交涉中</button><button class="fbtn" data-fg="status" data-stat="status:未接電" onclick="setSF('未接電',this,event)" title="電話沒接到">未接電</button><span class="fb-divider">｜</span><button class="fbtn" data-fg="status" data-stat="status:店補貨" onclick="setSF('店補貨',this,event)" title="店內補貨中 — 等貨進到店裡才出得了（上方紅色提醒條只算這個）">店補貨</button><button class="fbtn" data-fg="status" data-stat="status:倉補貨" onclick="setSF('倉補貨',this,event)" title="倉庫補貨中 — 等倉庫調貨過來">倉補貨</button><button class="fbtn" data-fg="status" data-stat="status:要安裝" onclick="setSF('要安裝',this,event)" title="要到府安裝">要安裝</button><button class="fbtn" data-fg="status" data-stat="status:自己配" onclick="setSF('自己配',this,event)" title="我們自己送">自己配</button><button class="fbtn" data-fg="status" data-stat="status:直接出" onclick="setSF('直接出',this,event)" title="直接出貨（不安裝）">直接出</button><button class="fbtn" data-fg="status" data-stat="status:廠商出" onclick="setSF('廠商出',this,event)" title="由廠商／原廠直接出貨給客人，我們不經手">廠商出</button><span class="fb-divider">｜</span><button class="fbtn" data-fg="status" data-stat="status:已出貨" onclick="setSF('已出貨',this,event)">已出貨</button><button class="fbtn" data-fg="status" data-stat="status:待收費" onclick="setSF('待收費',this,event)" title="安裝/加購款還沒收 — 自動連動偵測">待收費</button><button class="fbtn" data-fg="status" data-stat="status:未收錢" onclick="setSF('未收錢',this,event)" title="團購：未收錢">未收錢</button><button class="fbtn" data-fg="status" data-stat="status:已收錢" onclick="setSF('已收錢',this,event)" title="團購：已收錢">已收錢</button><span class="fb-divider">｜</span><button class="fbtn" data-fg="status" data-stat="status:已完成" onclick="setSF('已完成',this,event)">已完成</button><button class="fbtn" data-fg="status" data-stat="status:線下完" onclick="setSF('線下完',this,event)" title="改到線下成交／安裝已在線下處理完">線下完</button><button class="fbtn" data-fg="status" data-stat="status:轉線下" onclick="setSF('轉線下',this,event)">轉線下</button><button class="fbtn" data-fg="status" data-stat="status:已取消" onclick="setSF('已取消',this,event)">已取消</button></span><span class="fb-divider">｜</span><span class="fg-grp" data-grp="special"><button class="fbtn" data-fg="special" onclick="toggleSpecial('changeAddr',this)" title="只看客戶有申請改地址的訂單">改址</button><button class="fbtn" data-fg="special" onclick="toggleSpecial('newToday',this)" title="只看今日新單">今日</button><button class="fbtn" data-fg="special" onclick="toggleSpecial('unpaidFee',this)" title="只看有未收款的訂單（安裝/加購費>0 但未收）— 含已完成的單，跨所有狀態篩" style="color:#dc2626;border-color:#dc2626;font-weight:700">未收款</button><button class="fbtn" data-fg="special" onclick="toggleSpecial('pendingDeliver',this)" title="按下會即時抓 MOMO/PChome 平台『線上還沒出貨』的單來比對（約配去後台確認配送日、一般單壓自行出貨）— 以平台實際狀態為準" style="color:#2563eb;border-color:#2563eb;font-weight:700">待確認配送</button><button class="fbtn" data-fg="special" onclick="toggleSpecial('scmFiled',this)" title="只看 MOMO 已回押『指定配送日』的進行中訂單" style="color:#6d28d9;border-color:#c4b5fd;font-weight:700">已壓配送日</button><button class="fbtn" data-fg="special" onclick="toggleSpecial('scmUnfiled',this)" title="只看 MOMO 還沒壓『指定配送日』的進行中訂單" style="color:#7c3aed;border-color:#c4b5fd;font-weight:700">未壓配送日</button><button class="fbtn" data-fg="special" onclick="toggleSpecial('ctNone',this)" title="只看還沒電聯客戶排配送的 MOMO／三方進行中訂單（＝列表上紅色『尚未電聯』那些）" style="color:#b91c1c;border-color:#fca5a5;font-weight:700">未電聯</button><button class="fbtn" data-fg="special" onclick="toggleSpecial('momoUnreported',this)" title="MOMO 還沒回報配送狀態（平台顯示「請回覆」），或 PChome 還沒壓單／壓單被退回。期限都是進單日 +1 個工作日、週末順延。MOMO 已標「電聯不上」的不算，PChome 的 SP（自行配送）也不算。" style="color:#dc2626;border-color:#dc2626;font-weight:700">平台未回報</button><button class="fbtn" data-fg="special" onclick="toggleSpecial('momoDiff',this)" title="MOMO／PChome 平台狀態跟我們本機狀態對不上的單（以平台為準）" style="color:#c2410c;border-color:#fdba74;font-weight:700">狀態不符</button><button class="fbtn" onclick="openMomoRecon()" title="以平台為準（MOMO＋PChome），列出本機跟平台對不上的單，打勾才會改（只改本機，不會送東西到平台）" style="color:#15803d;border-color:#86efac;font-weight:700">對狀態</button><button id="momo-live-btn" class="fbtn" onclick="syncMomoLive()" title="去 MOMO／PChome 抓每筆單的實際狀態（唯讀，不會改任何東西）" style="color:#2563eb;border-color:#93c5fd;font-weight:700">抓平台狀態</button></span><span style="flex:1"></span><span id="filter-applied-info" style="display:none"></span><button class="btn" onclick="openActivityLog()" style="font-size:11px;padding:4px 10px;margin-right:6px;background:#fef0f5;border-color:#f0c4d8;color:var(--mo)" title="看最近所有訂單的操作紀錄（找「剛剛動了哪一筆」用）">紀錄</button><button class="btn" onclick="openShipMemory()" style="font-size:11px;padding:4px 10px;margin-right:6px;background:#f0f6ff;border-color:#bfd8f5;color:#1657b5" title="看／改記住的才數與備註（匯出託運單時自動帶的那些）">才數</button><input class="search" id="q" placeholder="搜尋姓名/單號/商品..." oninput="this.value=fwToHw(this.value);searchListDebounced()" title="按 / 或 Ctrl+K 快速聚焦（全形數字自動轉半形）"></div><div id="list-area"></div></div>
 
 <div class="main hidden" id="tab-schedule"><div class="filter-row" style="flex-wrap:wrap;gap:6px;align-items:center"><span class="fg-grp"><span style="font-size:11px;color:var(--dm)">週次</span><select id="sched-week" onchange="setSchedWeek(this.value)" style="font-size:11px;padding:3px 6px;border:1px solid var(--bd);border-radius:6px;background:var(--sf)"></select></span><span class="fb-divider">｜</span><span class="fg-grp" id="sched-installer-row"><span style="font-size:11px;color:var(--dm)">師傅</span><button class="fbtn on" data-installer="all" onclick="setSchedInstaller('all',this)">全部</button></span><span style="flex:1"></span><span style="font-size:11px;color:var(--dm)">共 <strong id="sched-show-cnt">0</strong> 筆</span></div><div id="schedule-area"></div></div>
 
@@ -5650,6 +5650,138 @@ async function batchExportShipping(){
     <div class="modal-ft"><button class="btn" onclick="closeModal()">取消</button>
       <button class="btn btn-g" onclick="doExportShipping()">📦 匯出 Excel</button></div>`;
   document.getElementById('modal-overlay').classList.remove('hidden');document.body.style.overflow='hidden';
+}
+
+/* ===== 才數／備註 記憶管理（杰哥 2026-09-21：「記憶功能你幫我處理」）=====
+   在這之前只有匯出託運單的當下才看得到記了什麼，要改也只能等下次出那件商品。
+   這頁可以隨時看、改、刪。
+
+   ⚠ 一個商品會有兩把鑰匙（平台商品編號 + 完整品名），所以畫面上要**用品名收斂成一列**，
+   不然同一件商品會出現兩三行，改了一行另一行還是舊的。改／刪都對整組鑰匙一起做。 */
+let _memGroups=null, _memTab='todo';
+async function openShipMemory(){
+  const mem=await loadShipSizes(true);
+  const g=new Map();
+  // ① 已經記住的
+  for(const k of Object.keys(mem||{})){
+    const v=mem[k]||{}; const name=v.name||k;
+    if(!g.has(name))g.set(name,{name,keys:[],cai:v.cai,note:v.note||'',qty:v.qty,at:v.at||'',by:v.by||'',
+                                saved:true,cnt:0,last:''});
+    const row=g.get(name); row.keys.push(k);
+    // 同一組的值本來就一樣；真的不一樣時以「有填的」為準，不要顯示 undefined
+    if(row.cai==null&&v.cai!=null)row.cai=v.cai;
+    if(!row.note&&v.note)row.note=v.note;
+  }
+  /* ② 杰哥 2026-09-21：「能先幫我抓現在有出過的商品，我手動先輸入好備註跟才數」
+     → 把訂單裡出現過的商品也列進來，沒記過的就是空白待填。
+     依**出過幾次**由多到少排，先填常出的最划算（全庫 500 多種，但出過 3 次以上的只有一百多種）。*/
+  (typeof orders!=='undefined'?orders:[]).forEach(function(o){
+    const nm=String(o.product||'').trim(); if(!nm)return;
+    if(!g.has(nm))g.set(nm,{name:nm,keys:sizeKeysFor(o),cai:null,note:'',qty:null,at:'',by:'',
+                            saved:false,cnt:0,last:''});
+    const row=g.get(nm);
+    row.cnt++;
+    if(String(o.date||'')>row.last)row.last=String(o.date||'');
+    if(!row.keys.length)row.keys=sizeKeysFor(o);
+  });
+  _memGroups=[...g.values()];
+  renderShipMemory();
+  document.getElementById('modal-overlay').classList.remove('hidden');document.body.style.overflow='hidden';
+}
+function memRows(){
+  const q=((document.getElementById('mem-q')||{}).value||'').trim().toUpperCase();
+  let rows=_memGroups.filter(r=>_memTab==='all'||(_memTab==='done'?r.saved:!r.saved));
+  if(q)rows=rows.filter(r=>((r.name+' '+r.note).toUpperCase().includes(q)));
+  // 還沒填的照「出過幾次」排（先填常出的）；已填的照名字排，好找
+  return _memTab==='done'
+    ? rows.sort((a,b)=>String(a.name).localeCompare(String(b.name),'zh-Hant'))
+    : rows.sort((a,b)=>(b.cnt-a.cnt)||String(a.name).localeCompare(String(b.name),'zh-Hant'));
+}
+const MEM_MAX=400;   // 一次畫太多列會卡；搜尋 + 依次數排序之後，前 400 列已經夠用
+function renderShipMemory(){
+  const q=((document.getElementById('mem-q')||{}).value||'').trim().toUpperCase();
+  const all=memRows(); const rows=all.slice(0,MEM_MAX);
+  const nTodo=_memGroups.filter(r=>!r.saved).length, nDone=_memGroups.filter(r=>r.saved).length;
+  const tab=(k,t)=>`<button class="btn" style="font-size:11px;padding:3px 10px;margin-right:5px;${_memTab===k?'background:var(--tx);color:#fff;border-color:var(--tx)':''}" onclick="_memTab='${k}';renderShipMemory()">${t}</button>`;
+  document.getElementById('modal-body').innerHTML=`<h3>📐 才數／備註 記憶</h3>
+    <div style="font-size:11px;color:var(--dm);line-height:1.7;margin:6px 0 8px">
+      匯出託運單時自動帶的就是這些。改完按「<b>儲存</b>」才會寫進去。<br>
+      <b>還沒填</b>那疊是從訂單抓出來、出過貨但還沒填才數的商品，<b>依出過幾次由多到少排</b> —— 先填常出的最劃算。<br>
+      備註留空＝那件商品匯出時用完整品名。MO_／PC_ 抬頭是匯出時才加的，這裡不用打。
+    </div>
+    <div style="margin-bottom:8px">${tab('todo','還沒填（'+nTodo+'）')}${tab('done','已填（'+nDone+'）')}${tab('all','全部（'+_memGroups.length+'）')}</div>
+    <input id="mem-q" value="${esc(q)}" placeholder="搜尋品名或型號" style="width:100%;margin-bottom:8px" oninput="renderShipMemory()">
+    <div style="max-height:52vh;overflow:auto;border:1px solid var(--bd);border-radius:8px">
+    <table style="width:100%;border-collapse:collapse;font-size:12px">
+      <tr style="background:var(--sf2)"><th style="text-align:left;padding:6px 8px">商品</th>
+        <th style="padding:6px 8px;width:170px">備註（型號）</th>
+        <th style="padding:6px 8px;width:76px">才數</th>
+        <th style="padding:6px 8px;width:46px"></th></tr>
+      ${rows.length?rows.map(r=>{
+        const i=_memGroups.indexOf(r);
+        const gs=(!r.note&&!r.saved)?guessModel(r.name):'';
+        return `<tr style="border-top:1px solid var(--bd)">
+          <td style="padding:6px 8px">
+            <div style="line-height:1.4">${esc(r.name)}</div>
+            <div style="font-size:10px;color:var(--dm)">
+              ${r.cnt?`出過 <b>${r.cnt}</b> 次${r.last?'・最近 '+esc(r.last):''}`:''}
+              ${r.at?`・填於 ${esc(String(r.at).slice(0,10))}${r.by?'　'+esc(r.by):''}`:''}
+              ${r.qty!=null?`・當時 ${esc(String(r.qty))} 件`:''}
+              <br>${esc(r.keys.join('　'))}</div>
+          </td>
+          <td style="padding:6px 8px"><input id="mnote_${i}" value="${esc(r.note)}" style="width:100%" placeholder="留空＝用品名">
+            ${gs?`<button type="button" class="btn" style="font-size:10px;padding:1px 7px;margin-top:3px" onclick="document.getElementById('mnote_${i}').value=${JSON.stringify(gs)}">用「${esc(gs)}」</button>`:''}</td>
+          <td style="padding:6px 8px"><input id="mcai_${i}" type="number" min="0" step="0.1" value="${r.cai==null?'':esc(String(r.cai))}" style="width:100%;text-align:right;${r.saved?'':'background:#fffaf0'}"></td>
+          <td style="padding:6px 8px;text-align:center">
+            ${r.saved?`<button class="btn" style="font-size:10px;padding:2px 7px;color:#b91c1c;border-color:#fca5a5" onclick="delShipMemory(${i})">刪</button>`:''}</td>
+        </tr>`}).join(''):'<tr><td colspan="4" style="padding:26px;text-align:center;color:var(--dm)">'
+          +(_memGroups.length?'沒有符合的':'還沒有任何資料')+'</td></tr>'}
+    </table></div>
+    ${all.length>MEM_MAX?`<div style="font-size:11px;color:var(--dm);margin-top:6px">只顯示前 ${MEM_MAX} 筆（共 ${all.length}）—— 用搜尋找特定商品，或填掉幾筆再回來看。</div>`:''}
+    <div id="mem-msg" style="font-size:12px;margin-top:8px;min-height:18px"></div>
+    <div class="modal-ft"><button class="btn" onclick="closeModal()">關閉</button>
+      <button class="btn btn-g" onclick="saveShipMemory()">儲存</button></div>`;
+}
+async function saveShipMemory(){
+  const msg=document.getElementById('mem-msg');
+  const upd={};let n=0;
+  for(let i=0;i<_memGroups.length;i++){
+    const r=_memGroups[i];
+    const ce=document.getElementById('mcai_'+i), ne=document.getElementById('mnote_'+i);
+    if(!ce||!ne)continue;                       // 被搜尋濾掉沒畫出來的，不動它
+    const cai=String(ce.value).trim(), note=String(ne.value).trim();
+    if(cai!==''&&!(Number(cai)>=0)){ msg.textContent='「'+r.name+'」的才數不是數字'; msg.style.color='#b91c1c'; ce.focus(); return }
+    if(String(r.cai??'')===cai&&String(r.note||'')===note)continue;   // 沒改就不寫
+    if(cai===''&&note===''&&!r.saved)continue;                       // 本來就沒填、現在也沒填 → 不要寫一筆空的進去
+    n++;
+    for(const k of r.keys)upd[k]=Object.assign({},{name:r.name,qty:r.qty},{cai:cai===''?null:Number(cai),note:note,
+      at:new Date().toISOString(),by:(typeof currentUser!=='undefined'&&currentUser)||''});
+    r.cai=cai===''?null:Number(cai); r.note=note; r.saved=true; r.at=new Date().toISOString();
+  }
+  if(!n){ msg.textContent='沒有改到任何一筆'; msg.style.color='var(--dm)'; return }
+  msg.textContent='存檔中…'; msg.style.color='var(--dm)';
+  try{
+    await authReady;
+    await db.ref('shipSizes').update(upd);
+    _shipSizes=Object.assign(_shipSizes||{},upd);
+    renderShipMemory();
+    const m2=document.getElementById('mem-msg');
+    if(m2){ m2.textContent='已存 '+n+' 種商品'; m2.style.color='#166534' }
+  }catch(e){ msg.textContent='存不進去：'+e.message; msg.style.color='#b91c1c' }
+}
+async function delShipMemory(i){
+  const r=_memGroups[i]; if(!r)return;
+  if(!confirm('要刪掉「'+r.name+'」的記憶嗎？'+'\n\n刪掉之後，下次出這件商品才數要重填一次。'))return;
+  const upd={}; r.keys.forEach(k=>{upd[k]=null});
+  const msg=document.getElementById('mem-msg');
+  try{
+    await authReady;
+    await db.ref('shipSizes').update(upd);
+    r.keys.forEach(k=>{ if(_shipSizes)delete _shipSizes[k] });
+    _memGroups.splice(i,1);
+    renderShipMemory();
+    const m2=document.getElementById('mem-msg'); if(m2){ m2.textContent='已刪掉「'+r.name+'」'; m2.style.color='var(--dm)' }
+  }catch(e){ if(msg){ msg.textContent='刪不掉：'+e.message; msg.style.color='#b91c1c' } }
 }
 
 let _shipExportGroups=null;
