@@ -3037,6 +3037,11 @@ function momoLiveOf(o){
 /* 回報「已電聯，尚未確認配送日期」時，可以自動轉「交涉中」的來源狀態。
    只列還沒開始出貨的前段狀態 —— 已包裝/已出貨/收錢/完成/取消/線下 一律不動，不能往回拉。 */
 const _SHIP_AUTO_NEGOTIATE=['未確認','已確認','未接電'];
+/* 壓單成功後要不要把本機狀態改成「已出貨」。
+   自從「平台沒結單就留著出貨鈕」(platformNeedsShip) 之後，已完成的單也按得到出貨鈕了 ——
+   這些比「已出貨」更後面的狀態絕對不能被往回拉成已出貨，只記單號跟出貨痕跡就好。 */
+const _SHIP_NO_DOWNGRADE=['已完成','線下完','已取消','轉線下'];
+function applyShipStatus(o){if(!_SHIP_NO_DOWNGRADE.includes(o.status||''))o.status='已出貨';return o.status}
 const _MOMO_ST_SHORT={'請回覆':'未回報','已電聯，尚未確認配送日期':'已電聯','已確認指定配送日':'指配','已配送':'已配送',
  '暫時電聯不上(無須momo協助)':'電聯不上','多次電聯不上(2天3次以上)':'電聯不上×3','需配送加價協調中':'加價協調',
  '無貨取消訂單':'無貨取消','收件資料有誤/不配送地區':'資料有誤','無適當選項，momo請協助':'請momo協助'};
@@ -3292,6 +3297,28 @@ function pcMismatch(o){
   return '';
 }
 function isPcDiff(o){return !_pcStaleFor(o)&&!!pcMismatch(o)}
+
+/* 平台那邊還沒結單 → SP／出貨鈕要留著，就算本機已經標成收尾狀態。
+   杰哥 2026-09-22 回報：一筆 PChome 單本機被標「已完成」，平台卻還掛「未結單」，
+   結果列表上那排按鈕連 SP 跟出貨都不見了，沒地方可以壓單，只能先把狀態改回去再改回來。
+   規則刻意抓得很緊 —— 只有「平台確定還沒壓成功」才算：
+     PChome  open（完全沒壓）／error（壓了但檢核沒過，等於沒壓）
+     MOMO    還在未出貨清單、而且不是「已配送」
+   快照過期一律回 false：寧可暫時沒鈕，也不要拿舊資料在已經結案的單上長出壓單鈕。 */
+function platformNeedsShip(o){
+  if(!o)return false;
+  if(o.platform==='PC'){
+    if(_pcStaleFor(o))return false;
+    const s=_pcState(pcLiveOf(o));
+    return s==='open'||s==='error';
+  }
+  if(o.platform==='MO'){
+    if(momoLiveStale())return false;
+    const L=momoLiveOf(o);
+    return !!L&&!L.gone&&L.st!=='已配送';
+  }
+  return false;
+}
 
 function pcLiveBadge(o){
   const L=pcLiveOf(o);if(!L)return '';
@@ -3836,15 +3863,21 @@ function buildOrderActions(o,variant){
       :`<button class="act" onclick="changeAddrAck('${oid}',true)" title="同意改地址" style="border-color:var(--grn);color:var(--grn);font-weight:700">✅</button> <button class="act" onclick="changeAddrAck('${oid}',false)" title="拒絕改地址" style="border-color:var(--pc);color:var(--pc);font-weight:700">❌</button> `)
     :'';
   // 出貨回填：MOMO / PChome 待處理時都可回傳出貨資訊到平台
-  const ship=isPending(o.status)
+  // 本機已收尾（已完成/已出貨…）但平台還沒結單時也要留著鈕，不然那張單沒地方壓（見 platformNeedsShip）
+  const _shipByPlat=!isPending(o.status)&&platformNeedsShip(o);
+  const _shipTip=_shipByPlat?'\n※ 本機已經是「'+(o.status||'')+'」，但平台還沒結單，所以這顆鈕留著':'';
+  const _tipMo=esc('回填物流單號到 MOMO'+_shipTip);
+  const _tipSp=esc('一鍵用 PChome 的「廠商自行出貨 (SP)」方式壓單（會先確認）'+_shipTip);
+  const _tipPc=esc('回填物流單號到 PChome'+_shipTip);
+  const ship=(isPending(o.status)||_shipByPlat)
     ?(o.platform==='MO'
       ?(isMob
-        ?`<button class="primary" onclick="openShipMomo('${oid}')">出貨</button>`
-        :`<button class="act" onclick="openShipMomo('${oid}')" title="回填物流單號到 MOMO" style="border-color:var(--mo);color:var(--mo);font-weight:700">出貨</button> `)
+        ?`<button class="primary" onclick="openShipMomo('${oid}')" title="${_tipMo}">出貨</button>`
+        :`<button class="act" onclick="openShipMomo('${oid}')" title="${_tipMo}" style="border-color:var(--mo);color:var(--mo);font-weight:700">出貨</button> `)
       :o.platform==='PC'
       ?(isMob
-        ?`<button class="primary" onclick="quickShipPchomeSelf('${oid}')" title="一鍵用 PChome 的「廠商自行出貨 (SP)」方式壓單（會先確認）" style="background:#0d9488;border-color:#0d9488">SP</button> <button class="primary" onclick="openShipPchome('${oid}')" style="background:var(--pc);border-color:var(--pc)">出貨</button>`
-        :`<button class="act" onclick="quickShipPchomeSelf('${oid}')" title="一鍵用 PChome 的「廠商自行出貨 (SP)」方式壓單（會先確認）" style="border-color:#0d9488;color:#0d9488;font-weight:700">SP</button> <button class="act" onclick="openShipPchome('${oid}')" title="回填物流單號到 PChome" style="border-color:var(--pc);color:var(--pc);font-weight:700">出貨</button> `)
+        ?`<button class="primary" onclick="quickShipPchomeSelf('${oid}')" title="${_tipSp}" style="background:#0d9488;border-color:#0d9488">SP</button> <button class="primary" onclick="openShipPchome('${oid}')" title="${_tipPc}" style="background:var(--pc);border-color:var(--pc)">出貨</button>`
+        :`<button class="act" onclick="quickShipPchomeSelf('${oid}')" title="${_tipSp}" style="border-color:#0d9488;color:#0d9488;font-weight:700">SP</button> <button class="act" onclick="openShipPchome('${oid}')" title="${_tipPc}" style="border-color:var(--pc);color:var(--pc);font-weight:700">出貨</button> `)
       :'')
     :'';
   // 出貨痕跡：按過「出貨／SP（自行出貨）」後蓋一個綠色 ✓ 記號（含時間/誰按的），避免不確定按過沒
@@ -6021,7 +6054,7 @@ async function submitShip(force){
     result.innerHTML=`<div style="background:var(--grn-bg);border:1px solid var(--grn);color:var(--grn);padding:10px;border-radius:6px;font-size:12px"><b>✅ MOMO 已收到出貨確認</b><br>HTTP ${data.status} ｜ 重試次數 ${data.attempts||1}<br><pre style="white-space:pre-wrap;font-size:10px;margin-top:6px;background:#fff;padding:8px;border-radius:4px;color:#000">${esc(JSON.stringify(data.data,null,2).slice(0,400))}</pre></div>`;
     // Update local order
     let _autoStFrom=null;
-    if(status==='已配送'){o.trackingNo=item.slipNo;o.delyGbStr=item.delyGbStr;o.shipTypeStr=item.shipTypeStr;o.packTypeStr=item.packTypeStr;o.packUnit=item.packUnit;o.status='已出貨';o.shippedAt=new Date().toISOString();o.shippedBy=currentUser||'';o.shippedVia='出貨'}
+    if(status==='已配送'){o.trackingNo=item.slipNo;o.delyGbStr=item.delyGbStr;o.shipTypeStr=item.shipTypeStr;o.packTypeStr=item.packTypeStr;o.packUnit=item.packUnit;applyShipStatus(o);o.shippedAt=new Date().toISOString();o.shippedBy=currentUser||'';o.shippedVia='出貨'}
     else if(status==='無貨取消訂單'){o.status='已取消'}
     else if(status==='暫時電聯不上(無須momo協助)'||status==='多次電聯不上(2天3次以上)'){o.status='未接電'}
     else if(status==='已確認指定配送日'){o.scmDelyDate=item.scmDelyDate;o.momoContacted=true;/* status 維持，等之後改「已配送」*/}
@@ -6038,7 +6071,7 @@ async function submitShip(force){
     saveOne(o);renderList();
     syncMomoLive({silent:true}).catch(()=>{}); // 剛回報完平台狀態就變了，馬上重抓免得徽章還是舊的
     _modalDirty=false; // 已成功送出，關閉時不再警告未儲存
-    const localMsg=status==='已配送'?'已出貨':status==='無貨取消訂單'?'已取消':(status==='暫時電聯不上(無須momo協助)'||status==='多次電聯不上(2天3次以上)')?'未接電':o.status;
+    const localMsg=status==='已配送'?o.status:status==='無貨取消訂單'?'已取消':(status==='暫時電聯不上(無須momo協助)'||status==='多次電聯不上(2天3次以上)')?'未接電':o.status;
     const autoNote=_autoStFrom!==null?`（原本是「${_autoStFrom||'空白'}」，自動幫你轉的）`:'';
     setTimeout(()=>{closeModal();alert(`✅ 出貨確認完成，訂單狀態已更新為「${localMsg}」${autoNote}`)},800);
   }catch(err){
@@ -6116,12 +6149,12 @@ async function submitShipPchome(real){
     const data=await r.json();
     if(!r.ok||!data.ok){result.innerHTML=`<div style="background:var(--pc-bg);border:1px solid var(--pc);color:var(--pc);padding:10px;border-radius:6px;font-size:12px"><b>❌ 失敗</b><br>${esc(data.error||'HTTP '+r.status)}<br><pre style="white-space:pre-wrap;font-size:10px;margin-top:6px">${esc(JSON.stringify(data.detail||data,null,2).slice(0,500))}</pre></div>`;return}
     result.innerHTML=`<div style="background:var(--grn-bg);border:1px solid var(--grn);color:var(--grn);padding:10px;border-radius:6px;font-size:12px"><b>✅ PChome 已收到${mode==='ship'?'出貨回填':'不出貨標記'}</b><br>HTTP ${data.status||''}</div>`;
-    if(mode==='ship'){o.trackingNo=payload.shipId;o.delyGbStr=(PC_SHIP_VENDORS.find(v=>v.code===payload.shipVendorId)||{}).name||payload.shipVendorId;o.status='已出貨';o.shippedAt=new Date().toISOString();o.shippedBy=currentUser||'';o.shippedVia='出貨'}
+    if(mode==='ship'){o.trackingNo=payload.shipId;o.delyGbStr=(PC_SHIP_VENDORS.find(v=>v.code===payload.shipVendorId)||{}).name||payload.shipVendorId;applyShipStatus(o);o.shippedAt=new Date().toISOString();o.shippedBy=currentUser||'';o.shippedVia='出貨'}
     else{o.status='已取消'}
     _pcMarkLocal(o.orderNo, mode==='ship' ? 'checking' : 'cancelled', payload.shipId, payload.shipVendorId);
     logActivity(o,mode==='ship'?`PChome 出貨回填：${summary}`:`PChome ${summary}`);
     saveOne(o);renderList();_modalDirty=false;
-    const localMsg=mode==='ship'?'已出貨':'已取消';
+    const localMsg=mode==='ship'?o.status:'已取消';
     setTimeout(()=>{closeModal();alert(`✅ 完成，訂單狀態已更新為「${localMsg}」`)},800);
   }catch(err){result.innerHTML=`<div style="background:var(--pc-bg);border:1px solid var(--pc);color:var(--pc);padding:10px;border-radius:6px;font-size:12px"><b>❌ 網路錯誤</b><br>${esc(err.message)}</div>`}
 }
