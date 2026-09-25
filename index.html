@@ -1178,6 +1178,13 @@ body.has-batch-bar .main{padding-bottom:140px}
 /* 按鈕上的步驟號碼。超商 1轉店到店→2印標籤→3出貨確認，順序錯了就是災難。 */
 .tdmod .st-step{display:inline-block;min-width:15px;height:15px;line-height:15px;text-align:center;border-radius:50%;background:var(--dm);color:#fff;font-size:10px;font-weight:800;margin-right:5px}
 .tdmod .btn:disabled .st-step{opacity:.5}
+/* 一鍵跑完：主要動作，要一眼看得到 */
+.tdmod .btn.st-onego{background:var(--mo);color:#fff;border-color:var(--mo);font-weight:800}
+.tdmod .btn.st-onego:disabled{background:var(--sf2);color:var(--ht);border-color:var(--bd)}
+.tdmod .st-div{width:1px;height:22px;align-self:center;background:var(--bd);margin:0 4px;flex:0 0 auto}
+.tdmod .st-flow-s{display:flex;align-items:baseline;gap:8px;font-size:12.5px;line-height:2;flex-wrap:wrap}
+.tdmod .st-flow-m{font-family:var(--mono);font-weight:800;width:14px;text-align:center;flex:0 0 auto}
+.tdmod .st-flow-n{color:var(--dm);font-size:11.5px;white-space:pre-wrap}
 /* 併箱方案卡：哪幾張併成哪一箱，出貨前用眼睛就看得完 */
 .tdmod .st-plan{border:1px solid var(--bd);border-radius:10px;background:var(--sf);padding:9px 12px;margin:2px 0 8px;font-size:12px;line-height:1.95;width:100%}
 .tdmod .st-plan b{font-weight:800;color:var(--tx)}
@@ -10144,6 +10151,7 @@ function stSetMode(m){
   stMode = next;
   try{ localStorage.setItem('stMode', stMode) }catch(e){}
   stRows = []; stPick.clear(); stErr = ''; stShipOpen = false; stLoadedAt = 0;
+  if(!(stFlow && stFlow.busy)) stFlow = null;   // 另一邊跑完的結果不要跟著切過來
   stRender();
   stLoad();
 }
@@ -10566,6 +10574,10 @@ function stRender(){
 
   bar.innerHTML = (stRows.length
     ? '<button class="btn" id="st-all">' + (stPick.size ? '取消全選' : '全選 ' + stRows.length + ' 張') + '</button>'
+      + '<button class="btn st-onego" id="st-flow"' + (liveRows.length && !(stFlow&&stFlow.busy) ? '' : ' disabled')
+        + ' title="' + (stIsThird() ? '出貨確認 → 印標籤，一次跑完' : '轉店到店 → 出貨確認 → 印標籤，一次跑完') + '">'
+        + '一鍵跑完' + (liveRows.length?('（'+liveRows.length+'）'):'') + '</button>'
+      + '<span class="st-div"></span>'
       + (stIsThird() ? ''
          : '<button class="btn btn-g" id="st-conv"' + (convPick?'':' disabled')
            + ' title="把 7-11／全家的直配單改成店到店。改完要還原得自己進 SCM 後台。">'
@@ -10605,6 +10617,7 @@ function stRender(){
       + '<button class="btn btn-g" id="st-need-label">選起來印標籤（' + needLabel.length + '）</button>'
       + '</div>';
   }
+  html += stFlowPanel();
   if(stShipOpen) html += stShipPanel();
   if(stLoading) html += '<div class="st-empty">抓取中…</div>';
   else if(!stRows.length) html += '<div class="st-empty">'
@@ -10691,6 +10704,8 @@ function stRender(){
   };
   const cb = $s('st-conv'); if(cb) cb.onclick = ()=>stConvert(false);
   const sb = $s('st-ship'); if(sb) sb.onclick = ()=>{ stShipOpen = true; stRender(); stLoadShipTypes() };
+  const fb = $s('st-flow'); if(fb) fb.onclick = ()=>stFlowGo();
+  const fx = $s('st-flow-x'); if(fx) fx.onclick = ()=>{ stFlow = null; stRender() };
   const gd = $s('st-gate-do'); if(gd) gd.onclick = ()=>stConvert(false);
   const nl = $s('st-need-label'); if(nl) nl.onclick = ()=>{
     stPick.clear();
@@ -10974,6 +10989,179 @@ async function stShipGo(){
   }
 
   stShipMsg = '處理中…'; stRender();
+  const res = await stShipRun(picked, cfg, boxMap);
+  stShipMsg = '';
+  if(res.ok){
+    // 先記起來再重抓 —— 不記的話重抓完它們就從畫面上消失，就沒東西可以印了。
+    stAddShipped(picked);
+    alert('出貨確認完成 ' + (res.success||0) + ' 張\n\n' + res.steps
+      + (res.note ? ('\n\n' + res.note) : '')
+      + '\n\n這幾張已經標成「已出貨」留在列表上（保留 7 天），現在按「印標籤」就印得出來了 ——'
+      + '標籤是剛剛那一刻才產生的，記得印完再出貨。');
+    stShipOpen = false;
+    const keep = new Set(picked.map(x=>x.completeOrderNo));
+    stLoad().then(()=>{ stPick = new Set(keep); stRender() });
+    return;
+  }
+  alert('出貨沒有完成：\n\n' + res.msg + '\n\n先別重複按，把這段截圖給我。');
+  stRender();
+}
+
+/* ===== 一鍵跑完（杰哥 2026-09-25）=====
+   原本要按三次、中間還要等：轉店到店 → 出貨確認 → 印標籤。
+   對工讀生來說最大的風險不是難按，是**順序按錯**，所以乾脆做成一顆。
+
+   順序（杰哥 2026-09-25 確認過「是」）：
+     超商   轉店到店 → 出貨確認 → 印標籤
+     第三方 出貨確認 → 印標籤（沒有店到店）
+   標籤是出貨確認那一刻才生得出來的，所以印一定在最後。
+
+   🔴 標籤那個分頁要在**按鈕按下去的當下**同步開好（見 stPrintNosImpl 的 preWin）。
+   🔴 只問一次（開跑前那個 confirm），中間不再打斷 —— 但任何一步沒過就停下來，
+      尤其轉店到店失敗絕不可以往下做（出貨確認一做就再也轉不了）。 */
+let stFlow = null;
+function stFlowSet(i, state, note){
+  if(!stFlow || !stFlow.steps[i]) return;
+  stFlow.steps[i].state = state;
+  stFlow.steps[i].note = note || '';
+  stRender();
+}
+function stFlowPanel(){
+  if(!stFlow) return '';
+  const mark = { ok:'✓', run:'…', fail:'✗', skip:'–', wait:'·' };
+  const color = { ok:'var(--grn)', run:'var(--amb)', fail:'var(--red)', skip:'var(--dm)', wait:'var(--ht)' };
+  const rows = stFlow.steps.map((s,i)=>
+    '<div class="st-flow-s"><span class="st-flow-m" style="color:' + color[s.state] + '">' + mark[s.state] + '</span>'
+    + '<b>' + (i+1) + '. ' + esc2(s.t) + '</b>'
+    + (s.note ? '<span class="st-flow-n">' + esc2(s.note) + '</span>' : '') + '</div>').join('');
+  return '<div class="st-ship"><div class="st-ship-t">一鍵跑完'
+    + (stFlow.busy ? '（進行中，先別關視窗）' : (stFlow.stoppedWhy ? '（停下來了）' : '（跑完了）')) + '</div>'
+    + rows
+    + (stFlow.stoppedWhy ? '<div class="st-err" style="margin-top:8px">' + esc2(stFlow.stoppedWhy) + '</div>' : '')
+    + (stFlow.busy ? '' : '<div class="st-ship-row" style="margin-top:8px"><button class="btn" id="st-flow-x">知道了</button></div>')
+    + '</div>';
+}
+
+async function stFlowGo(){
+  if(stFlow && stFlow.busy) return;
+  const selected = stRows.filter(r=>stPick.has(r.completeOrderNo));
+  const picked = selected.filter(r=>!r.shipped && !r.sending);
+  const blocked = selected.filter(r=>r.shipped || r.sending);
+  if(!picked.length){
+    alert('勾起來的單都已經出過貨／已印單了，沒有可以跑的。\n\n那種單直接按「印標籤」就好。');
+    return;
+  }
+  const c = stCfg();
+  // 包材重量 MOMO 會稽查，不能替他猜。沒填過就先把出貨面板打開讓他填一次，之後就記住了。
+  if(!String(c.packUnit||'').trim()){
+    alert('一鍵跑完需要「包材重量」，MOMO 會稽查，不能亂填。\n\n'
+      + '先按「出貨確認」把包材跟重量填一次，系統會記起來，之後一鍵就跑得動了。');
+    stShipOpen = true; stRender(); stLoadShipTypes();
+    return;
+  }
+  if(blocked.length && !confirm('勾起來的 ' + selected.length + ' 張裡面，有 ' + blocked.length
+    + ' 張已經出過貨／已印單了，那幾張會自動跳過。\n\n只跑剩下的 ' + picked.length + ' 張，要繼續嗎？')) return;
+
+  const stillDirect = stIsThird() ? [] : picked.filter(r=>r.canS2S);
+  const plan = stBoxPlan(picked, c.boxMode);
+  const boxMap = stBoxMap(plan);
+  if(c.boxMode === 'all' && picked.length > 1 && !stSameBox(picked)){
+    if(!confirm('⚠ 併箱方式是「全部併成同一箱」，但這 ' + picked.length + ' 張不是同一個收件人／同一家門市。\n\n'
+      + '寄錯人很麻煩。改用「自動」就會幫您分成好幾箱。\n\n確定還是要全部併成一箱嗎？')) return;
+  }
+  const boxLine = plan.groups.length
+    ? plan.groups.map(g=>{
+        const r0 = g.rows[0];
+        return '　箱號 ' + g.boxYn + '：' + (r0.Receiver || r0.receiverMask || '?') + ' ' + g.rows.length + ' 張';
+      }).join('\n') + (plan.singles.length ? ('\n　箱號 00：其餘 ' + plan.singles.length + ' 張各自一箱') : '')
+    : '　不併箱（全部箱號 00）';
+  let n = 0;
+  const plans = []
+    .concat(stIsThird() ? [] : [(++n) + '. 轉店到店：' + (stillDirect.length ? (stillDirect.length + ' 張') : '不用做，都已經是店到店')])
+    .concat([(++n) + '. 出貨確認（真的出庫，不可逆）'
+      + '\n　包材：' + c.shipType + (c.packType?('／'+c.packType):'') + '／' + c.packUnit + 'g'
+      + '\n　併箱：\n' + boxLine])
+    .concat([(++n) + '. 印標籤（會開新分頁，標籤是出貨確認當下才產生的）']);
+  if(!confirm('一鍵跑完這 ' + picked.length + ' 張？\n\n' + plans.join('\n')
+    + '\n\n中間不會再問您，跑完標籤會自己跳出來。要開始嗎？')) return;
+
+  // 🔴 同步開分頁：await 之後再 open 會被瀏覽器擋掉
+  const w = window.open('', '_blank');
+  if(!w){
+    alert('瀏覽器擋掉彈出視窗了。\n\n一鍵跑完最後要開標籤分頁，請先允許這個網站的彈出視窗，再按一次。');
+    return;
+  }
+  try{ w.document.write('<p style="font:14px sans-serif;padding:16px">出貨確認跑完之後，標籤就會出現在這裡…</p>') }catch(e){}
+
+  const steps = [];
+  if(!stIsThird()) steps.push({ t:'轉店到店', state:'wait', note:'' });
+  steps.push({ t:'出貨確認', state:'wait', note:'' });
+  steps.push({ t:'印標籤', state:'wait', note:'' });
+  stFlow = { steps: steps, busy:true, stoppedWhy:'' };
+  const iConv = stIsThird() ? -1 : 0;
+  const iShip = stIsThird() ? 0 : 1;
+  const iLab  = stIsThird() ? 1 : 2;
+  stShipOpen = false;
+  stRender();
+
+  // 1 轉店到店
+  if(iConv >= 0){
+    if(!stillDirect.length){ stFlowSet(iConv, 'skip', '不用做，都已經是店到店'); }
+    else{
+      stFlowSet(iConv, 'run', '轉 ' + stillDirect.length + ' 張…');
+      const cr = await stConvertRun(stillDirect, false);
+      if(!cr.ok){
+        // 🔴 轉失敗絕不往下做：出貨確認一下去就再也轉不了店到店了
+        stFlowSet(iConv, 'fail', cr.msg || '沒有回報原因');
+        stFlow.busy = false;
+        stFlow.stoppedWhy = '轉店到店沒成功，所以停在這裡，沒有出貨。'
+          + '（出貨確認一做下去就再也轉不了店到店，寧可停在這一步。）先別重複按，把這段截圖給我。';
+        try{ w.close() }catch(e){}
+        stRender();
+        return;
+      }
+      stillDirect.forEach(function(r){
+        if(r.s2sTarget){ r.delyGb = r.s2sTarget; r.delyGbName = S2S_NAME[r.s2sTarget] || r.delyGbName; }
+        r.canS2S = false;
+      });
+      stFlowSet(iConv, 'ok', '轉好 ' + stillDirect.length + ' 張');
+    }
+  }
+
+  // 2 出貨確認
+  stFlowSet(iShip, 'run', '1.貨源確認 → 2.併箱 → 3.出貨確認…');
+  const sr = await stShipRun(picked, c, boxMap);
+  if(!sr.ok){
+    stFlowSet(iShip, 'fail', sr.msg);
+    stFlow.busy = false;
+    stFlow.stoppedWhy = '出貨確認沒有完成，標籤也就還印不出來（標籤是出貨確認當下才產生的）。'
+      + '先別重複按，把這段截圖給我。';
+    try{ w.close() }catch(e){}
+    stRender();
+    return;
+  }
+  // 先記起來再重抓 —— 不記的話重抓完它們就從畫面上消失，就沒東西可以印了
+  stAddShipped(picked);
+  stFlowSet(iShip, 'ok', '完成 ' + (sr.success || picked.length) + ' 張' + (sr.note ? ('（' + sr.note + '）') : ''));
+
+  // 3 印標籤
+  stFlowSet(iLab, 'run', '產生標籤中（在另一個分頁）…');
+  const printed = await stPrintNos(picked.map(x=>x.completeOrderNo), 'label', w);
+  if(printed) stFlowSet(iLab, 'ok', '標籤開在另一個分頁了，印好就可以出貨');
+  else{
+    stFlowSet(iLab, 'fail', '標籤沒印出來');
+    stFlow.stoppedWhy = '貨已經出了，但標籤沒印出來。'
+      + '那幾張會留在清單上 7 天，可以勾起來再按「印標籤」重試；還是不行就上 SCM 後台印。';
+  }
+  stFlow.busy = false;
+  const keep = new Set(picked.map(x=>x.completeOrderNo));
+  stLoad().then(()=>{ stPick = new Set(keep); stRender() });
+}
+
+/* 出貨三步驟的網路部分。抽出來是因為「一鍵跑完」也要用同一套 ——
+   兩邊各寫一次遲早會歪掉，而這一支是不可逆的動作，不能有兩種行為。
+   回 { ok, success, note, steps(人看的字串), msg(失敗原因) }，不自己 alert。 */
+async function stShipRun(picked, cfg, boxMap){
   try{
     const r = await fetch(stApi() + (stIsThird() ? '/api/orders/momo/third/ship' : '/api/orders/momo/stores/ship'), {
       method:'POST',
@@ -10989,24 +11177,10 @@ async function stShipGo(){
     });
     const j = await r.json().catch(()=>({}));
     const steps = (j && j.steps || []).map(s2=>s2.step + (s2.ok?' ✓':' ✗' + (s2.error?('（'+s2.error+'）'):''))).join('\n');
-    if(j && j.ok){
-      stShipMsg = '';
-      // 先記起來再重抓 —— 不記的話重抓完它們就從畫面上消失，就沒東西可以印了。
-      stAddShipped(picked);
-      alert('出貨確認完成 ' + (j.success||0) + ' 張\n\n' + steps
-        + (j.note ? ('\n\n' + j.note) : '')
-        + '\n\n這幾張已經標成「已出貨」留在列表上（保留 7 天），現在直接按「印標籤」就可以印。');
-      stShipOpen = false;
-      const keep = new Set(picked.map(x=>x.completeOrderNo));
-      stLoad().then(()=>{ stPick = new Set(keep); stRender() });
-      return;
-    }
-    stShipMsg = '';
-    alert('出貨沒有完成：\n\n' + ((j && j.error) || ('後端回 HTTP ' + r.status))
-      + (steps ? ('\n\n各步驟：\n' + steps) : '')
-      + '\n\n先別重複按，把這段截圖給我。');
-  }catch(e){ stShipMsg = ''; alert('連不上：' + e.message) }
-  stRender();
+    if(j && j.ok) return { ok:true, success:(j.success||0), note:(j.note||''), steps:steps, msg:'' };
+    return { ok:false, success:0, note:'', steps:steps,
+             msg: ((j && j.error) || ('後端回 HTTP ' + r.status)) + (steps ? ('\n\n各步驟：\n' + steps) : '') };
+  }catch(e){ return { ok:false, success:0, note:'', steps:'', msg:'連不上：' + e.message } }
 }
 
 
@@ -11269,16 +11443,20 @@ function stPrint(type){
   stPrintNos(picked.map(r=>r.completeOrderNo), type);
 }
 
-function stPrintNos(nos, type){
-  return stPrintNosImpl(nos, type);
+function stPrintNos(nos, type, preWin){
+  return stPrintNosImpl(nos, type, preWin);
 }
 
-function stPrintNosImpl(nos, type){
+/* preWin：已經先開好的分頁。「一鍵跑完」要在**按鈕按下去的當下**就把分頁開好，
+   不然中間 await 過，瀏覽器會把 window.open 當彈出廣告擋掉。
+   回 Promise<boolean>（真的拿到 PDF 才是 true），一鍵流程要靠它決定最後那一步的狀態。 */
+function stPrintNosImpl(nos, type, preWin){
   const bad = nos.filter(n=>!ST_NO_RE.test(stNormNo(n)));
   if(bad.length){
+    try{ if(preWin) preWin.close() }catch(e){}
     alert('這幾筆的訂單編號格式不對，MOMO 會退回：\n\n' + bad.join('\n')
       + '\n\n正確格式是 14 碼數字 + -001-001-001。手動加入的可以按那一列的「移除」再重加一次。');
-    return;
+    return Promise.resolve(false);
   }
   const api = stApi(), tok = stTok();
   const url = api
@@ -11288,10 +11466,10 @@ function stPrintNosImpl(nos, type){
   /* 先同步開一個空白分頁（不然非同步之後 window.open 會被擋），
      抓回來是 PDF 才把它放進去；是錯誤就把分頁關掉、用人看得懂的話講。
      以前直接把網址丟進新分頁，失敗時使用者看到的是一段 JSON。 */
-  const w = window.open('', '_blank');
-  if(!w){ alert('瀏覽器擋掉彈出視窗了，請允許彈出視窗才能開 PDF'); return }
+  const w = preWin || window.open('', '_blank');
+  if(!w){ alert('瀏覽器擋掉彈出視窗了，請允許彈出視窗才能開 PDF'); return Promise.resolve(false) }
   try{ w.document.write('<p style="font:14px sans-serif;padding:16px">產生標籤中…</p>') }catch(e){}
-  fetch(url)
+  return fetch(url)
     .then(r=>r.blob().then(b=>({r:r, b:b})))
     .then(({r,b})=>{
       const ct = (r.headers.get('content-type')||'').toLowerCase();
@@ -11300,7 +11478,7 @@ function stPrintNosImpl(nos, type){
         // 三方的標籤上就印著真實姓名/電話/地址 —— 同一份 PDF 順手解一次自動補回訂單
         if(type === 'label' && stIsThird()) b.arrayBuffer().then(ab=>stAutoFillFromLabelPdf(ab)).catch(()=>{});
         // MOMO 的標籤 PDF 有加密，每次開都要打密碼。密碼記在本機，這裡自動帶進去解開再列印。
-        return b.arrayBuffer().then(ab=>{ stOpenLabelViewer(w, ab) });
+        return b.arrayBuffer().then(ab=>{ stOpenLabelViewer(w, ab); return true });
       }
       // 不是 PDF → 讀出後端寫的原因，講人話
       return b.text().then(t=>{
@@ -11313,9 +11491,10 @@ function stPrintNosImpl(nos, type){
         } else {
           alert('印標籤失敗：\n\n' + String(msg).slice(0, 500));
         }
+        return false;
       });
     })
-    .catch(e=>{ try{ w.close() }catch(_){} alert('印標籤失敗（連不上）：' + e.message) });
+    .catch(e=>{ try{ w.close() }catch(_){} alert('印標籤失敗（連不上）：' + e.message); return false });
 }
 
 window.__stRender = function(){
