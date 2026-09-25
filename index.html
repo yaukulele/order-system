@@ -1161,14 +1161,28 @@ body.has-batch-bar .main{padding-bottom:140px}
 .tdmod .st-ship{background:var(--sf2);border:1px solid var(--bd);border-radius:10px;padding:12px 14px;margin:10px 0}
 .tdmod .st-ship-t{font-size:12.5px;font-weight:700;margin-bottom:10px}
 .tdmod .st-ship-row{display:flex;gap:12px;align-items:center;flex-wrap:wrap;margin-bottom:8px}
-.tdmod .st-ship-row label{display:flex;align-items:center;gap:6px;font-size:12px;color:var(--dm)}
+/* 🔴 flex:0 0 auto 不可拿掉：label 是 flex item，預設會被擠壓，中文沒有斷字限制
+   → 擠到剩一個字寬就變成「直的」。杰哥 2026-09-25 回報的就是這個。 */
+.tdmod .st-ship-row label{display:flex;align-items:center;gap:6px;font-size:12px;color:var(--dm);flex:0 0 auto;white-space:nowrap}
 .tdmod .st-ship-row select,.tdmod .st-ship-row input{padding:6px 8px;border:1px solid var(--bd);border-radius:8px;font-size:12.5px;background:var(--sf);color:var(--tx)}
 .tdmod .st-ship-row input[type=number]{width:90px}
 .tdmod .st-u{font-size:11px;color:var(--dm)}
 .tdmod .st-ship-msg{font-size:12px;color:var(--dm);padding-top:4px}
 .tdmod .st-boxchk{font-weight:600;color:var(--tx)}
 .tdmod .st-boxbad{color:var(--red);font-weight:600;font-size:12px}
-.tdmod .st-same{font-size:11px;color:var(--blu);font-weight:600}
+.tdmod .st-same{font-size:11px;color:var(--blu);font-weight:600;cursor:pointer;text-decoration:underline;text-underline-offset:2px}
+/* 出貨前的關卡提示（還是直配 / 還沒印標籤）。橘色＝擋住你，但同一條裡就有解法鈕。 */
+.tdmod .st-gate{background:#fff7ed;border:1px solid #fdba74;color:#9a3412;border-radius:10px;padding:10px 13px;font-size:12.5px;line-height:1.9;margin:10px 0;display:flex;align-items:center;gap:10px;flex-wrap:wrap}
+[data-theme="dark"] .tdmod .st-gate{background:#3a1f0a;border-color:#7a4a12;color:#fdba74}
+.tdmod .st-gate-tx{flex:1;min-width:260px}
+/* 按鈕上的步驟號碼。超商 1轉店到店→2印標籤→3出貨確認，順序錯了就是災難。 */
+.tdmod .st-step{display:inline-block;min-width:15px;height:15px;line-height:15px;text-align:center;border-radius:50%;background:var(--dm);color:#fff;font-size:10px;font-weight:800;margin-right:5px}
+.tdmod .btn:disabled .st-step{opacity:.5}
+/* 併箱方案卡：哪幾張併成哪一箱，出貨前用眼睛就看得完 */
+.tdmod .st-plan{border:1px solid var(--bd);border-radius:10px;background:var(--sf);padding:9px 12px;margin:2px 0 8px;font-size:12px;line-height:1.95;width:100%}
+.tdmod .st-plan b{font-weight:800;color:var(--tx)}
+.tdmod .st-plan .st-cnt{font-family:var(--mono);font-size:11.5px}
+.tdmod .st-plan-g{display:inline-block;background:var(--grn-bg);color:var(--grn);border:1px solid #8cc4a0;border-radius:999px;padding:0 8px;font-size:11px;font-weight:800;margin-right:6px}
 .tdmod .st-manual{padding:6px 9px;border:1px solid var(--bd);border-radius:8px;font-size:12px;background:var(--sf);color:var(--tx)}
 .tdmod .st-del{font-size:11px;color:var(--red);margin-left:6px;text-decoration:underline}
 .tdmod .st-empty{text-align:center;padding:44px 16px;color:var(--ht);font-size:13px;line-height:2}
@@ -10119,6 +10133,11 @@ let stRows = [], stPick = new Set(), stLoading = false, stErr = '', stLoadedAt =
 // 出貨三步驟（貨源確認→併箱→出貨確認）用的狀態。包材設定記在 localStorage，
 // 因為同一家店的包材幾乎每次都一樣，不該每張單重打一次。
 let stShipOpen = false, stShipTypes = null, stShipLoading = false, stShipMsg = '';
+/* 「還沒印標籤」那道關卡的逃生門（杰哥 2026-09-25）。
+   已印標籤是記在**這台瀏覽器**的 localStorage，在別台電腦印的這邊不知道，
+   所以擋歸擋，要留一個「我在別台印過了」可以解開，不然人會卡死。
+   直配那道關沒有逃生門 —— 那個真的不能繞過去。切分頁/重抓就回到鎖上。 */
+let stShipUnlock = false;
 /* 這個分頁同時服務「超商取貨」與「第三方物流」（杰哥 2026-09-09）。
    兩邊的流程一模一樣（勾選 → 併箱 → 出貨確認 → 印標籤），只有 API 路徑不同，
    所以共用整套 UI，用 stMode 切換就好，不要複製第二套畫面出來維護。 */
@@ -10129,7 +10148,7 @@ function stSetMode(m){
   if(next === stMode) return;
   stMode = next;
   try{ localStorage.setItem('stMode', stMode) }catch(e){}
-  stRows = []; stPick.clear(); stErr = ''; stShipOpen = false; stLoadedAt = 0;
+  stRows = []; stPick.clear(); stErr = ''; stShipOpen = false; stLoadedAt = 0; stShipUnlock = false;
   stRender();
   stLoad();
 }
@@ -10226,9 +10245,19 @@ function stCheckNo(raw){
       + '正確格式是 14 碼數字 + -001-001-001，例如：\n26090221735633-001-001-001\n\n'
       + '看起來像是少打或多打了字，從 MOMO 後台整串複製過來最保險。' };
 }
+/* boxMode（杰哥 2026-09-25）取代舊的 boxOn 打勾：
+     auto = 同收件人＋同取貨門市的自動併成一箱，好幾組可以同一批處理（預設）
+     all  = 勾起來的全部塞同一箱（少見，要再確認一次）
+     none = 都不併
+   舊設定只有 boxOn(true/false)，第一次讀到就翻成 auto / none。 */
 function stCfg(){
-  try{ return Object.assign({shipType:'原箱', packType:'', packUnit:'', boxYn:'00'}, JSON.parse(localStorage.getItem(ST_CFG_KEY)||'{}')) }
-  catch(e){ return {shipType:'原箱', packType:'', packUnit:'', boxYn:'00'} }
+  const d = {shipType:'原箱', packType:'', packUnit:'', boxMode:'auto'};
+  try{
+    const c = Object.assign({}, d, JSON.parse(localStorage.getItem(ST_CFG_KEY)||'{}'));
+    if(!c.boxMode) c.boxMode = c.boxOn ? 'auto' : 'none';
+    if(['auto','all','none'].indexOf(c.boxMode) < 0) c.boxMode = 'auto';
+    return c;
+  }catch(e){ return d }
 }
 function stSaveCfg(c){ try{ localStorage.setItem(ST_CFG_KEY, JSON.stringify(c)) }catch(e){} }
 const $s = id => document.getElementById(id);
@@ -10243,6 +10272,36 @@ function stGroups(){
   stRows.forEach(r=>{ const k = stBoxKey(r); (m[k] = m[k] || []).push(r) });
   return m;
 }
+/* 併箱方案（杰哥 2026-09-25：「看起來沒辦法同時處理好幾單併單」）
+
+   🔴 關鍵：MOMO 第 2 步 unsendStoresCombineBox 的 sendInfoList 是**逐筆帶 boxYn** 的，
+   同一次呼叫裡可以有箱號 1、箱號 2、00…… 各併各的。之前前端只送一個 boxYn 給整批，
+   所以一次只能服務一組客人，兩組就得勾一次、跑一次、再勾一次 —— 沒必要。
+
+   分組規則沿用 stBoxKey（收件人 + 取貨門市／出貨地址）：名字是遮罩過的（陳O霖），
+   單看名字會誤判，加上門市才夠準。只有一張的那幾筆 boxYn 給 00（不併）。
+   回 { groups:[{key,boxYn,rows}], singles:[row] }。 */
+function stBoxPlan(picked, mode){
+  const rows = picked || [];
+  if(mode === 'none' || rows.length < 2) return { groups:[], singles:rows.slice() };
+  if(mode === 'all') return { groups:[{ key:'*', boxYn:'1', rows:rows.slice() }], singles:[] };
+  const m = {}, order = [];
+  rows.forEach(r=>{ const k = stBoxKey(r); if(!m[k]){ m[k] = []; order.push(k) } m[k].push(r) });
+  const groups = [], singles = [];
+  order.forEach(k=>{
+    if(m[k].length > 1) groups.push({ key:k, boxYn:String(groups.length + 1), rows:m[k] });
+    else singles.push(m[k][0]);
+  });
+  return { groups, singles };
+}
+// 方案 → 逐筆箱號（送給後端）。沒併的一律 '00'。
+function stBoxMap(plan){
+  const map = {};
+  plan.groups.forEach(g=>g.rows.forEach(r=>{ map[r.completeOrderNo] = g.boxYn }));
+  plan.singles.forEach(r=>{ map[r.completeOrderNo] = '00' });
+  return map;
+}
+
 // 28=7-11店到店 29=全家店到店：這兩種是「已經轉好」的，不是「不能轉」的，畫面要分清楚。
 function isS2S(r){ const g = String(r && r.delyGb || ''); return g === '28' || g === '29' }
 function stApi(){ try{ return getMomoApi() }catch(e){ return '' } }
@@ -10251,7 +10310,7 @@ function stTok(){ try{ return (localStorage.getItem(MOMO_TK_KEY)||'') }catch(e){
 async function stLoad(silent){
   const api = stApi(), tok = stTok();
   if(!api || !tok){ stErr = '還沒設定 MOMO 的 API 網址或 Token（跟抓訂單用的是同一組）'; stRender(); return }
-  stLoading = true; stErr = ''; stRender();
+  stLoading = true; stErr = ''; stShipUnlock = false; stRender();
   const days = ($s('st-days')||{}).value || '30';
   try{
     const path = stIsThird()
@@ -10375,7 +10434,25 @@ function stRender(){
 
   const bar = $s('st-bar');
   // 可轉的只算「還沒轉」的（7-11 / 全家直配）。已經是店到店的仍然要能勾 —— 印貼紙要用。
-  const convPick = stRows.filter(r=>r.canS2S && stPick.has(r.completeOrderNo)).length;
+  const convRows = stRows.filter(r=>r.canS2S && stPick.has(r.completeOrderNo));
+  const convPick = convRows.length;
+
+  /* 出貨確認的關卡（杰哥 2026-09-25：「超商我們只會店到店，要避免有人直接按了出貨確認」）
+
+     出貨確認是這條流程上唯一不可逆的一步，而且它會同時關掉兩扇門：
+       1. 轉店到店 —— 轉換 API 只吃「未出貨」的單，出貨確認一做就再也轉不了
+       2. 印標籤   —— 列印 API 也只有 unsend* 兩支，出貨後 MOMO 就不給印了
+     原本只在按下去時跳 confirm，但 confirm 按習慣了就是一路 Enter 過去。
+     改成按鈕直接鎖上，旁邊那條橘色提示裡就放「現在去做該做的那件事」的按鈕。 */
+  const pickedRows = stRows.filter(r=>stPick.has(r.completeOrderNo));
+  const liveRows = pickedRows.filter(r=>!r.shipped && !r.sending);
+  // 超商才有直配這回事；第三方本來就是我們自己寄，沒有店到店
+  const gateDirect = stIsThird() ? [] : liveRows.filter(r=>r.canS2S);
+  const gateUnprinted = liveRows.filter(r=>!stPrinted.has(stNormNo(r.completeOrderNo)));
+  let gate = '';
+  if(gateDirect.length) gate = 'direct';
+  else if(gateUnprinted.length && !stShipUnlock) gate = 'print';
+  const shipLocked = !!gate;
   // 手動框：出貨確認後那張單在 MOMO 那邊已經查不到，如果本機也沒記到
   // （例如出貨那次還是舊版），就只能用訂單編號把它撈回來。也順便當補印工具用。
   const manual = '<span class="st-sp"></span>'
@@ -10388,11 +10465,27 @@ function stRender(){
           + '<input type="file" id="st-pdf-file" accept="application/pdf" multiple style="display:none">'
         : '');
 
+  /* 按鈕照「該做的順序」排，而且標上號碼：
+       超商   1 轉店到店 → 2 印標籤 → 3 出貨確認
+       第三方 1 印標籤   → 2 出貨確認（沒有店到店，那顆直接不顯示）
+     原本出貨確認排在印標籤前面，等於把最危險的那顆放在最順手的位置。 */
+  const step = n => '<span class="st-step">' + n + '</span>';
+  const shipTip = gate === 'direct'
+      ? '這幾張還是直配，先按「轉店到店」。出貨確認做下去就再也轉不了了。'
+      : (gate === 'print'
+          ? '這幾張還沒在系統印過標籤。出貨確認之後 MOMO 就不給印了，先印再出貨。'
+          : '會跑 1.貨源確認 → 2.併箱 → 3.出貨確認，這一步是真的出庫');
+
   bar.innerHTML = (stRows.length
     ? '<button class="btn" id="st-all">' + (stPick.size ? '取消全選' : '全選 ' + stRows.length + ' 張') + '</button>'
-      + '<button class="btn btn-g" id="st-conv"' + (convPick?'':' disabled') + '>轉店到店' + (convPick?('（'+convPick+'）'):'') + '</button>'
-      + '<button class="btn" id="st-ship"' + (stPick.size?'':' disabled') + '>出貨確認' + (stPick.size?('（'+stPick.size+'）'):'') + '</button>'
-      + '<button class="btn" id="st-label"' + (stPick.size?'':' disabled') + '>印標籤</button>'
+      + (stIsThird() ? ''
+         : '<button class="btn btn-g" id="st-conv"' + (convPick?'':' disabled')
+           + ' title="把 7-11／全家的直配單改成店到店。改完要還原得自己進 SCM 後台。">'
+           + step(1) + '轉店到店' + (convPick?('（'+convPick+'）'):'') + '</button>')
+      + '<button class="btn" id="st-label"' + (stPick.size?'':' disabled') + '>' + step(stIsThird()?1:2) + '印標籤</button>'
+      + '<button class="btn" id="st-ship"' + (stPick.size && !shipLocked ? '' : ' disabled')
+        + ' title="' + esc2(shipTip) + '">'
+        + step(stIsThird()?2:3) + '出貨確認' + (liveRows.length?('（'+liveRows.length+'）'):'') + '</button>'
       + '<button class="btn" id="st-dt"' + (stPick.size?'':' disabled') + '>印明細</button>'
       + '<span class="st-sp"></span>'
       + (stSendingLoading ? '<span class="st-warn">出貨中的單載入中…</span>' : '')
@@ -10401,6 +10494,23 @@ function stRender(){
 
   let html = '';
   if(stErr) html += '<div class="st-err">' + esc2(stErr) + '</div>';
+  if(gate){
+    html += '<div class="st-gate"><div class="st-gate-tx">'
+      + (gate === 'direct'
+        ? '<b>出貨確認先鎖著：這 ' + gateDirect.length + ' 張還是「直配」。</b><br>'
+          + '我們超商只做店到店。直配就出貨確認下去，貨會直接送到客人留的地址，'
+          + '而且那之後再也轉不了店到店（MOMO 的轉換只吃未出貨的單）。'
+        : '<b>出貨確認先鎖著：這 ' + gateUnprinted.length + ' 張還沒在系統印過標籤。</b><br>'
+          + 'MOMO 是出貨確認當下才產生標籤，做完就把列印關掉了，這邊補印不出來，只能上 SCM 後台。')
+      + '</div>'
+      + '<button class="btn btn-g" id="st-gate-do">'
+        + (gate === 'direct' ? ('現在轉店到店（' + gateDirect.length + '）') : '現在印標籤')
+      + '</button>'
+      + (gate === 'print'
+          ? '<a href="javascript:void(0)" id="st-gate-un" style="font-size:11.5px">我在別台電腦印過了，解鎖</a>'
+          : '')
+      + '</div>';
+  }
   if(stShipOpen) html += stShipPanel();
   if(stLoading) html += '<div class="st-empty">抓取中…</div>';
   else if(!stRows.length) html += '<div class="st-empty">'
@@ -10431,7 +10541,9 @@ function stRender(){
                 : (isS2S(r) ? '<div class="st-done">已是店到店</div>' : '<div class="st-warn">沒有店到店</div>'))) + '</td>'
         + '<td>' + esc2(r.storeIdName||'') + '</td>'
         + '<td>' + esc2(r.Receiver || r.receiverMask || '')
-          + (g.length > 1 ? '<div class="st-same">同人 ' + g.length + ' 單</div>' : '') + '</td>'
+          /* 點一下就把同一組勾起來（杰哥 2026-09-25：併單看不出來怎麼做）。
+             併箱一定是整組一起做，所以「把這組選起來」要一步到位。 */
+          + (g.length > 1 ? '<div class="st-same" data-grp="' + esc2(stBoxKey(r)) + '">同人 ' + g.length + ' 單・點一下全選</div>' : '') + '</td>'
         + '<td>' + esc2((r.goodsName||r.goodsCode||'')).slice(0,40) + '</td>'
         + '<td>' + stStatusCell(r) + '</td>'
         + '<td class="st-no">' + esc2(r.lastPricDate||'')
@@ -10440,9 +10552,15 @@ function stRender(){
         + '</tr>';
     });
     html += '</tbody></table></div>';
-    html += '<div class="st-note">只有 7-11 跟全家有「店到店」，OK 跟萊爾富 MOMO 沒開，那幾張轉不了（但還是可以勾起來印貼紙）。<br>'
-      + '標「已是店到店」的是已經轉好的，勾起來可以直接印貼紙。<br>'
-      + '轉店到店會直接改 MOMO 上的配送方式，改完要還原得自己進後台，所以按下去會再問一次。<br>'
+    html += '<div class="st-note">'
+      + (stIsThird()
+          ? '第三方是我們自己寄出去的，沒有店到店這回事，順序是 1 印標籤 → 2 出貨確認。<br>'
+          : '順序是 <b>1 轉店到店 → 2 印標籤 → 3 出貨確認</b>。出貨確認一做下去，店到店轉不了、標籤也印不了，所以前兩步沒做完那顆會鎖著。<br>'
+            + '只有 7-11 跟全家有「店到店」，OK 跟萊爾富 MOMO 沒開，那幾張轉不了（但還是可以勾起來印貼紙）。<br>'
+            + '標「已是店到店」的是已經轉好的，勾起來可以直接印貼紙。<br>'
+            + '轉店到店會直接改 MOMO 上的配送方式，改完要還原得自己進後台，所以按下去會再問一次。<br>')
+      + '同一個客人下好幾張單，收件人那欄會出現「同人 N 單」，點一下就整組勾起來；'
+      + '出貨確認裡的「併箱」留自動就好，好幾組客人可以一次處理（各自給一個箱號）。<br>'
       + '出貨確認之後 MOMO 那邊就查不到那張單了（變成出貨中），所以我們自己留 7 天讓您可以印／重印標籤。'
       + '<a href="javascript:void(0)" id="st-clr" style="margin-left:6px">清掉已出貨紀錄</a><br>'
       + '標籤 PDF 有密碼，系統會自動幫您解開再列印（密碼只存在這台電腦，不會上傳）。'
@@ -10456,6 +10574,13 @@ function stRender(){
     stPick.delete(a.dataset.del);
     stLoad();
   });
+  box.querySelectorAll('div[data-grp]').forEach(d=>d.onclick=()=>{
+    const rows = (stGroups()[d.dataset.grp] || []);
+    // 整組都勾了就整組取消，不然整組勾起來 —— 同一顆按兩種用途，不用多一顆鈕
+    const allOn = rows.length && rows.every(r=>stPick.has(r.completeOrderNo));
+    rows.forEach(r=>{ if(allOn) stPick.delete(r.completeOrderNo); else stPick.add(r.completeOrderNo) });
+    stRender();
+  });
   box.querySelectorAll('input[data-st]').forEach(c=>c.onchange=()=>{
     if(c.checked) stPick.add(c.dataset.st); else stPick.delete(c.dataset.st);
     stRender();
@@ -10468,15 +10593,20 @@ function stRender(){
   };
   const cb = $s('st-conv'); if(cb) cb.onclick = ()=>stConvert(false);
   const sb = $s('st-ship'); if(sb) sb.onclick = ()=>{
-    /* 出貨確認是不可逆的，而且**做完就再也印不出標籤**（MOMO 只有 unsend* 的列印 API）。
-       杰哥 2026-09-16 就是這樣被卡住的 → 沒印過的先擋一下。 */
-    const noPrint = [...stPick].filter(no=>!stPrinted.has(no));
+    /* 到這裡按鈕已經解鎖了（上面那兩道關卡是把鈕鎖起來的，不是靠 confirm）。
+       只剩「解鎖過但其實還沒印」這一種，再問一次就好。 */
+    const noPrint = liveRows.filter(r=>!stPrinted.has(stNormNo(r.completeOrderNo))).map(r=>r.completeOrderNo);
     if(noPrint.length && !confirm(
-        '這 ' + noPrint.length + ' 張還沒在系統印過標籤：\n\n'
+        '這 ' + noPrint.length + ' 張在這台電腦沒有印標籤的紀錄：\n\n'
         + noPrint.slice(0,6).join('\n') + (noPrint.length>6 ? '\n…' : '')
-        + '\n\n⚠ 出貨確認之後 MOMO 就不讓印標籤了，補印要上後台。\n'
-        + '建議先按「印標籤」，印好再回來確認出貨。\n\n還是要直接出貨確認嗎？')) return;
+        + '\n\n⚠ 出貨確認之後 MOMO 就不讓印標籤了，補印要上 SCM 後台。\n\n確定標籤已經印好了嗎？')) return;
     stShipOpen = true; stRender(); stLoadShipTypes();
+  };
+  const gd = $s('st-gate-do'); if(gd) gd.onclick = ()=>{ if(gate==='direct') stConvert(false); else stPrint('label') };
+  const gu = $s('st-gate-un'); if(gu) gu.onclick = ()=>{
+    if(!confirm('解鎖出貨確認？\n\n「已印標籤」是記在這台電腦的瀏覽器裡，在別台印的這邊看不到，'
+      + '所以留這個解鎖給您。\n\n但請先確定標籤真的印好了 —— 出貨確認之後就只能上 SCM 後台補印。')) return;
+    stShipUnlock = true; stRender();
   };
   const sx = $s('st-ship-x'); if(sx) sx.onclick = ()=>{ stShipOpen = false; stRender() };
   const sg = $s('st-ship-go'); if(sg) sg.onclick = ()=>stShipGo();
@@ -10500,9 +10630,10 @@ function stRender(){
     if(!confirm('清掉本機記著的「已出貨」清單？清掉之後那幾張就不會再出現在這裡（MOMO 那邊本來就查不到了），標籤要重印就得進 SCM 後台。')) return;
     stClearShipped(); stLoad();
   };
-  const bo = $s('st-boxyn-on'); if(bo) bo.onchange = ()=>{
+  const bo = $s('st-boxmode'); if(bo) bo.onchange = ()=>{
     const c = stCfg();
-    c.boxOn = bo.checked;
+    c.boxMode = bo.value;
+    // 重畫前先把打好的重量收起來，不然換個併箱方式，打到一半的字就沒了
     c.packUnit = ($s('st-packunit')||{}).value || c.packUnit || '';
     stSaveCfg(c); stRender();
   };
@@ -10513,7 +10644,6 @@ function stRender(){
     c.shipType = stt.value;
     c.packType = '';
     c.packUnit = ($s('st-packunit')||{}).value || c.packUnit || '';
-    c.boxYn = (($s('st-boxyn')||{}).value || c.boxYn || '00').trim() || '00';
     stSaveCfg(c); stRender();
   };
   const mS = $s('st-mode-store'), mT = $s('st-mode-third');
@@ -10593,27 +10723,62 @@ function stShipPanel(){
   const subs = cur ? cur.subTypes : [];
   const subOpts = ['<option value="">（不指定）</option>'].concat(
     subs.map(x=>'<option value="' + esc2(x) + '"' + (x===c.packType?' selected':'') + '>' + esc2(x) + '</option>')).join('');
+  // 已出貨／已印單的那幾張本來就走不了出貨確認，方案跟按鈕的張數都只算得動的
+  const live = picked.filter(r=>!r.shipped && !r.sending);
+  const plan = stBoxPlan(live, c.boxMode);
+  const opt = (v,t)=>'<option value="' + v + '"' + (c.boxMode===v?' selected':'') + '>' + t + '</option>';
   return '<div class="st-ship">'
     + '<div class="st-ship-t">出貨確認（會跑 1.貨源確認 → 2.併箱 → 3.出貨確認，跑完才印得出標籤）</div>'
     + '<div class="st-ship-row">'
       + '<label>出貨包材<select id="st-shiptype">' + opts + '</select></label>'
       + '<label>包材類型<select id="st-packtype">' + subOpts + '</select></label>'
       + '<label>包材重量<input id="st-packunit" type="number" min="0" step="1" value="' + esc2(c.packUnit) + '" placeholder="公克"><span class="st-u">公克</span></label>'
-      + '<label class="st-boxchk"><input id="st-boxyn-on" type="checkbox"' + (c.boxOn?' checked':'') + '> 這幾張併成一箱</label>'
-      + (c.boxOn ? '<label>併箱編號<input id="st-boxyn" type="text" value="' + esc2(c.boxYn && c.boxYn !== '00' ? c.boxYn : '1') + '" size="4"></label>' : '')
+      + '<label class="st-boxchk">併箱<select id="st-boxmode">'
+        + opt('auto','自動：同人同門市併一箱')
+        + opt('all','全部併成同一箱')
+        + opt('none','都不併箱')
+      + '</select></label>'
     + '</div>'
-    + (c.boxOn ? ('<div class="st-ship-row"><span class="' + (stSameBox(picked) ? 'st-warn' : 'st-boxbad') + '">'
-        + (stSameBox(picked)
-            ? '這 ' + picked.length + ' 張是同一個收件人＋同一家門市，可以併箱。'
-            : '⚠ 您勾的單不是同一個收件人／同一家門市，併箱會把不同人的東西裝成一箱。請再確認。')
-        + '</span></div>') : '')
+    + '<div class="st-ship-row">' + stPlanCard(plan, c.boxMode, live) + '</div>'
     + '<div class="st-ship-row">'
-      + '<button class="btn btn-g" id="st-ship-go">確認出貨 ' + picked.length + ' 張</button>'
+      + '<button class="btn btn-g" id="st-ship-go"' + (live.length?'':' disabled') + '>確認出貨 ' + live.length + ' 張</button>'
       + '<button class="btn" id="st-ship-x">取消</button>'
-      + '<span class="st-warn">不併箱就填 00。包材重量 momo 會稽查，請照實填。</span>'
+      + '<span class="st-warn">包材重量 momo 會稽查，請照實填。</span>'
     + '</div>'
     + (stShipMsg ? '<div class="st-ship-msg">' + esc2(stShipMsg) + '</div>' : '')
     + '</div>';
+}
+
+/* 把併箱方案講成人話。出貨確認是不可逆的，按下去之前要能一眼看完
+   「哪幾張裝哪一箱」—— 之前只有一個打勾＋一個箱號輸入框，看不出來。 */
+function stPlanCard(plan, mode, live){
+  if(!live.length) return '<div class="st-plan">勾起來的單都已經出過貨／已印單了，沒有可以做出貨確認的。</div>';
+  let h;
+  if(mode === 'all'){
+    h = '<b>全部併成同一箱</b>：這 ' + live.length + ' 張會裝進同一個箱子（箱號 1）寄出。'
+      + (stSameBox(live) ? '' : '<br><span class="st-boxbad">⚠ 它們不是同一個收件人／同一家門市 —— 併箱＝裝同一箱寄出，寄錯人很麻煩，確定再送。</span>');
+  } else if(mode === 'none'){
+    h = '<b>都不併箱</b>：這 ' + live.length + ' 張各自一箱（箱號 00）。';
+  } else if(!plan.groups.length){
+    h = live.length < 2
+      ? '只有 1 張，不用併箱（箱號 00）。'
+      : '<b>沒有可以併的</b>：這 ' + live.length + ' 張的收件人／取貨門市都不一樣，各自一箱（箱號 00）。';
+  } else {
+    h = '<b>自動併箱：' + plan.groups.length + ' 箱</b>'
+      + (plan.singles.length ? ('，另外 ' + plan.singles.length + ' 張各自一箱') : '') + '<br>'
+      + plan.groups.map(g=>{
+          const r0 = g.rows[0];
+          return '<span class="st-plan-g">箱號 ' + esc2(g.boxYn) + '</span>'
+            + esc2(r0.Receiver || r0.receiverMask || '（沒有收件人）')
+            + '・' + esc2(String(r0.storeIdName||'（沒有門市）').slice(0,28))
+            + ' <span class="st-cnt">' + g.rows.length + ' 張</span>';
+        }).join('<br>');
+    if(plan.singles.length){
+      h += '<br><span class="st-plan-g" style="background:var(--sf2);color:var(--dm);border-color:var(--bd)">箱號 00</span>'
+        + '其餘 ' + plan.singles.length + ' 張各自一箱';
+    }
+  }
+  return '<div class="st-plan">' + h + '</div>';
 }
 
 // 這批選起來的單是不是同一人＋同一門市（可以安全併箱）
@@ -10667,31 +10832,35 @@ async function stShipGo(){
      放在「人按出貨確認」這個明確動作裡，時機一樣對（就在出貨前一刻），但一定有人在場。
      實際的轉換動作放在最後那個確認視窗**之後**——他沒按確定就什麼都不該寫進 MOMO。 */
   const stillDirect = picked.filter(r=>r.canS2S);
-  const boxOn = !!(($s('st-boxyn-on')||{}).checked);
+  const boxMode = ($s('st-boxmode')||{}).value || stCfg().boxMode || 'auto';
+  const plan = stBoxPlan(picked, boxMode);
   const cfg = {
     shipType: ($s('st-shiptype')||{}).value || '原箱',
     packType: ($s('st-packtype')||{}).value || '',
     packUnit: ($s('st-packunit')||{}).value || '',
-    boxOn: boxOn,
-    // 不併箱一律 00。要併箱時同一批用同一個編號即可（MOMO 的規則）。
-    boxYn: boxOn ? ((($s('st-boxyn')||{}).value || '1').trim() || '1') : '00',
+    boxMode: boxMode,
   };
   stSaveCfg(cfg);
 
-  if(boxOn && picked.length < 2){
-    alert('併箱至少要兩張單。只有一張就不用勾併箱。');
-    return;
+  // 逐筆箱號。後端第 2 步 unsendStoresCombineBox 就是逐筆送 boxYn，
+  // 所以一次可以併好幾組（箱號 1、2、3…），不用一組跑一趟。
+  const boxMap = stBoxMap(plan);
+  if(boxMode === 'all' && picked.length > 1 && !stSameBox(picked)){
+    if(!confirm('⚠ 您選的是「全部併成同一箱」，但這 ' + picked.length + ' 張不是同一個收件人／同一家取貨門市。\n\n'
+      + '併箱＝把它們裝進同一箱寄出，寄錯人是很麻煩的事。\n\n'
+      + '（改用「自動：同人同門市併一箱」就會幫您分成好幾箱。）\n\n確定還是要全部併成一箱嗎？')) return;
   }
-  if(boxOn && !stSameBox(picked)){
-    if(!confirm('⚠ 您勾起來的單不是同一個收件人／同一家取貨門市。' + '\n\n'
-      + '併箱＝把它們裝進同一箱寄出，寄錯人是很麻煩的事。' + '\n\n'
-      + '確定還是要併箱嗎？')) return;
-  }
+  const boxLine = plan.groups.length
+    ? plan.groups.map(g=>{
+        const r0 = g.rows[0];
+        return '　箱號 ' + g.boxYn + '：' + (r0.Receiver || r0.receiverMask || '?') + ' ' + g.rows.length + ' 張';
+      }).join('\n') + (plan.singles.length ? ('\n　箱號 00：其餘 ' + plan.singles.length + ' 張各自一箱') : '')
+    : '　不併箱（全部箱號 00）';
   const names = picked.map(r=>r.completeOrderNo).join('\n');
   if(!confirm('要把這 ' + picked.length + ' 張做出貨確認嗎？\n\n' + names
     + (stillDirect.length ? ('\n\n其中 ' + stillDirect.length + ' 張還是直配，會先自動幫您轉成店到店再出貨。') : '')
     + '\n\n包材：' + cfg.shipType + (cfg.packType?('／'+cfg.packType):'') + (cfg.packUnit?('／'+cfg.packUnit+'g'):'')
-    + '\n併箱：' + (cfg.boxOn ? ('是，編號 ' + cfg.boxYn + '（' + picked.length + ' 張裝一箱）') : '否')
+    + '\n併箱：\n' + boxLine
     + '\n\n⚠ 第三步是真的出庫，做完 MOMO 那邊就算已出貨了。')) return;
 
   // 先自動轉店到店（只有超商有這回事，第三方沒有）
@@ -10718,7 +10887,14 @@ async function stShipGo(){
     const r = await fetch(stApi() + (stIsThird() ? '/api/orders/momo/third/ship' : '/api/orders/momo/stores/ship'), {
       method:'POST',
       headers:{ 'Content-Type':'application/json', 'X-API-Token': stTok() },
-      body: JSON.stringify(Object.assign({ confirm:'YES', orderNos: picked.map(x=>x.completeOrderNo) }, cfg)),
+      /* boxMap = 逐筆箱號；boxYn 留著是給舊版後端墊底（還沒部署新版時＝全部不併）。
+         新版後端有 boxMap 就逐筆用，沒有才退回 boxYn。 */
+      body: JSON.stringify(Object.assign({
+        confirm:'YES',
+        orderNos: picked.map(x=>x.completeOrderNo),
+        boxMap: boxMap,
+        boxYn: '00',
+      }, cfg)),
     });
     const j = await r.json().catch(()=>({}));
     const steps = (j && j.steps || []).map(s2=>s2.step + (s2.ok?' ✓':' ✗' + (s2.error?('（'+s2.error+'）'):''))).join('\n');
