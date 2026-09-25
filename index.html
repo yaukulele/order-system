@@ -10814,6 +10814,17 @@ async function stConvert(targetMode){
 
 /* 出貨確認面板。MOMO 要求：出貨包材 / 包材類型 / 包材重量(公克)，包材重量會被稽查，
    所以不自動亂填，讓人確認一次；填過的記起來，下次直接沿用。 */
+/* 哪些包材要填重量 —— 不要自己規定，問 MOMO（包材清單每一項都標了 neewWeight，
+   文件的欄位名就是拼錯的）。2026-09-25 實際拉過：
+     原箱 / momo制式包材(紙箱、破壞袋) / 循環箱 → 不用填
+     自有包材 → 要填
+   杰哥說「我們出貨都固定原箱」，所以正常情況根本不會問到重量。
+   🔴 拿不到包材清單時一律當成「要填」—— 寧可多問一次，也不要漏掉 MOMO 會稽查的欄位。 */
+function stWantWeight(name){
+  if(!(stShipTypes && stShipTypes.length)) return true;
+  const t = stShipTypes.find(x=>x.name === name);
+  return t ? !!t.needWeight : true;
+}
 function stShipPanel(){
   const c = stCfg();
   const picked = stRows.filter(r=>stPick.has(r.completeOrderNo));
@@ -10838,7 +10849,9 @@ function stShipPanel(){
     + '<div class="st-ship-row">'
       + '<label>出貨包材<select id="st-shiptype">' + opts + '</select></label>'
       + '<label>包材類型<select id="st-packtype">' + subOpts + '</select></label>'
-      + '<label>包材重量<input id="st-packunit" type="number" min="0" step="1" value="' + esc2(c.packUnit) + '" placeholder="公克"><span class="st-u">公克</span></label>'
+      + (stWantWeight(c.shipType)
+          ? '<label>包材重量<input id="st-packunit" type="number" min="0" step="1" value="' + esc2(c.packUnit) + '" placeholder="公克"><span class="st-u">公克</span></label>'
+          : '<span class="st-u">「' + esc2(c.shipType) + '」不用填重量（MOMO 的包材清單標的）</span>')
       + '<label class="st-boxchk">併箱<select id="st-boxmode">'
         + opt('auto','自動：同人同門市併一箱')
         + opt('all','全部併成同一箱')
@@ -10849,7 +10862,7 @@ function stShipPanel(){
     + '<div class="st-ship-row">'
       + '<button class="btn btn-g" id="st-ship-go"' + (live.length?'':' disabled') + '>確認出貨 ' + live.length + ' 張</button>'
       + '<button class="btn" id="st-ship-x">取消</button>'
-      + '<span class="st-warn">包材重量 momo 會稽查，請照實填。</span>'
+      + (stWantWeight(c.shipType) ? '<span class="st-warn">包材重量 momo 會稽查，請照實填。</span>' : '')
     + '</div>'
     + (stShipMsg ? '<div class="st-ship-msg">' + esc2(stShipMsg) + '</div>' : '')
     + '</div>';
@@ -10943,7 +10956,8 @@ async function stShipGo(){
   const cfg = {
     shipType: ($s('st-shiptype')||{}).value || '原箱',
     packType: ($s('st-packtype')||{}).value || '',
-    packUnit: ($s('st-packunit')||{}).value || '',
+    // 不用填重量的包材（原箱等）畫面上沒有那個欄位 —— 別把之前存的重量洗掉
+    packUnit: ($s('st-packunit')||{}).value || stCfg().packUnit || '',
     boxMode: boxMode,
   };
   stSaveCfg(cfg);
@@ -11052,11 +11066,15 @@ async function stFlowGo(){
     return;
   }
   const c = stCfg();
-  // 包材重量 MOMO 會稽查，不能替他猜。沒填過就先把出貨面板打開讓他填一次，之後就記住了。
-  if(!String(c.packUnit||'').trim()){
-    alert('一鍵跑完需要「包材重量」，MOMO 會稽查，不能亂填。\n\n'
-      + '先按「出貨確認」把包材跟重量填一次，系統會記起來，之後一鍵就跑得動了。');
-    stShipOpen = true; stRender(); stLoadShipTypes();
+  /* 只有 MOMO 說「這個包材要填重量」時才需要問（杰哥 2026-09-25：我們出貨都固定原箱，
+     而原箱在 MOMO 的包材清單裡就是不用填重量的）。
+     清單還沒載過就先載一次，不然判不準 —— 這一趟很快，而且結果會留著給出貨面板用。 */
+  if(!stShipTypes) await stLoadShipTypes();
+  if(stWantWeight(c.shipType) && !String(c.packUnit||'').trim()){
+    alert('「' + c.shipType + '」這種包材 MOMO 要填重量（會稽查，不能亂填）。\n\n'
+      + '先按「出貨確認」填一次，系統會記起來，之後一鍵就跑得動了。\n\n'
+      + '（我們平常固定用原箱，原箱是不用填重量的。）');
+    stShipOpen = true; stRender();
     return;
   }
   if(blocked.length && !confirm('勾起來的 ' + selected.length + ' 張裡面，有 ' + blocked.length
@@ -11079,7 +11097,8 @@ async function stFlowGo(){
   const plans = []
     .concat(stIsThird() ? [] : [(++n) + '. 轉店到店：' + (stillDirect.length ? (stillDirect.length + ' 張') : '不用做，都已經是店到店')])
     .concat([(++n) + '. 出貨確認（真的出庫，不可逆）'
-      + '\n　包材：' + c.shipType + (c.packType?('／'+c.packType):'') + '／' + c.packUnit + 'g'
+      + '\n　包材：' + c.shipType + (c.packType?('／'+c.packType):'')
+      + (stWantWeight(c.shipType) ? ('／' + c.packUnit + 'g') : '')
       + '\n　併箱：\n' + boxLine])
     .concat([(++n) + '. 印標籤（會開新分頁，標籤是出貨確認當下才產生的）']);
   if(!confirm('一鍵跑完這 ' + picked.length + ' 張？\n\n' + plans.join('\n')
