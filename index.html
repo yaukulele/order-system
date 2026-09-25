@@ -10133,11 +10133,6 @@ let stRows = [], stPick = new Set(), stLoading = false, stErr = '', stLoadedAt =
 // 出貨三步驟（貨源確認→併箱→出貨確認）用的狀態。包材設定記在 localStorage，
 // 因為同一家店的包材幾乎每次都一樣，不該每張單重打一次。
 let stShipOpen = false, stShipTypes = null, stShipLoading = false, stShipMsg = '';
-/* 「還沒印標籤」那道關卡的逃生門（杰哥 2026-09-25）。
-   已印標籤是記在**這台瀏覽器**的 localStorage，在別台電腦印的這邊不知道，
-   所以擋歸擋，要留一個「我在別台印過了」可以解開，不然人會卡死。
-   直配那道關沒有逃生門 —— 那個真的不能繞過去。切分頁/重抓就回到鎖上。 */
-let stShipUnlock = false;
 /* 這個分頁同時服務「超商取貨」與「第三方物流」（杰哥 2026-09-09）。
    兩邊的流程一模一樣（勾選 → 併箱 → 出貨確認 → 印標籤），只有 API 路徑不同，
    所以共用整套 UI，用 stMode 切換就好，不要複製第二套畫面出來維護。 */
@@ -10148,16 +10143,86 @@ function stSetMode(m){
   if(next === stMode) return;
   stMode = next;
   try{ localStorage.setItem('stMode', stMode) }catch(e){}
-  stRows = []; stPick.clear(); stErr = ''; stShipOpen = false; stLoadedAt = 0; stShipUnlock = false;
+  stRows = []; stPick.clear(); stErr = ''; stShipOpen = false; stLoadedAt = 0;
   stRender();
   stLoad();
 }
 const ST_CFG_KEY = 'store_ship_cfg_v1';
+
+/* ===== 已印標籤／已出貨：全店共用（杰哥 2026-09-25）=====
+
+   這兩份紀錄原本只在 localStorage，所以櫃台電腦印的標籤，手機或另一台完全不知道 ——
+   2026-09-25 把「沒印標籤就鎖住出貨確認」做進去之後，這件事會直接卡住人。
+
+   改成 Firebase `storeShip/{printed,shipped}` 全店共用：
+     - localStorage 留著當離線快取＋Firebase 讀不到時的退路（這頁是 PWA，會離線用）
+     - 每次載入這個分頁先 stFbSync()：Firebase 的併下來、本機獨有的推上去（雙向），
+       所以舊的本機紀錄會自動搬過去，不用人工處理
+     - 7 天以前的順便在雲端清掉
+   🔴 刪除（移除單筆／清掉已出貨）一定要連 Firebase 一起刪，不然下次 sync 又長回來。
+   RTDB 的 key 不能含 . $ # [ ] /；訂單編號是數字加減號，可以直接當 key。 */
+const ST_FB_ROOT = 'storeShip';
+function stFbAlive(){ try{ return typeof db !== 'undefined' && !!db }catch(e){ return false } }
+function stWho(){ try{ return String(typeof currentUser !== 'undefined' ? (currentUser||'') : '') }catch(e){ return '' } }
+// 寫入 Firebase。失敗不吵人 —— 本機已經寫好了，畫面照樣對，只是別台看不到。
+function stFbWrite(kind, upd){
+  if(!stFbAlive() || !upd || !Object.keys(upd).length) return;
+  try{
+    Promise.resolve(typeof authReady !== 'undefined' ? authReady : null)
+      .then(()=>db.ref(ST_FB_ROOT + '/' + kind).update(upd))
+      .catch(e=>console.warn('storeShip 寫入失敗（本機已存）', e));
+  }catch(e){ console.warn('storeShip 寫入失敗（本機已存）', e) }
+}
+let stFbSynced = false;
+async function stFbSync(){
+  if(!stFbAlive()) return;
+  const cut = Date.now() - 7*86400000;
+  let remote;
+  try{ remote = (await db.ref(ST_FB_ROOT).once('value')).val() || {} }
+  catch(e){ console.warn('storeShip 讀取失敗，這次只用本機紀錄', e); return }
+
+  // ---- 已印標籤 ----
+  const rp = remote.printed || {};
+  const pushP = {}, dropP = {};
+  let localP = {};
+  try{ localP = JSON.parse(localStorage.getItem(ST_PRINTED_KEY)||'{}') }catch(e){}
+  Object.keys(rp).forEach(k=>{
+    const at = (rp[k] && typeof rp[k] === 'object') ? rp[k].at : rp[k];
+    if(!(at > cut)){ dropP[k] = null; return }        // 過期的順手清掉
+    if(!(localP[k] > 0)){ localP[k] = at }
+    stPrinted.add(k);
+  });
+  Object.keys(localP).forEach(k=>{
+    if(!(localP[k] > cut)){ delete localP[k]; stPrinted.delete(k); return }
+    if(rp[k] === undefined) pushP[k] = { at:localP[k], by:stWho() };   // 本機獨有 → 推上去
+  });
+  try{ localStorage.setItem(ST_PRINTED_KEY, JSON.stringify(localP)) }catch(e){}
+
+  // ---- 已出貨 ----
+  const rs = remote.shipped || {};
+  const pushS = {}, dropS = {};
+  let localS = [];
+  try{ localS = JSON.parse(localStorage.getItem(ST_SHIPPED_KEY)||'[]') }catch(e){}
+  const byNo = {};
+  localS.forEach(x=>{ if(x && x.completeOrderNo && x.at > cut) byNo[x.completeOrderNo] = x });
+  Object.keys(rs).forEach(k=>{
+    const v = rs[k];
+    if(!v || !(v.at > cut)){ dropS[k] = null; return }
+    if(!byNo[k]) byNo[k] = v;
+  });
+  Object.keys(byNo).forEach(k=>{ if(rs[k] === undefined) pushS[k] = byNo[k] });
+  try{ localStorage.setItem(ST_SHIPPED_KEY, JSON.stringify(Object.keys(byNo).map(k=>byNo[k]))) }catch(e){}
+
+  stFbWrite('printed', Object.assign({}, pushP, dropP));
+  stFbWrite('shipped', Object.assign({}, pushS, dropS));
+  stFbSynced = true;
+}
+
 // 出貨確認之後，那張單就從「未出貨」變成「出貨中」，MOMO 的未出貨查詢就撈不到了。
 // 但印標籤是出貨確認**之後**才做的事 —— 資料在那個時間點消失，等於印不了。
-// 所以出完貨把它們留在本機 7 天，畫面照樣列出來、照樣可以勾起來印（含重印）。
+// 所以出完貨把它們留著 7 天，畫面照樣列出來、照樣可以勾起來印（含重印）。
 /* 哪幾張已經印過標籤。出貨確認之後 MOMO 就不讓印了（列印 API 只有 unsend* 兩支），
-   所以確認前要能講出「這幾張你還沒印」。只記在這台瀏覽器、7 天。 */
+   所以確認前要能講出「這幾張你還沒印」。7 天，全店共用（見上面 stFbSync）。 */
 const ST_PRINTED_KEY = 'store_printed_v1';
 const stPrinted = (()=>{
   try{
@@ -10170,12 +10235,16 @@ const stPrinted = (()=>{
   }catch(e){ return new Set() }
 })();
 function stMarkPrinted(nos){
+  const now = Date.now();
+  const keys = [];
   try{
     const o = JSON.parse(localStorage.getItem(ST_PRINTED_KEY)||'{}');
-    const now = Date.now();
-    (nos||[]).forEach(x=>{ const k = stNormNo(x); if(k){ o[k] = now; stPrinted.add(k); } });
+    (nos||[]).forEach(x=>{ const k = stNormNo(x); if(k){ o[k] = now; stPrinted.add(k); keys.push(k) } });
     localStorage.setItem(ST_PRINTED_KEY, JSON.stringify(o));
   }catch(e){}
+  const upd = {};
+  keys.forEach(k=>{ upd[k] = { at:now, by:stWho() } });
+  stFbWrite('printed', upd);
 }
 
 const ST_SHIPPED_KEY = 'store_shipped_v1';
@@ -10193,22 +10262,36 @@ function stShipped(mode){
   }catch(e){ return [] }
 }
 function stAddShipped(rows){
+  const now = Date.now();
+  const mode = stIsThird() ? 'third' : 'stores';
+  const upd = {};
   try{
-    const now = Date.now();
     const cur = stShipped();
-    const mode = stIsThird() ? 'third' : 'stores';
     const have = new Set(cur.map(x=>x.completeOrderNo));
-    rows.forEach(r=>{
-      if(have.has(r.completeOrderNo)) return;
-      cur.push({ completeOrderNo:r.completeOrderNo, delyGb:r.delyGb, delyGbName:r.delyGbName,
-                 thirdDelyGb:r.thirdDelyGb||'',
-                 storeIdName:r.storeIdName, Receiver:(r.Receiver||r.receiverMask||''),
-                 goodsName:(r.goodsName||r.goodsCode||''), at:now, mode:mode });
+    (rows||[]).forEach(r=>{
+      if(!r || !r.completeOrderNo || have.has(r.completeOrderNo)) return;
+      have.add(r.completeOrderNo);
+      const rec = { completeOrderNo:r.completeOrderNo, delyGb:(r.delyGb||''), delyGbName:(r.delyGbName||''),
+                    thirdDelyGb:r.thirdDelyGb||'',
+                    storeIdName:(r.storeIdName||''), Receiver:(r.Receiver||r.receiverMask||''),
+                    goodsName:(r.goodsName||r.goodsCode||''), at:now, mode:mode, by:stWho() };
+      cur.push(rec);
+      upd[rec.completeOrderNo] = rec;
     });
     localStorage.setItem(ST_SHIPPED_KEY, JSON.stringify(cur));
   }catch(e){}
+  stFbWrite('shipped', upd);
 }
-function stClearShipped(){ try{ localStorage.removeItem(ST_SHIPPED_KEY) }catch(e){} }
+/* 🔴 這是**全店**的紀錄，清掉等於大家都看不到了 —— 呼叫端的確認文字要講清楚。 */
+function stClearShipped(){
+  try{ localStorage.removeItem(ST_SHIPPED_KEY) }catch(e){}
+  if(!stFbAlive()) return;
+  try{
+    Promise.resolve(typeof authReady !== 'undefined' ? authReady : null)
+      .then(()=>db.ref(ST_FB_ROOT + '/shipped').remove())
+      .catch(e=>console.warn('storeShip 清除失敗', e));
+  }catch(e){}
+}
 
 /* 標籤 PDF 密碼（杰哥 2026-09-04）。MOMO 給的標籤 PDF 有加密，每次開都要打密碼。
    密碼幾個月才換一次 → 記在**這台電腦的瀏覽器**裡，按列印時自動解開。
@@ -10228,6 +10311,9 @@ function stRemoveShipped(no){
     const cur = stShipped().filter(x=>x.completeOrderNo !== no);
     localStorage.setItem(ST_SHIPPED_KEY, JSON.stringify(cur));
   }catch(e){}
+  // 🔴 雲端也要刪，不然下次 stFbSync 又把它併回來
+  const upd = {}; upd[no] = null;
+  stFbWrite('shipped', upd);
 }
 // MOMO 的完整訂單編號格式：14 碼 + -3碼 -3碼 -3碼。少一碼 MOMO 會回
 // 「'completeOrderNo'參數有誤」，那訊息看不出是打錯字，所以在這裡先擋下來講清楚。
@@ -10310,7 +10396,9 @@ function stTok(){ try{ return (localStorage.getItem(MOMO_TK_KEY)||'') }catch(e){
 async function stLoad(silent){
   const api = stApi(), tok = stTok();
   if(!api || !tok){ stErr = '還沒設定 MOMO 的 API 網址或 Token（跟抓訂單用的是同一組）'; stRender(); return }
-  stLoading = true; stErr = ''; stShipUnlock = false; stRender();
+  stLoading = true; stErr = ''; stRender();
+  // 先跟 Firebase 對一次「誰印過／誰出過」，不然別台電腦印的這邊看不到，會被關卡鎖住
+  await stFbSync();
   const days = ($s('st-days')||{}).value || '30';
   try{
     const path = stIsThird()
@@ -10448,11 +10536,11 @@ function stRender(){
   const liveRows = pickedRows.filter(r=>!r.shipped && !r.sending);
   // 超商才有直配這回事；第三方本來就是我們自己寄，沒有店到店
   const gateDirect = stIsThird() ? [] : liveRows.filter(r=>r.canS2S);
-  const gateUnprinted = liveRows.filter(r=>!stPrinted.has(stNormNo(r.completeOrderNo)));
-  let gate = '';
-  if(gateDirect.length) gate = 'direct';
-  else if(gateUnprinted.length && !stShipUnlock) gate = 'print';
+  const gate = gateDirect.length ? 'direct' : '';
   const shipLocked = !!gate;
+  /* 🔴 出貨完但還沒印標籤 —— 這才是真正會漏掉的那一步（不是「印之前」，是「出之後」）。
+     不鎖任何東西，就是提醒：出貨確認做完標籤才生得出來，沒印就出不了貨。 */
+  const needLabel = stRows.filter(r=>r.shipped && !stPrinted.has(stNormNo(r.completeOrderNo)));
   // 手動框：出貨確認後那張單在 MOMO 那邊已經查不到，如果本機也沒記到
   // （例如出貨那次還是舊版），就只能用訂單編號把它撈回來。也順便當補印工具用。
   const manual = '<span class="st-sp"></span>'
@@ -10466,15 +10554,15 @@ function stRender(){
         : '');
 
   /* 按鈕照「該做的順序」排，而且標上號碼：
-       超商   1 轉店到店 → 2 印標籤 → 3 出貨確認
-       第三方 1 印標籤   → 2 出貨確認（沒有店到店，那顆直接不顯示）
-     原本出貨確認排在印標籤前面，等於把最危險的那顆放在最順手的位置。 */
+       超商   1 轉店到店 → 2 出貨確認 → 3 印標籤
+       第三方 1 出貨確認 → 2 印標籤（沒有店到店，那顆直接不顯示）
+
+     🔴 標籤是**出貨確認做完才生得出來**的（MOMO 那三步沒跑完，列印只會回「還沒輪到」，
+     2026-09-02、09-04 都實際撞過）。順序寫反的話，出貨確認會被自己的關卡鎖死。 */
   const step = n => '<span class="st-step">' + n + '</span>';
   const shipTip = gate === 'direct'
       ? '這幾張還是直配，先按「轉店到店」。出貨確認做下去就再也轉不了了。'
-      : (gate === 'print'
-          ? '這幾張還沒在系統印過標籤。出貨確認之後 MOMO 就不給印了，先印再出貨。'
-          : '會跑 1.貨源確認 → 2.併箱 → 3.出貨確認，這一步是真的出庫');
+      : '會跑 1.貨源確認 → 2.併箱 → 3.出貨確認，這一步是真的出庫。跑完才印得出標籤。';
 
   bar.innerHTML = (stRows.length
     ? '<button class="btn" id="st-all">' + (stPick.size ? '取消全選' : '全選 ' + stRows.length + ' 張') + '</button>'
@@ -10482,10 +10570,12 @@ function stRender(){
          : '<button class="btn btn-g" id="st-conv"' + (convPick?'':' disabled')
            + ' title="把 7-11／全家的直配單改成店到店。改完要還原得自己進 SCM 後台。">'
            + step(1) + '轉店到店' + (convPick?('（'+convPick+'）'):'') + '</button>')
-      + '<button class="btn" id="st-label"' + (stPick.size?'':' disabled') + '>' + step(stIsThird()?1:2) + '印標籤</button>'
       + '<button class="btn" id="st-ship"' + (stPick.size && !shipLocked ? '' : ' disabled')
         + ' title="' + esc2(shipTip) + '">'
-        + step(stIsThird()?2:3) + '出貨確認' + (liveRows.length?('（'+liveRows.length+'）'):'') + '</button>'
+        + step(stIsThird()?1:2) + '出貨確認' + (liveRows.length?('（'+liveRows.length+'）'):'') + '</button>'
+      + '<button class="btn' + (needLabel.length?' btn-g':'') + '" id="st-label"' + (stPick.size?'':' disabled')
+        + ' title="標籤是出貨確認之後才生得出來的">'
+        + step(stIsThird()?2:3) + '印標籤</button>'
       + '<button class="btn" id="st-dt"' + (stPick.size?'':' disabled') + '>印明細</button>'
       + '<span class="st-sp"></span>'
       + (stSendingLoading ? '<span class="st-warn">出貨中的單載入中…</span>' : '')
@@ -10494,21 +10584,25 @@ function stRender(){
 
   let html = '';
   if(stErr) html += '<div class="st-err">' + esc2(stErr) + '</div>';
-  if(gate){
+  if(gate === 'direct'){
     html += '<div class="st-gate"><div class="st-gate-tx">'
-      + (gate === 'direct'
-        ? '<b>出貨確認先鎖著：這 ' + gateDirect.length + ' 張還是「直配」。</b><br>'
-          + '我們超商只做店到店。直配就出貨確認下去，貨會直接送到客人留的地址，'
-          + '而且那之後再也轉不了店到店（MOMO 的轉換只吃未出貨的單）。'
-        : '<b>出貨確認先鎖著：這 ' + gateUnprinted.length + ' 張還沒在系統印過標籤。</b><br>'
-          + 'MOMO 是出貨確認當下才產生標籤，做完就把列印關掉了，這邊補印不出來，只能上 SCM 後台。')
+      + '<b>出貨確認先鎖著：這 ' + gateDirect.length + ' 張還是「直配」。</b><br>'
+      + '我們超商只做店到店。直配就出貨確認下去，貨會直接送到客人留的地址，'
+      + '而且那之後再也轉不了店到店（MOMO 的轉換只吃未出貨的單）。'
       + '</div>'
-      + '<button class="btn btn-g" id="st-gate-do">'
-        + (gate === 'direct' ? ('現在轉店到店（' + gateDirect.length + '）') : '現在印標籤')
-      + '</button>'
-      + (gate === 'print'
-          ? '<a href="javascript:void(0)" id="st-gate-un" style="font-size:11.5px">我在別台電腦印過了，解鎖</a>'
-          : '')
+      + '<button class="btn btn-g" id="st-gate-do">現在轉店到店（' + gateDirect.length + '）</button>'
+      + '</div>';
+  }
+  /* 出貨完了但標籤還沒印 —— 這一步漏掉，貨就卡在店裡出不去。
+     不鎖任何按鈕（該做的已經做完了），只是把它講出來並給一顆直接印的鈕。 */
+  if(needLabel.length){
+    html += '<div class="st-gate"><div class="st-gate-tx">'
+      + '<b>這 ' + needLabel.length + ' 張出貨確認做完了，但標籤還沒印。</b><br>'
+      + '標籤是出貨確認之後才生得出來的，印了才能貼上去出貨。'
+      + (stFbSynced ? '（印過沒有是全店共用的，別台電腦印的這邊也算得到。）'
+                    : '<br><b>⚠ 這次連不上共用紀錄</b>，只看得到這台電腦印過的。')
+      + '</div>'
+      + '<button class="btn btn-g" id="st-need-label">選起來印標籤（' + needLabel.length + '）</button>'
       + '</div>';
   }
   if(stShipOpen) html += stShipPanel();
@@ -10516,12 +10610,14 @@ function stRender(){
   else if(!stRows.length) html += '<div class="st-empty">'
       + '目前沒有' + (stIsThird()?'第三方物流':'超商取貨') + '的單（未出貨、出貨中都查過了）。'
       + '<br>有單進來按上面「重新抓取」就會出現。'
-      /* 🔴 這裡原本寫「出貨後可以貼訂單編號補印」——那是錯的，會害人白跑一趟。
-         MOMO 的列印 API 只有 unsendStoresPrintPdf / unsendThirdPrintPdf 兩支，
-         都是「未出貨」專用；按過出貨確認之後就印不出來了（整份 API 文件沒有任何
-         sending*PrintPdf）。要補印只能去 MOMO 後台。 */
-      + '<br><br><b>標籤一定要在「出貨確認」之前印。</b>'
-      + '出貨確認之後 MOMO 的列印功能就關掉了，系統這邊補印不出來，只能上 MOMO 後台。</div>';
+      /* 🔴 2026-09-25 修正：這裡原本寫「標籤一定要在出貨確認之前印」，那是反的。
+         標籤是**出貨確認做完那一刻才生得出來**的（三步沒跑完，MOMO 的列印只會回
+         「還沒輪到」，2026-09-02 / 09-04 都實際撞過）。
+         真正的限制是另一件事：列印 API 只有 unsendStoresPrintPdf / unsendThirdPrintPdf
+         兩支，出貨確認之後那張單就從 MOMO 的「未出貨」查詢消失 ——
+         所以我們自己把它留在清單上 7 天，就是為了讓它還印得到。過了就只能上 SCM 後台。 */
+      + '<br><br><b>順序是「出貨確認」→「印標籤」。</b>'
+      + 'MOMO 是出貨確認當下才產生標籤的，出完貨那幾張會留在這裡 7 天讓您印／重印。</div>';
   else {
     html += '<div class="st-wrap"><table class="st-tbl"><thead><tr>'
       + '<th style="width:34px"></th><th>訂單編號</th><th>' + (stIsThird()?'貨運':'門市') + '</th><th>'
@@ -10536,7 +10632,9 @@ function stRender(){
         + '<td><input type="checkbox" data-st="' + esc2(no) + '"' + (on?' checked':'') + '></td>'
         + '<td class="st-no">' + esc2(no) + '</td>'
         + '<td class="st-store">' + esc2(r.delyGbName||'')
-          + (r.shipped ? '<div class="st-done">已出貨・可印標籤</div>'
+          + (r.shipped ? (stPrinted.has(stNormNo(no))
+                ? '<div class="st-done">已出貨・標籤印過了</div>'
+                : '<div class="st-boxbad">已出貨・標籤還沒印</div>')
              : (r.canS2S ? ''
                 : (isS2S(r) ? '<div class="st-done">已是店到店</div>' : '<div class="st-warn">沒有店到店</div>'))) + '</td>'
         + '<td>' + esc2(r.storeIdName||'') + '</td>'
@@ -10554,11 +10652,11 @@ function stRender(){
     html += '</tbody></table></div>';
     html += '<div class="st-note">'
       + (stIsThird()
-          ? '第三方是我們自己寄出去的，沒有店到店這回事，順序是 1 印標籤 → 2 出貨確認。<br>'
-          : '順序是 <b>1 轉店到店 → 2 印標籤 → 3 出貨確認</b>。出貨確認一做下去，店到店轉不了、標籤也印不了，所以前兩步沒做完那顆會鎖著。<br>'
-            + '只有 7-11 跟全家有「店到店」，OK 跟萊爾富 MOMO 沒開，那幾張轉不了（但還是可以勾起來印貼紙）。<br>'
-            + '標「已是店到店」的是已經轉好的，勾起來可以直接印貼紙。<br>'
-            + '轉店到店會直接改 MOMO 上的配送方式，改完要還原得自己進後台，所以按下去會再問一次。<br>')
+          ? '第三方是我們自己寄出去的，沒有店到店這回事，順序是 <b>1 出貨確認 → 2 印標籤</b>（標籤是出貨確認當下才生得出來的）。<br>'
+          : '順序是 <b>1 轉店到店 → 2 出貨確認 → 3 印標籤</b>。標籤是出貨確認當下才生得出來的，所以一定是先出貨確認才印得到。<br>'
+            + '還是「直配」的單，出貨確認那顆會鎖著 —— 出貨確認一做下去就再也轉不了店到店了。<br>'
+            + '標「已是店到店」的是已經轉好的。轉店到店會直接改 MOMO 上的配送方式，'
+            + '改完要還原得自己進後台，所以按下去會再問一次。<br>')
       + '同一個客人下好幾張單，收件人那欄會出現「同人 N 單」，點一下就整組勾起來；'
       + '出貨確認裡的「併箱」留自動就好，好幾組客人可以一次處理（各自給一個箱號）。<br>'
       + '出貨確認之後 MOMO 那邊就查不到那張單了（變成出貨中），所以我們自己留 7 天讓您可以印／重印標籤。'
@@ -10592,21 +10690,13 @@ function stRender(){
     stRender();
   };
   const cb = $s('st-conv'); if(cb) cb.onclick = ()=>stConvert(false);
-  const sb = $s('st-ship'); if(sb) sb.onclick = ()=>{
-    /* 到這裡按鈕已經解鎖了（上面那兩道關卡是把鈕鎖起來的，不是靠 confirm）。
-       只剩「解鎖過但其實還沒印」這一種，再問一次就好。 */
-    const noPrint = liveRows.filter(r=>!stPrinted.has(stNormNo(r.completeOrderNo))).map(r=>r.completeOrderNo);
-    if(noPrint.length && !confirm(
-        '這 ' + noPrint.length + ' 張在這台電腦沒有印標籤的紀錄：\n\n'
-        + noPrint.slice(0,6).join('\n') + (noPrint.length>6 ? '\n…' : '')
-        + '\n\n⚠ 出貨確認之後 MOMO 就不讓印標籤了，補印要上 SCM 後台。\n\n確定標籤已經印好了嗎？')) return;
-    stShipOpen = true; stRender(); stLoadShipTypes();
-  };
-  const gd = $s('st-gate-do'); if(gd) gd.onclick = ()=>{ if(gate==='direct') stConvert(false); else stPrint('label') };
-  const gu = $s('st-gate-un'); if(gu) gu.onclick = ()=>{
-    if(!confirm('解鎖出貨確認？\n\n「已印標籤」是記在這台電腦的瀏覽器裡，在別台印的這邊看不到，'
-      + '所以留這個解鎖給您。\n\n但請先確定標籤真的印好了 —— 出貨確認之後就只能上 SCM 後台補印。')) return;
-    stShipUnlock = true; stRender();
+  const sb = $s('st-ship'); if(sb) sb.onclick = ()=>{ stShipOpen = true; stRender(); stLoadShipTypes() };
+  const gd = $s('st-gate-do'); if(gd) gd.onclick = ()=>stConvert(false);
+  const nl = $s('st-need-label'); if(nl) nl.onclick = ()=>{
+    stPick.clear();
+    needLabel.forEach(r=>stPick.add(r.completeOrderNo));
+    stRender();
+    stPrint('label');
   };
   const sx = $s('st-ship-x'); if(sx) sx.onclick = ()=>{ stShipOpen = false; stRender() };
   const sg = $s('st-ship-go'); if(sg) sg.onclick = ()=>stShipGo();
@@ -10627,7 +10717,8 @@ function stRender(){
   };
   const pwb = $s('st-pw'); if(pwb) pwb.onclick = ()=>{ if(stAskPdfPw()!==null) stRender() };
   const cl = $s('st-clr'); if(cl) cl.onclick = ()=>{
-    if(!confirm('清掉本機記著的「已出貨」清單？清掉之後那幾張就不會再出現在這裡（MOMO 那邊本來就查不到了），標籤要重印就得進 SCM 後台。')) return;
+    if(!confirm('清掉「已出貨」清單？\n\n⚠ 這份紀錄現在是全店共用的，清掉之後**每一台電腦、每個人**都看不到那幾張了'
+      + '（MOMO 那邊本來就查不到），標籤要重印就得進 SCM 後台。\n\n只想拿掉其中一張的話，按那一列後面的「移除」就好。')) return;
     stClearShipped(); stLoad();
   };
   const bo = $s('st-boxmode'); if(bo) bo.onchange = ()=>{
