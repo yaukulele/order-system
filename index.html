@@ -5413,10 +5413,10 @@ function openExpoModal(){
   const today=localDateISO();
   const opts=EXPO_PRODUCTS.map(p=>`<option value="${p[1]}" data-n="${p[0]}">${p[0]}（NT$${p[1].toLocaleString()}）</option>`).join('');
   document.getElementById('modal-body').innerHTML=`<h3>新增店內寄出訂單</h3>
-<div style="background:#fff1e8;border:1px solid #fdba74;border-radius:8px;padding:10px 14px;font-size:11px;color:#c2410c;margin-bottom:12px;line-height:1.6">店內成交、之後要寄給客人的單：選型錄自動帶價、或自己填品項；實收金額會自動判斷 付清（找零）/ 訂金（尚欠），平台掛「店內寄出」。</div>
+<div style="background:#fff1e8;border:1px solid #fdba74;border-radius:8px;padding:10px 14px;font-size:11px;color:#c2410c;margin-bottom:12px;line-height:1.6">店內成交、之後要寄給客人的單：選型錄自動帶價、或自己填品項；實收金額會自動判斷 付清（找零）/ 訂金（尚欠），平台掛「店內寄出」。<br><strong>售價留空</strong>＝店內補寄／換貨，不收錢也能建單。</div>
 <div class="fg"><div class="fi"><label>日期</label><input type="date" id="ex-date" value="${today}"></div><div class="fi"><label>選常用品項自動帶價</label><select id="ex-psel" onchange="exPick()"><option value="__free" selected>其他（自己輸入品項）</option>${opts}</select></div></div>
 <div class="fg full"><div class="fi"><label>品項 <span style="color:var(--pc)">*</span></label><input id="ex-product" placeholder="請輸入品項名稱（或上面選型錄）"></div></div>
-<div class="fg"><div class="fi"><label>售價 <span style="color:var(--pc)">*</span></label><input type="text" inputmode="numeric" id="ex-price" placeholder="0" oninput="this.value=cn(this.value);exCalc()"></div><div class="fi"><label>安裝費 <span style="font-size:10px;color:var(--ht)">（沒有留空）</span></label><input type="text" inputmode="numeric" id="ex-install" placeholder="0" oninput="this.value=cn(this.value);exCalc()"></div></div>
+<div class="fg"><div class="fi"><label>售價 <span style="font-size:10px;color:var(--ht)">（補寄／換貨不收錢就留空）</span></label><input type="text" inputmode="numeric" id="ex-price" placeholder="0" oninput="this.value=cn(this.value);exCalc()"></div><div class="fi"><label>安裝費 <span style="font-size:10px;color:var(--ht)">（沒有留空）</span></label><input type="text" inputmode="numeric" id="ex-install" placeholder="0" oninput="this.value=cn(this.value);exCalc()"></div></div>
 <div class="fg full"><div class="fi"><label>實收金額</label><input type="text" inputmode="numeric" id="ex-received" placeholder="0" oninput="this.value=cn(this.value);exCalc()"><div class="hint" id="ex-calc" style="margin-top:6px"></div></div></div>
 <div class="fg"><div class="fi"><label>姓名</label><input id="ex-name" placeholder="客戶姓名（沒問到可寫「店內客」）"></div><div class="fi"><label>電話</label><input id="ex-phone" inputmode="tel" placeholder="聯絡電話（可空）"></div></div>
 <div class="fg full"><div class="fi"><label>收件地址 <span style="font-size:10px;color:var(--ht)">（要寄送才填）</span></label><input id="ex-addr" placeholder="留空 = 客人到店自取"></div></div>
@@ -5435,6 +5435,9 @@ function _exNum(id){return parseInt((document.getElementById(id).value||'').repl
 function exCalc(){
   const p=_exNum('ex-price'),i=_exNum('ex-install'),r=_exNum('ex-received'),t=p+i;
   const el=document.getElementById('ex-calc');if(!el)return;
+  /* 杰哥 2026-09-27：售價可以留空（店內補寄／換貨）。合計 0 就不是買賣，
+     不要再算「尚欠」，否則會跑出負數。 */
+  if(!t){el.style.color=r?'#c2410c':'';el.textContent=r?('本單未填售價，收了 NT$'+r.toLocaleString()+'？請確認是不是漏填售價'):'';return;}
   if(!r){el.textContent='';el.style.color='';return;}
   if(r>=t&&t>0){el.style.color='#15803d';const ch=r-t;el.textContent='✓ 已付清（合計 NT$'+t.toLocaleString()+'）'+(ch>0?'　找零 NT$'+ch.toLocaleString():'');}
   else{el.style.color='#c2410c';el.textContent='訂金：已付 NT$'+r.toLocaleString()+'，尚欠 NT$'+(t-r).toLocaleString()+'（合計 NT$'+t.toLocaleString()+'）';}
@@ -5443,25 +5446,32 @@ function saveExpoSale(){
   const product=document.getElementById('ex-product').value.trim();
   const price=_exNum('ex-price'),install=_exNum('ex-install'),received=_exNum('ex-received');
   if(!product){alert('品項必填（選型錄或自己輸入）');return}
-  if(!price||price<=0){alert('售價需大於 0');return}
+  /* 杰哥 2026-09-27：「不強迫輸入售價，有會是店內補寄東西紀錄」。
+     售價不再擋，但空白＝不收費是會少算營收的事，所以留一次確認，
+     避免真的有賣卻忘了填價、金額默默變 0。 */
+  if(price<=0&&install<=0&&!confirm('售價空白＝本單不收費（店內補寄／換貨），不會列入營收。\n\n確定要這樣存嗎？')){return}
   const date=document.getElementById('ex-date').value||localDateISO();
   const name=document.getElementById('ex-name').value.trim()||'店內客';
   const phone=document.getElementById('ex-phone').value.trim();
   const addr=document.getElementById('ex-addr').value.trim();
   const userNote=document.getElementById('ex-note').value.trim();
   const total=price+install;
+  const isFree=total<=0;  // 售價＋安裝都空白＝店內補寄／換貨，不是買賣
   let status,payLine;
-  if(received>=total&&total>0){status='已確認';const ch=received-total;payLine='實收 '+received.toLocaleString()+(ch>0?'／找零 '+ch.toLocaleString():'');}
+  if(isFree){status='已確認';payLine='不收費（店內補寄／換貨）'+(received>0?'／另收 '+received.toLocaleString():'');}
+  else if(received>=total){status='已確認';const ch=received-total;payLine='實收 '+received.toLocaleString()+(ch>0?'／找零 '+ch.toLocaleString():'');}
   else if(received>0){status='待收費';payLine='訂金已收 '+received.toLocaleString()+'／尚欠 '+(total-received).toLocaleString();}
   else{status='未確認';payLine='未收款／應收 '+total.toLocaleString();}
-  const noteParts=['📦 店內寄出（店內建單）','售價 '+price.toLocaleString()+(install?'／安裝 '+install.toLocaleString():'')+'／合計 '+total.toLocaleString(),payLine];
+  const noteParts=['📦 店內寄出（店內建單）'];
+  if(!isFree)noteParts.push('售價 '+price.toLocaleString()+(install?'／安裝 '+install.toLocaleString():'')+'／合計 '+total.toLocaleString());
+  noteParts.push(payLine);
   if(userNote)noteParts.push(userNote);
   const o={id:gid(),date,dateFmt:fmtD(date),platform:'EXPO',orderNo:'EXPO-'+Date.now().toString().slice(-9),product,specs:'',name,phone,realPhone:phone,address:addr,addrMgmt:'',addrElev:'',install:install>0?'是':'否',installFee:install,installDay:'',installTime:'',installPaidAmount:(status==='已完成'?install:0),addon:'否',addonFee:0,addonItems:'',addonPaidAmount:0,amount:price,qty:1,status,note:noteParts.join('\n'),delyGbStr:'',trackingNo:''};
   logActivity(o,'店內寄出建單');
   orders.push(o);
   _setSavingBadge();db.ref('orders/'+o.id).set(o).catch(_saveError);
   _modalDirty=false;closeModal();updateCnt();
-  showToast(`✅ 已加入店內寄出單：${name} ｜ ${product} ｜ $${total.toLocaleString()}`,null,null,4000);
+  showToast(`✅ 已加入店內寄出單：${name} ｜ ${product} ｜ ${isFree?'不收費（補寄／換貨）':'$'+total.toLocaleString()}`,null,null,4000);
   showTab('list');
 }
 
