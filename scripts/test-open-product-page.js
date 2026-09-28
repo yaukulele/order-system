@@ -55,4 +55,14 @@ CLICKED = null; global._ALERT = "";
 OPEN("x");
 ck("什麼都沒有就講一句話，不要靜靜不動", CLICKED === null && String(global._ALERT).length > 0, global._ALERT);
 
+
+// ---- 2026-09-29：列表上的「商品」必須是「畫面上真的 <a href>」 ----
+// 杰哥又回報「點了商品網址又看不到了」。JS 造 <a> 再 click() 仍然是程式點的，
+// Safari / PWA 獨立視窗 / 擋彈窗照樣可以默默吃掉。真的 <a> 才不會被當彈窗，
+// 而且能長按右鍵「在新分頁開啟 / 複製連結」。這幾條盯著別再改回純按鈕。
+const pl = src.slice(src.indexOf("const _prodUrl=prodSearchUrl(o);"), src.indexOf("const _smsDone"));
+ck("列表「商品」是真的 <a href>", /<a class="act[^"]*" href="\$\{esc\(_prodUrl\)\}" target="_blank" rel="noopener"/.test(pl));
+ck("桌機版＋手機版都是 <a>", (pl.match(/<a class=/g) || []).length === 2, (pl.match(/<a class=/g) || []).length);
+ck("「商品」上沒有殘留 onclick=openProdPage", !/onclick="openProdPage/.test(pl));
+
 process.exit(bad ? 1 : 0);

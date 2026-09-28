@@ -184,6 +184,7 @@ td{padding:7px 10px;border-bottom:1px solid #f0ede6}tr:hover td{background:var(-
 .act-cell{padding:4px 4px;vertical-align:middle;width:205px;max-width:205px;min-width:205px}
 .act-wrap{display:flex;flex-wrap:wrap;gap:2px;justify-content:flex-end;align-items:center}
 .act-wrap .act{margin:0}
+a.act{display:inline-flex;align-items:center;justify-content:center;text-decoration:none}
 .st-btn{padding:4px 12px;border-radius:6px;border:2px solid;font-size:11px;font-weight:700;cursor:pointer;font-family:var(--sans);min-width:70px;text-align:center}.st-btn:hover{opacity:.8}
 /* 桌面列表的狀態鈕縮小（精簡但「一行不換行」，省空間給操作欄） */
 #tab-list table .st-btn{min-width:0;padding:3px 9px;font-size:10px;border-width:1px;white-space:nowrap}
@@ -353,7 +354,7 @@ td{padding:7px 10px;border-bottom:1px solid #f0ede6}tr:hover td{background:var(-
 .rgn-panel .ord-card-phone{margin-bottom:0;line-height:1.2}
 .rgn-panel .ord-card-note{margin-top:2px;padding:2px 7px}
 .rgn-panel .ord-card-actions{margin-top:4px;padding-top:4px;gap:3px}
-.rgn-panel .ord-card-actions button{flex:0 1 auto;min-height:24px;padding:2px 9px}
+.rgn-panel .ord-card-actions button,.rgn-panel .ord-card-actions a.act-link{flex:0 1 auto;min-height:24px;padding:2px 9px}
 .rgn-panel .copy-mini{width:22px;height:22px;margin-left:4px}
 /* MOMO 指定配送日 訂單 — 紫色特殊標記 */
 .scm-badge{display:inline-block;font-size:10px;color:#6d28d9;background:#f3e8ff;border:1px solid #c4b5fd;border-radius:4px;padding:1px 6px;font-weight:800;white-space:nowrap;vertical-align:middle}
@@ -421,7 +422,7 @@ tr.row-scm>td:first-child{box-shadow:inset 3px 0 0 #7c3aed}
 /* Grid auto-fill — 按鈕填滿可用寬度，數量不固定也不會留白 */
 /* 行動版操作鈕：縮小 + 純文字 + 盡量擠一行（flex 自動換行，不再固定 92px 大格） */
 .ord-card-actions{display:flex;flex-wrap:wrap;gap:4px;margin-top:8px;padding-top:8px;border-top:1px dashed var(--bd)}
-.ord-card-actions button{flex:1 1 auto;min-height:30px;padding:5px 6px;font-size:11px;font-family:var(--sans);font-weight:600;border:1px solid var(--bd);background:var(--sf2);color:var(--tx);border-radius:6px;cursor:pointer;display:flex;align-items:center;justify-content:center;gap:2px;white-space:nowrap}
+.ord-card-actions button,.ord-card-actions a.act-link{flex:1 1 auto;text-decoration:none;min-height:30px;padding:5px 6px;font-size:11px;font-family:var(--sans);font-weight:600;border:1px solid var(--bd);background:var(--sf2);color:var(--tx);border-radius:6px;cursor:pointer;display:flex;align-items:center;justify-content:center;gap:2px;white-space:nowrap}
 .ord-card-actions button.primary{background:var(--mo);color:#fff;border-color:var(--mo)}
 .ord-card-actions button.danger{color:var(--pc);border-color:#e8a8a4}
 .ord-card-actions button.offline{color:#7e22ce;border-color:#d8b4fe}
@@ -3964,10 +3965,17 @@ function buildOrderActions(o,variant){
   const _siteName=(o.platform==='MO'||o.platform==='MO3')?'MOMO':o.platform==='PC'?'PChome':'Google';
   const _exactProd=prodIsExact(o);
   const _prodTitle=_exactProd?'用商品編號直接開官方商品頁（精準），重複確認這筆訂單':`用商品名稱去 ${_siteName} 搜尋商品頁，重複確認這筆訂單`;
-  const prodLink=prodSearchUrl(o)
+  /* 杰哥 2026-09-29：「點了商品網址又看不到了」。
+     v338 已經把 window.open 換成「JS 造一個 <a> 再 click()」，但那還是程式點的，
+     Safari／PWA 獨立視窗／擋彈窗設定照樣可以默默吃掉，而且吃掉時完全沒有徵兆。
+     這次直接把「商品」做成畫面上真的 <a href target="_blank">：
+     人真的點在連結上，沒有任何瀏覽器會把它當彈窗擋下來；
+     另外還能長按／右鍵「在新分頁開啟」「複製連結網址」，被擋了也有別條路。*/
+  const _prodUrl=prodSearchUrl(o);
+  const prodLink=_prodUrl
     ?(isMob
-      ?`<button onclick="openProdPage('${oid}')" title="${_prodTitle}" style="background:${_exactProd?'#e8f7ee':'#eef6ff'};color:${_exactProd?'#15803d':'#1657b5'};border-color:${_exactProd?'#86efac':'#a8c4f0'}">商品</button>`
-      :`<button class="act" onclick="openProdPage('${oid}')" title="${_prodTitle}" style="border-color:${_exactProd?'#86efac':'#a8c4f0'};color:${_exactProd?'#15803d':'#1657b5'}">商品</button>`)
+      ?`<a class="act-link" href="${esc(_prodUrl)}" target="_blank" rel="noopener" title="${_prodTitle}" style="background:${_exactProd?'#e8f7ee':'#eef6ff'};color:${_exactProd?'#15803d':'#1657b5'};border-color:${_exactProd?'#86efac':'#a8c4f0'}">商品</a>`
+      :`<a class="act act-link" href="${esc(_prodUrl)}" target="_blank" rel="noopener" title="${_prodTitle}" style="border-color:${_exactProd?'#86efac':'#a8c4f0'};color:${_exactProd?'#15803d':'#1657b5'}">商品</a>`)
     :'';
   // 📩 發簡訊：邀請客戶加 LINE / 聯絡後續安裝。只用 realPhone（加密轉接電話不發）。已發過 → 變綠 + 可重發
   const _smsDone=!!o.smsSent;
@@ -4006,6 +4014,7 @@ function openTab(url){
     return true;
   }catch(e){ return false }
 }
+/* 列表上的「商品」已改成真的 <a>，這支只留給舊入口／舊快取用 */
 function openProdPage(oid){
   const o=findO(oid);if(!o)return;
   const url=prodSearchUrl(o);
