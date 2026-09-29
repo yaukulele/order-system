@@ -10711,6 +10711,10 @@ function stRender(){
         + ' title="標籤是出貨確認之後才生得出來的">'
         + step(stIsThird()?2:3) + '印標籤</button>'
       + '<button class="btn" id="st-dt"' + (stPick.size?'':' disabled') + '>印明細</button>'
+      + (stIsThird()
+          ? '<button class="btn" id="st-all"' + (stPick.size?'':' disabled')
+            + ' title="momo第三方物流到廠取貨總表 —— 司機來收貨時雙方簽名那張">印出貨總表</button>'
+          : '')
       + '<span class="st-sp"></span>'
       + (stSendingLoading ? '<span class="st-warn">出貨中的單載入中…</span>' : '')
       + (stLoadedAt ? '<span class="st-warn">抓取於 ' + new Date(stLoadedAt).toLocaleTimeString('zh-TW',{hour:'2-digit',minute:'2-digit'}) + '</span>' : '')
@@ -10886,6 +10890,7 @@ function stRender(){
   const pf = $s('st-pdf-file'); if(pf) pf.onchange = ()=>stImportLabelPdf(pf.files);
   const lb = $s('st-label'); if(lb) lb.onclick = ()=>stPrint('label');
   const db = $s('st-dt'); if(db) db.onclick = ()=>stPrint('dt');
+  const allBtn = $s('st-all'); if(allBtn) allBtn.onclick = ()=>stPrint('all');
 }
 
 /* 轉店到店的實際動作。拆出來是因為出貨確認前要自動跑一次（杰哥：我們只有店到店），
@@ -11662,9 +11667,29 @@ function stPrintNosImpl(nos, type, preWin){
     return Promise.resolve(false);
   }
   const api = stApi(), tok = stTok();
+  /* 🔴 杰哥 2026-09-29：「第三方印單格式會錯誤」。
+     以前沒把物流商代碼帶過去，後端只好拿 61/62/63/6A 一個一個試，
+     第一個印得出來的就用 —— 印出來的很可能是別家貨運的單子格式。
+     每張單自己就帶著 thirdDelyGb（新竹貨運是 62），直接帶過去才會印對。
+     一次只能指定一個代碼，所以挑到不同貨運的單要分批印。 */
+  let gbQS = '';
+  if(stIsThird()){
+    const want = new Set(nos.map(n=>{
+      const row = stRows.find(r=>r.completeOrderNo===n);
+      return (row && row.thirdDelyGb) || '';
+    }).filter(Boolean));
+    if(want.size > 1){
+      try{ if(preWin) preWin.close() }catch(e){}
+      alert('這批挑到了不同貨運的單（代碼 ' + [...want].join('、') + '），\n'
+        + 'MOMO 一次只印得出同一家貨運的單，請分批挑、分批印。');
+      return Promise.resolve(false);
+    }
+    if(want.size === 1) gbQS = '&delyGb=' + encodeURIComponent([...want][0]);
+  }
   const url = api
     + (stIsThird() ? '/api/orders/momo/third/labels?printType=' : '/api/orders/momo/stores/label?printType=') + type
     + '&orderNo=' + encodeURIComponent(nos.join(','))
+    + gbQS
     + '&token=' + encodeURIComponent(tok);
   /* 先同步開一個空白分頁（不然非同步之後 window.open 會被擋），
      抓回來是 PDF 才把它放進去；是錯誤就把分頁關掉、用人看得懂的話講。
