@@ -3989,7 +3989,17 @@ function buildOrderActions(o,variant){
   const sms=isMob
     ?`<button onclick="openSmsMenu('${oid}',event)" style="${_smsDone?'color:#15803d;border-color:#86efac;background:#e8f7ee':'color:#7c3aed;border-color:#c4b5fd'}" title="${_smsTip}">📩 ${_smsDone?'已發':'發簡訊'}</button>`
     :`<button class="act" onclick="openSmsMenu('${oid}',event)" title="${_smsTip}" style="${_smsDone?'border-color:#86efac;color:#15803d':'border-color:#c4b5fd;color:#7c3aed'}">📩${_smsDone?'✓':''}</button> `;
-  return{addrAck,ship,shipDone,instPaid,addonPaid,quickAddInstall,quickAddAddon,edit,copy,cam,del,prodLink,sms};
+  /* 每張三方單自己補姓名/電話/地址（杰哥 2026-09-29：「補單寫名字電話地址這些，
+     可以做在各個訂單上嗎」）。
+     只掛在「三方單 + 還沒有電話」的單上 —— 其他單別的來源本來就有電話，不需要這顆；
+     已經補過的也不再顯示，免得整排都是按鈕。
+     做的事跟列表上方那條提示一樣，只是預設只套用這一筆對得到的那張宅配單。 */
+  const fillLabel=(o.platform==='MO3'&&!String(o.phone||'').trim())
+    ?(isMob
+      ?`<button onclick="fillLabelForOrder('${oid}',event)" style="color:#92400e;border-color:#f0c884;background:#fef9ec" title="把 MOMO 後台下載的宅配單 PDF 丟進來，補上真實姓名／電話／地址">補電話</button>`
+      :`<button class="act" onclick="fillLabelForOrder('${oid}',event)" title="把 MOMO 後台下載的宅配單 PDF 丟進來，補上真實姓名／電話／地址" style="border-color:#f0c884;color:#92400e">補電話</button> `)
+    :'';
+  return{addrAck,ship,shipDone,instPaid,addonPaid,quickAddInstall,quickAddAddon,edit,copy,cam,del,prodLink,sms,fillLabel};
 }
 
 // 商品頁網址 — 重複確認訂單買的商品用
@@ -4497,6 +4507,18 @@ function updateMo3PhoneAlert(){
     if(f){f.value='';f.onchange=function(){window.stImportLabelPdf(f.files)};f.click()}
   };
 }
+/* 單張訂單上的「補電話」（杰哥 2026-09-29：「可以做在各個訂單上嗎」）。
+   跟列表上方那條提示共用同一個 <input type=file> 跟同一支解析程式，
+   差別只在：預設只套用「這一筆對得到」的那張宅配單。 */
+function fillLabelForOrder(oid,ev){
+  if(ev&&ev.stopPropagation)ev.stopPropagation();
+  const o=findO(oid); if(!o)return;
+  if(typeof window.stImportLabelPdfForOrder!=='function'){alert('補電話的程式沒載到（版本太舊？）— 請重新整理一次頁面');return}
+  const f=document.getElementById('mo3-pdf-file'); if(!f)return;
+  f.value='';
+  f.onchange=function(){ window.stImportLabelPdfForOrder(o, f.files) };
+  f.click();
+}
 function renderList(){updateFilterIndicator();updateFilterCounts();try{updateRestockAlert()}catch(e){}try{updateMo3PhoneAlert()}catch(e){}
 // 釘住機制：sig（篩選+搜尋+排序）沒變 → 沿用上一批 id（做動作不跳走）；變了 → 重算並重新釘住
 const _psig=cFilter.join(',')+'|'+cStatus.join(',')+'|'+(cSpecial||'')+'|'+_curQuery()+'|'+sortOrder;
@@ -4543,7 +4565,7 @@ const checked=selectedIds.has(o.id);
 // 規格併入品名 cell — 用小 pill 顯示，省一整欄寬度給操作欄
 // 規格放最前面 — 之前放品名後面，品名太長會被 truncate 切掉，看不到規格要點編輯。
 const prodSpecCombined=`${r.ps.specs?`<span class="spec-pill" title="${esc(r.ps.specs)}" style="margin-right:6px;flex-shrink:0">${esc(r.ps.specs)}</span>`:''}${escWithHL(r.ps.name)}`;
-h+=`<tr${r.scmActive?' class="row-scm"':''}><td class="batch-cell"><input type="checkbox" data-oid="${o.id}" ${checked?'checked':''} onclick="toggleRowSelected('${o.id}')"></td><td class="mono" style="width:56px">${fmtD(o.date)}${r.newBadge?' '+r.newBadge:''}</td><td style="width:44px;text-align:center">${platformPill(o.platform)}${r.addrBadge?' '+r.addrBadge:''}</td><td class="prod-cell" onclick="openEdit('${oid}')" style="cursor:pointer" title="點擊編輯：${esc(o.product)}">${prodSpecCombined}</td><td class="tab-list-mobile-hide qty-cell"><input type="text" inputmode="numeric" value="${r.qty}" oninput="this.value=cn(this.value);setQty('${oid}',this.value)" class="fee-input qty-input" style="width:34px${r.qty>1?';border-color:var(--mo);background:var(--mo-bg);color:var(--mo);font-weight:800':''}"></td><td class="name-cell" title="${r.ph?'電話 '+esc(r.ph):''}${o.address?'\n地址 '+esc(o.address):''}${r.noteShort?'\n備註 '+esc(r.noteShort):''}"><span style="white-space:normal">${o.name?`<span style="cursor:pointer;white-space:nowrap;text-decoration:underline;text-decoration-style:dotted;text-decoration-color:var(--ht);text-underline-offset:2px" onclick="event.stopPropagation();searchCustomerOrders(${JSON.stringify(o.name).replace(/"/g,'&quot;')})" title="🔒 鎖定看「${esc(o.name)}」的所有訂單">${escWithHL(o.name)}</span>`:'(無姓名)'}${r.region?`<span style="font-size:9px;color:#1657b5;background:#e8eef9;border-radius:3px;padding:1px 5px;margin-left:5px;font-weight:700;white-space:nowrap;display:inline-block" title="${esc(o.address||'')}">${esc(r.region)}</span>`:''}${r.remoteBadge?`<span style="margin-left:4px">${r.remoteBadge}</span>`:''}${r.scmBadge?`<span style="margin-left:4px">${r.scmBadge}</span>`:''}</span>${r.ph?`<div style="font-size:9px;color:var(--dm);font-family:var(--mono);margin-top:1px;max-width:140px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${phoneTel(r.ph)}</div>`:''}${r.noteShort?`<div style="font-size:9px;color:#b45309;background:#fef9ec;border-radius:3px;padding:2px 5px;margin-top:2px;max-width:190px;white-space:normal;line-height:1.3;overflow:hidden;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical" title="${esc(r.noteShort)}">${escWithHL(r.noteShort)}</div>`:''}</td><td class="tab-list-mobile-hide acc-cell">${ib}</td><td class="tab-list-mobile-hide acc-cell">${ab}</td><td class="total-cell" id="tot-${oid}" style="width:78px">${$(tot(o))}${r.trackInfo}</td><td style="width:96px;white-space:nowrap"><button class="${stCls(o.status)}" onclick="openStatusMenu('${oid}',event)" title="本機狀態（點擊修改）">${o.status} ▾</button>${(r.momoBadge||r.momoDiff)?`<div style="margin-top:3px;display:flex;flex-direction:column;gap:2px;align-items:flex-start">${r.momoBadge}${r.momoDiff}</div>`:''}</td><td class="act-cell"><div class="act-wrap">${a.addrAck}${a.ship}${a.shipDone}${a.instPaid}${a.addonPaid}${a.prodLink}${a.sms}${a.edit}${a.copy}${a.cam}${a.del}</div></td></tr>`});
+h+=`<tr${r.scmActive?' class="row-scm"':''}><td class="batch-cell"><input type="checkbox" data-oid="${o.id}" ${checked?'checked':''} onclick="toggleRowSelected('${o.id}')"></td><td class="mono" style="width:56px">${fmtD(o.date)}${r.newBadge?' '+r.newBadge:''}</td><td style="width:44px;text-align:center">${platformPill(o.platform)}${r.addrBadge?' '+r.addrBadge:''}</td><td class="prod-cell" onclick="openEdit('${oid}')" style="cursor:pointer" title="點擊編輯：${esc(o.product)}">${prodSpecCombined}</td><td class="tab-list-mobile-hide qty-cell"><input type="text" inputmode="numeric" value="${r.qty}" oninput="this.value=cn(this.value);setQty('${oid}',this.value)" class="fee-input qty-input" style="width:34px${r.qty>1?';border-color:var(--mo);background:var(--mo-bg);color:var(--mo);font-weight:800':''}"></td><td class="name-cell" title="${r.ph?'電話 '+esc(r.ph):''}${o.address?'\n地址 '+esc(o.address):''}${r.noteShort?'\n備註 '+esc(r.noteShort):''}"><span style="white-space:normal">${o.name?`<span style="cursor:pointer;white-space:nowrap;text-decoration:underline;text-decoration-style:dotted;text-decoration-color:var(--ht);text-underline-offset:2px" onclick="event.stopPropagation();searchCustomerOrders(${JSON.stringify(o.name).replace(/"/g,'&quot;')})" title="🔒 鎖定看「${esc(o.name)}」的所有訂單">${escWithHL(o.name)}</span>`:'(無姓名)'}${r.region?`<span style="font-size:9px;color:#1657b5;background:#e8eef9;border-radius:3px;padding:1px 5px;margin-left:5px;font-weight:700;white-space:nowrap;display:inline-block" title="${esc(o.address||'')}">${esc(r.region)}</span>`:''}${r.remoteBadge?`<span style="margin-left:4px">${r.remoteBadge}</span>`:''}${r.scmBadge?`<span style="margin-left:4px">${r.scmBadge}</span>`:''}</span>${r.ph?`<div style="font-size:9px;color:var(--dm);font-family:var(--mono);margin-top:1px;max-width:140px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${phoneTel(r.ph)}</div>`:''}${r.noteShort?`<div style="font-size:9px;color:#b45309;background:#fef9ec;border-radius:3px;padding:2px 5px;margin-top:2px;max-width:190px;white-space:normal;line-height:1.3;overflow:hidden;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical" title="${esc(r.noteShort)}">${escWithHL(r.noteShort)}</div>`:''}</td><td class="tab-list-mobile-hide acc-cell">${ib}</td><td class="tab-list-mobile-hide acc-cell">${ab}</td><td class="total-cell" id="tot-${oid}" style="width:78px">${$(tot(o))}${r.trackInfo}</td><td style="width:96px;white-space:nowrap"><button class="${stCls(o.status)}" onclick="openStatusMenu('${oid}',event)" title="本機狀態（點擊修改）">${o.status} ▾</button>${(r.momoBadge||r.momoDiff)?`<div style="margin-top:3px;display:flex;flex-direction:column;gap:2px;align-items:flex-start">${r.momoBadge}${r.momoDiff}</div>`:''}</td><td class="act-cell"><div class="act-wrap">${a.addrAck}${a.ship}${a.shipDone}${a.instPaid}${a.addonPaid}${a.prodLink}${a.fillLabel}${a.sms}${a.edit}${a.copy}${a.cam}${a.del}</div></td></tr>`});
 h+='</tbody></table></div>';if(dtrunc)h+=`<div style="text-align:center;padding:12px 8px"><button class="btn" onclick="_deskExpand=true;renderList()">顯示全部 ${fl.length} 筆（目前先顯示前 ${DLIMIT} 筆，避免大量訂單卡頓）</button></div>`;h+='</div>';
 // 水平捲動位置沿用上一次 render — 視窗不夠寬要滑到右邊看操作鈕時，按一下鈕就整個彈回最左邊（姓名/尚未電聯 那排跟著跳掉）很難用
 const _prevSL=document.querySelector('#list-area .tbl-scroll')?.scrollLeft||0;
@@ -4596,6 +4618,7 @@ ${r.noteShort?`<div class="ord-card-note">${esc(r.noteShort)}</div>`:''}
 <div class="ord-card-actions">
 ${a.addrAck}${a.ship}${a.shipDone}${a.instPaid}${a.addonPaid}${a.quickAddInstall}${a.quickAddAddon}
 ${a.prodLink}
+${a.fillLabel}
 ${a.sms}
 ${a.edit}
 ${a.copy}
@@ -11444,6 +11467,48 @@ async function stImportLabelPdf(files){
   if(res.msg) alert(res.msg);
 }
 
+/* 同一份解析，但從「某一張訂單」按下去（杰哥 2026-09-29：「可以做在各個訂單上嗎」）。
+   差別只有一個：預設只套用「這一筆對得到」的那張宅配單 —— 他是在某張單上按的，
+   就不該順手去改別張單。PDF 裡真的沒有這一筆時才問他要不要改成「對到哪張補哪張」。 */
+async function stImportLabelPdfForOrder(order, files){
+  const list = Array.from(files||[]);
+  if(!list.length || !order) return;
+  const api = stApi(), tok = stTok();
+  if(!api || !tok){ alert('需先設定 MOMO API + Token（在「匯入」分頁的「自動抓 MOMO」卡片）'); return }
+
+  const pages = [], fileErr = [];
+  for(const f of list){
+    try{
+      const r = await fetch(api + '/api/orders/momo/third/parse-label', {
+        method:'POST',
+        headers:{ 'X-API-Token': tok, 'Content-Type':'application/pdf' },
+        body: f,
+      });
+      const d = await r.json().catch(()=>null);
+      if(!r.ok || !d || !d.ok){ fileErr.push(f.name + '：' + ((d&&d.error) || ('HTTP ' + r.status))); continue }
+      for(const pg of (d.pages||[])) if(pg.ok) pages.push(pg);
+      if(!d.parsedCount) fileErr.push(f.name + '：' + (d.error || '沒解出東西'));
+    }catch(e){ fileErr.push(f.name + '：' + e.message) }
+  }
+  if(!pages.length){
+    alert('沒有解出任何一張宅配單。\n\n' + (fileErr.join('\n') || '')
+      + '\n\n提醒：要的是「宅配單」那份，出貨總表上面沒有電話跟地址。');
+    return;
+  }
+
+  const key = String(order.orderNo||'').replace(/-.*$/,'');   // 系統存完整編號，宅配單上只有前 14 碼
+  let use = pages.filter(p => p.orderNo === key);
+  if(!use.length){
+    const found = [...new Set(pages.map(p=>p.orderNo).filter(Boolean))];
+    if(!confirm('這份 PDF 裡沒有這一筆（' + key + '）的宅配單。\n\n裡面是這幾張：\n'
+      + (found.join('\n') || '（讀不到訂單編號）')
+      + '\n\n要改成「對得到哪一張就補哪一張」嗎？')) return;
+    use = pages;
+  }
+  const res = await stApplyLabelPages(use, { confirm:true, onlyMasked:false });
+  if(res.msg) alert(res.msg);
+}
+
 /* 宅配單解析結果 → 對回系統訂單 → 寫入。上傳流程跟印標籤流程共用這一支。
    opts.confirm    true = 先把要改什麼列出來讓人按確定（手動上傳走這條）
    opts.onlyMasked true = 只填「現在是遮罩或空白」的欄位，不動已經是真資料的
@@ -11628,8 +11693,9 @@ function stPrintNosImpl(nos, type, preWin){
     .catch(e=>{ try{ w.close() }catch(_){} alert('印標籤失敗（連不上）：' + e.message); return false });
 }
 
-// 列表那條「N 張三方單還沒電話」的提示也要用得到這支 → 對外開一個口（同一份程式，不複製）
+// 列表那條「N 張三方單還沒電話」的提示、跟每張單上的「補電話」都要用到 → 對外開口（同一份程式，不複製）
 window.stImportLabelPdf = stImportLabelPdf;
+window.stImportLabelPdfForOrder = stImportLabelPdfForOrder;
 
 window.__stRender = function(){
   // 第一次切到這頁自動抓一次，之後靠「重新抓取」
