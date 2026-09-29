@@ -11315,27 +11315,39 @@ function stOpenLabelViewer(w, arrayBuffer){
     '<!doctype html><html lang="zh-Hant"><head><meta charset="utf-8"><title>標籤列印</title>',
     '<style>',
     'body{margin:0;font:14px -apple-system,"Noto Sans TC",sans-serif;background:#f4f3ee;color:#1c1b18}',
-    '#bar{padding:10px 14px;background:#fff;border-bottom:1px solid #ddd9cf;position:sticky;top:0}',
+    '#bar{padding:10px 14px;background:#fff;border-bottom:1px solid #ddd9cf;position:sticky;top:0;display:flex;gap:8px;align-items:center;flex-wrap:wrap}',
     '#bar input{padding:6px 8px;border:1px solid #ddd9cf;border-radius:6px;font-size:13px}',
     '#bar button{padding:6px 12px;border:0;border-radius:6px;background:#1c1b18;color:#fff;font-size:13px;cursor:pointer}',
+    /* 手機開在新分頁、沒有網址列也沒有上一頁 → 一定要自己給一顆回去的鈕（杰哥 2026-09-29 卡在這） */
+    '#back{margin-left:auto;background:#fff !important;color:#1c1b18 !important;border:1px solid #ddd9cf !important;padding:8px 14px !important;font-weight:600}',
     '#pages{padding:12px}',
     'canvas{display:block;margin:0 auto 12px;max-width:100%;box-shadow:0 1px 6px rgba(0,0,0,.15);background:#fff}',
     '@media print{#bar{display:none}body{background:#fff}#pages{padding:0}',
     'canvas{box-shadow:none;margin:0;max-width:none;width:100%;page-break-after:always}}',
     '</style></head><body>',
-    '<div id="bar">解開標籤中…</div><div id="pages"></div>',
+    /* #fill 是給主頁那邊回填完之後寫進來的（獨立一格，不會被解碼進度的訊息蓋掉） */
+    '<div id="bar"><span id="msg">解開標籤中…</span><span id="pw"></span><span id="fill" style="color:#1a7f37;font-weight:600"></span><button id="back">← 回系統</button></div><div id="pages"></div>',
     '<script src="' + PDFJS + 'pdf.min.js"><' + '/script>',
     '<script>',
     'var B64=' + JSON.stringify(b64) + ', PW=' + JSON.stringify(pw) + ';',
-    'var bar=document.getElementById("bar");',
+    'var HOME=' + JSON.stringify(location.href) + ';',
+    /* 注意：`bar` 現在指的是訊息那塊 span（#msg），不是整條工具列（#barEl）——
+       這樣下面所有既有的 bar.textContent=… 都只換訊息，不會把「回系統」那顆一起洗掉。 */
+    'var barEl=document.getElementById("bar"), bar=document.getElementById("msg"), pwbox=document.getElementById("pw");',
+    'function say(t){bar.textContent=t}',
+    /* window.close() 對「程式開出來的分頁」通常有效；被瀏覽器擋掉就退回直接載入系統頁，
+       總之不能讓人卡在這頁出不去（手機沒有上一頁可以按）。 */
+    'document.getElementById("back").onclick=function(){try{window.close()}catch(e){}'
+      + 'setTimeout(function(){try{location.replace(HOME)}catch(e){location.href=HOME}},250)};',
     'var WORKER_URL=' + JSON.stringify(PDFJS + 'pdf.worker.min.js') + ';',
     'function bytesOf(b64){var r=atob(b64),a=new Uint8Array(r.length);for(var i=0;i<r.length;i++)a[i]=r.charCodeAt(i);return a}',
-    'function askPw(msg){bar.innerHTML="";var s=document.createElement("span");s.textContent=msg+" ";',
+    /* 只換掉訊息＋輸入框那塊，「回系統」那顆一直留著 —— 密碼打不開的時候更需要退得出去。 */
+    'function askPw(text){say(text);pwbox.innerHTML="";',
     ' var inp=document.createElement("input");inp.type="text";inp.placeholder="標籤 PDF 密碼";',
     ' var btn=document.createElement("button");btn.textContent="解開並列印";',
-    ' bar.appendChild(s);bar.appendChild(inp);bar.appendChild(document.createTextNode(" "));bar.appendChild(btn);',
+    ' pwbox.appendChild(inp);pwbox.appendChild(document.createTextNode(" "));pwbox.appendChild(btn);',
     ' inp.focus();',
-    ' function go(){var v=inp.value.trim();if(!v)return;bar.textContent="解開標籤中…";render(v,true)}',
+    ' function go(){var v=inp.value.trim();if(!v)return;pwbox.innerHTML="";say("解開標籤中…");render(v,true)}',
     ' btn.onclick=go;inp.onkeydown=function(e){if(e.key==="Enter")go()};}',
     'function render(pw, remember){',
     ' if(typeof pdfjsLib==="undefined"){bar.textContent="PDF 元件沒載進來（網路被擋？）";return}',
@@ -11518,7 +11530,11 @@ async function stApplyLabelPages(pages, opts){
    印標籤本來就已經把那張 PDF 抓進瀏覽器了 —— 同一份資料再送去解析一次就好，
    不用多打一次 MOMO，也不用他多按任何東西。
    只填現在還是遮罩/空白的欄位，人工改過的真資料不動。失敗就安靜跳過（列印是主線，不能被拖累）。 */
-async function stAutoFillFromLabelPdf(arrayBuffer){
+async function stAutoFillFromLabelPdf(arrayBuffer, win){
+  /* 杰哥 2026-09-29（手機）：「可以改成自動把姓名電話地址更新進去嗎」——
+     本來就有做，但他人在列印那個分頁，主頁的 toast 他根本看不到，等於做了跟沒做一樣。
+     → 補一格結果寫回列印視窗，讓他當下就知道有沒有補進去。 */
+  const tellWin = (txt)=>{ try{ const el = win && win.document && win.document.getElementById('fill'); if(el) el.textContent = txt }catch(e){} };
   try{
     const api = stApi(), tok = stTok();
     if(!api || !tok) return;
@@ -11528,12 +11544,15 @@ async function stAutoFillFromLabelPdf(arrayBuffer){
       body: arrayBuffer,
     });
     const d = await r.json().catch(()=>null);
-    if(!r.ok || !d || !d.ok || !d.parsedCount) return;
+    if(!r.ok || !d || !d.ok || !d.parsedCount){ tellWin('（這張標籤讀不出電話地址，訂單沒更新）'); return }
     const res = await stApplyLabelPages((d.pages||[]).filter(p=>p.ok), { confirm:false, onlyMasked:true });
-    if(res.updated && typeof showToast==='function'){
-      showToast('📄 已從宅配單補上 ' + res.updated + ' 筆的真實姓名/電話/地址');
+    if(res.updated){
+      if(typeof showToast==='function')showToast('📄 已從宅配單補上 ' + res.updated + ' 筆的真實姓名/電話/地址');
+      tellWin('已把真實姓名／電話／地址補回訂單（' + res.updated + ' 筆）');
+    }else{
+      tellWin('訂單的姓名／電話／地址本來就是最新的，沒有要改');
     }
-  }catch(e){}
+  }catch(e){ tellWin('回填訂單失敗：' + (e.message||e)) }
 }
 
 function stPrint(type){
@@ -11588,7 +11607,7 @@ function stPrintNosImpl(nos, type, preWin){
       if(r.ok && ct.indexOf('pdf') >= 0){
         if(type === 'label') stMarkPrinted(nos);   // 真的拿到 PDF 才算印過
         // 三方的標籤上就印著真實姓名/電話/地址 —— 同一份 PDF 順手解一次自動補回訂單
-        if(type === 'label' && stIsThird()) b.arrayBuffer().then(ab=>stAutoFillFromLabelPdf(ab)).catch(()=>{});
+        if(type === 'label' && stIsThird()) b.arrayBuffer().then(ab=>stAutoFillFromLabelPdf(ab, w)).catch(()=>{});
         // MOMO 的標籤 PDF 有加密，每次開都要打密碼。密碼記在本機，這裡自動帶進去解開再列印。
         return b.arrayBuffer().then(ab=>{ stOpenLabelViewer(w, ab); return true });
       }
