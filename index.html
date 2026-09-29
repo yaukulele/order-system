@@ -7898,11 +7898,41 @@ if('serviceWorker' in navigator){
   document.addEventListener('visibilitychange',()=>{if(!document.hidden)_swUpdateCheck()});
   setInterval(_swUpdateCheck,300000);
   // SW 背景偵測到新版 → 提示用戶重整（SWR 模式：開頁給 cache，背景比對）
+  /* 杰哥 2026-09-29：「可以設定重新整理後就自動更新嗎？因為會跳出來自動更新，我要按的時候，
+     又被提醒代辦事項擋住」。
+
+     SW 是 stale-while-revalidate：開頁先給 cache（所以當下看到的還是舊版），背景抓到新版、
+     寫進 cache 之後才通知頁面 —— 所以「重整就是新版」本來就只差最後那一下 reload。
+     改成：開頁沒多久就收到新版通知 → 直接自動 reload 一次，不用他按任何東西。
+     已經在工作中（開著 modal／正在打字／超過 20 秒）才退回原本的提示，不然會把人打斷。
+     防迴圈：同一分鐘內只自動 reload 一次（sessionStorage 記時間），萬一比對永遠說「有新版」
+     也不會無限重整。 */
   let _newVerToastShown=false;
+  const _pageOpenedAt=Date.now();
+  function _autoReloadOK(){
+    if(Date.now()-_pageOpenedAt>20000)return false;                 // 開頁 20 秒後才來＝人已經在用了
+    try{ if(_modalDirty)return false }catch(_){}
+    try{ if(isModalOpen())return false }catch(_){}
+    try{ if(isInputFocused())return false }catch(_){}
+    try{ const lo=document.getElementById('login-overlay');
+         if(lo&&!lo.classList.contains('hidden'))return false }catch(_){}   // 還在登入畫面不要抽掉
+    try{
+      const last=parseInt(sessionStorage.getItem('_swAutoReloadAt')||'0',10);
+      if(Date.now()-last<60000)return false;
+      sessionStorage.setItem('_swAutoReloadAt',String(Date.now()));
+    }catch(_){}
+    return true;
+  }
   navigator.serviceWorker.addEventListener('message',e=>{
     if(e.data&&e.data.type==='new-version'&&!_newVerToastShown){
       _newVerToastShown=true;
-      if(typeof showToast==='function')showToast('系統有新版本','🔄 立即更新',()=>location.reload(),600000);
+      if(_autoReloadOK()){location.reload();return}
+      if(typeof showToast==='function'){
+        showToast('系統有新版本','🔄 立即更新',()=>location.reload(),600000);
+        /* 🔴 待辦提醒的遮罩 z-index 也是 300，而且比 toast 晚進 DOM → 同一層時它蓋在上面，
+           「立即更新」就點不到（杰哥 2026-09-29 就是卡在這）。這顆 toast 拉高一層。 */
+        try{ if(_toastEl)_toastEl.style.zIndex='9500' }catch(_){}
+      }
     }
   });
 }
