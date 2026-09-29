@@ -6225,12 +6225,16 @@ async function submitShipPchome(real){
     const vendor=document.getElementById('pc-vendor').value;
     const slip=(document.getElementById('pc-slip').value||'').trim();
     const qty=parseInt(document.getElementById('pc-qty').value)||0;
-    if(!slip){alert('物流單號必填');return}
+    // SP＝廠商自行出貨，本來就沒有物流單號；選到它就不送 shipId
+    // （原因見一鍵自行出貨那邊：壓了單號會結不到帳）
+    const selfShip=vendor==='SP';
+    if(!slip&&!selfShip){alert('物流單號必填');return}
     if(!qty||qty<=0){alert('出貨數量需大於 0');return}
     endpoint='/api/orders/pchome/shipinfo';
-    payload={orderId:o.orderNo,shipId:slip,shipVendorId:vendor,shipQty:qty};
+    payload={orderId:o.orderNo,shipVendorId:vendor,shipQty:qty};
+    if(!selfShip)payload.shipId=slip;
     const vname=(PC_SHIP_VENDORS.find(v=>v.code===vendor)||{}).name||vendor;
-    summary=`出貨：${vname} ｜ 單號 ${slip} ｜ ${qty} 件`;
+    summary=selfShip?`出貨：${vname} ｜ 不壓單號 ｜ ${qty} 件`:`出貨：${vname} ｜ 單號 ${slip} ｜ ${qty} 件`;
   }else{
     const reason=(document.getElementById('pc-reason').value||'').trim();
     endpoint='/api/orders/pchome/notship';
@@ -6248,7 +6252,7 @@ async function submitShipPchome(real){
     const data=await r.json();
     if(!r.ok||!data.ok){result.innerHTML=`<div style="background:var(--pc-bg);border:1px solid var(--pc);color:var(--pc);padding:10px;border-radius:6px;font-size:12px"><b>❌ 失敗</b><br>${esc(data.error||'HTTP '+r.status)}<br><pre style="white-space:pre-wrap;font-size:10px;margin-top:6px">${esc(JSON.stringify(data.detail||data,null,2).slice(0,500))}</pre></div>`;return}
     result.innerHTML=`<div style="background:var(--grn-bg);border:1px solid var(--grn);color:var(--grn);padding:10px;border-radius:6px;font-size:12px"><b>✅ PChome 已收到${mode==='ship'?'出貨回填':'不出貨標記'}</b><br>HTTP ${data.status||''}</div>`;
-    if(mode==='ship'){o.trackingNo=payload.shipId;o.delyGbStr=(PC_SHIP_VENDORS.find(v=>v.code===payload.shipVendorId)||{}).name||payload.shipVendorId;applyShipStatus(o);o.shippedAt=new Date().toISOString();o.shippedBy=currentUser||'';o.shippedVia='出貨'}
+    if(mode==='ship'){o.trackingNo=payload.shipId||'';o.delyGbStr=(PC_SHIP_VENDORS.find(v=>v.code===payload.shipVendorId)||{}).name||payload.shipVendorId;applyShipStatus(o);o.shippedAt=new Date().toISOString();o.shippedBy=currentUser||'';o.shippedVia='出貨'}
     else{o.status='已取消'}
     _pcMarkLocal(o.orderNo, mode==='ship' ? 'checking' : 'cancelled', payload.shipId, payload.shipVendorId);
     logActivity(o,mode==='ship'?`PChome 出貨回填：${summary}`:`PChome ${summary}`);
@@ -6265,10 +6269,13 @@ async function quickShipPchomeSelf(oid){
   if(o.platform!=='PC'){alert('只有 PChome 訂單可用此功能');return}
   const api=getMomoApi(),token=getMomoToken();if(!api||!token){alert('需先設定 API URL + Token（共用 MOMO 那組）');return}
   const qty=parseInt(o.qty)||1;
-  const slip=((o.trackingNo||'').trim())||o.orderNo;
-  const noSlip=!((o.trackingNo||'').trim());
-  if(!confirm(`【一鍵自行出貨】確定嗎？\n⚠️ PChome 送出後無法復原。\n\n訂單：${o.orderNo}\n${o.name||''} ${o.product||''} ×${qty}\n配送方式：廠商自行出貨 (SP)\n出貨單號：${slip}${noSlip?'（無物流單號，改用訂單編號當參考）':''}`))return;
-  const payload={orderId:o.orderNo,shipId:slip,shipVendorId:'SP',shipQty:qty};
+  /* 🔴 杰哥 2026-09-29：「按了 SP 只要廠商自行出貨，不要有出貨單號。
+     現在出大事情就是一堆有壓出貨單號造成我們結帳不到」。
+     舊版沒有貨運單號時，會拿「訂單編號」頂上去當 ShipId 送給 PChome，
+     平台上就變成一張有物流單號的單，錢結不到。
+     自行出貨本來就沒有物流單號 —— 整個 shipId 欄位不送。 */
+  if(!confirm(`【一鍵自行出貨】確定嗎？\n⚠️ PChome 送出後無法復原。\n\n訂單：${o.orderNo}\n${o.name||''} ${o.product||''} ×${qty}\n配送方式：廠商自行出貨 (SP)\n出貨單號：不送（自行出貨不壓單號）`))return;
+  const payload={orderId:o.orderNo,shipVendorId:'SP',shipQty:qty};
   try{
     const r=await fetch(`${api}/api/orders/pchome/shipinfo`,{method:'POST',headers:{'Content-Type':'application/json','X-API-Token':token},body:JSON.stringify(payload)});
     const data=await r.json();
