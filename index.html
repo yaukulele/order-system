@@ -10390,11 +10390,18 @@ function stClearShipped(){
    密碼幾個月才換一次 → 記在**這台電腦的瀏覽器**裡，按列印時自動解開。
    刻意不存到 Firebase：那個資料庫目前是公開可讀的。也不送到我們的伺服器。 */
 const ST_PDF_PW_KEY = 'store_label_pdf_pw_v1';
-function stPdfPw(){ try{ return localStorage.getItem(ST_PDF_PW_KEY) || '' }catch(e){ return '' } }
+/* 杰哥 2026-09-29：「可以都先預設好 yamusic123，除非改密碼了才需要有地方更換」。
+   在這之前預設是空字串 → 每台沒設過的裝置第一次印標籤都會被擋下來問密碼（他就卡在這，
+   而且是在「一鍵跑完」跑到最後一步才跳）。這組是 MOMO 給的固定密碼，後端也是用同一組
+   （MOMO_LABEL_PDF_PASSWORD 預設值），兩邊一致。
+   有人自己設過就以他設的為準；MOMO 哪天換密碼，按下面那個「換標籤密碼」改就好。 */
+const ST_PDF_PW_DEFAULT = 'yamusic123';
+function stPdfPwRaw(){ try{ return localStorage.getItem(ST_PDF_PW_KEY) || '' }catch(e){ return '' } }
+function stPdfPw(){ return stPdfPwRaw() || ST_PDF_PW_DEFAULT }
 function stSetPdfPw(v){ try{ localStorage.setItem(ST_PDF_PW_KEY, v||'') }catch(e){} }
 function stAskPdfPw(msg){
   const cur = stPdfPw();
-  const v = prompt((msg||'標籤 PDF 的開啟密碼（MOMO 給的那組，換了就在這裡改）：'), cur);
+  const v = prompt((msg||'標籤 PDF 的開啟密碼（MOMO 給的那組，換了就在這裡改；清空＝用回預設 '+ST_PDF_PW_DEFAULT+'）：'), cur);
   if(v === null) return null;              // 按取消
   stSetPdfPw(v.trim());
   return v.trim();
@@ -10759,9 +10766,10 @@ function stRender(){
       + '出貨確認裡的「併箱」留自動就好，好幾組客人可以一次處理（各自給一個箱號）。<br>'
       + '出貨確認之後 MOMO 那邊就查不到那張單了（變成出貨中），所以我們自己留 7 天讓您可以印／重印標籤。'
       + '<a href="javascript:void(0)" id="st-clr" style="margin-left:6px">清掉已出貨紀錄</a><br>'
-      + '標籤 PDF 有密碼，系統會自動幫您解開再列印（密碼只存在這台電腦，不會上傳）。'
-      + '<a href="javascript:void(0)" id="st-pw" style="margin-left:6px">'
-      + (stPdfPw() ? '換標籤密碼' : '設定標籤密碼') + '</a></div>';
+      + '標籤 PDF 有密碼，系統會自動幫您解開再列印，不用手動輸入（'
+      + (stPdfPwRaw() ? '目前用您自己設的那組' : '預設就是 MOMO 那組 ' + ST_PDF_PW_DEFAULT)
+      + '，只存在這台電腦，不會上傳）。MOMO 換密碼了才需要改：'
+      + '<a href="javascript:void(0)" id="st-pw" style="margin-left:6px">換標籤密碼</a></div>';
   }
   box.innerHTML = html;
 
