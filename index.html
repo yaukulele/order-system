@@ -11357,8 +11357,13 @@ function stOpenLabelViewer(w, arrayBuffer){
     '#back{margin-left:auto;background:#fff !important;color:#1c1b18 !important;border:1px solid #ddd9cf !important;padding:8px 14px !important;font-weight:600}',
     '#pages{padding:12px}',
     'canvas{display:block;margin:0 auto 12px;max-width:100%;box-shadow:0 1px 6px rgba(0,0,0,.15);background:#fff}',
+    /* 列印：一張標籤一頁、照 PDF 自己的實體尺寸（--pw/--ph 由 render 時算好塞進去）。
+       以前寫 width:100% —— 硬把 A4 比例的圖撐滿紙寬，高度就超過一頁而溢出成第二頁；
+       最後一張的 page-break-after:always 又會再多生一張白紙。兩個一起修。 */
+    '@page{size:A4;margin:0}',
     '@media print{#bar{display:none}body{background:#fff}#pages{padding:0}',
-    'canvas{box-shadow:none;margin:0;max-width:none;width:100%;page-break-after:always}}',
+    'canvas{box-shadow:none;margin:0;max-width:none;width:var(--pw);height:var(--ph);page-break-after:always}',
+    'canvas:last-child{page-break-after:auto}}',
     '</style></head><body>',
     /* #fill 是給主頁那邊回填完之後寫進來的（獨立一格，不會被解碼進度的訊息蓋掉） */
     '<div id="bar"><span id="msg">解開標籤中…</span><span id="pw"></span><span id="fill" style="color:#1a7f37;font-weight:600"></span><button id="back">← 回系統</button></div><div id="pages"></div>',
@@ -11397,6 +11402,10 @@ function stOpenLabelViewer(w, arrayBuffer){
     '     var scale=Math.max(2,Math.min(4,2480/v1.width));',
     '     var vp=page.getViewport({scale:scale});',
     '     var c=document.createElement("canvas");c.width=Math.floor(vp.width);c.height=Math.floor(vp.height);',
+    /* PDF 的 1 單位 = 1/72 英吋 → 換成 mm 釘死，列印出來才是標籤該有的實體大小。
+       超商交貨便上印著「本單尺寸10cm x 14cm 請勿調整尺寸」，縮了條碼會掃不過。 */
+    '     c.style.setProperty("--pw", (v1.width/72*25.4).toFixed(2)+"mm");',
+    '     c.style.setProperty("--ph", (v1.height/72*25.4).toFixed(2)+"mm");',
     '     pages.appendChild(c);',
     '     return page.render({canvasContext:c.getContext("2d"),viewport:vp}).promise;',
     '    });});})(n);}',
