@@ -11632,6 +11632,47 @@ async function stAutoFillFromLabelPdf(arrayBuffer, win){
   }catch(e){ tellWin('回填訂單失敗：' + (e.message||e)) }
 }
 
+/* 🔴 超商標籤只「看」不回填（杰哥 2026-09-30 要測「按列印之後能不能抓到電話」）。
+   第三方那條路是安全的：宅配單上印的就是客人的代撥電話跟完整地址。
+   超商標籤不一樣 —— 上面一定有「取貨門市」的地址電話，客人本人的通常根本不在上面
+   （超商取貨本來就是客人自己去門市拿）。照第三方那套無腦回填，會把門市的電話地址
+   寫成客人的，之後打過去是打到超商，比現在空著更難查。
+   所以這裡刻意只解析、只回報，一個字都不寫進訂單；要不要回填等看過真的標籤再決定。 */
+async function stProbeStoreLabel(arrayBuffer, win){
+  const tellWin = (txt, color)=>{ try{
+    const el = win && win.document && win.document.getElementById('fill');
+    if(el){ el.textContent = txt; if(color) el.style.color = color }
+  }catch(e){} };
+  try{
+    const api = stApi(), tok = stTok();
+    if(!api || !tok) return;
+    tellWin('讀取標籤內容中…', '#6b675e');
+    const r = await fetch(api + '/api/orders/momo/third/parse-label?raw=1', {
+      method:'POST',
+      headers:{ 'X-API-Token': tok, 'Content-Type':'application/pdf' },
+      body: arrayBuffer,
+    });
+    const d = await r.json().catch(()=>null);
+    if(!r.ok || !d || !d.ok){
+      tellWin('標籤讀不開：' + ((d && d.error) || ('HTTP ' + r.status)), '#b3261e');
+      return;
+    }
+    const pages = d.pages || [];
+    const hit = pages.filter(p=>p.phone);
+    if(hit.length){
+      // 真的有電話 —— 但還是不自動寫進去，先讓人看一眼是不是客人的
+      const p = hit[0];
+      tellWin('標籤上有電話：' + p.phone + (p.name ? ('（' + p.name + '）') : '')
+        + ' — 還沒寫進訂單，請先確認這是客人的還是門市的', '#8a6d00');
+    }else{
+      tellWin('這張超商標籤上沒有客人電話（' + pages.length + ' 頁都沒有），訂單維持原樣', '#6b675e');
+    }
+    // 原文留在主頁 console，要細看版型有什麼欄位時用得到
+    try{ console.log('[超商標籤原文]', pages.map(p=>'第' + p.page + '頁：' + (p.text||'')).join('\n\n')) }catch(e){}
+    window.stLastStoreLabel = d;
+  }catch(e){ tellWin('標籤解析失敗：' + (e.message||e), '#b3261e') }
+}
+
 function stPrint(type){
   const picked = stRows.filter(r=>stPick.has(r.completeOrderNo));
   if(!picked.length) return;
@@ -11705,6 +11746,8 @@ function stPrintNosImpl(nos, type, preWin){
         if(type === 'label') stMarkPrinted(nos);   // 真的拿到 PDF 才算印過
         // 三方的標籤上就印著真實姓名/電話/地址 —— 同一份 PDF 順手解一次自動補回訂單
         if(type === 'label' && stIsThird()) b.arrayBuffer().then(ab=>stAutoFillFromLabelPdf(ab, w)).catch(()=>{});
+        // 超商：只解析看看裡面有什麼，不回填（理由寫在 stProbeStoreLabel 上面）
+        else if(type === 'label') b.arrayBuffer().then(ab=>stProbeStoreLabel(ab, w)).catch(()=>{});
         // MOMO 的標籤 PDF 有加密，每次開都要打密碼。密碼記在本機，這裡自動帶進去解開再列印。
         return b.arrayBuffer().then(ab=>{ stOpenLabelViewer(w, ab); return true });
       }
