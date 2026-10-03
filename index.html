@@ -6255,10 +6255,15 @@ const PC_SHIP_VENDORS=[
   {code:'SP',name:'廠商自行出貨'},
 ];
 function _pcVendorCodeFromLabel(label){if(!label)return '';const hit=PC_SHIP_VENDORS.find(v=>label.includes(v.name)||v.name.includes(label)||label.includes(v.name.slice(0,2)));return hit?hit.code:''}
+// 這張 PChome 單是不是「自行出貨（SP）」？是的話補寄回填單號只存本機、不回傳 PChome。
+// 判準：新單有 pcSelfShipped 印記；舊單退而用 shippedVia/delyGbStr（都只有按 SP／手選自行出貨才會是這值）。
+function pcIsSelfShipped(o){return !!(o&&o.platform==='PC'&&(o.pcSelfShipped===true||o.shippedVia==='自行出貨'||o.delyGbStr==='廠商自行出貨'));}
 function openShipPchome(oid){const o=findO(oid);if(!o)return;if(o.platform!=='PC'){alert('只有 PChome 訂單可用此功能');return}shipId=oid;editId=null;_modalDirty=false;
+  const _spSelf=pcIsSelfShipped(o);
+  const _spBanner=_spSelf?`<div style="background:#ecfdf5;border:1px solid #6ee7b7;border-radius:8px;padding:10px 14px;font-size:11px;color:#047857;margin-bottom:12px;line-height:1.6"><b>📦 此單已按過 SP（廠商自行出貨）</b><br>PChome 已當自行出貨結掉。補寄回填單號會<b>只存本機、不回傳 PChome</b>（回傳會被判「單號回填過期」報錯）。</div>`:'';
   const defCode=_pcVendorCodeFromLabel(o.delyGbStr)||'Kerry';
   document.getElementById('modal-body').innerHTML=`<h3>📤 PChome 出貨回填 / 物流單號回傳</h3>
-<div style="background:#fef9ec;border:1px solid #f0e4b8;border-radius:8px;padding:10px 14px;font-size:11px;color:#8a6d0b;margin-bottom:12px;line-height:1.6"><b>⚠️ 安全機制：</b><br>1. 預設「預覽」— 看到會送什麼內容才會出現 真送 按鈕<br>2. 真送後 PChome 會立即更新訂單，無法復原</div>
+${_spBanner}<div style="background:#fef9ec;border:1px solid #f0e4b8;border-radius:8px;padding:10px 14px;font-size:11px;color:#8a6d0b;margin-bottom:12px;line-height:1.6"><b>⚠️ 安全機制：</b><br>1. 預設「預覽」— 看到會送什麼內容才會出現 真送 按鈕<br>2. 真送後 PChome 會立即更新訂單，無法復原</div>
 <div style="background:var(--sf2);border:1px solid var(--bd);border-radius:8px;padding:10px 14px;font-size:11px;margin-bottom:12px">
 <div><b>訂單編號：</b><span class="mono">${esc(o.orderNo)}</span></div>
 <div><b>商品：</b>${esc(o.product)}${o.specs?'（'+esc(o.specs)+'）':''} × ${o.qty||1}</div>
@@ -6279,6 +6284,31 @@ async function submitShipPchome(real){
   const api=getMomoApi();const token=getMomoToken();if(!api||!token){alert('需先設定 API URL + Token（共用 MOMO 那組）');return}
   const mode=document.getElementById('pc-mode').value;
   const result=document.getElementById('pc-ship-result');
+  // === 杰哥 2026-10-03：已按過 SP 自行出貨的 PChome 單，補寄回填單號只存本機、不回傳 PChome ===
+  //   原因：PChome 已把這張當自行出貨結掉，再回傳單號會被判「單號回填過期」報錯。
+  //   只攔「出貨回填(ship)」；「標記不出貨(notship)」維持原樣。
+  if(mode==='ship'&&pcIsSelfShipped(o)){
+    const vendor=document.getElementById('pc-vendor').value;
+    const slip=(document.getElementById('pc-slip').value||'').trim();
+    const qty=parseInt(document.getElementById('pc-qty').value)||0;
+    if(!slip){alert('補寄單號必填（此單只存本機、不回傳 PChome）');return}
+    if(!qty||qty<=0){alert('出貨數量需大於 0');return}
+    const vname=(PC_SHIP_VENDORS.find(v=>v.code===vendor)||{}).name||vendor;
+    if(!real){
+      result.innerHTML=`<div style="background:#ecfdf5;border:1px solid #6ee7b7;color:#047857;padding:10px;border-radius:6px;font-size:12px"><b>📦 此單已按過 SP（廠商自行出貨）</b><br>補寄單號只會<b>存本機、不回傳 PChome</b>（避免被判「單號回填過期」）。<br>要存：${esc(vname)} ｜ 單號 ${esc(slip)} ｜ ${qty} 件<br>確認就按「✅ 存本機」</div>`;
+      const rb=document.getElementById('pc-real-btn');rb.textContent='✅ 存本機（不回傳 PChome）';rb.style.display='inline-block';
+      return;
+    }
+    o.trackingNo=slip;
+    o.delyGbStr=vname;
+    if(typeof applyShipStatus==='function')applyShipStatus(o);
+    o.shippedAt=new Date().toISOString();o.shippedBy=currentUser||'';o.shippedVia='補寄（本機）';
+    o.pcSelfShipped=true;
+    logActivity(o,`PChome 補寄回填（只存本機・未回傳 PChome）：${vname} 單號 ${slip} ×${qty}`);
+    saveOne(o);renderList();_modalDirty=false;
+    setTimeout(()=>{closeModal();alert(`✅ 補寄單號已存本機（未回傳 PChome）\n訂單 ${o.orderNo}｜${vname} ${slip}`)},600);
+    return;
+  }
   let endpoint,payload,summary;
   if(mode==='ship'){
     const vendor=document.getElementById('pc-vendor').value;
@@ -6342,6 +6372,7 @@ async function quickShipPchomeSelf(oid){
     // 只記配送方式，不動訂單狀態 —— 可能先壓自行出貨回報 PChome，貨還沒到，狀態等實際到貨再手動改
     // 但要留「按過」的痕跡（狀態沒變 → 沒痕跡會不知道按過沒）
     o.delyGbStr='廠商自行出貨';
+    o.pcSelfShipped=true;  // 永久印記：這張 PChome 已按過 SP 自行出貨 → 之後補寄回填單號只存本機、不回傳 PChome（回傳會被判「單號回填過期」）
     o.shippedAt=new Date().toISOString();o.shippedBy=currentUser||'';o.shippedVia='自行出貨';
     _pcMarkLocal(o.orderNo, 'sp', 'SP', 'SP');
     logActivity(o,`PChome 一鍵自行出貨（已回報 PChome，狀態未變）：${qty} 件`);
