@@ -4039,6 +4039,45 @@ function openProdPage(oid){
   openTab(url);
 }
 function logActivity(o,action){const d=new Date();const p=n=>String(n).padStart(2,'0');const ts=`${d.getFullYear()}-${p(d.getMonth()+1)}-${p(d.getDate())} ${p(d.getHours())}:${p(d.getMinutes())}`;const who=currentUser?` @${currentUser}`:'';let note=((o.note||'')+`\n[${ts}${who}] ${action}`).trim();const lines=note.split('\n');if(lines.length>60)note=lines.slice(-60).join('\n');o.note=note}
+/* 編輯視窗存檔時的「欄位逐一比對」（杰哥 2026-10-05：「訂單我改 19000 了～備註沒有更動。
+   只要有操作。就要記錄」）。
+
+   在這之前編輯視窗只記了物流、安裝／加購的狀態轉換、已收款、師傅、完成 ——
+   **商品金額、數量、姓名、電話、地址、品名、狀態這些改了完全不留痕**，
+   事後查不出是誰、什麼時候、從多少改成多少。碰錢的欄位尤其不能沒有紀錄。
+
+   做法：拿開視窗當下的快照 _snap 跟存檔前的 o 逐欄比對，有變就寫一行。
+   已經各自有 log 的欄位不重複記（安裝/加購狀態一變，那行就已經把原值全寫進去了）。 */
+const _EDIT_WATCH_FIELDS=[
+  ['date','日期'],['platform','平台'],['orderNo','訂單編號'],['product','品名'],['specs','規格'],
+  ['name','姓名'],['phone','電話'],['realPhone','真實電話'],['address','地址'],
+  ['addrMgmt','管理室'],['addrElev','電梯'],['qty','數量'],['amount','商品金額'],['status','狀態'],
+  ['installFee','安裝費'],['installDate','安裝日期'],['installSlot','安裝時段'],
+  ['installDay','安裝星期'],['installTime','安裝時間'],
+  ['addonFee','加購費'],['addonItems','加購品項'],
+];
+const _EDIT_MONEY_FIELDS=new Set(['amount','installFee','addonFee']);
+function editDiffLines(snap,now){
+  const out=[];
+  const instChanged=(snap.install||'')!==(now.install||'');
+  const addonChanged=(snap.addon||'')!==(now.addon||'');
+  for(const [k,label] of _EDIT_WATCH_FIELDS){
+    // 安裝/加購「是→否」會把底下那些欄位清成 0／空白，那行 log 已經把原值寫進去了 → 不重複記
+    if(instChanged&&k.indexOf('install')===0)continue;
+    if(addonChanged&&k.indexOf('addon')===0)continue;
+    const a=snap[k],b=now[k];
+    const av=(a===undefined||a===null)?'':String(a);
+    const bv=(b===undefined||b===null)?'':String(b);
+    if(av===bv)continue;
+    const fmt=v=>{
+      if(v==='')return '(空)';
+      if(_EDIT_MONEY_FIELDS.has(k))return '$'+(Number(v)||0).toLocaleString();
+      return v.length>24?v.slice(0,24)+'…':v;
+    };
+    out.push(`${label} ${fmt(av)} → ${fmt(bv)}`);
+  }
+  return out;
+}
 // 全部訂單的最近操作紀錄 — 把每筆訂單 note 裡的 [ts @who] action 行抽出來合成全域時間軸
 // 用途：「剛剛改了一筆但忘了是哪個客戶」→ 來這裡找
 const _ACT_RE=/^\[(\d{4}-\d{2}-\d{2} \d{2}:\d{2})(?: @(\S+))?\]\s*(.+)$/;
@@ -4262,7 +4301,21 @@ function togAddonPaid(oid){
 }
 function setInstFee(oid,v){const o=findO(oid);if(!o)return;o.installFee=parseInt(v)||0;saveOne(o);const el=document.getElementById('tot-'+oid);if(el)el.textContent=$(tot(o))}
 function setAddonFee(oid,v){const o=findO(oid);if(!o)return;o.addonFee=parseInt(v)||0;saveOne(o);const el=document.getElementById('tot-'+oid);if(el)el.textContent=$(tot(o))}
-function setQty(oid,v){const o=findO(oid);if(!o)return;if(String(v).trim()===''){return}/* 清空重打的中間態不要存成 qty=1 */const n=parseInt(v);if(!(n>=1))return;if(o.qty===n)return;o.qty=n;saveOne(o)}
+/* 列表上直接改數量也要留紀錄（杰哥 2026-10-05：「只要有操作。就要記錄」）。
+   🔴 但這支是 oninput —— 每打一個字就進來一次。直接寫紀錄會變成
+   「數量 1 → 1」「數量 1 → 19」這種垃圾，反而讓真正的紀錄被洗掉（只留最後 60 行）。
+   → 記住這一輪開始前的值，停手 1.5 秒之後只寫一行淨變化。 */
+const _qtyLogFrom={},_qtyLogTimer={};
+function setQty(oid,v){const o=findO(oid);if(!o)return;if(String(v).trim()===''){return}/* 清空重打的中間態不要存成 qty=1 */const n=parseInt(v);if(!(n>=1))return;if(o.qty===n)return;
+  if(!(oid in _qtyLogFrom))_qtyLogFrom[oid]=o.qty;
+  o.qty=n;saveOne(o);
+  clearTimeout(_qtyLogTimer[oid]);
+  _qtyLogTimer[oid]=setTimeout(()=>{
+    const from=_qtyLogFrom[oid];delete _qtyLogFrom[oid];delete _qtyLogTimer[oid];
+    const cur=findO(oid);
+    if(cur&&from!==undefined&&from!==cur.qty){logActivity(cur,`數量 ${from} → ${cur.qty}（列表直接改）`);saveOne(cur)}
+  },1500);
+}
 
 function toggleSort(){sortOrder=sortOrder==='date-desc'?'date-asc':'date-desc';persistFilters();renderList()}
 function resetAllFilters(){cFilter=[];cStatus=[];cSpecial=null;selectedIds.clear();const q=document.getElementById('q');if(q)q.value='';document.querySelectorAll('#tab-list .fbtn').forEach(b=>b.classList.remove('on'));const fp=document.querySelector('#tab-list .fbtn[data-fg="plat"]');if(fp)fp.classList.add('on');const fs=document.querySelector('#tab-list .fbtn[data-fg="status"]');if(fs)fs.classList.add('on');persistFilters();renderList();showToast('已清除所有篩選')}
@@ -5277,11 +5330,27 @@ if(newDely!==(o.delyGbStr||'')||newTracking!==(o.trackingNo||'')){
   logActivity(o,`物流手動編輯：${old} → ${fresh}`);
 }
 o.delyGbStr=newDely;o.trackingNo=newTracking;
+/* 🔴 這一行要放在備註收尾之前 —— logActivity 是直接往 o.note 追加，
+   下面那段會用 textarea 的內容把 o.note 整段取代，放到後面就白寫了。 */
+{const _diff=editDiffLines(_snap,o);if(_diff.length)logActivity(o,`編輯視窗改了：${_diff.join('／')}`)}
 // 備註：平常靠 chip／新增鈕 即時 transaction 追加（不經這裡）。
 // 這裡只在「編輯全文」模式(dataset.dirty=1)才以整段覆蓋為準；其餘沿用 o.note（含本次 logActivity 追加的行）。
 {
   const rawTa=document.getElementById('e-note');
-  let note=(rawTa&&rawTa.dataset.dirty==='1')?rawTa.value.trim():(o.note||'');
+  const _fullEdit=!!(rawTa&&rawTa.dataset.dirty==='1');
+  let note=_fullEdit?rawTa.value.trim():(o.note||'');
+  /* 🔴 「編輯全文」模式會把本次存檔當下寫進去的操作紀錄一起洗掉 ——
+     textarea 的內容是打開視窗那一刻的，不含這次 logActivity 追加的行。
+     所以「改了金額又順手編了備註」等於沒紀錄。這裡把本次新增的那幾行補回去。
+     只補「_snap.note 裡沒有、現在 o.note 裡有」的 → 他自己刪掉的舊紀錄仍然算數。 */
+  if(_fullEdit){
+    const before=new Set(String(_snap.note||'').split('\n').map(l=>l.trim()).filter(Boolean));
+    const seen=new Set(note.split('\n').map(l=>l.trim()));
+    for(const ln of String(o.note||'').split('\n')){
+      const t=ln.trim();
+      if(t&&!before.has(t)&&!seen.has(t)){note=note?note+'\n'+ln:ln;seen.add(t)}
+    }
+  }
   // 合併模態開著時「其他裝置」剛追加的備註行 → 避免整段覆蓋洗掉別人剛 key 的
   const remoteNote=(pendingRemoteOrders&&pendingRemoteOrders[o.id]&&typeof pendingRemoteOrders[o.id].note==='string')?pendingRemoteOrders[o.id].note:'';
   if(remoteNote){const seen=new Set(note.split('\n').map(l=>l.trim()));for(const ln of remoteNote.split('\n')){const t=ln.trim();if(t&&!seen.has(t)){note=note?note+'\n'+ln:ln;seen.add(t)}}}
