@@ -4680,7 +4680,7 @@ ${a.cam}
 ${a.del}
 </div></div>`});
 h+='</div>';if(truncated){h+=`<div class="card" style="margin-top:8px"><div class="card-b" style="text-align:center;padding:14px"><div style="color:var(--dm);font-size:12px;margin-bottom:8px">顯示 ${LIMIT} / ${fl.length} 筆 — 用搜尋或篩選找特定訂單較快</div><button class="btn" onclick="_mobileExpand=true;renderList()">📋 載入全部 ${fl.length} 筆</button></div></div>`}document.getElementById('list-area').innerHTML=h;renderBatchBar(fl)}
-function renderBatchBar(fl){let bar=document.getElementById('batch-bar');if(!selectedIds.size){if(bar)bar.classList.add('hidden');document.body.classList.remove('has-batch-bar');return}const selOrders=orders.filter(o=>selectedIds.has(o.id));if(selOrders.length===0){if(bar)bar.classList.add('hidden');document.body.classList.remove('has-batch-bar');return}if(!bar){bar=document.createElement('div');bar.id='batch-bar';bar.className='batch-bar';document.body.appendChild(bar)}bar.classList.remove('hidden');document.body.classList.add('has-batch-bar');const total=selOrders.reduce((s,o)=>s+tot(o),0);bar.innerHTML=`<span style="font-size:13px;font-weight:700">已選 ${selOrders.length} 筆 ｜ 合計 $${total.toLocaleString()}</span><span style="flex:1"></span><button onclick="batchSetStatus('已確認')">已確認</button><button onclick="batchSetStatus('已出貨')">已出貨</button><button onclick="batchSetStatus('已完成')">已完成</button><button onclick="batchCopyShipping()">📋 複製</button><button onclick="batchPrintShipping()" title="A4 紙張">🖨 A4</button><button onclick="batchPrintShipping4x6()" title="4×6 熱感應標籤">🏷 4×6</button><button onclick="batchPickingList()" title="按商品分組產生揀貨清單">🛒 揀貨</button><button onclick="batchExportShipping()" title="勾選的訂單匯出成貨運託運單 Excel（備註自動帶品名）">📦 託運單</button><button class="danger" onclick="batchDelete()">🗑 刪</button><button onclick="selectedIds.clear();renderList()">取消</button>`}
+function renderBatchBar(fl){let bar=document.getElementById('batch-bar');if(!selectedIds.size){if(bar)bar.classList.add('hidden');document.body.classList.remove('has-batch-bar');return}const selOrders=orders.filter(o=>selectedIds.has(o.id));if(selOrders.length===0){if(bar)bar.classList.add('hidden');document.body.classList.remove('has-batch-bar');return}if(!bar){bar=document.createElement('div');bar.id='batch-bar';bar.className='batch-bar';document.body.appendChild(bar)}bar.classList.remove('hidden');document.body.classList.add('has-batch-bar');const total=selOrders.reduce((s,o)=>s+tot(o),0);bar.innerHTML=`<span style="font-size:13px;font-weight:700">已選 ${selOrders.length} 筆 ｜ 合計 $${total.toLocaleString()}</span><span style="flex:1"></span><button onclick="batchSetStatus('已確認')">已確認</button><button onclick="batchSetStatus('已出貨')">已出貨</button><button onclick="batchSetStatus('已完成')">已完成</button><button onclick="batchCopyShipping()">📋 複製</button><button onclick="batchPrintShipping()" title="A4 紙張">🖨 A4</button><button onclick="batchPrintShipping4x6()" title="4×6 熱感應標籤">🏷 4×6</button><button onclick="batchPickingList()" title="按商品分組產生揀貨清單">🛒 揀貨</button><button onclick="batchExportShipping()" title="勾選的訂單匯出成貨運託運單 Excel（備註自動帶品名）">📦 託運單</button><button onclick="batchKerry()" title="直接送嘉里大榮：系統取託運單號、上傳、印 3*2 標籤，單號寫回訂單">🚚 送大榮</button><button class="danger" onclick="batchDelete()">🗑 刪</button><button onclick="selectedIds.clear();renderList()">取消</button>`}
 function batchSetStatus(s){
   const sel=orders.filter(o=>selectedIds.has(o.id));if(!sel.length)return;
   // 防呆：批次標記「已完成」前 → 找出未收款的，列出來再確認一次
@@ -6241,6 +6241,116 @@ async function doExportShipping(){
   const wb=XLSX.utils.book_new();XLSX.utils.book_append_sheet(wb,ws,'SHEET');
   XLSX.writeFile(wb,`託運單_${today.replace(/-/g,'')}.xls`);
   if(typeof showToast==='function')showToast(`📦 已匯出 ${sel.length} 筆託運單（備註：MO_/PC_ 抬頭+品名）`)
+}
+
+/* ===== 送大榮（嘉里大榮 API，2026-10-07）=====
+   取代「匯出 9 欄 Excel → 上大榮網頁上傳 → 印單 → 手抄單號回訂單」：
+   勾單 → 確認才數／備註／出貨地 → 系統取託運單號、上傳大榮、印 3*2 A4 標籤（跟 WEBEDI 一樣）→ 單號寫回訂單。
+   後端在 momo-integration /api/kerry/*（帳密、號碼池都在後端，前端拿不到）。
+   🔴 模擬模式（還沒拿到大榮帳號）：流程走得完，但單號是 99 開頭的假號 → 一律不寫回訂單。 */
+let _kerryGroups=null, _kerryStatus=null;
+async function kerryApi(path, body){
+  await momoConfigReady;
+  const api=getMomoApi(), token=getMomoToken();
+  if(!api||!token) throw new Error('需先設定 API URL + Token');
+  const r=await fetch(api+path,{method:body?'POST':'GET',headers:{'Content-Type':'application/json','X-API-Token':token},body:body?JSON.stringify(body):undefined});
+  let d={}; try{d=await r.json()}catch(_){}
+  if(!r.ok||d.ok===false) throw new Error(d.error||('HTTP '+r.status));
+  return d;
+}
+async function batchKerry(){
+  const sel=orders.filter(o=>selectedIds.has(o.id));
+  if(!sel.length){alert('請先勾選要送大榮的訂單');return}
+  try{_kerryStatus=await kerryApi('/api/kerry/status')}catch(e){alert('連不到大榮串接（'+e.message+'）');return}
+  const st=_kerryStatus;
+  const mem=await loadShipSizes();
+  const groups=groupForShipping(sel,mem);
+  _kerryGroups=groups;
+  const tomorrow=localDateISO(new Date(Date.now()+86400000));
+  const modeTxt=st.mode==='mock'?'<span style="background:#fef3c7;color:#92400e;padding:2px 8px;border-radius:6px;font-weight:700">模擬模式</span>　還沒拿到大榮帳號：流程走得完、會印出模擬標籤，但<b>不會真的送大榮，也不會寫回訂單</b>'
+    :st.mode==='test'?'<span style="background:#dbeafe;color:#1e40af;padding:2px 8px;border-radius:6px;font-weight:700">大榮測試環境</span>　送到大榮測試系統，不會真的派車'
+    :'<span style="background:#dcfce7;color:#166534;padding:2px 8px;border-radius:6px;font-weight:700">正式</span>　會真的送大榮、真的取號';
+  const pool=k=>{const p=st.pools[k]||{};return p.range?`下一號 ${p.next}，還剩 ${p.left} 號`:'還沒設定單號區間'};
+  const alreadyN=sel.filter(o=>o.trackingNo).length;
+  document.getElementById('modal-body').innerHTML=`<h3>🚚 送大榮</h3>
+    <div style="font-size:12px;line-height:1.8;margin:6px 0 10px">${modeTxt}</div>
+    <div style="display:flex;gap:14px;flex-wrap:wrap;font-size:12px;margin-bottom:8px;align-items:flex-end">
+      <label>出貨地<br><select id="k-origin">
+        <option value="store">門市（三峽）客代 18005330 — ${esc(pool('store'))}</option>
+        <option value="warehouse">倉庫（土城）客代 10000000 — ${esc(pool('warehouse'))}</option></select></label>
+      <label>指送日期<br><input type="date" id="k-etp" value="${tomorrow}"></label>
+      <label>標籤從第幾格開始印<br><select id="k-slot">${[1,2,3,4,5,6].map(n=>`<option value="${n}">${n}</option>`).join('')}</select>
+        <span style="color:var(--dm)">（A4 六格：左排上到下 1-3、右排 4-6）</span></label>
+    </div>
+    ${alreadyN?`<div style="font-size:11px;color:#b45309;margin-bottom:6px">⚠ 有 ${alreadyN} 筆已經有配送單號了，確定要重送嗎？（已經送過大榮的系統會直接沿用原本的號，不會重送）</div>`:''}
+    <div style="font-size:11px;color:var(--dm);margin-bottom:6px">已勾選 ${sel.length} 筆、${groups.length} 種商品。才數、備註跟「📦 託運單」是同一份記憶。</div>
+    <div style="max-height:44vh;overflow:auto;border:1px solid var(--bd);border-radius:8px">
+    <table style="width:100%;border-collapse:collapse;font-size:12px">
+      <tr style="background:var(--sf2)"><th style="text-align:left;padding:6px 8px">商品</th><th style="width:50px">件數</th><th style="width:76px">才數</th><th style="width:170px">備註（型號）</th></tr>
+      ${groups.map((r,i)=>`<tr style="border-top:1px solid var(--bd)"><td style="padding:6px 8px"><div style="font-weight:600">${esc(r.name)}</div>
+        <div style="font-size:10px;color:var(--dm)">${r.orders.length} 筆${r.mem?'・上次 '+esc(String(r.mem.cai))+' 才':'・<span style="color:#b91c1c;font-weight:700">沒填過</span>'}</div></td>
+        <td style="text-align:center">${r.qty}</td>
+        <td style="padding:6px"><input id="kcai_${i}" type="number" min="0" step="0.1" value="${r.mem?esc(String(r.mem.cai)):''}" style="width:100%;text-align:right;${r.mem?'':'border-color:#fca5a5;background:#fef2f2'}"></td>
+        <td style="padding:6px"><input id="knote_${i}" value="${esc((r.mem&&r.mem.note)||'')}" placeholder="留空＝完整品名" style="width:100%"></td></tr>`).join('')}
+    </table></div>
+    <div id="k-result" style="margin-top:10px"></div>
+    <div class="modal-ft"><button class="btn" onclick="closeModal()">關閉</button>
+      <button class="btn btn-g" id="k-go" onclick="doKerry()">🚚 送大榮並印標籤</button></div>`;
+  document.getElementById('modal-overlay').classList.remove('hidden');document.body.style.overflow='hidden';
+}
+async function doKerry(){
+  const groups=_kerryGroups||[], st=_kerryStatus||{};
+  const vals=[], notes=[];
+  for(let i=0;i<groups.length;i++){
+    const el=document.getElementById('kcai_'+i), v=el?String(el.value).trim():'';
+    if(v===''||!(Number(v)>=0)){alert('「'+groups[i].name+'」的才數還沒填');if(el)el.focus();return}
+    vals.push(Number(v)); notes.push(String((document.getElementById('knote_'+i)||{}).value||'').trim());
+  }
+  const origin=document.getElementById('k-origin').value;
+  const etp=String(document.getElementById('k-etp').value||'').replace(/-/g,'');
+  const slot=Number(document.getElementById('k-slot').value)||1;
+  const platPrefix=p=>(p==='MO'||p==='MO3')?'MO_':(p==='PC'?'PC_':'');
+  const items=[];
+  groups.forEach((r,i)=>r.orders.forEach(o=>items.push({orderKey:o.id,origin,consignee:o.name||'',phone:o.realPhone||o.phone||'',
+    address:o.address||'',pieces:o.qty||1,volume:vals[i],remark:platPrefix(o.platform)+(notes[i]||o.product||''),etp,shipDate:localDateISO().replace(/-/g,'')})));
+  if(st.mode!=='mock'&&!confirm(`確定送 ${items.length} 筆到大榮${st.mode==='test'?'（測試環境）':'（正式）'}？\n\n系統會取託運單號並上傳，成功的單號會寫回訂單。`))return;
+  // 才數／備註記起來（跟匯出託運單同一份）
+  try{
+    await authReady; const upd={}, now=new Date().toISOString(), who=(typeof currentUser!=='undefined'&&currentUser)||'';
+    groups.forEach((r,i)=>{const pl={cai:vals[i],qty:r.qty,name:r.name,note:notes[i],at:now,by:who};for(const k of sizeKeysFor(r.orders[0]))upd[k]=pl});
+    await db.ref('shipSizes').update(upd); _shipSizes=Object.assign(_shipSizes||{},upd);
+  }catch(e){console.warn('才數記憶寫入失敗',e)}
+  const box=document.getElementById('k-result'), btn=document.getElementById('k-go');
+  btn.disabled=true; box.innerHTML='<div style="font-size:12px">送大榮中…</div>';
+  let res;
+  try{res=await kerryApi('/api/kerry/ship',{items,confirm:'YES'})}
+  catch(e){box.innerHTML='<div style="color:#b91c1c;font-size:12px">送出失敗：'+esc(e.message)+'</div>';btn.disabled=false;return}
+  const okRows=[], lines=[];
+  for(const x of res.results||[]){
+    const o=findO(x.orderKey);
+    lines.push(`<tr><td style="padding:3px 6px">${esc(o?o.name:x.orderKey)}</td><td style="font-family:var(--mono)">${esc(x.bln||'—')}</td>
+      <td style="color:${x.ok?'#15803d':'#b91c1c'}">${x.ok?(x.already?'之前送過（沿用原單號）':'成功'):esc(x.error||'失敗')}${(x.notes||[]).length?'<br><span style="color:#b45309">'+esc(x.notes.join('；'))+'</span>':''}</td></tr>`);
+    if(x.ok&&x.row)okRows.push(x.row);
+    // 只有真的送成功（測試或正式）才寫回訂單；模擬模式的假號絕不寫進去
+    if(x.ok&&res.mode!=='mock'&&o&&x.bln){
+      o.trackingNo=x.bln; if(o.platform==='MO'||o.platform==='MO3')o.delyGbStr='大榮貨運';
+      o.kerry={bln:x.bln,origin,mode:res.mode,at:new Date().toISOString(),station:x.area&&x.area.StationName||''};
+      logActivity(o,`送大榮${res.mode==='test'?'（測試）':''}：託運單號 ${x.bln}`); saveOne(o);
+    }
+  }
+  let labelHtml='';
+  if(okRows.length){
+    try{
+      const L=await kerryApi('/api/kerry/labels',{rows:okRows,startSlot:slot});
+      const api=getMomoApi(), token=getMomoToken();
+      const files=L.files||[L.id];
+      labelHtml=files.map((f,i)=>`<a class="btn btn-g" style="margin-right:6px" target="_blank" rel="noopener" href="${api}/api/kerry/label/${encodeURIComponent(f)}?token=${encodeURIComponent(token)}">🖨 開啟標籤${files.length>1?'（第 '+(i+1)+' 張）':''}</a>`).join('')
+        +(L.startSlotIgnored?'<div style="font-size:11px;color:#b45309;margin-top:4px">起始格位移要等拿到大榮真的標籤 PDF 才做，這次從第 1 格印</div>':'');
+    }catch(e){labelHtml='<div style="color:#b91c1c;font-size:12px">標籤產生失敗：'+esc(e.message)+'（單號已經取好，可以再按一次送大榮重印）</div>'}
+  }
+  box.innerHTML=`<div style="font-size:12px;font-weight:700;margin-bottom:4px">${res.mode==='mock'?'模擬結果（沒有送大榮、沒有寫回訂單）':'結果'}</div>
+    <table style="width:100%;font-size:12px;border-collapse:collapse">${lines.join('')}</table><div style="margin-top:8px">${labelHtml}</div>`;
+  btn.disabled=false; renderList();
 }
 
 // ===== 同意/拒絕 改址 =====
