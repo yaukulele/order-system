@@ -1213,7 +1213,7 @@ body.has-batch-bar .main{padding-bottom:140px}
 <div class="card" style="background:linear-gradient(135deg,#e0e7ff,#fff);border:1px solid #a5b4fc"><div class="card-h" style="background:transparent"><h3>🔁 同行調貨</h3><div class="btn-row" style="justify-content:flex-end"><button class="btn" onclick="openTradeModal()" style="background:#4338ca;border-color:#4338ca;color:#fff;font-weight:700;flex:0 0 auto;min-width:130px" title="同行之間互相調貨（單號開頭「調」）">+ 新增訂單</button></div></div></div>
 <div class="card" style="background:linear-gradient(135deg,#ccfbf1,#fff);border:1px solid #5eead4"><div class="card-h" style="background:transparent"><h3>🎓 學校團購</h3><div class="btn-row" style="justify-content:flex-end"><button class="btn" onclick="openSchoolModal()" style="background:#0d9488;border-color:#0d9488;color:#fff;font-weight:700;flex:0 0 auto;min-width:130px" title="學校班級團購建單（學生 / 團購學校 / 年級班級）">+ 新增訂單</button></div></div></div>
 <div class="card" style="background:linear-gradient(135deg,#fff1e8,#fff);border:1px solid #fdba74"><div class="card-h" style="background:transparent"><h3>📦 店內寄出</h3><div class="btn-row" style="justify-content:flex-end"><button class="btn" onclick="openExpoModal()" style="background:#ea580c;border-color:#ea580c;color:#fff;font-weight:700;flex:0 0 auto;min-width:130px" title="店內成交、要寄給客人的單（帶價／訂金找零自動算）">+ 新增訂單</button></div></div></div>
-<div class="card" id="card-paste-quick" style="background:linear-gradient(135deg,#ecfdf5,#fff);border:1px solid #6ee7b7"><div class="card-h" style="background:transparent"><h3>✍️ 貼上文字快速建單</h3></div><div class="card-b"><div style="font-size:12px;color:var(--dm);line-height:1.7;margin-bottom:8px">直接貼四行（或用 <b>／</b> 隔開）：<b>品項</b> → <b>姓名</b> → <b>電話</b> → <b>地址</b>，一鍵生成一筆要出貨的訂單。<br><span style="color:var(--ht)">例：uc10 AM ／ 顏建杰 ／ 0983638128 ／ 新北市板橋區</span></div><div style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:8px" id="pc-type-seg"><button type="button" class="fbtn on" data-pctype="online" onclick="pcSetType('online',this)">線上銷售</button><button type="button" class="fbtn" data-pctype="reship" onclick="pcSetType('reship',this)">補寄</button><button type="button" class="fbtn" data-pctype="trade" onclick="pcSetType('trade',this)">同行調貨</button></div><textarea id="pc-text" oninput="pcRenderPreview()" placeholder="uc10 AM&#10;顏建杰&#10;0983638128&#10;新北市板橋區" style="width:100%;min-height:96px;font-size:13px;font-family:inherit;border:1px solid #d1d5db;border-radius:10px;padding:9px;box-sizing:border-box;resize:vertical"></textarea><div id="pc-preview" style="font-size:12px;margin:8px 0"></div><div class="btn-row" style="justify-content:flex-end;margin-top:4px"><button class="btn" onclick="pasteQuickCreate()" style="background:#059669;border-color:#059669;color:#fff;font-weight:700;min-width:130px">+ 建立訂單</button></div></div></div>
+<div class="card" id="card-paste-quick" style="background:linear-gradient(135deg,#ecfdf5,#fff);border:1px solid #6ee7b7"><div class="card-h" style="background:transparent"><h3>✍️ 貼上文字快速建單</h3></div><div class="card-b"><div style="font-size:12px;color:var(--dm);line-height:1.7;margin-bottom:8px">直接貼四行（或用 <b>／</b> 隔開）：<b>品項</b>、<b>姓名</b>、<b>電話</b>、<b>地址</b>，一鍵生成一筆要出貨的訂單。<br><span style="color:var(--ht)">例：uc10 AM ／ 顏建杰 ／ 0983638128 ／ 新北市板橋區</span><br><span style="color:var(--ht)">順序不一樣也沒關係 —— 09 開頭的當電話、有縣市或路街巷弄的當地址、純中文 2~4 字的當姓名，剩下的就是品項。</span></div><div style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:8px" id="pc-type-seg"><button type="button" class="fbtn on" data-pctype="online" onclick="pcSetType('online',this)">線上銷售</button><button type="button" class="fbtn" data-pctype="reship" onclick="pcSetType('reship',this)">補寄</button><button type="button" class="fbtn" data-pctype="trade" onclick="pcSetType('trade',this)">同行調貨</button></div><textarea id="pc-text" oninput="pcRenderPreview()" placeholder="uc10 AM&#10;顏建杰&#10;0983638128&#10;新北市板橋區" style="width:100%;min-height:96px;font-size:13px;font-family:inherit;border:1px solid #d1d5db;border-radius:10px;padding:9px;box-sizing:border-box;resize:vertical"></textarea><div style="display:flex;gap:6px;flex-wrap:wrap;align-items:center;margin-top:8px" id="pc-money-row"><span style="font-size:12px;color:var(--dm);font-weight:600">金額</span><input id="pc-amt" inputmode="numeric" placeholder="例：19000" oninput="this.value=cn(this.value);pcRenderPreview()" style="width:110px;padding:6px 10px;border:1px solid #d1d5db;border-radius:10px;font-size:13px"><button type="button" class="fbtn on" data-pcpaid="0" onclick="pcSetPaid(false,this)">未收</button><button type="button" class="fbtn" data-pcpaid="1" onclick="pcSetPaid(true,this)">已收</button><span style="font-size:11px;color:var(--ht)">標未收的會進「未收款」清單一直提醒，收到再按已收</span></div><div id="pc-preview" style="font-size:12px;margin:8px 0"></div><div class="btn-row" style="justify-content:flex-end;margin-top:4px"><button class="btn" onclick="pasteQuickCreate()" style="background:#059669;border-color:#059669;color:#fff;font-weight:700;min-width:130px">+ 建立訂單</button></div></div></div>
 <div class="card" style="background:var(--card-momo-bg);border:1px solid var(--card-momo-bd)"><div class="card-h" style="background:transparent"><h3>🚀 自動抓 MOMO</h3><div class="btn-row" style="justify-content:flex-end"><button class="btn btn-g" id="momo-auto-btn" onclick="fetchMomoAuto()" style="background:var(--mo);border-color:var(--mo);flex:0 0 auto;min-width:130px" title="自動抓 MOMO 未出貨訂單">🔄 抓取</button></div></div><div class="card-b" style="padding:8px 16px"><div id="momo-auto-status" style="font-size:11px;color:var(--dm);font-family:var(--mono)"></div></div></div>
 <div class="card" style="background:#fff1f2;border:1px solid #fda4af"><div class="card-h" style="background:transparent"><h3>🚚 自動抓 MOMO 第三方</h3><div class="btn-row" style="justify-content:flex-end"><button class="btn btn-g" id="momo3-auto-btn" onclick="fetchMomoThirdAuto()" style="background:#f43f5e;border-color:#f43f5e;flex:0 0 auto;min-width:130px" title="抓 MOMO 第三方物流 未出貨訂單（跑遍物流商合併）">🔄 抓取</button></div></div><div class="card-b" style="padding:8px 16px"><div id="momo3-auto-status" style="font-size:11px;color:var(--dm);font-family:var(--mono)"></div></div></div>
 <div class="card" style="background:var(--card-pc-bg);border:1px solid var(--card-pc-bd)"><div class="card-h" style="background:transparent"><h3>🛒 自動抓 PChome</h3><div class="btn-row" style="justify-content:flex-end"><button class="btn btn-g" id="pchome-auto-btn" onclick="fetchPchomeAuto()" style="background:var(--pc);border-color:var(--pc);flex:0 0 auto;min-width:130px" title="自動抓 PChome 未出貨訂單（共用 MOMO API Token）">🔄 抓取</button></div></div><div class="card-b" style="padding:8px 16px"><div id="pchome-auto-status" style="font-size:11px;color:var(--dm);font-family:var(--mono)"></div></div></div><div class="card" style="background:#f5f3ff;border:1px solid #c4b5fd"><div class="card-h" style="background:transparent"><h3>📩 簡訊設定</h3><div class="btn-row" style="justify-content:flex-end"><button class="btn" onclick="editSmsTemplate()" style="border-color:#a78bfa;color:#7c3aed;flex:0 0 auto;min-width:130px" title="編輯發給客戶的簡訊範本">✏️ 改範本</button></div></div><div class="card-b" style="padding:8px 16px"><div id="sms-balance" style="font-size:11px;color:var(--dm);font-family:var(--mono)">剩餘點數：發送後自動更新</div></div></div></div>
@@ -3953,6 +3953,18 @@ function buildOrderActions(o,variant){
           ?`<button onclick="togAddonPaid('${oid}')" style="color:var(--amb);border-color:#f0d68a">🛒 未收 ⚠</button>`
           :`<button class="act" onclick="togAddonPaid('${oid}')" title="加購款未收 — 點擊填已收金額" style="border-color:var(--amb);color:var(--amb);font-weight:700">🛒⚠</button> `)))
     :'';
+  /* 貨款已收／未收（阿淵 2026-10-07：「可以連動訂單追有沒有待收款項」）。
+     只有 amountDue 的單才長這顆 —— MOMO／PChome 貨款是平台收的，不該出現這顆。 */
+  const _amtFee=Number(o.amount)||0,_amtPaid=Number(o.amountPaid)||0;
+  const amtPaidBtn=o.amountDue&&_amtFee>0
+    ?(_amtPaid>=_amtFee
+      ?(isMob
+        ?`<button onclick="togAmountPaid('${oid}')" style="color:#15803d;border-color:#86efac;background:#e8f7ee" title="貨款 $${_amtFee.toLocaleString()} 已收（點擊可改回未收）">貨款已收</button>`
+        :`<button class="act" onclick="togAmountPaid('${oid}')" title="貨款 $${_amtFee.toLocaleString()} 已收（點擊可改）" style="border-color:#86efac;color:#15803d">貨款✓</button> `)
+      :(isMob
+        ?`<button onclick="togAmountPaid('${oid}')" style="color:#b91c1c;border-color:#fca5a5;background:#fee2e2;font-weight:700" title="貨款還沒收 — 點擊標記已收">貨款未收 $${(_amtFee-_amtPaid).toLocaleString()}</button>`
+        :`<button class="act" onclick="togAmountPaid('${oid}')" title="貨款未收 $${(_amtFee-_amtPaid).toLocaleString()} — 點擊標記已收" style="border-color:#fca5a5;color:#b91c1c;font-weight:700">貨款未收</button> `))
+    :'';
   // 加 install / addon（mobile 行內快速開啟，desktop 已有 toggle 不重複）
   const quickAddInstall=(isMob&&(o.install==='否'||o.install==='未確認'||!o.install))?`<button onclick="installCellClick('${oid}',event)" style="${o.install==='否'?'color:#6b7280;border-color:#d1d5db;background:#f3f4f6':'color:var(--blu);border-color:#a8c4f0'};font-size:10px" title="${o.install==='否'?'已確認不安裝（點擊改）':'安裝服務未確認 — 點擊設定'}">${o.install==='否'?'不安裝':'安裝?'}</button>`:'';
   const quickAddAddon=(isMob&&(o.addon==='否'||o.addon==='未確認'||!o.addon))?`<button onclick="addonCellClick('${oid}',event)" style="${o.addon==='否'?'color:#6b7280;border-color:#d1d5db;background:#f3f4f6':'color:var(--mo);border-color:#f0c4d8'};font-size:10px" title="${o.addon==='否'?'已確認不加購（點擊改）':'加購未確認 — 點擊設定'}">${o.addon==='否'?'不加購':'加購?'}</button>`:'';
@@ -4000,7 +4012,7 @@ function buildOrderActions(o,variant){
       ?`<button onclick="fillLabelForOrder('${oid}',event)" style="color:#92400e;border-color:#f0c884;background:#fef9ec" title="把 MOMO 後台下載的宅配單 PDF 丟進來，補上真實姓名／電話／地址">補電話</button>`
       :`<button class="act" onclick="fillLabelForOrder('${oid}',event)" title="把 MOMO 後台下載的宅配單 PDF 丟進來，補上真實姓名／電話／地址" style="border-color:#f0c884;color:#92400e">補電話</button> `)
     :'';
-  return{addrAck,ship,shipDone,instPaid,addonPaid,quickAddInstall,quickAddAddon,edit,copy,cam,del,prodLink,sms,fillLabel};
+  return{addrAck,ship,shipDone,amtPaidBtn,instPaid,addonPaid,quickAddInstall,quickAddAddon,edit,copy,cam,del,prodLink,sms,fillLabel};
 }
 
 // 商品頁網址 — 重複確認訂單買的商品用
@@ -4282,6 +4294,20 @@ function togInstallPaid(oid){
   logActivity(o,`安裝款 ${cur===0?'未收':'$'+cur} → ${n===0?'未收':'$'+n}（${tail}）`);
   saveOne(o);renderList()
 }
+/* 貨款已收／未收 — 刻意做成「兩個狀態互切」而不是像安裝款那樣問金額。
+   阿淵要的就是兩顆按鈕：收到了／還沒收。要填部分金額再進編輯視窗。 */
+function togAmountPaid(oid){
+  const o=findO(oid);if(!o||!o.amountDue)return;
+  const fee=Number(o.amount)||0;const cur=Number(o.amountPaid)||0;
+  if(fee<=0)return;
+  const paid=cur>=fee;
+  if(!confirm(paid
+    ?`這筆貨款 $${fee.toLocaleString()} 目前標「已收」。\n\n要改回「未收」嗎？（會重新出現在未收款清單）`
+    :`這筆貨款 $${fee.toLocaleString()} 目前標「未收」。\n\n收到了嗎？按確定標記「已收」。`))return;
+  o.amountPaid=paid?0:fee;
+  logActivity(o,`貨款 ${paid?'已收 → 未收':'未收 → 已收'} $${fee.toLocaleString()}`);
+  saveOne(o);renderList();updateCnt();
+}
 function togAddonPaid(oid){
   const o=findO(oid);if(!o||o.addon!=='是')return;
   const fee=Number(o.addonFee)||0;const cur=Number(o.addonPaidAmount)||0;
@@ -4385,12 +4411,12 @@ function hasPendingAddrChange(o){return(o.note||'').includes('⚠ 客戶申請�
 // 待收費 自動偵測 — 有安裝/加購且「應收 > 已收」就算未收（含部分已收）。
 // 已取消/轉線下/已完成的單視為結案不算；fee=0（免費服務）也不算待收費（沒錢可收）
 // ⚠ 之前 bug：條件是 !(installPaidAmount > 0)，意思「只有 0 才算未收」→ 部分已收 5000/6380 會被當成全收齊
-function isPendingPayment(o){if(!o)return false;if(o.status==='已取消'||o.status==='轉線下'||o.status==='已完成'||o.status==='線下完')return false;if(isServiceActive(o)&&Number(o.installFee)>0&&Number(o.installPaidAmount||0)<Number(o.installFee))return true;if(o.addon==='是'&&Number(o.addonFee)>0&&Number(o.addonPaidAmount||0)<Number(o.addonFee))return true;return false}
+function isPendingPayment(o){if(!o)return false;if(o.status==='已取消'||o.status==='轉線下'||o.status==='已完成'||o.status==='線下完')return false;if(o.amountDue&&Number(o.amount)>0&&Number(o.amountPaid||0)<Number(o.amount))return true;if(isServiceActive(o)&&Number(o.installFee)>0&&Number(o.installPaidAmount||0)<Number(o.installFee))return true;if(o.addon==='是'&&Number(o.addonFee)>0&&Number(o.addonPaidAmount||0)<Number(o.addonFee))return true;return false}
 // 已完成 防呆：產生未收款警告訊息（含部分已收，把「還缺多少」算出來）
-function buildPendingPaymentWarn(o){if(!isPendingPayment(o))return null;const parts=[];if(isServiceActive(o)&&Number(o.installFee)>0){const need=Number(o.installFee)-Number(o.installPaidAmount||0);const _kind=isSelfDeliver(o)?'🚚 配送':'🔧 安裝';if(need>0)parts.push(`${_kind}費 還缺 $${need.toLocaleString()}（應 $${Number(o.installFee).toLocaleString()} / 已收 $${Number(o.installPaidAmount||0).toLocaleString()}）`)}if(o.addon==='是'&&Number(o.addonFee)>0){const need=Number(o.addonFee)-Number(o.addonPaidAmount||0);if(need>0)parts.push(`🛒 加購費 還缺 $${need.toLocaleString()}（應 $${Number(o.addonFee).toLocaleString()} / 已收 $${Number(o.addonPaidAmount||0).toLocaleString()}）`)}return parts.join('\n')}
+function buildPendingPaymentWarn(o){if(!isPendingPayment(o))return null;const parts=[];if(o.amountDue&&Number(o.amount)>0){const _n=Number(o.amount)-Number(o.amountPaid||0);if(_n>0)parts.push(`貨款 還缺 $${_n.toLocaleString()}（應 $${Number(o.amount).toLocaleString()} / 已收 $${Number(o.amountPaid||0).toLocaleString()}）`)}if(isServiceActive(o)&&Number(o.installFee)>0){const need=Number(o.installFee)-Number(o.installPaidAmount||0);const _kind=isSelfDeliver(o)?'🚚 配送':'🔧 安裝';if(need>0)parts.push(`${_kind}費 還缺 $${need.toLocaleString()}（應 $${Number(o.installFee).toLocaleString()} / 已收 $${Number(o.installPaidAmount||0).toLocaleString()}）`)}if(o.addon==='是'&&Number(o.addonFee)>0){const need=Number(o.addonFee)-Number(o.addonPaidAmount||0);if(need>0)parts.push(`🛒 加購費 還缺 $${need.toLocaleString()}（應 $${Number(o.addonFee).toLocaleString()} / 已收 $${Number(o.addonPaidAmount||0).toLocaleString()}）`)}return parts.join('\n')}
 // 任何未收款（special filter「💰 未收款」用）— 跟 isPendingPayment 差別：含「已完成」訂單
 // 用途：客戶收到貨後安裝師傅還沒回來收尾款，這種單會被標已完成卻仍有未收 → 用這個 filter 抓出來
-function hasAnyUnpaidFee(o){if(!o)return false;if(o.status==='已取消'||o.status==='轉線下'||o.status==='線下完')return false;if(isServiceActive(o)&&Number(o.installFee)>0&&Number(o.installPaidAmount||0)<Number(o.installFee))return true;if(o.addon==='是'&&Number(o.addonFee)>0&&Number(o.addonPaidAmount||0)<Number(o.addonFee))return true;return false}
+function hasAnyUnpaidFee(o){if(!o)return false;if(o.status==='已取消'||o.status==='轉線下'||o.status==='線下完')return false;if(o.amountDue&&Number(o.amount)>0&&Number(o.amountPaid||0)<Number(o.amount))return true;if(isServiceActive(o)&&Number(o.installFee)>0&&Number(o.installPaidAmount||0)<Number(o.installFee))return true;if(o.addon==='是'&&Number(o.addonFee)>0&&Number(o.addonPaidAmount||0)<Number(o.addonFee))return true;return false}
 // statusMatchList: cStatus 篩選邏輯 — 待收費 連動偵測；無 cStatus = 顯示全部
 // 之前預設排除已完成（搭配成交 tab）— 移除成交 tab 後改成全顯，用戶用 ✅ 已完成 button 篩選
 function statusMatchList(o){
@@ -4619,7 +4645,7 @@ const checked=selectedIds.has(o.id);
 // 規格併入品名 cell — 用小 pill 顯示，省一整欄寬度給操作欄
 // 規格放最前面 — 之前放品名後面，品名太長會被 truncate 切掉，看不到規格要點編輯。
 const prodSpecCombined=`${r.ps.specs?`<span class="spec-pill" title="${esc(r.ps.specs)}" style="margin-right:6px;flex-shrink:0">${esc(r.ps.specs)}</span>`:''}${escWithHL(r.ps.name)}`;
-h+=`<tr${r.scmActive?' class="row-scm"':''}><td class="batch-cell"><input type="checkbox" data-oid="${o.id}" ${checked?'checked':''} onclick="toggleRowSelected('${o.id}')"></td><td class="mono" style="width:56px">${fmtD(o.date)}${r.newBadge?' '+r.newBadge:''}</td><td style="width:44px;text-align:center">${platformPill(o.platform)}${r.addrBadge?' '+r.addrBadge:''}</td><td class="prod-cell" onclick="openEdit('${oid}')" style="cursor:pointer" title="點擊編輯：${esc(o.product)}">${prodSpecCombined}</td><td class="tab-list-mobile-hide qty-cell"><input type="text" inputmode="numeric" value="${r.qty}" oninput="this.value=cn(this.value);setQty('${oid}',this.value)" class="fee-input qty-input" style="width:34px${r.qty>1?';border-color:var(--mo);background:var(--mo-bg);color:var(--mo);font-weight:800':''}"></td><td class="name-cell" title="${r.ph?'電話 '+esc(r.ph):''}${o.address?'\n地址 '+esc(o.address):''}${r.noteShort?'\n備註 '+esc(r.noteShort):''}"><span style="white-space:normal">${o.name?`<span style="cursor:pointer;white-space:nowrap;text-decoration:underline;text-decoration-style:dotted;text-decoration-color:var(--ht);text-underline-offset:2px" onclick="event.stopPropagation();searchCustomerOrders(${JSON.stringify(o.name).replace(/"/g,'&quot;')})" title="🔒 鎖定看「${esc(o.name)}」的所有訂單">${escWithHL(o.name)}</span>`:'(無姓名)'}${r.region?`<span style="font-size:9px;color:#1657b5;background:#e8eef9;border-radius:3px;padding:1px 5px;margin-left:5px;font-weight:700;white-space:nowrap;display:inline-block" title="${esc(o.address||'')}">${esc(r.region)}</span>`:''}${r.remoteBadge?`<span style="margin-left:4px">${r.remoteBadge}</span>`:''}${r.scmBadge?`<span style="margin-left:4px">${r.scmBadge}</span>`:''}</span>${r.ph?`<div style="font-size:9px;color:var(--dm);font-family:var(--mono);margin-top:1px;max-width:140px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${phoneTel(r.ph)}</div>`:''}${r.noteShort?`<div style="font-size:9px;color:#b45309;background:#fef9ec;border-radius:3px;padding:2px 5px;margin-top:2px;max-width:190px;white-space:normal;line-height:1.3;overflow:hidden;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical" title="${esc(r.noteShort)}">${escWithHL(r.noteShort)}</div>`:''}</td><td class="tab-list-mobile-hide acc-cell">${ib}</td><td class="tab-list-mobile-hide acc-cell">${ab}</td><td class="total-cell" id="tot-${oid}" style="width:78px">${$(tot(o))}${r.trackInfo}</td><td style="width:96px;white-space:nowrap"><button class="${stCls(o.status)}" onclick="openStatusMenu('${oid}',event)" title="本機狀態（點擊修改）">${o.status} ▾</button>${(r.momoBadge||r.momoDiff)?`<div style="margin-top:3px;display:flex;flex-direction:column;gap:2px;align-items:flex-start">${r.momoBadge}${r.momoDiff}</div>`:''}</td><td class="act-cell"><div class="act-wrap">${a.addrAck}${a.ship}${a.shipDone}${a.instPaid}${a.addonPaid}${a.prodLink}${a.fillLabel}${a.sms}${a.edit}${a.copy}${a.cam}${a.del}</div></td></tr>`});
+h+=`<tr${r.scmActive?' class="row-scm"':''}><td class="batch-cell"><input type="checkbox" data-oid="${o.id}" ${checked?'checked':''} onclick="toggleRowSelected('${o.id}')"></td><td class="mono" style="width:56px">${fmtD(o.date)}${r.newBadge?' '+r.newBadge:''}</td><td style="width:44px;text-align:center">${platformPill(o.platform)}${r.addrBadge?' '+r.addrBadge:''}</td><td class="prod-cell" onclick="openEdit('${oid}')" style="cursor:pointer" title="點擊編輯：${esc(o.product)}">${prodSpecCombined}</td><td class="tab-list-mobile-hide qty-cell"><input type="text" inputmode="numeric" value="${r.qty}" oninput="this.value=cn(this.value);setQty('${oid}',this.value)" class="fee-input qty-input" style="width:34px${r.qty>1?';border-color:var(--mo);background:var(--mo-bg);color:var(--mo);font-weight:800':''}"></td><td class="name-cell" title="${r.ph?'電話 '+esc(r.ph):''}${o.address?'\n地址 '+esc(o.address):''}${r.noteShort?'\n備註 '+esc(r.noteShort):''}"><span style="white-space:normal">${o.name?`<span style="cursor:pointer;white-space:nowrap;text-decoration:underline;text-decoration-style:dotted;text-decoration-color:var(--ht);text-underline-offset:2px" onclick="event.stopPropagation();searchCustomerOrders(${JSON.stringify(o.name).replace(/"/g,'&quot;')})" title="🔒 鎖定看「${esc(o.name)}」的所有訂單">${escWithHL(o.name)}</span>`:'(無姓名)'}${r.region?`<span style="font-size:9px;color:#1657b5;background:#e8eef9;border-radius:3px;padding:1px 5px;margin-left:5px;font-weight:700;white-space:nowrap;display:inline-block" title="${esc(o.address||'')}">${esc(r.region)}</span>`:''}${r.remoteBadge?`<span style="margin-left:4px">${r.remoteBadge}</span>`:''}${r.scmBadge?`<span style="margin-left:4px">${r.scmBadge}</span>`:''}</span>${r.ph?`<div style="font-size:9px;color:var(--dm);font-family:var(--mono);margin-top:1px;max-width:140px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${phoneTel(r.ph)}</div>`:''}${r.noteShort?`<div style="font-size:9px;color:#b45309;background:#fef9ec;border-radius:3px;padding:2px 5px;margin-top:2px;max-width:190px;white-space:normal;line-height:1.3;overflow:hidden;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical" title="${esc(r.noteShort)}">${escWithHL(r.noteShort)}</div>`:''}</td><td class="tab-list-mobile-hide acc-cell">${ib}</td><td class="tab-list-mobile-hide acc-cell">${ab}</td><td class="total-cell" id="tot-${oid}" style="width:78px">${$(tot(o))}${r.trackInfo}</td><td style="width:96px;white-space:nowrap"><button class="${stCls(o.status)}" onclick="openStatusMenu('${oid}',event)" title="本機狀態（點擊修改）">${o.status} ▾</button>${(r.momoBadge||r.momoDiff)?`<div style="margin-top:3px;display:flex;flex-direction:column;gap:2px;align-items:flex-start">${r.momoBadge}${r.momoDiff}</div>`:''}</td><td class="act-cell"><div class="act-wrap">${a.addrAck}${a.ship}${a.shipDone}${a.amtPaidBtn}${a.instPaid}${a.addonPaid}${a.prodLink}${a.fillLabel}${a.sms}${a.edit}${a.copy}${a.cam}${a.del}</div></td></tr>`});
 h+='</tbody></table></div>';if(dtrunc)h+=`<div style="text-align:center;padding:12px 8px"><button class="btn" onclick="_deskExpand=true;renderList()">顯示全部 ${fl.length} 筆（目前先顯示前 ${DLIMIT} 筆，避免大量訂單卡頓）</button></div>`;h+='</div>';
 // 水平捲動位置沿用上一次 render — 視窗不夠寬要滑到右邊看操作鈕時，按一下鈕就整個彈回最左邊（姓名/尚未電聯 那排跟著跳掉）很難用
 const _prevSL=document.querySelector('#list-area .tbl-scroll')?.scrollLeft||0;
@@ -4670,7 +4696,7 @@ ${r.ph?`<div class="ord-card-phone">📞 ${phoneTel(r.ph)}${copyBtn(r.ph,'電話
 ${o.address?`<div class="ord-card-addr">📍 ${mapsLink(o.address)}${copyBtn(o.address,'地址')}</div>`:''}
 ${r.noteShort?`<div class="ord-card-note">${esc(r.noteShort)}</div>`:''}
 <div class="ord-card-actions">
-${a.addrAck}${a.ship}${a.shipDone}${a.instPaid}${a.addonPaid}${a.quickAddInstall}${a.quickAddAddon}
+${a.addrAck}${a.ship}${a.shipDone}${a.amtPaidBtn}${a.instPaid}${a.addonPaid}${a.quickAddInstall}${a.quickAddAddon}
 ${a.prodLink}
 ${a.fillLabel}
 ${a.sms}
@@ -5184,6 +5210,7 @@ document.getElementById('modal-body').innerHTML=`<h3>編輯訂單${customerHisto
 <div class="fg full"><div class="fi"><label>地址</label><input id="e-addr" value="${esc(o.address)}"></div></div>
 <div class="fg" style="margin-bottom:8px"><div class="fi"><label>🏢 管理室</label><div class="sched-row" id="e-mgmt"><button class="sched-btn ${o.addrMgmt==='有'?'picked':''}" onclick="pickRadio('e-mgmt','有',this)">有</button><button class="sched-btn ${o.addrMgmt==='無'?'picked':''}" onclick="pickRadio('e-mgmt','無',this)">無</button><button class="sched-btn ${(!o.addrMgmt||o.addrMgmt==='')?'picked':''}" onclick="pickRadio('e-mgmt','',this)">未填</button></div></div><div class="fi"><label>🛗 電梯（2 樓以上）</label><div class="sched-row" id="e-elev"><button class="sched-btn ${o.addrElev==='有'?'picked':''}" onclick="pickRadio('e-elev','有',this)">有</button><button class="sched-btn ${o.addrElev==='無'?'picked':''}" onclick="pickRadio('e-elev','無',this)">無</button><button class="sched-btn ${o.addrElev==='不適用'?'picked':''}" onclick="pickRadio('e-elev','不適用',this)">不適用</button><button class="sched-btn ${(!o.addrElev||o.addrElev==='')?'picked':''}" onclick="pickRadio('e-elev','',this)">未填</button></div></div></div>
 <div class="fg"><div class="fi"><label>數量</label><input type="text" inputmode="numeric" id="e-qty" value="${o.qty||1}" oninput="this.value=cn(this.value)"></div><div class="fi"><label>商品金額</label><input type="text" inputmode="numeric" id="e-amt" value="${o.amount||''}" oninput="this.value=cn(this.value);calcT()"></div></div>
+<div class="fg"><div class="fi"><label>貨款 <span style="font-size:10px;color:var(--ht)">（這筆的錢要我們自己跟客人收才選）</span></label><select id="e-amtdue"><option value="">不追貨款（平台代收／不適用）</option><option value="unpaid" ${o.amountDue&&Number(o.amountPaid||0)<Number(o.amount||0)?'selected':''}>貨款未收</option><option value="paid" ${o.amountDue&&Number(o.amountPaid||0)>=Number(o.amount||0)&&Number(o.amount||0)>0?'selected':''}>貨款已收</option></select></div></div>
 <div style="border:1px solid var(--bd);border-radius:8px;padding:12px;margin:8px 0;background:var(--sf2)"><div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px"><span style="font-size:12px;font-weight:700">安裝/配送</span><select id="ei-sel" onchange="togEISel()" title="直接選：待確認 / 要安裝 / 要配送 / 不安裝" style="font-size:12px;font-weight:700;padding:6px 10px;border:1px solid var(--bd);border-radius:6px;background:var(--sf);cursor:pointer"><option value="未確認" ${(!o.install||o.install==='未確認')?'selected':''}>待確認</option><option value="是" ${o.install==='是'?'selected':''}>要安裝</option><option value="配送" ${o.install==='配送'?'selected':''}>要配送</option><option value="否" ${o.install==='否'?'selected':''}>不安裝</option></select></div>
 <div id="ei-panel" class="${isServiceActive(o)?'':'hidden'}"><div class="fg"><div class="fi"><label>安裝費用</label><input type="text" inputmode="numeric" id="e-instf" value="${o.installFee||''}" oninput="this.value=cn(this.value);calcT();updateInstallPaidHint()"></div><div class="fi"><label>安裝已收 <span style="font-weight:400;color:var(--ht);font-size:10px">（0=未收，可填部分）</span></label><input type="text" inputmode="numeric" id="e-instpaid" value="${o.installPaidAmount||''}" oninput="this.value=cn(this.value);updateInstallPaidHint()" placeholder="0"></div></div>
 <div id="ei-paid-hint" style="font-size:11px;color:var(--dm);margin-top:-4px;margin-bottom:6px;padding:4px 8px;background:var(--sf2);border-radius:4px;display:none"></div>
@@ -5392,6 +5419,22 @@ if(o.addon==='否'||o.addon==='未確認'){const _keepPaid=Number(o.addonPaidAmo
 else{o.addonFee=parseInt(document.getElementById('e-addonf').value)||0;o.addonItems=(document.getElementById('e-addonitems')?.value||'').trim();
   // 加購已收金額（新增 — 可填部分）
   {const _pInp=document.getElementById('e-addonpaid');if(_pInp){const _pNew=parseAmt(_pInp.value)||0;const _pOld=Number(o.addonPaidAmount||0);if(_pNew!==_pOld)logActivity(o,`加購款 ${_pOld===0?'未收':'$'+_pOld} → ${_pNew===0?'未收':'$'+_pNew}（編輯視窗）`);o.addonPaidAmount=_pNew}}}
+/* 貨款三選一 → amountDue / amountPaid（阿淵 2026-10-07）。
+   放在 status 之前，因為下面「改成已完成」的未收款防呆會讀到這兩個欄位，
+   要用使用者剛選的值判斷，不是舊值。 */
+{
+  const _dueSel=document.getElementById('e-amtdue');
+  if(_dueSel){
+    const _v=_dueSel.value;
+    const _was=_snap.amountDue?(Number(_snap.amountPaid||0)>=Number(_snap.amount||0)&&Number(_snap.amount||0)>0?'paid':'unpaid'):'';
+    o.amountDue=_v!=='';
+    o.amountPaid=_v==='paid'?(Number(o.amount)||0):0;
+    if(_v!==_was){
+      const _lbl={'':'不追貨款',unpaid:'貨款未收',paid:'貨款已收'};
+      logActivity(o,`貨款：${_lbl[_was]||'不追貨款'} → ${_lbl[_v]}${o.amount?' $'+Number(o.amount).toLocaleString():''}（編輯視窗）`);
+    }
+  }
+}
 o.status=document.getElementById('e-st').value;
 // 防呆：狀態從非「已完成」改成「已完成」且有未收款 → confirm；取消就回滾 + 中止 save
 if(prevStatus!=='已完成'&&o.status==='已完成'){
@@ -5584,10 +5627,30 @@ function confirmWipeAll(){
 // ===== 貼上文字快速建單（杰哥 2026-09-30：「直接貼文字 品相/姓名/電話/地址…生成到列表，店內同事知道要出貨」）=====
 // 三種類型都是「手動建、要寄出」的單，各自沿用現成、驗證過的平台路徑，不新增平台代碼（避免動到統計/篩選）：
 //   線上銷售 → ST（店內）｜補寄 → EXPO 免費（店內寄出）｜同行調貨 → TR（單號「調-」）
-var _pcType='online';
+var _pcType='online',_pcPaid=false;
 function pcSetType(t,btn){_pcType=t;document.querySelectorAll('#pc-type-seg .fbtn').forEach(function(b){b.classList.toggle('on',b===btn)});pcRenderPreview();}
-// 解析貼上的文字 → {product,name,phone,address}。先用換行切；只有一行時退而用 ／/,、Tab 或多空白切。
-// 電話自動用 09xxxxxxxx 樣式辨識（貼歪了也接得住），其餘依「品項→姓名→電話→地址」順序補位。
+/* 阿淵 2026-10-07：「旁邊多一個金額輸入的地方，兩個按鈕已收或未收，
+   可以連動訂單追有沒有待收款項」。預設「未收」—— 寧可多提醒一筆，
+   也不要把沒收到的錢靜靜標成收過了。 */
+function pcSetPaid(v,btn){_pcPaid=!!v;document.querySelectorAll('#pc-money-row .fbtn').forEach(function(b){b.classList.toggle('on',b===btn)});pcRenderPreview();}
+/* 解析貼上的文字 → {product,name,phone,address}。先用換行切；只有一行時退而用 ／/,、Tab 或多空白切。
+
+   阿淵 2026-10-07：「姓名跟電話跟地址如果順序不一樣也要能夠自動辨別的出來。
+   通常三個字的是姓名，09 開頭的是電話，那行裡面有縣市或是地區什麼路的是地址」。
+   → 電話本來就靠樣式認（貼歪也接得住），這次再補「地址」與「姓名」兩個判準：
+       地址 = 郵遞區號開頭／出現路街大道巷弄段／縣市＋區鄉鎮／只寫一個縣市
+       姓名 = 純中文 2~4 字，且不是地址（「新北市」也是三個中文字，所以一定要先把地址挑掉）
+   🔴 兩個都像姓名時（例如品項剛好是「烏克麗麗」四個中文字）**不硬猜**，退回原本
+      「品項 → 姓名」的位置順序 —— 猜錯把品項塞進姓名欄，比沒認出來更難被發現。 */
+function pcIsAddr(s){
+  if(!/[\u4e00-\u9fff]/.test(s))return false;
+  if(/^\d{3,5}[\u4e00-\u9fff]/.test(s))return true;                                   // 237新北市…
+  if(/(路|街|大道|巷|弄|段)/.test(s))return true;                                        // …忠孝西路忠孝巷6號
+  if(/[\u4e00-\u9fff]{2,3}[縣市][\u4e00-\u9fff]{1,4}[區鄉鎮市]/.test(s))return true;   // 新北市板橋區
+  if(/^[\u4e00-\u9fff]{2,3}[縣市]$/.test(s))return true;                               // 只寫「新北市」
+  return false;
+}
+function pcIsName(s){return /^[\u4e00-\u9fff\u00b7\u2027\u30fb]{2,4}$/.test(s)&&!pcIsAddr(s)}
 function pcParse(raw){
   var clean=(raw||'').replace(/\r/g,'').trim();
   if(!clean)return null;
@@ -5596,24 +5659,37 @@ function pcParse(raw){
   if(!parts.length)return null;
   var phRe=/^(?:\+?886-?|0)?9\d{2}[- ]?\d{3}[- ]?\d{3}$|^0\d{1,2}[- ]?\d{6,8}$/;
   var norm=function(s){return s.replace(/[^\d]/g,'').replace(/^886/,'0')};
-  var phone='',pIdx=-1;
-  for(var i=0;i<parts.length;i++){if(phRe.test(parts[i].replace(/\s/g,''))){phone=norm(parts[i]);pIdx=i;break}}
   var rest=parts.slice();
-  if(pIdx>=0)rest.splice(pIdx,1);
-  var product=rest.shift()||'';
-  var name=rest.shift()||'';
-  var address=rest.join(' ').trim();
+  // 1) 電話
+  var phone='';
+  for(var i=0;i<rest.length;i++){if(phRe.test(rest[i].replace(/\s/g,''))){phone=norm(rest[i]);rest.splice(i,1);break}}
+  // 2) 地址（可能被拆成好幾行 → 全部收走再接起來）
+  var addrParts=[];
+  for(var j=rest.length-1;j>=0;j--){if(pcIsAddr(rest[j])){addrParts.unshift(rest[j]);rest.splice(j,1)}}
+  var address=addrParts.join(' ').trim();
+  // 3) 姓名：剩下的裡面「只有一個」像姓名才採用；兩個都像就不猜，照原本位置來
+  var name='',nameIdx=-1,nameHits=0;
+  for(var k=0;k<rest.length;k++){if(pcIsName(rest[k])){nameHits++;nameIdx=k}}
+  if(rest.length>=2&&nameHits===1){name=rest[nameIdx];rest.splice(nameIdx,1)}
+  else if(rest.length>=2){name=rest[1];rest.splice(1,1)}
+  else if(rest.length===1&&nameHits===1&&address){name=rest[0];rest=[]}
+  // 4) 剩下的都是品項
+  var product=rest.join(' ').trim();
   return {product:product,name:name,phone:phone,address:address};
 }
+
 function pcRenderPreview(){
   var box=document.getElementById('pc-preview');if(!box)return;
   var p=pcParse((document.getElementById('pc-text')||{}).value||'');
   if(!p){box.innerHTML='';return}
   var label={online:'線上銷售',reship:'補寄（不收費）',trade:'同行調貨'}[_pcType];
   var row=function(k,v){return '<div style="display:flex;gap:6px"><span style="color:var(--ht);min-width:44px">'+k+'</span><span>'+(v?esc(v):'<span style="color:#dc2626">（缺）</span>')+'</span></div>'};
+  var amt=parseAmt((document.getElementById('pc-amt')||{}).value||'')||0;
+  var money=amt?('$'+amt.toLocaleString()+'　'+(_pcPaid?'已收':'<span style="color:#dc2626;font-weight:700">未收 — 會進未收款清單</span>')):'';
   box.innerHTML='<div style="background:#f0fdf4;border:1px solid #bbf7d0;border-radius:8px;padding:8px 10px">'
     +'<div style="font-weight:700;color:#047857;margin-bottom:4px">將建立一筆【'+label+'】訂單：</div>'
-    +row('品項',p.product)+row('姓名',p.name)+row('電話',p.phone)+row('地址',p.address)+'</div>';
+    +row('品項',p.product)+row('姓名',p.name)+row('電話',p.phone)+row('地址',p.address)
+    +(amt?'<div style="display:flex;gap:6px"><span style="color:var(--ht);min-width:44px">金額</span><span>'+money+'</span></div>':'')+'</div>';
 }
 function pasteQuickCreate(){
   var p=pcParse((document.getElementById('pc-text')||{}).value||'');
@@ -5622,7 +5698,13 @@ function pasteQuickCreate(){
   var date=localDateISO();
   var name=p.name||'線上客';
   var typeLabel={online:'線上銷售',reship:'補寄',trade:'同行調貨'}[_pcType];
-  var base={id:gid(),date:date,dateFmt:fmtD(date),specs:'',name:name,phone:p.phone,realPhone:p.phone,address:p.address,addrMgmt:'',addrElev:'',install:'否',installFee:0,installDay:'',installTime:'',installPaidAmount:0,addon:'否',addonFee:0,addonItems:'',addonPaidAmount:0,amount:0,qty:1,status:'已確認',delyGbStr:'',trackingNo:''};
+  /* 金額 + 已收/未收。amountDue 是「這筆的貨款要我們自己收」的旗標 —— 
+     🔴 一定要有這個旗標，不能只看 amount：MOMO／PChome 的單貨款是平台收的，
+     沒有旗標就會讓全庫一千多張單一夕之間全變成「未收款」，整個提醒就廢了。
+     補寄不收費，所以不追。 */
+  var amt=parseAmt((document.getElementById('pc-amt')||{}).value||'')||0;
+  var due=amt>0&&_pcType!=='reship';
+  var base={id:gid(),date:date,dateFmt:fmtD(date),specs:'',name:name,phone:p.phone,realPhone:p.phone,address:p.address,addrMgmt:'',addrElev:'',install:'否',installFee:0,installDay:'',installTime:'',installPaidAmount:0,addon:'否',addonFee:0,addonItems:'',addonPaidAmount:0,amount:amt,amountDue:due,amountPaid:due?(_pcPaid?amt:0):0,qty:1,status:'已確認',delyGbStr:'',trackingNo:''};
   var o;
   if(_pcType==='trade'){
     o=Object.assign({},base,{platform:'TR',trDir:'out',orderNo:'調-'+Date.now().toString().slice(-10),shopPhone:p.phone,rcvName:'',product:p.product,note:'🔁 同行調貨（貼上快速建單）'});
@@ -5631,12 +5713,14 @@ function pasteQuickCreate(){
   }else{
     o=Object.assign({},base,{platform:'ST',orderNo:'ON-'+Date.now().toString().slice(-9),product:p.product,note:'🛒 線上銷售（貼上快速建單）'});
   }
-  logActivity(o,typeLabel+'快速建單');
+  logActivity(o,typeLabel+'快速建單'+(amt?('　金額 $'+amt.toLocaleString()+'　'+(due?(_pcPaid?'已收':'未收'):'不追貨款')):''));
   orders.push(o);
   _setSavingBadge();db.ref('orders/'+o.id).set(o).catch(_saveError);
-  var ta=document.getElementById('pc-text');if(ta)ta.value='';pcRenderPreview();
+  var ta=document.getElementById('pc-text');if(ta)ta.value='';
+  var ia=document.getElementById('pc-amt');if(ia)ia.value='';
+  pcRenderPreview();
   updateCnt();
-  showToast('✅ 已建立【'+typeLabel+'】：'+name+'｜'+p.product,null,null,3800);
+  showToast('✅ 已建立【'+typeLabel+'】：'+name+'｜'+p.product+(due&&!_pcPaid?('｜貨款未收 $'+amt.toLocaleString()):''),null,null,3800);
   showTab('list');
 }
 function openStoreSaleModal(){
