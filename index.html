@@ -6352,7 +6352,7 @@ async function batchKerry(){
   _kerryGroups=groups;
   const tomorrow=localDateISO(new Date(Date.now()+86400000));
   const modeTxt=st.mode==='mock'?'<span style="background:#fef3c7;color:#92400e;padding:2px 8px;border-radius:6px;font-weight:700">模擬模式</span>　還沒拿到大榮帳號：流程走得完、會印出模擬標籤，但<b>不會真的送大榮，也不會寫回訂單</b>'
-    :st.mode==='test'?'<span style="background:#dbeafe;color:#1e40af;padding:2px 8px;border-radius:6px;font-weight:700">大榮測試環境</span>　送到大榮測試系統，不會真的派車'
+    :st.mode==='test'?'<span style="background:#dbeafe;color:#1e40af;padding:2px 8px;border-radius:6px;font-weight:700">大榮測試環境</span>　真的送到大榮的測試系統、印出真的大榮標籤格式，但<b>不會派車、不計費，單號也不寫回訂單</b>（測試號不能拿去壓 MOMO／PChome）'
     :'<span style="background:#dcfce7;color:#166534;padding:2px 8px;border-radius:6px;font-weight:700">正式</span>　會真的送大榮、真的取號';
   const pool=k=>{const p=st.pools[k]||{};return p.range?`下一號 ${p.next}，還剩 ${p.left} 號`:'還沒設定單號區間'};
   const alreadyN=sel.filter(o=>o.trackingNo).length;
@@ -6416,7 +6416,8 @@ async function doKerry(){
       <td style="color:${x.ok?'#15803d':'#b91c1c'}">${x.ok?(x.already?'之前送過（沿用原單號）':'成功'):esc(x.error||'失敗')}${(x.notes||[]).length?'<br><span style="color:#b45309">'+esc(x.notes.join('；'))+'</span>':''}</td></tr>`);
     if(x.ok&&x.row)okRows.push(x.row);
     // 只有真的送成功（測試或正式）才寫回訂單；模擬模式的假號絕不寫進去
-    if(x.ok&&res.mode!=='mock'&&o&&x.bln){
+    // 只有「正式」才寫回訂單。模擬、大榮測試環境的單號都是假的／測試號，寫進去會被拿去壓 MOMO／PChome
+    if(x.ok&&res.mode==='prod'&&o&&x.bln){
       o.trackingNo=x.bln; o.delyGbStr='大榮貨運';   // MOMO 出貨確認、PChome 物流商（_pcVendorCodeFromLabel）都看這個
       o.kerry={bln:x.bln,origin,mode:res.mode,at:new Date().toISOString(),station:x.area&&x.area.StationName||''};
       logActivity(o,`送大榮${res.mode==='test'?'（測試）':''}：託運單號 ${x.bln}`); saveOne(o);
@@ -6432,7 +6433,7 @@ async function doKerry(){
         +(L.startSlotIgnored?'<div style="font-size:11px;color:#b45309;margin-top:4px">起始格位移要等拿到大榮真的標籤 PDF 才做，這次從第 1 格印</div>':'');
     }catch(e){labelHtml='<div style="color:#b91c1c;font-size:12px">標籤產生失敗：'+esc(e.message)+'（單號已經取好，可以再按一次送大榮重印）</div>'}
   }
-  box.innerHTML=`<div style="font-size:12px;font-weight:700;margin-bottom:4px">${res.mode==='mock'?'模擬結果（沒有送大榮、沒有寫回訂單）':'結果'}</div>
+  box.innerHTML=`<div style="font-size:12px;font-weight:700;margin-bottom:4px">${res.mode==='mock'?'模擬結果（沒有送大榮、沒有寫回訂單）':res.mode==='test'?'大榮測試環境結果（沒有寫回訂單）':'結果（單號已寫回訂單）'}</div>
     <table style="width:100%;font-size:12px;border-collapse:collapse">${lines.join('')}</table><div style="margin-top:8px">${labelHtml}</div>`;
   btn.disabled=false; renderList();
 }
@@ -6475,7 +6476,7 @@ async function batchKerryCancel(){
   for(const x of res.results||[]){
     const o=findO(x.orderKey); if(!o)continue;
     if(!x.ok){bad.push((o.name||o.id)+'：'+x.error);continue}
-    if(res.mode!=='mock'){
+    if(res.mode==='prod'){
       if(o.trackingNo===x.bln)o.trackingNo='';
       if(o.delyGbStr==='大榮貨運')o.delyGbStr='';
       o.kerry=Object.assign({},o.kerry||{},{cancelled:true,cancelledAt:new Date().toISOString()});
@@ -6484,7 +6485,7 @@ async function batchKerryCancel(){
     n++;
   }
   renderList();
-  alert(`已取消 ${n} 筆${res.mode==='mock'?'（模擬模式，訂單本來就沒寫入單號）':''}`+(bad.length?`
+  alert(`已取消 ${n} 筆${res.mode!=='prod'?'（測試／模擬模式，訂單本來就沒寫入單號）':''}`+(bad.length?`
 
 沒取消的：
 ${bad.join(String.fromCharCode(10))}`:''));
