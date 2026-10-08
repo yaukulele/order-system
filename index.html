@@ -102,6 +102,11 @@ textarea{width:100%;padding:12px;border:2px dashed var(--bd);border-radius:10px;
 .fl-bar{display:none}
 .fg-grp{display:inline-flex;align-items:center;gap:6px;flex-wrap:wrap}
 #mob-stat-cycle{display:none}
+/* 大榮貨態小標籤：顏色＝狀態，點了看完整歷程 */
+.kt{display:inline-block;margin-top:3px;padding:1px 6px;border-radius:9px;font-size:9.5px;font-weight:700;line-height:1.5;cursor:pointer;white-space:nowrap;border:1px solid transparent}
+.kt i{font-style:normal;font-weight:500;opacity:.75}
+.kt-done{background:#dcfce7;color:#166534}.kt-move{background:#dbeafe;color:#1e40af}.kt-stale{background:#ffedd5;color:#c2410c;border-color:#fdba74}
+.kt-issue{background:#fee2e2;color:#b91c1c;border-color:#fca5a5}.kt-none{background:#f1f5f9;color:#64748b}.kt-unk{background:#fff;color:#94a3b8;border-color:#e2e8f0}
 .fbtn{padding:4px 12px;border-radius:16px;border:1px solid var(--bd);background:var(--sf);font-family:var(--sans);font-size:11px;font-weight:600;color:var(--dm);cursor:pointer;display:inline-flex;align-items:center;justify-content:center;gap:4px;min-width:44px}.fbtn.on{background:var(--grn);color:#fff;border-color:var(--grn)}
 .month-pop{position:fixed;z-index:300;background:var(--sf);border:1px solid var(--bd);border-radius:10px;box-shadow:0 10px 30px rgba(0,0,0,.18);padding:10px;width:236px}
 .month-pop.hidden{display:none}
@@ -1207,7 +1212,7 @@ body.has-batch-bar .main{padding-bottom:140px}
 <body>
 <div class="offline-banner hidden" id="offline-banner">⚠️ 已離線 — 你的修改會在連線恢復後同步</div>
 <div class="hdr"><h1>📦 訂單管理系統<small>MOMO + PChome</small></h1><div style="display:flex;align-items:center;gap:8px"><span id="sync-badge" class="sync-dot sync-off"><span class="dot dot-off"></span>連線中...</span><button class="btn tdmod" id="bell" style="font-size:13px;position:relative" title="待辦提醒（點開便利貼）">🔔<span class="bell-badge hidden" id="bell-n">0</span></button><button class="btn" id="theme-btn" onclick="toggleTheme()" style="font-size:11px" title="切換亮色/暗色">🌙</button><button class="btn" id="notif-btn" onclick="toggleNotifications()" style="font-size:11px" title="桌面通知">🔕</button><button class="btn" onclick="showShortcutsHelp()" style="font-size:11px" title="鍵盤捷徑（按 ? 快速打開）">⌨️</button><button class="btn" onclick="location.reload()" style="font-size:11px">🔄</button></div></div>
-<div class="tabs"><button class="tab active" onclick="showTab('import')">匯入</button><button class="tab" onclick="showTab('list')">列表 <span class="badge" id="cnt">0</span></button><button class="tab" onclick="showTab('schedule')">安裝 <span class="badge" id="sched-cnt" style="background:#fef9ec;color:#b45309">0</span></button><button class="tab" onclick="showTab('region')">區域 <span class="badge" id="region-cnt" style="background:#e8eef9;color:#1657b5">0</span></button><button class="tab" onclick="showTab('delivery')">親送 <span class="badge" id="deliv-cnt" style="background:#fce7f3;color:#be185d">0</span></button><button class="tab" onclick="showTab('output')">輸出</button><button class="tab" onclick="showTab('stats')">統計</button><button class="tab" onclick="showTab('recon')">對帳</button><button class="tab" onclick="showTab('customers')">客戶</button><button class="tab" onclick="showTab('account')">帳號 <span id="user-badge" style="font-size:10px;color:var(--dm);margin-left:4px"></span></button><button class="tab" onclick="showTab('todo')">待辦 <span class="badge" id="todo-cnt" style="background:#eef7f1;color:#2d7a4f">0</span></button><button class="tab" onclick="showTab('punch')">打卡 <span class="badge" id="pk-badge" style="background:#e8eef9;color:#1657b5">—</span></button><button class="tab" onclick="showTab('stores')">超商與三方 <span class="badge" id="stores-cnt" style="background:#eef7f1;color:#2d7a4f">-</span></button></div>
+<div class="tabs"><button class="tab active" onclick="showTab('import')">匯入</button><button class="tab" onclick="showTab('list')">列表 <span class="badge" id="cnt">0</span></button><button class="tab" onclick="showTab('schedule')">安裝 <span class="badge" id="sched-cnt" style="background:#fef9ec;color:#b45309">0</span></button><button class="tab" onclick="showTab('region')">區域 <span class="badge" id="region-cnt" style="background:#e8eef9;color:#1657b5">0</span></button><button class="tab" onclick="showTab('delivery')">親送 <span class="badge" id="deliv-cnt" style="background:#fce7f3;color:#be185d">0</span></button><button class="tab" onclick="showTab('output')">輸出</button><button class="tab" onclick="showTab('stats')">統計</button><button class="tab" onclick="showTab('recon')">對帳</button><button class="tab" onclick="showTab('customers')">客戶</button><button class="tab" onclick="showTab('account')">帳號 <span id="user-badge" style="font-size:10px;color:var(--dm);margin-left:4px"></span></button><button class="tab" onclick="showTab('todo')">待辦 <span class="badge" id="todo-cnt" style="background:#eef7f1;color:#2d7a4f">0</span></button><button class="tab" onclick="showTab('punch')">打卡 <span class="badge" id="pk-badge" style="background:#e8eef9;color:#1657b5">—</span></button><button class="tab" onclick="showTab('stores')">超商與三方 <span class="badge" id="stores-cnt" style="background:#eef7f1;color:#2d7a4f">-</span></button><button class="tab" onclick="showTab('kerry')">大榮貨態</button></div>
 
 <div class="main" id="tab-import"><div id="today-summary" style="display:none"></div><div class="card" style="background:linear-gradient(135deg,#f3e8ff,#fff);border:1px solid #d8b4fe"><div class="card-h" style="background:transparent"><h3>🏪 店內銷售</h3><div class="btn-row" style="justify-content:flex-end"><button class="btn" onclick="openStoreSaleModal()" style="background:#7e22ce;border-color:#7e22ce;color:#fff;font-weight:700;flex:0 0 auto;min-width:130px" title="櫃台現金/刷卡直購用">+ 新增訂單</button></div></div></div>
 <div class="card" style="background:linear-gradient(135deg,#e0e7ff,#fff);border:1px solid #a5b4fc"><div class="card-h" style="background:transparent"><h3>🔁 同行調貨</h3><div class="btn-row" style="justify-content:flex-end"><button class="btn" onclick="openTradeModal()" style="background:#4338ca;border-color:#4338ca;color:#fff;font-weight:700;flex:0 0 auto;min-width:130px" title="同行之間互相調貨（單號開頭「調」）">+ 新增訂單</button></div></div></div>
@@ -1275,6 +1280,7 @@ body.has-batch-bar .main{padding-bottom:140px}
 </div>
 
 
+<div class="main hidden" id="tab-kerry"></div>
 <div class="main hidden tdmod" id="tab-stores">
   <div class="st-top">
     <div class="st-h">MOMO 出貨</div>
@@ -1891,7 +1897,7 @@ function clearInput(){document.getElementById('raw-input').value='';document.get
 async function copyPCScript(){try{const r=await fetch('pchome-scraper.js?_='+Date.now());if(!r.ok)throw new Error('HTTP '+r.status);const code=await r.text();await navigator.clipboard.writeText(code);alert('✅ PChome F12 撈單 script 已複製到剪貼簿！\n\n下一步：\n1. 切到 PChome 廠商後台「印貨資料 / 商品明細」view（看得到 商品名稱、收貨人、訂單編號 那個 view）\n2. F12 → Console → Ctrl+V → Enter\n3. 跳出 alert 顯示抓到 N 筆 → 訂單 JSON 已自動複製\n4. 回來這頁 → 在下方大框 Ctrl+V → 按「匯入雲端」')}catch(e){alert('複製失敗：'+e.message+'\n\n你可以直接打開 yaukulele.github.io/order-system/pchome-scraper.js 手動 copy')}}
 
 // ===== TABS =====
-function showTab(t){const tabs=['import','list','schedule','region','delivery','output','stats','recon','customers','account','todo','punch','stores'];try{localStorage.setItem('orderSysTab',t)}catch(_){}tabs.forEach(id=>document.getElementById('tab-'+id).classList.toggle('hidden',id!==t));document.querySelectorAll('.tabs .tab').forEach((b,i)=>b.classList.toggle('active',tabs[i]===t));window.scrollTo({top:0,behavior:'instant'});if(t==='list'){renderList();if(typeof momoLiveAutoSync==='function')momoLiveAutoSync(5*60*1000)}if(t==='schedule')renderSchedule();if(t==='region')renderRegion();if(t==='delivery')setDelivMode(_delivMode);if(t==='output')renderOutput();if(t==='stats')renderStats();if(t==='recon')renderRecon();if(t==='customers')renderCustomers();if(t==='account')renderAccount();if(t==='todo'&&window.__tdRender)window.__tdRender();if(t==='punch'&&window.PUNCH)PUNCH.render();if(t==='stores'&&window.__stRender)window.__stRender()}
+function showTab(t){const tabs=['import','list','schedule','region','delivery','output','stats','recon','customers','account','todo','punch','stores','kerry'];try{localStorage.setItem('orderSysTab',t)}catch(_){}tabs.forEach(id=>document.getElementById('tab-'+id).classList.toggle('hidden',id!==t));document.querySelectorAll('.tabs .tab').forEach((b,i)=>b.classList.toggle('active',tabs[i]===t));window.scrollTo({top:0,behavior:'instant'});if(t==='list'){renderList();if(typeof momoLiveAutoSync==='function')momoLiveAutoSync(5*60*1000)}if(t==='schedule')renderSchedule();if(t==='region')renderRegion();if(t==='delivery')setDelivMode(_delivMode);if(t==='output')renderOutput();if(t==='stats')renderStats();if(t==='recon')renderRecon();if(t==='customers')renderCustomers();if(t==='account')renderAccount();if(t==='todo'&&window.__tdRender)window.__tdRender();if(t==='punch'&&window.PUNCH)PUNCH.render();if(t==='stores'&&window.__stRender)window.__stRender();if(t==='kerry')renderKerryTab()}
 
 // ===== AUTH / 使用者帳號系統 =====
 let currentUser=null,currentRole='';
@@ -3725,7 +3731,7 @@ function prepareOrderRow(o,opts){
   const addonInfo=o.addon==='是'&&o.addonItems?o.addonItems.slice(0,16):'';
   const newBadge=isNewOrder(o)?'<span class="tag" style="background:#dcfce7;color:#166534;font-size:9px">NEW</span>':'';
   const addrBadge=hasPendingAddrChange(o)?'<span class="tag" style="background:#fef9ec;color:#b45309;font-size:9px" title="客戶申請改地址">改址</span>':'';
-  const trackInfo=o.trackingNo?`<div style="font-size:9px;color:var(--dm);margin-top:2px">${esc(o.delyGbStr||'')}<br>${esc(o.trackingNo)}</div>`:'';
+  const trackInfo=o.trackingNo?`<div style="font-size:9px;color:var(--dm);margin-top:2px">${esc(o.delyGbStr||'')}<br>${esc(o.trackingNo)}</div>${ktChipFor(o)}`:'';
   const region=addrRegion(o.address);
   // 大榮偏遠地區 — 必須加運費的提醒（地址匹配偏遠規則時亮起）
   // 風格：跟地區 chip 同尺寸對齊，無 emoji 不影響上下距離
@@ -6342,6 +6348,96 @@ async function kerryApi(path, body){
   if(!r.ok||d.ok===false) throw new Error(d.error||('HTTP '+r.status));
   return d;
 }
+/* ===== 大榮貨態（杰哥 2026-10-08）=====
+   伺服器每 30 分鐘把最近 21 天的大榮單號拿去大榮查件，摘要放 Firebase kerryTrack/{單號}；
+   這裡只讀那份：每筆訂單的單號下面一個小標籤（顏色＝狀態），加一個「大榮貨態」分頁可以搜、篩、立即更新。 */
+let _KT={}, _ktBound=false, _ktFilter='active', _ktDays=21;
+function ktInit(){
+  if(_ktBound||typeof db==='undefined')return; _ktBound=true;
+  db.ref('kerryTrack').on('value',snap=>{
+    _KT=snap.val()||{};
+    // 就地換標籤，不整個重畫列表（重畫會跳回頂端、打斷勾選）
+    document.querySelectorAll('[data-kt]').forEach(el=>{el.outerHTML=ktChip(el.dataset.kt)});
+    if(!document.getElementById('tab-kerry').classList.contains('hidden'))renderKerryTab();
+  });
+}
+function isKerryOrd(o){return /大榮|kerry/i.test(String(o.delyGbStr||''))&&/^\d{10,12}$/.test(String(o.trackingNo||'').trim())}
+function ktDaysSince(t){if(!t)return null;const d=new Date(t.replace(' ','T')+':00+08:00');return Math.floor((Date.now()-d.getTime())/86400000)}
+// 狀態分類：done 已送達／issue 異常／stale 運送中但 3 天沒動／move 運送中／none 大榮還沒有紀錄／unk 還沒查過
+function ktClass(v){if(!v)return 'unk';if(v.cls==='move'&&ktDaysSince(v.t)>=3)return 'stale';return v.cls||'unk'}
+const KT_LABEL={done:'已送達',issue:'異常',stale:'卡住',move:'運送中',none:'未收件',unk:'未查'};
+function ktChip(bln){
+  const v=_KT[bln], k=ktClass(v);
+  const when=v&&v.t?v.t.slice(5,10).replace('-','/')+' '+v.t.slice(11,16):'';
+  const tip=v&&v.s?`${v.s}${v.st?'・'+v.st:''}${when?'・'+when:''}`:(k==='none'?'大榮還沒有這張單的動態（還沒收件）':'還沒查過，等下次自動更新或到「大榮貨態」按立即更新');
+  const txt=k==='move'||k==='stale'?(v.st?v.st+' ':'')+(v.s||'').slice(0,7):KT_LABEL[k];
+  return `<span class="kt kt-${k}" data-kt="${esc(bln)}" title="${esc(tip)}" onclick="event.stopPropagation();openKerryTrack('${esc(bln)}')">${esc(txt)}${when&&k!=='unk'&&k!=='none'?' <i>'+esc(when.slice(0,5))+'</i>':''}</span>`;
+}
+function ktChipFor(o){if(!isKerryOrd(o))return '';ktInit();return ktChip(String(o.trackingNo).trim())}
+function openKerryTrack(bln){
+  const v=_KT[bln], k=ktClass(v);
+  const os=orders.filter(o=>String(o.trackingNo||'').trim()===bln);
+  const ev=(v&&v.ev)||[];
+  document.getElementById('modal-body').innerHTML=`<h3>大榮貨態　<span style="font-family:var(--mono)">${esc(bln)}</span></h3>
+    <div style="margin:6px 0 10px">${ktChip(bln)} ${v&&v.at?`<span style="font-size:11px;color:var(--dm)">系統查詢時間 ${esc(new Date(v.at).toLocaleString('zh-TW',{hour12:false}))}</span>`:''}</div>
+    ${os.map(o=>`<div style="font-size:12px;margin-bottom:4px">${esc(o.platform||'')} ${esc(o.orderNo||'')}　${esc(o.name||'')}　${esc(String(o.product||'').slice(0,40))}</div>`).join('')}
+    <div style="border:1px solid var(--bd);border-radius:8px;padding:8px 12px;margin-top:8px;max-height:46vh;overflow:auto">
+      ${ev.length?ev.map((e,i)=>`<div style="display:flex;gap:10px;padding:6px 0;${i?'border-top:1px dashed var(--bd)':''}">
+          <div style="width:96px;font-family:var(--mono);font-size:11px;color:var(--dm)">${esc(e.t.slice(5))}</div>
+          <div style="flex:1;font-size:12.5px;${i?'color:var(--dm)':'font-weight:700'}">${esc(e.s)}<span style="font-weight:400;color:var(--dm)">${e.st?'　'+esc(e.st):''}</span></div></div>`).join('')
+        :`<div style="font-size:12px;color:var(--dm)">${k==='unk'?'還沒查過。':'大榮還沒有這張單的動態（通常是還沒收件）。'}</div>`}
+    </div>
+    <div id="kt-msg" style="font-size:12px;margin-top:8px"></div>
+    <div class="modal-ft"><button class="btn" onclick="navigator.clipboard&&navigator.clipboard.writeText('${esc(bln)}');this.textContent='已複製'">複製單號</button>
+      <button class="btn" onclick="ktRefresh(['${esc(bln)}'])">立即重查</button><button class="btn" onclick="closeModal()">關閉</button></div>`;
+  document.getElementById('modal-overlay').classList.remove('hidden');document.body.style.overflow='hidden';
+}
+async function ktRefresh(blns){
+  const m=document.getElementById('kt-msg')||document.getElementById('ktab-msg');
+  if(m){m.style.color='var(--dm)';m.textContent='向大榮查詢中…'+(blns?'':'（全部最近 '+_ktDays+' 天的單，約半分鐘）')}
+  try{
+    const d=await kerryApi('/api/kerry/track-refresh',blns?{blns,force:true}:{days:_ktDays});
+    if(m){m.style.color='#166534';m.textContent=`已更新 ${d.wrote} 筆（查了 ${d.checked} 筆，已送達的不重查）`}
+    if(blns&&blns.length===1)setTimeout(()=>{if(!document.getElementById('modal-overlay').classList.contains('hidden'))openKerryTrack(blns[0])},300);
+  }catch(e){if(m){m.style.color='#b91c1c';m.textContent='更新失敗：'+e.message}}
+}
+function renderKerryTab(){
+  ktInit();
+  const el=document.getElementById('tab-kerry'); if(!el)return;
+  const q=((document.getElementById('ktab-q')||{}).value||'').trim().toUpperCase();
+  const since=localDateISO(new Date(Date.now()-_ktDays*86400000));
+  const list=orders.filter(o=>isKerryOrd(o)&&String(o.date||'')>=since);
+  const order={issue:0,stale:1,none:2,unk:3,move:4,done:5};
+  const rows=list.map(o=>{const b=String(o.trackingNo).trim(),v=_KT[b];return{o,b,v,k:ktClass(v)}});
+  const cnt={}; rows.forEach(r=>{cnt[r.k]=(cnt[r.k]||0)+1});
+  const FILTERS=[['active','還沒送達',rows.filter(r=>r.k!=='done').length],['issue','異常',cnt.issue||0],['stale','卡住 3 天以上',cnt.stale||0],
+    ['move','運送中',cnt.move||0],['none','未收件',(cnt.none||0)+(cnt.unk||0)],['done','已送達',cnt.done||0],['all','全部',rows.length]];
+  let show=rows.filter(r=>_ktFilter==='all'?true:_ktFilter==='active'?r.k!=='done':_ktFilter==='none'?(r.k==='none'||r.k==='unk'):r.k===_ktFilter);
+  if(q)show=show.filter(r=>[r.b,r.o.orderNo,r.o.name,r.o.product,r.o.phone].some(x=>String(x||'').toUpperCase().includes(q)));
+  show.sort((a,b)=>(order[a.k]-order[b.k])||String(b.o.date||'').localeCompare(String(a.o.date||'')));
+  const keepQ=document.activeElement&&document.activeElement.id==='ktab-q';
+  el.innerHTML=`<div class="filter-row" style="flex-wrap:wrap;gap:8px;align-items:center">
+      ${FILTERS.map(([k,t,n])=>`<button class="fbtn${_ktFilter===k?' on':''}" onclick="_ktFilter='${k}';renderKerryTab()">${t} <b>${n}</b></button>`).join('')}
+      <select onchange="_ktDays=+this.value;renderKerryTab()" style="font-size:12px">${[7,14,21,30,60].map(d=>`<option value="${d}"${d===_ktDays?' selected':''}>最近 ${d} 天</option>`).join('')}</select>
+      <input id="ktab-q" value="${esc(q)}" placeholder="搜尋單號、訂單號、姓名、商品" oninput="renderKerryTab()" style="flex:1;min-width:180px">
+      <button class="btn" onclick="ktRefresh(null)">立即更新</button><span id="ktab-msg" style="font-size:12px"></span></div>
+    <div style="font-size:11px;color:var(--dm);margin:6px 0 8px">系統每 30 分鐘自動向大榮更新一次（早上 7 點到晚上 11 點）。點任一列看完整歷程。「卡住」＝運送中但最後一筆動態超過 3 天。</div>
+    <div style="overflow:auto;border:1px solid var(--bd);border-radius:8px">
+    <table style="width:100%;border-collapse:collapse;font-size:12px">
+      <tr style="background:var(--sf2)"><th style="text-align:left;padding:7px 8px">出貨日</th><th style="text-align:left;padding:7px 8px">訂單</th><th style="text-align:left;padding:7px 8px">收件人／商品</th>
+        <th style="text-align:left;padding:7px 8px">單號</th><th style="text-align:left;padding:7px 8px">貨態</th><th style="text-align:left;padding:7px 8px">最新動態</th></tr>
+      ${show.length?show.slice(0,500).map(r=>`<tr style="border-top:1px solid var(--bd);cursor:pointer" onclick="openKerryTrack('${esc(r.b)}')">
+        <td style="padding:7px 8px;white-space:nowrap">${esc(String(r.o.date||'').slice(5))}</td>
+        <td style="padding:7px 8px;white-space:nowrap">${esc(r.o.platform||'')} <span style="font-family:var(--mono);font-size:11px">${esc(r.o.orderNo||'')}</span></td>
+        <td style="padding:7px 8px">${esc(r.o.name||'')}<div style="font-size:11px;color:var(--dm)">${esc(String(r.o.product||'').slice(0,34))}</div></td>
+        <td style="padding:7px 8px;font-family:var(--mono)">${esc(r.b)}</td>
+        <td style="padding:7px 8px;white-space:nowrap">${ktChip(r.b)}</td>
+        <td style="padding:7px 8px;font-size:11.5px">${r.v&&r.v.s?`${esc(r.v.s)}${r.v.st?'・'+esc(r.v.st):''}<div style="color:var(--dm);font-size:10.5px">${esc(r.v.t)}${ktDaysSince(r.v.t)!=null?'（'+ktDaysSince(r.v.t)+' 天前）':''}</div>`:'<span style="color:var(--dm)">—</span>'}</td></tr>`).join('')
+        :`<tr><td colspan="6" style="padding:18px;text-align:center;color:var(--dm)">沒有符合的單</td></tr>`}
+    </table></div>`;
+  if(keepQ){const i=document.getElementById('ktab-q');i.focus();i.setSelectionRange(i.value.length,i.value.length)}
+}
+
 async function batchKerry(){
   const sel=orders.filter(o=>selectedIds.has(o.id));
   if(!sel.length){alert('請先勾選要送大榮的訂單');return}
