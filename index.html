@@ -6375,12 +6375,18 @@ async function batchKerry(){
         <div style="font-size:10px;color:var(--dm)">${r.orders.length} 筆${r.mem?'・上次 '+esc(String(r.mem.cai))+' 才':'・<span style="color:#b91c1c;font-weight:700">沒填過</span>'}</div></td>
         <td style="text-align:center">${r.qty}</td>
         <td style="padding:6px"><input id="kcai_${i}" type="number" min="0" step="0.1" value="${r.mem?esc(String(r.mem.cai)):''}" style="width:100%;text-align:right;${r.mem?'':'border-color:#fca5a5;background:#fef2f2'}"></td>
-        <td style="padding:6px"><input id="knote_${i}" value="${esc((r.mem&&r.mem.note)||'')}" placeholder="留空＝完整品名" style="width:100%"></td></tr>`).join('')}
+        <td style="padding:6px"><input id="knote_${i}" value="${esc((r.mem&&r.mem.note)||'')}" placeholder="留空＝完整品名" style="width:100%">
+          ${(!(r.mem&&r.mem.note)&&r.guess)?`<div style="margin-top:3px"><button type="button" class="btn" style="font-size:10px;padding:1px 7px" onclick="useKGuess(${i})">用「${esc(r.guess)}」</button></div>`:''}</td></tr>`).join('')}
     </table></div>
     <div id="k-result" style="margin-top:10px"></div>
     <div class="modal-ft"><button class="btn" onclick="closeModal()">關閉</button>
       <button class="btn btn-g" id="k-go" onclick="doKerry()">🚚 送大榮並印標籤</button></div>`;
   document.getElementById('modal-overlay').classList.remove('hidden');document.body.style.overflow='hidden';
+}
+// 大榮視窗的「用型號」建議（跟📦託運單一樣：點了才填，不自動代入）—— 杰哥 10/08「抓備注功能咋沒了」
+function useKGuess(i){
+  const g=(_kerryGroups||[])[i]; const el=document.getElementById('knote_'+i);
+  if(g&&el){ el.value=g.guess||''; el.focus(); }
 }
 async function doKerry(){
   const groups=_kerryGroups||[], st=_kerryStatus||{};
