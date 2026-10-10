@@ -1536,6 +1536,10 @@ function _saveError(err){console.error('save failed',err);const sb=document.getE
 var _snapCache='',_snapDirty=true;
 function _snapshotJson(){if(!_snapDirty)return _snapCache;const d={};orders.forEach(o=>{d[o.id]=o});_snapCache=JSON.stringify(d);_snapDirty=false;return _snapCache}
 // 之前用 set 會把其他裝置剛新增的訂單沖掉。現在 update — 安全多裝置同時操作
+// ⚠ 死碼（稽核 2026-10-10 E）：saveAll 目前已無任何呼叫者，_saveAllTimer 永不會被設起來，
+// 所以這支整包覆蓋的 _doSaveAll 事實上不會跑。保留是因為 _saveAllTimer 還被多處當 guard 用、
+// 這支也還被 beforeunload flush 參照；要清請連同那些參照一起移除（屬低風險收尾，之後再做）。
+// 🔴 千萬別再加任何 saveAll() 呼叫 —— 它會把記憶體裡全部訂單整包 update 回去，蓋掉別台剛改的單。
 function _doSaveAll(){_saveAllTimer=null;const d={};orders.forEach(o=>{d[o.id]=o});_pendingOneIds.clear();db.ref('orders').update(d).catch(_saveError);pendingRemoteOrders=null}
 function _doSaveOnes(){_saveOneTimer=null;if(_pendingOneIds.size===0)return;const updates={};for(const id of _pendingOneIds){const o=findO(id);if(o)updates[id]=o}_pendingOneIds.clear();db.ref('orders').update(updates).catch(_saveError);pendingRemoteOrders=null}
 // saveAll = update 整包 orders（不用 set，避免 multi-device wipe）— 取消 pending saveOne，由 saveAll 統一處理
@@ -5069,6 +5073,10 @@ if(!sub.length){document.getElementById('stats-area').innerHTML=`<div class="car
 // 單次 pass：同時累加平台/狀態/營收 + 收 topProducts/topCustomers/dayMap，
 // 從 8 次 sub.filter/forEach 降到 1 次
 let moCnt=0,pcCnt=0,stCnt=0,schCnt=0,m3Cnt=0,expoCnt=0,trCnt=0,mosCnt=0,wait=0,ship=0,done=0,cancel=0,offline=0,sales=0,inst=0,instCnt=0,validRevCnt=0;
+// D2（稽核 2026-10-10）：sales 是「應收」(含安裝/加購費);collected 是「實收」——
+// 商品金額(amount)平台會收,安裝/加購費只算實際已收(installPaidAmount/addonPaidAmount)。
+// 兩者差＝還沒收的安裝/加購費。純對帳模式(statsPureAmount)只算 amount,兩者相等。
+let collected=0;
 const prodMap=new Map(),prodSpecMap=new Map(),termMap=new Map(),custMap=new Map(),dayMap=new Map();
 for(const o of sub){
   if(o.platform==='MO')moCnt++;else if(o.platform==='PC')pcCnt++;else if(o.platform==='ST')stCnt++;else if(o.platform==='SCH')schCnt++;else if(o.platform==='MO3')m3Cnt++;else if(o.platform==='EXPO')expoCnt++;else if(o.platform==='TR')trCnt++;else if(o.platform==='MOS')mosCnt++;
@@ -5078,7 +5086,7 @@ for(const o of sub){
   if(isCancel)cancel++;
   else if(isOffline)offline++;
   else{
-    if(!isTradeIn(o)){validRevCnt++;sales+=statsPureAmount?(o.amount||0):tot(o)}
+    if(!isTradeIn(o)){validRevCnt++;sales+=statsPureAmount?(o.amount||0):tot(o);collected+=statsPureAmount?(o.amount||0):((o.amount||0)+(Number(o.installPaidAmount)||0)+(Number(o.addonPaidAmount)||0))}
     inst+=(o.installFee||0);
     if(isServiceActive(o))instCnt++;
     /* 🔴 這裡本來是「每張單 +1」，所以「熱賣商品」那欄其實是**幾張單**不是賣出幾件。
@@ -5117,7 +5125,7 @@ const days=[...dayMap.entries()].sort((a,b)=>a[0]<b[0]?1:-1).slice(0,7);
 const periodLabel=statsPeriod.startsWith?(statsPeriod.startsWith('month:')?`${statsPeriod.slice(6)} 整月`:({'today':'今日','7':'最近 7 天','30':'最近 30 天','90':'最近 3 個月','all':'全部時間'}[statsPeriod]||statsPeriod)):'最近 30 天';
 const avgRev=validRevCnt?Math.round(sales/validRevCnt):0;
 const platName={all:'全部平台',MO:'MOMO',PC:'PChome',MO3:'MOMO 三方',MOS:'MOMO 超商',ST:'店內',SCH:'學校',EXPO:'店內寄出',TR:'同行調貨'}[statsPlatform]||statsPlatform;
-let html=`<div style="font-size:11px;color:var(--dm);margin-bottom:10px">📅 顯示：<strong>${periodLabel}</strong> ｜ 🛒 <strong>${platName}</strong>${statsDoneOnly?' ｜ <strong style="color:var(--grn)">✅ 只算已完成</strong>':''}${statsQuery?` ｜ <strong style="color:var(--mo)">${statsQueryField==='name'?'姓名':'品名'}含「${esc(statsTerms.join('」「'))}」</strong>`:''}，共 ${sub.length} 筆${(cancel>0||offline>0)?` <span style="color:var(--dm)">（${[cancel>0?cancel+' 筆已取消':'',offline>0?offline+' 筆線下':''].filter(Boolean).join('、')}，不算營收）</span>`:''}</div><div class="stats-g"><div class="stat sall"><div class="stat-l">總訂單</div><div class="stat-v">${sub.length}</div><div class="stat-s">${statsPlatform==='all'?`MO ${moCnt} / PC ${pcCnt}${m3Cnt?' / 三方 '+m3Cnt:''}${stCnt?' / 店 '+stCnt:''}${schCnt?' / 校 '+schCnt:''}${expoCnt?' / 店寄 '+expoCnt:''}${trCnt?' / 調 '+trCnt:''}${mosCnt?' / 超 '+mosCnt:''}`:platName}</div></div><div class="stat"><div class="stat-l">營收${statsPureAmount?' <span style="color:var(--mo);font-weight:700">・對帳</span>':''}</div><div class="stat-v" style="color:var(--grn)">$${sales.toLocaleString()}</div><div class="stat-s">平均 $${avgRev.toLocaleString()}/筆${statsPureAmount?' ｜ 不含加購/安裝':''}</div></div><div class="stat"><div class="stat-l">待處理</div><div class="stat-v" style="color:var(--amb)">${wait}</div><div class="stat-s">已出 ${ship} / 完成 ${done}${cancel>0?` / 取消 ${cancel}`:''}${offline>0?` / 線下 ${offline}`:''}</div></div><div class="stat"><div class="stat-l">安裝服務</div><div class="stat-v" style="color:var(--blu)">$${inst.toLocaleString()}</div><div class="stat-s">${instCnt} 筆</div></div></div>`;
+let html=`<div style="font-size:11px;color:var(--dm);margin-bottom:10px">📅 顯示：<strong>${periodLabel}</strong> ｜ 🛒 <strong>${platName}</strong>${statsDoneOnly?' ｜ <strong style="color:var(--grn)">✅ 只算已完成</strong>':''}${statsQuery?` ｜ <strong style="color:var(--mo)">${statsQueryField==='name'?'姓名':'品名'}含「${esc(statsTerms.join('」「'))}」</strong>`:''}，共 ${sub.length} 筆${(cancel>0||offline>0)?` <span style="color:var(--dm)">（${[cancel>0?cancel+' 筆已取消':'',offline>0?offline+' 筆線下':''].filter(Boolean).join('、')}，不算營收）</span>`:''}</div><div class="stats-g"><div class="stat sall"><div class="stat-l">總訂單</div><div class="stat-v">${sub.length}</div><div class="stat-s">${statsPlatform==='all'?`MO ${moCnt} / PC ${pcCnt}${m3Cnt?' / 三方 '+m3Cnt:''}${stCnt?' / 店 '+stCnt:''}${schCnt?' / 校 '+schCnt:''}${expoCnt?' / 店寄 '+expoCnt:''}${trCnt?' / 調 '+trCnt:''}${mosCnt?' / 超 '+mosCnt:''}`:platName}</div></div><div class="stat"><div class="stat-l">營收（應收）${statsPureAmount?' <span style="color:var(--mo);font-weight:700">・對帳</span>':''}</div><div class="stat-v" style="color:var(--grn)">$${sales.toLocaleString()}</div><div class="stat-s">平均 $${avgRev.toLocaleString()}/筆${statsPureAmount?' ｜ 不含加購/安裝':(collected<sales?` ｜ 實收 $${collected.toLocaleString()} ｜ <span style="color:var(--amb);font-weight:700">待收 $${(sales-collected).toLocaleString()}</span>`:' ｜ <span style="color:var(--grn)">已收齊</span>')}</div></div><div class="stat"><div class="stat-l">待處理</div><div class="stat-v" style="color:var(--amb)">${wait}</div><div class="stat-s">已出 ${ship} / 完成 ${done}${cancel>0?` / 取消 ${cancel}`:''}${offline>0?` / 線下 ${offline}`:''}</div></div><div class="stat"><div class="stat-l">安裝服務</div><div class="stat-v" style="color:var(--blu)">$${inst.toLocaleString()}</div><div class="stat-s">${instCnt} 筆</div></div></div>`;
 /* 打了兩個以上關鍵字 → 先給一張「關鍵字比較」表，這才是他真正要的那張：
    一個關鍵字一列、依件數排序、配比例條，09-42 / 10-46 / 11-52 誰賣得多一眼看完。
    下面那張照品名拆的明細照樣留著，要看是哪幾個品項貢獻的再往下看。 */
