@@ -3748,8 +3748,9 @@ function prepareOrderRow(o,opts){
   const remoteHit=isRemoteAddress(o.address);
   let remoteBadge='';
   if(remoteHit){
+    const isl=remoteHit.island;
     const why=remoteHit.matchedKeyword?`${remoteHit.city} ${remoteHit.district||''} (${remoteHit.matchedKeyword})`:`${remoteHit.city} ${remoteHit.district||''}`;
-    remoteBadge=`<span style="font-size:9px;color:#b91c1c;background:#fef2f2;border:1px solid #fca5a5;border-radius:3px;padding:1px 5px;font-weight:700;white-space:nowrap;vertical-align:middle" title="大榮偏遠地區・必須加運費 — 命中：${esc(why.trim())}">偏遠</span>`;
+    remoteBadge=`<span style="font-size:9px;color:#b91c1c;background:#fef2f2;border:1px solid #fca5a5;border-radius:3px;padding:1px 5px;font-weight:700;white-space:nowrap;vertical-align:middle" title="大榮${isl?'外島':'偏遠'}地區・必須加運費 — 命中：${esc(why.trim())}">${isl?'外島':'偏遠'}</span>`;
   }
   // MOMO 約配訂單「已回押指定配送日」→ 特殊紫色標記 + 標注配送日（尚未出貨/結案前才亮）
   const scmDate=o.scmDelyDate||'';
@@ -3800,6 +3801,10 @@ function _computeAddrRegion(addr){
 //   - 只有 city + keywords（沒 district）：地址含 city 且含某 keyword 即算（例：陽明山、夢時代）
 // 比對前會把地址去空白避免「員山路 3 段」 vs 「員山路3段」不匹配
 const DALI_REMOTE_AREAS=[
+  // 外島（運費最貴、要看船期，大榮多半加收聯運費或要改海空運）
+  {city:'澎湖',island:true},{city:'金門',island:true},{city:'連江',island:true},{city:'馬祖',island:true},
+  {city:'台東',district:'綠島',island:true},{city:'台東',district:'蘭嶼',island:true},
+  {city:'屏東',district:'琉球鄉',island:true},{city:'屏東',district:'小琉球',island:true},
   // 宜蘭縣
   {city:'宜蘭',district:'大同鄉'},{city:'宜蘭',district:'南澳鄉'},
   {city:'宜蘭',district:'員山',keywords:['員山路三段','員山路3段','長嶺路','再連路','福山街','中華村','粗坑','冷水坑','雙埤路']},
@@ -6482,8 +6487,11 @@ async function batchKerry(){
     :'<span style="background:#dcfce7;color:#166534;padding:2px 8px;border-radius:6px;font-weight:700">正式</span>　會真的送大榮、真的取號';
   const pool=k=>{const p=st.pools[k]||{};return p.range?`下一號 ${p.next}，還剩 ${p.left} 號`:'還沒設定單號區間'};
   const alreadyN=sel.filter(o=>o.trackingNo).length;
+  const remoteList=sel.map(o=>({o,hit:isRemoteAddress(o.address)})).filter(x=>x.hit);
+  const remoteBanner=remoteList.length?`<div style="background:#fef2f2;border:1px solid #fca5a5;border-radius:8px;padding:9px 11px;margin-bottom:10px;font-size:12px;line-height:1.7"><b style="color:#b91c1c">⚠ 偏遠／外島地址 ${remoteList.length} 筆</b> — 大榮會加收聯運費／外島運費（差額店家吸收）。送之前先確認運費、或改宅配／郵局、或跟客人補收：<div style="margin-top:3px">${remoteList.map(x=>`・${esc(x.o.name||'(無名)')}　<span style="color:#b91c1c;font-weight:700">${x.hit.island?'外島':'偏遠'}</span>　<span style="color:var(--dm)">${esc(x.hit.city||'')}${esc(x.hit.district||'')}${x.hit.matchedKeyword?'・'+esc(x.hit.matchedKeyword):''}</span>`).join('<br>')}</div></div>`:'';
   document.getElementById('modal-body').innerHTML=`<h3>🚚 送大榮</h3>
     <div style="font-size:12px;line-height:1.8;margin:6px 0 10px">${modeTxt}</div>
+    ${remoteBanner}
     <div style="display:flex;gap:14px;flex-wrap:wrap;font-size:12px;margin-bottom:8px;align-items:flex-end">
       <label>出貨地<br><select id="k-origin">
         <option value="store">門市（三峽）客代 18005330 — ${esc(pool('store'))}</option>
@@ -6594,7 +6602,9 @@ async function doKerry(){
   const items=[];
   groups.forEach((r,i)=>r.orders.forEach(o=>items.push({orderKey:o.id,origin,consignee:o.name||'',phone:o.realPhone||o.phone||'',
     address:o.address||'',pieces:o.qty||1,volume:vals[i],remark:platPrefix(o.platform)+(notes[i]||o.product||''),etp,shipDate:localDateISO().replace(/-/g,'')})));
-  if(st.mode!=='mock'&&!confirm(`確定送 ${items.length} 筆到大榮${st.mode==='test'?'（測試環境）':'（正式）'}？\n\n系統會取託運單號並上傳，成功的單號會寫回訂單。`))return;
+  const _rem=items.map(it=>{const o=findO(it.orderKey);return o?isRemoteAddress(o.address):null}).filter(Boolean);
+  const _remTxt=_rem.length?('⚠ 其中 '+_rem.length+' 筆是大榮偏遠／外島地址，會被加收運費！\n\n'):'';
+  if(st.mode!=='mock'&&!confirm(`${_remTxt}確定送 ${items.length} 筆到大榮${st.mode==='test'?'（測試環境）':'（正式）'}？\n\n系統會取託運單號並上傳，成功的單號會寫回訂單。`))return;
   // 才數／備註記起來（跟匯出託運單同一份）
   try{
     await authReady; const upd={}, now=new Date().toISOString(), who=(typeof currentUser!=='undefined'&&currentUser)||'';
