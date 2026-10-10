@@ -6482,14 +6482,42 @@ function ktChip(bln){
   const date=when&&(k==='done'||k==='move')?' <i>'+esc(when.slice(0,5))+'</i>':'';
   return `<span class="kt kt-${k}" data-kt="${esc(bln)}" title="${esc(tip)}（點開看完整歷程）" onclick="event.stopPropagation();openKerryTrack('${esc(bln)}')"><b class="kt-dot"></b>大榮 ${esc(txt)}${date}</span>`;
 }
-function ktChipFor(o){if(!isKerryOrd(o))return '';ktInit();ktBadgeSoon();return ktChip(String(o.trackingNo).trim())}
+function ktChipFor(o){if(!isKerryOrd(o))return '';ktInit();ktBadgeSoon();const b=String(o.trackingNo).trim();return ktChip(b)+ktBadChip(o,b)}
+/* 2026-10-11 杰哥「檢查串接大榮可以怎樣優化」過夜稽核實際查到：
+   74414708059 同時掛在 李育人（新莊）跟 洪書婷（高雄），大榮那號是送高雄 → 李育人那張單號是抄錯的；
+   74405335059（黃馨慧 9/17）大榮完全查無此號。全部 6 組單號重複。都是 WEBEDI 手抄單號的錯。
+   → 自動抓兩種：①同一個單號在不同收件人的訂單上 ②出貨超過 4 天大榮還查無此號 */
+let _ktDup={},_ktDupAt=0;
+function ktDupMap(){
+  if(Date.now()-_ktDupAt<5000)return _ktDup;
+  const by={};
+  for(const o of (typeof orders!=='undefined'?orders:[])){
+    const t=String(o.trackingNo||'').trim();if(t.length<8)continue;
+    const nm=String(o.name||'').trim();(by[t]=by[t]||new Set()).add(nm||o.id);
+  }
+  const d={};for(const t in by)if(by[t].size>1)d[t]=by[t].size;
+  _ktDup=d;_ktDupAt=Date.now();return d;
+}
+function ktBadOf(o,b){
+  b=b||String(o.trackingNo||'').trim();
+  const dup=ktDupMap()[b];
+  if(dup)return {kind:'dup',txt:'單號重複',tip:'這個單號同時出現在 '+dup+' 位不同收件人的訂單上，至少有一張是抄錯的。點「大榮貨態」看哪張是大榮真的送的那張（看配送站所／地址）'};
+  const v=_KT[b];
+  if(v&&v.cls==='none'){
+    const since=(o.kerry&&o.kerry.at)?String(o.kerry.at).slice(0,10):String(o.date||'');
+    const age=since?Math.floor((Date.now()-new Date(since+'T12:00:00+08:00'))/86400000):0;
+    if(age>=4)return {kind:'lost',txt:'大榮查無此號',tip:'出貨（或訂單日）已經 '+age+' 天，大榮系統還查不到這個單號 → 很可能單號打錯了，請對照託運單貼紙'};
+  }
+  return null;
+}
+function ktBadChip(o,b){const x=ktBadOf(o,b);return x?`<span class="kt kt-issue" style="font-weight:800" title="${esc(x.tip)}">${esc(x.txt)}</span>`:''}
 // 分頁上的紅色數字：最近 21 天大榮單裡「異常＋卡住」幾筆
 let _ktBadgeT=null;
 function ktBadgeSoon(){if(_ktBadgeT)return;_ktBadgeT=setTimeout(()=>{_ktBadgeT=null;ktBadge()},400)}
 function ktBadge(){
   const el=document.getElementById('kt-cnt'); if(!el||typeof orders==='undefined')return;
   const since=localDateISO(new Date(Date.now()-21*86400000));
-  const n=orders.filter(o=>isKerryOrd(o)&&String(o.date||'')>=since).filter(o=>{const k=ktClass(_KT[String(o.trackingNo).trim()]);return k==='issue'||k==='stale'}).length;
+  const n=orders.filter(o=>isKerryOrd(o)&&String(o.date||'')>=since).filter(o=>{const k=ktClass(_KT[String(o.trackingNo).trim()]);return k==='issue'||k==='stale'||!!ktBadOf(o)}).length;
   el.textContent=n; el.style.display=n?'':'none';
 }
 setTimeout(()=>{try{ktInit();ktBadge()}catch(_){}},4000);
@@ -6527,13 +6555,14 @@ function renderKerryTab(){
   const since=localDateISO(new Date(Date.now()-_ktDays*86400000));
   const list=orders.filter(o=>isKerryOrd(o)&&String(o.date||'')>=since);
   const order={issue:0,stale:1,none:2,unk:3,move:4,done:5};
-  const rows=list.map(o=>{const b=String(o.trackingNo).trim(),v=_KT[b];return{o,b,v,k:ktClass(v)}});
+  const rows=list.map(o=>{const b=String(o.trackingNo).trim(),v=_KT[b];return{o,b,v,k:ktClass(v),bad:ktBadOf(o,b)}});
   const cnt={}; rows.forEach(r=>{cnt[r.k]=(cnt[r.k]||0)+1});
-  const FILTERS=[['active','還沒送達',rows.filter(r=>r.k!=='done').length],['issue','異常',cnt.issue||0],['stale','卡住 3 天以上',cnt.stale||0],
+  const badN=rows.filter(r=>r.bad).length;
+  const FILTERS=[['active','還沒送達',rows.filter(r=>r.k!=='done').length],['bad','單號有問題',badN],['issue','異常',cnt.issue||0],['stale','卡住 3 天以上',cnt.stale||0],
     ['move','運送中',cnt.move||0],['none','未收件',(cnt.none||0)+(cnt.unk||0)],['done','已送達',cnt.done||0],['all','全部',rows.length]];
-  let show=rows.filter(r=>_ktFilter==='all'?true:_ktFilter==='active'?r.k!=='done':_ktFilter==='none'?(r.k==='none'||r.k==='unk'):r.k===_ktFilter);
+  let show=rows.filter(r=>_ktFilter==='all'?true:_ktFilter==='bad'?!!r.bad:_ktFilter==='active'?r.k!=='done':_ktFilter==='none'?(r.k==='none'||r.k==='unk'):r.k===_ktFilter);
   if(q)show=show.filter(r=>[r.b,r.o.orderNo,r.o.name,r.o.product,r.o.phone].some(x=>String(x||'').toUpperCase().includes(q)));
-  show.sort((a,b)=>(order[a.k]-order[b.k])||String(b.o.date||'').localeCompare(String(a.o.date||'')));
+  show.sort((a,b)=>((a.bad?-1:order[a.k])-(b.bad?-1:order[b.k]))||String(a.b).localeCompare(String(b.b))||String(b.o.date||'').localeCompare(String(a.o.date||'')));
   const keepQ=document.activeElement&&document.activeElement.id==='ktab-q';
   const keepOpen=((document.getElementById('k-today-box')||{}).open)?' open':'';
   el.innerHTML=`<details id="k-today-box"${keepOpen} style="margin-bottom:12px;border:1px solid var(--bd);border-radius:8px;background:var(--sf2)"><summary style="cursor:pointer;padding:8px 10px;font-weight:700;font-size:13px">📋 今天已送大榮（點開看／可勾選取消重印）</summary><div id="k-today" style="padding:4px 10px 10px">載入中…</div></details><div class="filter-row" style="flex-wrap:wrap;gap:8px;align-items:center">
@@ -6549,9 +6578,9 @@ function renderKerryTab(){
       ${show.length?show.slice(0,500).map(r=>`<tr style="border-top:1px solid var(--bd);cursor:pointer" onclick="openKerryTrack('${esc(r.b)}')">
         <td style="padding:7px 8px;white-space:nowrap">${esc(String(r.o.date||'').slice(5))}</td>
         <td style="padding:7px 8px;white-space:nowrap">${esc(r.o.platform||'')} <span style="font-family:var(--mono);font-size:11px">${esc(r.o.orderNo||'')}</span></td>
-        <td style="padding:7px 8px">${esc(r.o.name||'')}<div style="font-size:11px;color:var(--dm)">${esc(String(r.o.product||'').slice(0,34))}</div></td>
+        <td style="padding:7px 8px">${esc(r.o.name||'')}<div style="font-size:11px;color:var(--dm)">${esc(String(r.o.product||'').slice(0,34))}</div>${r.bad&&r.bad.kind==='dup'?`<div style="font-size:10.5px;color:#b91c1c">${esc(String(r.o.address||'').slice(0,26))}</div>`:''}</td>
         <td style="padding:7px 8px;font-family:var(--mono)">${esc(r.b)}</td>
-        <td style="padding:7px 8px;white-space:nowrap">${ktChip(r.b)}</td>
+        <td style="padding:7px 8px;white-space:nowrap">${ktChip(r.b)}${r.bad?'<div style="margin-top:3px">'+ktBadChip(r.o,r.b)+'</div>':''}</td>
         <td style="padding:7px 8px;font-size:11.5px">${r.v&&r.v.s?`${esc(r.v.s)}${r.v.st?'・'+esc(r.v.st):''}<div style="color:var(--dm);font-size:10.5px">${esc(r.v.t)}${ktDaysSince(r.v.t)!=null?'（'+ktDaysSince(r.v.t)+' 天前）':''}</div>`:'<span style="color:var(--dm)">—</span>'}</td></tr>`).join('')
         :`<tr><td colspan="6" style="padding:18px;text-align:center;color:var(--dm)">沒有符合的單</td></tr>`}
     </table></div>`;
