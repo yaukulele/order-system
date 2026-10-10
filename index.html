@@ -6482,7 +6482,7 @@ function ktChip(bln){
   const date=when&&(k==='done'||k==='move')?' <i>'+esc(when.slice(0,5))+'</i>':'';
   return `<span class="kt kt-${k}" data-kt="${esc(bln)}" title="${esc(tip)}（點開看完整歷程）" onclick="event.stopPropagation();openKerryTrack('${esc(bln)}')"><b class="kt-dot"></b>大榮 ${esc(txt)}${date}</span>`;
 }
-function ktChipFor(o){if(!isKerryOrd(o))return '';ktInit();ktBadgeSoon();const b=String(o.trackingNo).trim();return ktChip(b)+ktBadChip(o,b)}
+function ktChipFor(o){if(!isKerryOrd(o))return '';ktInit();ktBadgeSoon();return ktChip(String(o.trackingNo).trim())}
 /* 2026-10-11 杰哥「檢查串接大榮可以怎樣優化」過夜稽核實際查到：
    74414708059 同時掛在 李育人（新莊）跟 洪書婷（高雄），大榮那號是送高雄 → 李育人那張單號是抄錯的；
    74405335059（黃馨慧 9/17）大榮完全查無此號。全部 6 組單號重複。都是 WEBEDI 手抄單號的錯。
@@ -6501,23 +6501,23 @@ function ktDupMap(){
 function ktBadOf(o,b){
   b=b||String(o.trackingNo||'').trim();
   const dup=ktDupMap()[b];
-  if(dup)return {kind:'dup',txt:'單號重複',tip:'這個單號同時出現在 '+dup+' 位不同收件人的訂單上，至少有一張是抄錯的。點「大榮貨態」看哪張是大榮真的送的那張（看配送站所／地址）'};
+  if(dup)return {kind:'dup',txt:'單號對不上',tip:'這個單號同時出現在 '+dup+' 位不同收件人的訂單上。可能是自己配送的單故意填的號（正常），也可能是抄錯 —— 需要時對一下大榮配送站所／地址'};
   const v=_KT[b];
   if(v&&v.cls==='none'){
     const since=(o.kerry&&o.kerry.at)?String(o.kerry.at).slice(0,10):String(o.date||'');
     const age=since?Math.floor((Date.now()-new Date(since+'T12:00:00+08:00'))/86400000):0;
-    if(age>=4)return {kind:'lost',txt:'大榮查無此號',tip:'出貨（或訂單日）已經 '+age+' 天，大榮系統還查不到這個單號 → 很可能單號打錯了，請對照託運單貼紙'};
+    if(age>=4)return {kind:'lost',txt:'單號對不上',tip:'出貨（或訂單日）已經 '+age+' 天，大榮系統查不到這個單號。可能是自己配送的單故意填的號（正常），也可能是打錯'};
   }
   return null;
 }
-function ktBadChip(o,b){const x=ktBadOf(o,b);return x?`<span class="kt kt-issue" style="font-weight:800" title="${esc(x.tip)}">${esc(x.txt)}</span>`:''}
+function ktBadChip(o,b){const x=ktBadOf(o,b);return x?`<span class="kt kt-unk" title="${esc(x.tip)}">${esc(x.txt)}</span>`:''}
 // 分頁上的紅色數字：最近 21 天大榮單裡「異常＋卡住」幾筆
 let _ktBadgeT=null;
 function ktBadgeSoon(){if(_ktBadgeT)return;_ktBadgeT=setTimeout(()=>{_ktBadgeT=null;ktBadge()},400)}
 function ktBadge(){
   const el=document.getElementById('kt-cnt'); if(!el||typeof orders==='undefined')return;
   const since=localDateISO(new Date(Date.now()-21*86400000));
-  const n=orders.filter(o=>isKerryOrd(o)&&String(o.date||'')>=since).filter(o=>{const k=ktClass(_KT[String(o.trackingNo).trim()]);return k==='issue'||k==='stale'||!!ktBadOf(o)}).length;
+  const n=orders.filter(o=>isKerryOrd(o)&&String(o.date||'')>=since).filter(o=>{const k=ktClass(_KT[String(o.trackingNo).trim()]);return k==='issue'||k==='stale'}).length;
   el.textContent=n; el.style.display=n?'':'none';
 }
 setTimeout(()=>{try{ktInit();ktBadge()}catch(_){}},4000);
@@ -6558,11 +6558,11 @@ function renderKerryTab(){
   const rows=list.map(o=>{const b=String(o.trackingNo).trim(),v=_KT[b];return{o,b,v,k:ktClass(v),bad:ktBadOf(o,b)}});
   const cnt={}; rows.forEach(r=>{cnt[r.k]=(cnt[r.k]||0)+1});
   const badN=rows.filter(r=>r.bad).length;
-  const FILTERS=[['active','還沒送達',rows.filter(r=>r.k!=='done').length],['bad','單號有問題',badN],['issue','異常',cnt.issue||0],['stale','卡住 3 天以上',cnt.stale||0],
+  const FILTERS=[['active','還沒送達',rows.filter(r=>r.k!=='done').length],['bad','單號對不上',badN],['issue','異常',cnt.issue||0],['stale','卡住 3 天以上',cnt.stale||0],
     ['move','運送中',cnt.move||0],['none','未收件',(cnt.none||0)+(cnt.unk||0)],['done','已送達',cnt.done||0],['all','全部',rows.length]];
   let show=rows.filter(r=>_ktFilter==='all'?true:_ktFilter==='bad'?!!r.bad:_ktFilter==='active'?r.k!=='done':_ktFilter==='none'?(r.k==='none'||r.k==='unk'):r.k===_ktFilter);
   if(q)show=show.filter(r=>[r.b,r.o.orderNo,r.o.name,r.o.product,r.o.phone].some(x=>String(x||'').toUpperCase().includes(q)));
-  show.sort((a,b)=>((a.bad?-1:order[a.k])-(b.bad?-1:order[b.k]))||String(a.b).localeCompare(String(b.b))||String(b.o.date||'').localeCompare(String(a.o.date||'')));
+  show.sort((a,b)=>(order[a.k]-order[b.k])||(_ktFilter==='bad'?String(a.b).localeCompare(String(b.b)):0)||String(b.o.date||'').localeCompare(String(a.o.date||'')));
   const keepQ=document.activeElement&&document.activeElement.id==='ktab-q';
   const keepOpen=((document.getElementById('k-today-box')||{}).open)?' open':'';
   el.innerHTML=`<details id="k-today-box"${keepOpen} style="margin-bottom:12px;border:1px solid var(--bd);border-radius:8px;background:var(--sf2)"><summary style="cursor:pointer;padding:8px 10px;font-weight:700;font-size:13px">📋 今天已送大榮（點開看／可勾選取消重印）</summary><div id="k-today" style="padding:4px 10px 10px">載入中…</div></details><div class="filter-row" style="flex-wrap:wrap;gap:8px;align-items:center">
@@ -6580,7 +6580,7 @@ function renderKerryTab(){
         <td style="padding:7px 8px;white-space:nowrap">${esc(r.o.platform||'')} <span style="font-family:var(--mono);font-size:11px">${esc(r.o.orderNo||'')}</span></td>
         <td style="padding:7px 8px">${esc(r.o.name||'')}<div style="font-size:11px;color:var(--dm)">${esc(String(r.o.product||'').slice(0,34))}</div>${r.bad&&r.bad.kind==='dup'?`<div style="font-size:10.5px;color:#b91c1c">${esc(String(r.o.address||'').slice(0,26))}</div>`:''}</td>
         <td style="padding:7px 8px;font-family:var(--mono)">${esc(r.b)}</td>
-        <td style="padding:7px 8px;white-space:nowrap">${ktChip(r.b)}${r.bad?'<div style="margin-top:3px">'+ktBadChip(r.o,r.b)+'</div>':''}</td>
+        <td style="padding:7px 8px;white-space:nowrap">${ktChip(r.b)}${r.bad&&_ktFilter==='bad'?'<div style="margin-top:3px">'+ktBadChip(r.o,r.b)+'</div>':''}</td>
         <td style="padding:7px 8px;font-size:11.5px">${r.v&&r.v.s?`${esc(r.v.s)}${r.v.st?'・'+esc(r.v.st):''}<div style="color:var(--dm);font-size:10.5px">${esc(r.v.t)}${ktDaysSince(r.v.t)!=null?'（'+ktDaysSince(r.v.t)+' 天前）':''}</div>`:'<span style="color:var(--dm)">—</span>'}</td></tr>`).join('')
         :`<tr><td colspan="6" style="padding:18px;text-align:center;color:var(--dm)">沒有符合的單</td></tr>`}
     </table></div>`;
@@ -6659,6 +6659,9 @@ async function batchKerry(){
         <td style="padding:6px"><input id="knote_${i}" value="${esc((r.mem&&r.mem.note)||'')}" placeholder="留空＝完整品名" style="width:100%">
           ${(!(r.mem&&r.mem.note)&&r.guess)?`<div style="margin-top:3px"><button type="button" class="btn" style="font-size:10px;padding:1px 7px" onclick="useKGuess(${i})">用「${esc(r.guess)}」</button></div>`:''}</td></tr>`).join('')}
     </table></div>
+    ${st.mode==='prod'
+      ?`<label style="display:flex;gap:6px;align-items:center;font-size:12px;margin-top:8px"><input type="checkbox" id="k-autopush" checked> 送完自動壓 MOMO／PChome（大榮貨運＋這次的單號；PChome 自行出貨 SP 的單不壓）</label>`
+      :`<div style="font-size:11px;color:var(--dm);margin-top:8px">正式模式送完會自動壓 MOMO／PChome；現在是${st.mode==='test'?'測試':'模擬'}模式，不會壓（測試號不能給平台）。</div>`}
     <div id="k-result" style="margin-top:10px"></div>
     <div class="modal-ft"><button class="btn" onclick="closeModal()">關閉</button>
       <button class="btn btn-g" id="k-go" onclick="doKerry()">🚚 送大榮並印標籤</button></div>`;
@@ -6794,6 +6797,17 @@ async function _doKerrySend(groups,st,items,vals,notes,origin,slot){
       logActivity(o,`送大榮${res.mode==='test'?'（測試）':''}：託運單號 ${x.bln}`); saveOne(o);
     }
   }
+  // 自動壓平台：只有正式模式、而且訂單上的單號確實是這次大榮的號才壓
+  let pushHtml='';
+  const _ap=document.getElementById('k-autopush');
+  if(res.mode==='prod'&&_ap&&_ap.checked){
+    const targets=(res.results||[]).filter(x=>x.ok&&x.bln).map(x=>({x,o:findO(x.orderKey)})).filter(t=>t.o&&t.o.trackingNo===t.x.bln&&(t.o.platform==='MO'||t.o.platform==='PC'));
+    if(targets.length){
+      box.insertAdjacentHTML('beforeend','<div id="k-push-msg" style="font-size:12px;margin-top:6px">壓 MOMO／PChome 中…</div>');
+      const pr=await kerryAutoPush(targets);
+      pushHtml=`<div style="font-size:12px;font-weight:700;margin:8px 0 4px">自動壓平台</div><table style="width:100%;font-size:12px;border-collapse:collapse">${pr.map(p=>`<tr><td style="padding:3px 6px">${esc(p.o.name||'')}</td><td>${p.o.platform==='MO'?'MOMO':'PChome'}</td><td style="color:${p.ok?'#15803d':p.skip?'#6b7280':'#b91c1c'}">${esc(p.msg)}</td></tr>`).join('')}</table>`;
+    }
+  }
   let labelHtml='';
   if(okRows.length){
     try{
@@ -6811,8 +6825,51 @@ async function _doKerrySend(groups,st,items,vals,notes,origin,slot){
   _kerryTodayAll=null;   // 送完讓「大榮貨態」分頁的今天清單下次重抓
   const detailBtn = okRows.length ? `<div id="k-detail-area" style="margin-top:8px"><button class="btn" onclick="kerryDetail()" title="司機來收貨時簽的那張清單（駕駛簽章 / 客戶簽章）">📄 產生託運明細（司機簽收用）</button></div>` : '';
   box.innerHTML=`<div style="font-size:12px;font-weight:700;margin-bottom:4px">${res.mode==='mock'?'模擬結果（沒有送大榮、沒有寫回訂單）':res.mode==='test'?'大榮測試環境結果（沒有寫回訂單）':'結果（單號已寫回訂單）'}</div>
-    <table style="width:100%;font-size:12px;border-collapse:collapse">${lines.join('')}</table><div id="k-label-area" style="margin-top:8px">${labelHtml}</div>${detailBtn}`;
+    <table style="width:100%;font-size:12px;border-collapse:collapse">${lines.join('')}</table>${pushHtml}<div id="k-label-area" style="margin-top:8px">${labelHtml}</div>${detailBtn}`;
   renderList();
+}
+/* 送完大榮自動壓平台（2026-10-11 杰哥交辦）。一張一張送，結果逐筆回報、逐筆寫訂單紀錄。
+   跳過的情況（不送）：
+   - MOMO：平台快照說這張已經不在未出貨（已出貨／已結案），或已經是「已配送」
+   - PChome：按過 SP 自行出貨的（🔴 鐵則：SP 單絕不壓單號，壓了結不到帳）；平台已結單／檢核中／已取消
+   MOMO 約配單如果還沒回押指定配送日，MOMO 可能會拒絕「已配送」→ 會列在失敗裡，照舊用 📤 出貨確認手動處理。 */
+async function kerryAutoPush(targets){
+  await momoConfigReady;
+  const api=getMomoApi(),token=getMomoToken();
+  const out=[];
+  for(const {x,o} of targets){
+    const bln=x.bln;
+    try{
+      if(o.platform==='MO'){
+        const L=momoLiveOf(o);
+        if(L&&L.gone){out.push({o,skip:true,msg:'平台已經不在未出貨（已出貨或已結案），沒壓'});continue}
+        if(L&&L.st==='已配送'){out.push({o,skip:true,msg:'平台已經是「已配送」，沒重壓'});continue}
+        const item={completeOrderNo:o.orderNo,remark5VStr:'已配送',msgNote:'',delyGbStr:'大榮貨運',slipNo:bln,
+          shipTypeStr:o.shipTypeStr||'原箱',packTypeStr:o.packTypeStr||'',packUnit:o.packUnit||''};
+        const r=await fetch(`${api}/api/orders/momo/confirm-shipment?force=1`,{method:'POST',headers:{'Content-Type':'application/json','X-API-Token':token},body:JSON.stringify({items:[item]})});
+        const d=await r.json().catch(()=>({}));
+        if(!r.ok||!d.ok){out.push({o,ok:false,msg:'MOMO 沒收：'+String(d.error||('HTTP '+r.status)).slice(0,120)+'（請用 📤 出貨確認手動壓）'});logActivity(o,`自動壓 MOMO 失敗：${String(d.error||r.status).slice(0,120)}`);saveOne(o);continue}
+        o.shipTypeStr=item.shipTypeStr;applyShipStatus(o);o.shippedAt=new Date().toISOString();o.shippedBy=currentUser||'';o.shippedVia='出貨';
+        logActivity(o,`出貨回報：已配送 ｜ 大榮貨運 ｜ ${bln}（送大榮後自動壓）`);saveOne(o);
+        out.push({o,ok:true,msg:'已壓：已配送 大榮 '+bln});
+      }else if(o.platform==='PC'){
+        if(pcIsSelfShipped(o)){out.push({o,skip:true,msg:'這張按過 SP 自行出貨，照規定不壓單號（只存本機）'});continue}
+        const L=pcLiveOf(o);
+        if(L&&['checking','shipped','sp','cancelled'].includes(L.kind)){out.push({o,skip:true,msg:'PChome 已經'+(_PC_LABEL[_pcState(L)]||L.kind)+'，沒重壓'});continue}
+        const payload={orderId:o.orderNo,shipVendorId:'Kerry',shipId:bln,shipQty:parseInt(o.qty)||1};
+        const r=await fetch(`${api}/api/orders/pchome/shipinfo`,{method:'POST',headers:{'Content-Type':'application/json','X-API-Token':token},body:JSON.stringify(payload)});
+        const d=await r.json().catch(()=>({}));
+        if(!r.ok||!d.ok){out.push({o,ok:false,msg:'PChome 沒收：'+String(d.error||('HTTP '+r.status)).slice(0,120)+'（請用 📤 出貨回填手動壓）'});logActivity(o,`自動壓 PChome 失敗：${String(d.error||r.status).slice(0,120)}`);saveOne(o);continue}
+        applyShipStatus(o);o.shippedAt=new Date().toISOString();o.shippedBy=currentUser||'';o.shippedVia='出貨';
+        _pcMarkLocal(o.orderNo,'checking',bln,'Kerry');
+        logActivity(o,`PChome 出貨回填：出貨：大榮貨運 ｜ 單號 ${bln} ｜ ${payload.shipQty} 件（送大榮後自動壓）`);saveOne(o);
+        out.push({o,ok:true,msg:'已壓：大榮 '+bln});
+      }
+    }catch(e){out.push({o,ok:false,msg:'連線失敗：'+String(e&&e.message||e).slice(0,80)+'（請手動壓）'})}
+  }
+  try{syncMomoLive({silent:true}).catch(()=>{})}catch(e){}
+  renderList();
+  return out;
 }
 // 託運明細表（司機收貨簽的清單）：按鈕產生後換成真的連結開（程式 window.open 會被擋）
 async function kerryDetail(){
