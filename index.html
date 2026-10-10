@@ -6443,7 +6443,8 @@ function renderKerryTab(){
   if(q)show=show.filter(r=>[r.b,r.o.orderNo,r.o.name,r.o.product,r.o.phone].some(x=>String(x||'').toUpperCase().includes(q)));
   show.sort((a,b)=>(order[a.k]-order[b.k])||String(b.o.date||'').localeCompare(String(a.o.date||'')));
   const keepQ=document.activeElement&&document.activeElement.id==='ktab-q';
-  el.innerHTML=`<div class="filter-row" style="flex-wrap:wrap;gap:8px;align-items:center">
+  const keepOpen=((document.getElementById('k-today-box')||{}).open)?' open':'';
+  el.innerHTML=`<details id="k-today-box"${keepOpen} style="margin-bottom:12px;border:1px solid var(--bd);border-radius:8px;background:var(--sf2)"><summary style="cursor:pointer;padding:8px 10px;font-weight:700;font-size:13px">📋 今天已送大榮（點開看／可勾選取消重印）</summary><div id="k-today" style="padding:4px 10px 10px">載入中…</div></details><div class="filter-row" style="flex-wrap:wrap;gap:8px;align-items:center">
       ${FILTERS.map(([k,t,n])=>`<button class="fbtn${_ktFilter===k?' on':''}" onclick="_ktFilter='${k}';renderKerryTab()">${t} <b>${n}</b></button>`).join('')}
       <select onchange="_ktDays=+this.value;renderKerryTab()" style="font-size:12px">${[7,14,21,30,60].map(d=>`<option value="${d}"${d===_ktDays?' selected':''}>最近 ${d} 天</option>`).join('')}</select>
       <input id="ktab-q" value="${esc(q)}" placeholder="搜尋單號、訂單號、姓名、商品" oninput="renderKerryTab()" style="flex:1;min-width:180px">
@@ -6463,6 +6464,7 @@ function renderKerryTab(){
         :`<tr><td colspan="6" style="padding:18px;text-align:center;color:var(--dm)">沒有符合的單</td></tr>`}
     </table></div>`;
   if(keepQ){const i=document.getElementById('ktab-q');i.focus();i.setSelectionRange(i.value.length,i.value.length)}
+  loadKerryToday();
 }
 
 async function batchKerry(){
@@ -6482,7 +6484,6 @@ async function batchKerry(){
   const alreadyN=sel.filter(o=>o.trackingNo).length;
   document.getElementById('modal-body').innerHTML=`<h3>🚚 送大榮</h3>
     <div style="font-size:12px;line-height:1.8;margin:6px 0 10px">${modeTxt}</div>
-    <details id="k-today-box" style="margin-bottom:12px;border:1px solid var(--bd);border-radius:8px;background:var(--sf2)"><summary style="cursor:pointer;padding:8px 10px;font-weight:700;font-size:13px">📋 今天已送大榮（點開看／可勾選取消）</summary><div id="k-today" style="padding:4px 10px 10px">載入中…</div></details>
     <div style="display:flex;gap:14px;flex-wrap:wrap;font-size:12px;margin-bottom:8px;align-items:flex-end">
       <label>出貨地<br><select id="k-origin">
         <option value="store">門市（三峽）客代 18005330 — ${esc(pool('store'))}</option>
@@ -6507,34 +6508,41 @@ async function batchKerry(){
     <div class="modal-ft"><button class="btn" onclick="closeModal()">關閉</button>
       <button class="btn btn-g" id="k-go" onclick="doKerry()">🚚 送大榮並印標籤</button></div>`;
   document.getElementById('modal-overlay').classList.remove('hidden');document.body.style.overflow='hidden';
-  loadKerryToday();
 }
 // 「今天已送大榮」清單：列今天出的每一筆、可勾選取消、重開標籤／明細（杰哥 2026-10-10）
-let _kerryToday=[];
-async function loadKerryToday(){
+let _kerryToday=[],_kerryTodayAll=null,_ktTodayAt=0;
+async function loadKerryToday(force){
+  if(!document.getElementById('k-today'))return;
+  if(force||_kerryTodayAll===null||Date.now()-_ktTodayAt>60000){
+    try{
+      const r=await kerryApi('/api/kerry/shipments?days=1');
+      _kerryTodayAll=r.shipments||[]; _ktTodayAt=Date.now();
+      _kerryToday=_kerryTodayAll.filter(s=>!s.cancelled);
+    }catch(e){const b=document.getElementById('k-today');if(b)b.innerHTML='<div style="font-size:12px;color:#b91c1c">載入失敗：'+esc(e.message)+'</div>';return}
+  }
+  renderKerryTodayBox();
+}
+function renderKerryTodayBox(){
   const box=document.getElementById('k-today'); if(!box)return;
-  try{
-    const r=await kerryApi('/api/kerry/shipments?days=1');
-    _kerryToday=(r.shipments||[]).filter(s=>!s.cancelled);   // 已取消的不再列出來佔空間
-    const all=r.shipments||[];
-    if(!all.length){box.innerHTML='<div style="font-size:12px;color:var(--dm)">今天還沒有送過大榮。</div>';return}
-    const rows=all.map(s=>{
-      const t=s.uploadedAt?new Date(s.uploadedAt).toLocaleTimeString('zh-TW',{hour:'2-digit',minute:'2-digit'}):'';
-      const cx=s.cancelled;
-      return `<tr style="${cx?'opacity:.5':''}"><td style="padding:4px 2px">${cx?'':`<input type="checkbox" class="k-today-cb" value="${esc(s.orderKey)}">`}</td>
-        <td style="padding:4px 6px">${esc(s.consignee||'(無名)')}${cx?' <span style="color:#b91c1c;font-size:10px">已取消</span>':''}<div style="font-size:9px;color:var(--dm)">${esc(s.remark||'')}</div></td>
-        <td class="mono" style="padding:4px 6px">${esc(s.bln)}<div style="font-size:9px;color:var(--dm)">${t}</div></td>
-        <td style="padding:4px 2px;white-space:nowrap"><button class="btn" style="font-size:10px;padding:2px 7px" onclick='kerryOpenOne(this,${JSON.stringify(s.orderKey)},"label")'>標籤</button>
-          <button class="btn" style="font-size:10px;padding:2px 7px" onclick='kerryOpenOne(this,${JSON.stringify(s.orderKey)},"detail")'>明細</button></td></tr>`;
-    }).join('');
-    const liveN=all.filter(s=>!s.cancelled).length;
-    box.innerHTML=`<table style="width:100%;font-size:12px;border-collapse:collapse"><tr style="color:var(--dm);font-size:11px"><th style="width:20px"></th><th style="text-align:left">收件人</th><th style="text-align:left">單號／時間</th><th></th></tr>${rows}</table>
-      <div style="margin-top:8px;display:flex;gap:8px;align-items:center;flex-wrap:wrap">
-        <button class="btn" style="font-size:12px" onclick="kerryTodayCheckAll(this)">全選</button>
-        <button class="btn btn-r" style="font-size:12px" onclick="kerryCancelSelected()">↩ 取消勾選的</button>
-        <span style="font-size:11px;color:var(--dm)">今天有效 ${liveN} 筆${all.length>liveN?('、已取消 '+(all.length-liveN)):''}</span></div>
-      <div style="font-size:10px;color:var(--dm);margin-top:4px">取消＝這邊標記作廢、單號釋放（大榮沒有取消 API，交站所前不要收就好）。</div>`;
-  }catch(e){box.innerHTML='<div style="font-size:12px;color:#b91c1c">載入失敗：'+esc(e.message)+'</div>'}
+  const all=_kerryTodayAll||[];
+  if(!all.length){box.innerHTML='<div style="font-size:12px;color:var(--dm)">今天還沒有送過大榮。</div>';return}
+  const rows=all.map(s=>{
+    const t=s.uploadedAt?new Date(s.uploadedAt).toLocaleTimeString('zh-TW',{hour:'2-digit',minute:'2-digit'}):'';
+    const cx=s.cancelled;
+    return `<tr style="${cx?'opacity:.5':''}"><td style="padding:4px 2px">${cx?'':`<input type="checkbox" class="k-today-cb" value="${esc(s.orderKey)}">`}</td>
+      <td style="padding:4px 6px">${esc(s.consignee||'(無名)')}${cx?' <span style="color:#b91c1c;font-size:10px">已取消</span>':''}<div style="font-size:9px;color:var(--dm)">${esc(s.remark||'')}</div></td>
+      <td class="mono" style="padding:4px 6px">${esc(s.bln)}<div style="font-size:9px;color:var(--dm)">${t}</div></td>
+      <td style="padding:4px 2px;white-space:nowrap"><button class="btn" style="font-size:10px;padding:2px 7px" onclick='kerryOpenOne(this,${JSON.stringify(s.orderKey)},"label")'>標籤</button>
+        <button class="btn" style="font-size:10px;padding:2px 7px" onclick='kerryOpenOne(this,${JSON.stringify(s.orderKey)},"detail")'>明細</button></td></tr>`;
+  }).join('');
+  const liveN=all.filter(s=>!s.cancelled).length;
+  box.innerHTML=`<table style="width:100%;font-size:12px;border-collapse:collapse"><tr style="color:var(--dm);font-size:11px"><th style="width:20px"></th><th style="text-align:left">收件人</th><th style="text-align:left">單號／時間</th><th></th></tr>${rows}</table>
+    <div style="margin-top:8px;display:flex;gap:8px;align-items:center;flex-wrap:wrap">
+      <button class="btn" style="font-size:12px" onclick="kerryTodayCheckAll(this)">全選</button>
+      <button class="btn btn-r" style="font-size:12px" onclick="kerryCancelSelected()">↩ 取消勾選的</button>
+      <button class="btn" style="font-size:12px" onclick="loadKerryToday(true)">重新整理</button>
+      <span style="font-size:11px;color:var(--dm)">今天有效 ${liveN} 筆${all.length>liveN?('、已取消 '+(all.length-liveN)):''}</span></div>
+    <div style="font-size:10px;color:var(--dm);margin-top:4px">取消＝這邊標記作廢、單號釋放（大榮沒有取消 API，交站所前不要收就好）。</div>`;
 }
 function kerryTodayCheckAll(btn){const cbs=[...document.querySelectorAll('.k-today-cb')];const on=cbs.some(c=>!c.checked);cbs.forEach(c=>c.checked=on);if(btn)btn.textContent=on?'全不選':'全選'}
 async function kerryCancelSelected(){
@@ -6547,7 +6555,7 @@ async function kerryCancelSelected(){
     showToast('已取消 '+okN+' 筆');
     // 正式模式才動訂單：清掉被取消那幾筆的單號
     if(r.mode==='prod'){(r.results||[]).forEach(x=>{if(x.ok){const o=findO(x.orderKey);if(o){o.trackingNo='';o.delyGbStr='';if(o.kerry)delete o.kerry;saveOne(o)}}});renderList()}
-    loadKerryToday();
+    _kerryTodayAll=null;loadKerryToday(true);
   }catch(e){alert('取消失敗：'+e.message)}
 }
 // 點「標籤/明細」→ 產生後把按鈕換成真的連結讓店員點（程式 a.click() 在 await 後會被當彈窗擋）
@@ -6624,6 +6632,7 @@ async function doKerry(){
   }
   // 存起來，讓改「標籤從第幾格開始印」時可以直接用原本的單號重印、不用再送一次大榮（稽核後 UX 修：杰哥 2026-10-10「改第二格沒辦法改」）
   _kerryLastRows = okRows.length ? okRows : null;
+  _kerryTodayAll=null;   // 送完讓「大榮貨態」分頁的今天清單下次重抓
   const detailBtn = okRows.length ? `<div id="k-detail-area" style="margin-top:8px"><button class="btn" onclick="kerryDetail()" title="司機來收貨時簽的那張清單（駕駛簽章 / 客戶簽章）">📄 產生託運明細（司機簽收用）</button></div>` : '';
   box.innerHTML=`<div style="font-size:12px;font-weight:700;margin-bottom:4px">${res.mode==='mock'?'模擬結果（沒有送大榮、沒有寫回訂單）':res.mode==='test'?'大榮測試環境結果（沒有寫回訂單）':'結果（單號已寫回訂單）'}</div>
     <table style="width:100%;font-size:12px;border-collapse:collapse">${lines.join('')}</table><div id="k-label-area" style="margin-top:8px">${labelHtml}</div>${detailBtn}`;
