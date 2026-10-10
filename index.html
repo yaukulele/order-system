@@ -6565,9 +6565,21 @@ async function doKerry(){
   }
   // 存起來，讓改「標籤從第幾格開始印」時可以直接用原本的單號重印、不用再送一次大榮（稽核後 UX 修：杰哥 2026-10-10「改第二格沒辦法改」）
   _kerryLastRows = okRows.length ? okRows : null;
+  const detailBtn = okRows.length ? `<div id="k-detail-area" style="margin-top:8px"><button class="btn" onclick="kerryDetail()" title="司機來收貨時簽的那張清單（駕駛簽章 / 客戶簽章）">📄 產生託運明細（司機簽收用）</button></div>` : '';
   box.innerHTML=`<div style="font-size:12px;font-weight:700;margin-bottom:4px">${res.mode==='mock'?'模擬結果（沒有送大榮、沒有寫回訂單）':res.mode==='test'?'大榮測試環境結果（沒有寫回訂單）':'結果（單號已寫回訂單）'}</div>
-    <table style="width:100%;font-size:12px;border-collapse:collapse">${lines.join('')}</table><div id="k-label-area" style="margin-top:8px">${labelHtml}</div>`;
+    <table style="width:100%;font-size:12px;border-collapse:collapse">${lines.join('')}</table><div id="k-label-area" style="margin-top:8px">${labelHtml}</div>${detailBtn}`;
   btn.disabled=false; renderList();
+}
+// 託運明細表（司機收貨簽的清單）：按鈕產生後換成真的連結開（程式 window.open 會被擋）
+async function kerryDetail(){
+  if(!_kerryLastRows||!_kerryLastRows.length)return;
+  const area=document.getElementById('k-detail-area'); if(!area)return;
+  area.innerHTML='<span style="font-size:12px;color:var(--dm)">產生託運明細中…</span>';
+  try{
+    const L=await kerryApi('/api/kerry/detail',{rows:_kerryLastRows});
+    const api=getMomoApi(), token=getMomoToken(), f=(L.files&&L.files[0])||L.id;
+    area.innerHTML=`<a class="btn btn-g" target="_blank" rel="noopener" href="${api}/api/kerry/label/${encodeURIComponent(f)}?token=${encodeURIComponent(token)}">📄 開啟託運明細（司機簽收用）</a>`;
+  }catch(e){area.innerHTML='<div style="color:#b91c1c;font-size:12px">託運明細產生失敗：'+esc(e.message)+'</div>'}
 }
 // 改了「標籤從第幾格開始印」→ 用已經取好的單號重印標籤（不會再送一次大榮、不會重複取號）
 let _kerryLastRows=null;
