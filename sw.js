@@ -3,7 +3,7 @@
 //   有差異就 postMessage 通知頁面跳「有新版本」toast。兼顧「開頁快」+「拿得到最新」。
 // 其他 shell asset: stale-while-revalidate
 // Bumps cache version on every release; old caches cleaned up on activate.
-const CACHE = "order-system-v378";
+const CACHE = "order-system-v379";
 const SHELL = ["./", "./index.html", "./manifest.json", "./icon.svg"];
 
 self.addEventListener("install", (event) => {
@@ -68,9 +68,9 @@ self.addEventListener("fetch", (event) => {
         const cached = (await cache.match(req)) || (await cache.match("./index.html"));
         // 比對用 clone — return cached 會消耗 body，背景再讀就失敗。先 clone 留著比對。
         const cachedForCompare = cached ? cached.clone() : null;
-        // cache:'reload' 強制略過瀏覽器 HTTP cache 抓真正最新的 index.html
-        // （否則 GitHub Pages 的 max-age 會讓「背景更新」也拿到舊版，新版永遠進不來）
-        const networkUpdate = fetch(req.url, { cache: "reload" })
+        // cache:'no-cache' = 一定問伺服器「有沒有新版」（帶 ETag），所以 GitHub Pages 的 max-age 不會讓背景更新拿到舊版；
+        // 沒改就回 304、不重抓。2026-10-12 前用 cache:'reload'，每次開頁都在背景重下載整個 1MB（壓縮後 ~320KB）的 index.html，手機吃流量又搶頻寬。
+        const networkUpdate = fetch(req.url, { cache: "no-cache" })
           .then(async (res) => {
             if (res && res.status === 200) {
               let changed = false;
