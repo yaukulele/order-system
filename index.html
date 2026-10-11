@@ -4262,6 +4262,192 @@ function pickStatus(oid,status,ev){
   closeStatusMenu();
   setOrderStatus(oid,status);
 }
+// ===== 已完成 → 扣庫存（杰哥 2026-10-11「訂單系統出貨後庫存自動扣，讓兩個系統聯動」）=====
+// 決策：B「已完成」的時候扣；C 每次都要按確認（前期先人工檢查比較安全）。
+// 庫存跟撈單在同一個 Firebase：inventory/items（整個陣列，庫存 app 用 transaction 改）、inventory/logs（新的在前，留 2000 筆）。
+// 照庫存 app 的「📤出貨」規則（2026-10-11 起可以扣到負數＝欠貨，進貨補回）；紀錄寫「PC出貨-1 #訂單號」跟手動按的放在一起。
+// 對應記在 invMap/{key}：同一個商品（MOMO 用商品編號、PChome 用品名）＋規格 → 庫存品項，第一次選、之後自動帶出來。
+// 防重扣：訂單上 o.invDeducted；不扣的記 o.invSkip。過渡期保護：那個品項 3 天內有人手動按過 PC/MOMO 出貨 → 黃字提醒。
+const INV_LABEL={MO:'MOMO出貨',MO3:'MOMO出貨',MOS:'MOMO出貨',PC:'PC出貨'};
+let _invItems=null,_invItemsAt=0,_invMap=null,_invLogs=null,_invLogsAt=0,_invRows=[];
+function invEligible(o){return !!(o&&INV_LABEL[o.platform]&&!o.invDeducted&&!o.invSkip)}
+async function invLoad(force){
+  await authReady;
+  if(force||!_invItems||Date.now()-_invItemsAt>30000){
+    const v=(await db.ref('inventory/items').once('value')).val();
+    _invItems=(Array.isArray(v)?v:(v?Object.values(v):[])).filter(x=>x&&x.id);_invItemsAt=Date.now();
+  }
+  if(force||!_invMap)_invMap=(await db.ref('invMap').once('value')).val()||{};
+  if(force||!_invLogs||Date.now()-_invLogsAt>60000){
+    const v=(await db.ref('inventory/logs').once('value')).val();
+    _invLogs=(Array.isArray(v)?v:(v?Object.values(v):[])).filter(Boolean);_invLogsAt=Date.now();
+  }
+}
+const invNorm=s=>String(s||'').toUpperCase().replace(/[\s\-+._\/:：()（）【】\[\]]/g,'');
+function invKeyText(o){return (o.goodsCode?'g'+o.goodsCode:'n'+invNorm(o.product).slice(0,90))+'|'+invNorm(o.specs==='無'?'':o.specs).slice(0,50)}
+function invKey(o){const t=invKeyText(o);let h=5381;for(const ch of t)h=((h*33)^ch.codePointAt(0))>>>0;return 'k'+h.toString(36)+'_'+t.length.toString(36)}
+function invItemLabel(it){return `${it.b} ${it.n}（${it.z||'店內'}・剩 ${it.q||0}）`}
+function invFind(id){return (_invItems||[]).find(x=>x.id===id)||null}
+// 建議：①記住的對應 ②型號完全對得上（3 碼以上、品牌也有出現）③過去手動扣的紀錄裡，同平台、這張單之後幾天、型號有出現在品名的
+function invSuggest(o){
+  const m=_invMap[invKey(o)];
+  if(m&&m.txt===invKeyText(o)){
+    if(m.skip)return {skip:true,src:'上次選「不扣」'};
+    const lines=(m.lines||[]).filter(l=>invFind(l.iid)).map(l=>({iid:l.iid,qty:(l.per||1)*(parseInt(o.qty)||1)}));
+    if(lines.length)return {lines,src:'上次選的'};
+  }
+  const name=invNorm((o.product||'')+' '+(o.specs||''));
+  const toks=new Set(String((o.product||'')+' '+(o.specs||'')).toUpperCase().split(/[\s【】\[\]()（）,，、\/+＋|｜:：~～]+/).map(invNorm).filter(Boolean));
+  const exact=(_invItems||[]).filter(it=>{const n=invNorm(it.n);const n0=invNorm(String(it.n).split(/\s+/)[0]);
+    return n0.length>=3&&(toks.has(n)||toks.has(n0))&&name.includes(invNorm(it.b).slice(0,4))});
+  const rank=it=>{let s=0;const sp=String(o.specs||'')+String(o.product||'');const nn=String(it.n).toUpperCase();
+    if(/白|WH/i.test(sp)&&/WH|白/.test(nn))s+=2;if(/黑|BK/i.test(sp)&&/BK|黑/.test(nn))s+=2;if((it.q||0)>0)s+=1;return s};
+  if(exact.length){exact.sort((a,b)=>rank(b)-rank(a));return {lines:[{iid:exact[0].id,qty:parseInt(o.qty)||1}],alts:exact.slice(1,5).map(x=>x.id),src:exact.length>1?'型號對得上（有 '+exact.length+' 個，請確認顏色）':'型號對得上'}}
+  const lab=INV_LABEL[o.platform],from=String(o.date||'').replace(/-/g,'/');
+  const cnt={};
+  for(const l of (_invLogs||[])){
+    if(!l||l.src||!String(l.d||'').startsWith(lab)||!l.iid)continue;
+    const t=String(l.t||'').slice(0,10);if(!from||t<from)continue;
+    if(t>String(new Date(new Date(o.date+'T12:00:00+08:00').getTime()+20*86400000).toISOString().slice(0,10)).replace(/-/g,'/'))continue;
+    const it=invFind(l.iid);if(!it)continue;
+    const n0=invNorm(String(it.n).split(/\s+/)[0]);if(n0.length<2||!name.includes(n0))continue;
+    cnt[l.iid]=(cnt[l.iid]||0)+1;
+  }
+  const best=Object.entries(cnt).sort((a,b)=>b[1]-a[1])[0];
+  if(best)return {lines:[{iid:best[0],qty:parseInt(o.qty)||1}],src:'照以前手動扣的紀錄猜的'};
+  return {lines:[],src:''};
+}
+// 過渡期：這個品項最近 3 天有沒有人「手動」按過 PC/MOMO 出貨（可能已經扣過這張）
+function invRecentManual(iid,o){
+  const lab=INV_LABEL[o.platform];const since=new Date(Date.now()-3*86400000+8*3600e3).toISOString().slice(0,10).replace(/-/g,'/');
+  return (_invLogs||[]).filter(l=>l&&!l.src&&l.iid===iid&&String(l.d||'').startsWith(lab)&&String(l.t||'')>=since);
+}
+async function openInvDeduct(ids){
+  const list=ids.map(findO).filter(invEligible);
+  if(!list.length)return;
+  try{await invLoad(true)}catch(e){showToast('讀不到庫存，這次沒跳扣庫存（'+(e.message||e)+'）');return}
+  _invRows=list.map(o=>{const sg=invSuggest(o);return {id:o.id,act:sg.skip?'skip':(sg.lines&&sg.lines.length?'deduct':'later'),lines:(sg.lines&&sg.lines.length)?sg.lines:[{iid:'',qty:parseInt(o.qty)||1}],src:sg.src||'',alts:sg.alts||[]}});
+  invRender();
+  document.getElementById('modal-overlay').classList.remove('hidden');document.body.style.overflow='hidden';
+}
+function invRender(){
+  const dl='<datalist id="inv-dl">'+(_invItems||[]).map(it=>`<option value="${esc(invItemLabel(it))}"></option>`).join('')+'</datalist>';
+  const rows=_invRows.map((r,ri)=>{const o=findO(r.id);if(!o)return '';
+    const lines=r.lines.map((l,li)=>{const it=invFind(l.iid);const warn=[];
+      if(it){if((it.q||0)-l.qty<0)warn.push('<span style="color:#b45309">庫存剩 '+(it.q||0)+'，扣完會變「欠 '+(l.qty-(it.q||0))+'」（之後進貨補回）</span>');
+        const man=invRecentManual(it.id,o);if(man.length)warn.push('<span style="color:#92400e;background:#fef3c7;padding:1px 5px;border-radius:4px">這 3 天已經有人手動按過「'+esc(INV_LABEL[o.platform])+'」扣這個品項 '+man.length+' 次（'+man.slice(0,2).map(m=>esc(m.t.slice(5)+' '+(m.u||''))).join('、')+'）— 是不是同一張？是的話選「不用扣」</span>')}
+      return `<div style="display:flex;gap:6px;align-items:center;margin-top:4px;flex-wrap:wrap">
+        <input list="inv-dl" style="flex:1;min-width:200px" placeholder="打型號搜尋庫存品項" value="${it?esc(invItemLabel(it)):''}" onchange="invPick(${ri},${li},this.value)">
+        <span style="font-size:12px">扣</span><input type="number" min="1" value="${l.qty}" style="width:56px" onchange="_invRows[${ri}].lines[${li}].qty=Math.max(1,parseInt(this.value)||1);invRender()">
+        ${it?'':`<button class="btn" style="font-size:10px;padding:1px 6px" onclick="invNewItem(${ri},${li})" title="庫存清單裡還沒有這個商品 → 直接新增一筆再扣">庫存沒有 → 新增</button>`}
+        ${r.lines.length>1?`<button class="btn" style="font-size:10px;padding:1px 6px" onclick="_invRows[${ri}].lines.splice(${li},1);invRender()">移除</button>`:''}
+        ${warn.length?'<div style="flex-basis:100%;font-size:11px;line-height:1.6">'+warn.join('<br>')+'</div>':''}</div>`}).join('');
+    const alts=r.alts&&r.alts.length?`<div style="font-size:11px;margin-top:3px;color:var(--dm)">其他可能：${r.alts.map(a=>{const it=invFind(a);return it?`<a href="javascript:void 0" onclick="_invRows[${ri}].lines[0].iid='${esc(a)}';invRender()">${esc(it.b+' '+it.n)}</a>`:''}).join('、')}</div>`:'';
+    return `<div style="border:1px solid var(--bd);border-radius:8px;padding:8px 10px;margin-bottom:8px;${r.act==='deduct'?'':'opacity:.75'}">
+      <div style="font-size:12px"><b>${esc({MO:'MOMO',MO3:'MOMO第三方',MOS:'MOMO超商',PC:'PChome'}[o.platform]||o.platform)}</b>　${esc(o.name||'')}　<span style="color:var(--dm)">${esc(o.orderNo||'')}</span></div>
+      <div style="font-size:12px;margin:2px 0">${esc(String(o.product||'').slice(0,70))}${o.specs&&o.specs!=='無'?'（'+esc(o.specs)+'）':''} × ${parseInt(o.qty)||1}</div>
+      <div style="display:flex;gap:12px;font-size:12px;margin:4px 0;flex-wrap:wrap">
+        <label><input type="radio" name="inv-act-${ri}" ${r.act==='deduct'?'checked':''} onchange="_invRows[${ri}].act='deduct';invRender()"> 扣庫存</label>
+        <label><input type="radio" name="inv-act-${ri}" ${r.act==='skip'?'checked':''} onchange="_invRows[${ri}].act='skip';invRender()"> 不用扣（廠商直出／不在庫存／已手動扣過）</label>
+        <label><input type="radio" name="inv-act-${ri}" ${r.act==='later'?'checked':''} onchange="_invRows[${ri}].act='later';invRender()"> 先不處理</label>
+        ${r.src?`<span style="color:#1d4ed8">建議來源：${esc(r.src)}</span>`:''}</div>
+      ${r.act==='deduct'?lines+alts+`<button class="btn" style="font-size:10px;padding:1px 7px;margin-top:4px" onclick="_invRows[${ri}].lines.push({iid:'',qty:1});invRender()">＋ 再加一個品項（套組）</button>`:''}
+    </div>`}).join('');
+  const nDed=_invRows.filter(r=>r.act==='deduct').length;
+  document.getElementById('modal-body').innerHTML=`<h3>扣庫存</h3>
+    <div style="font-size:12px;color:var(--dm);margin:4px 0 10px;line-height:1.6">訂單改成「已完成」，確認一下要扣庫存的哪一項。選過一次系統會記住，下次同一個商品自動帶出來。「不用扣」也會記住。</div>
+    ${dl}<div style="max-height:58vh;overflow:auto">${rows}</div>
+    <div id="inv-msg" style="font-size:12px;margin-top:6px"></div>
+    <div class="modal-ft"><button class="btn" onclick="closeModal()">先不處理</button><button class="btn btn-g" id="inv-go" onclick="invCommit()">確認（扣 ${nDed} 張）</button></div>`;
+}
+function invPick(ri,li,val){
+  const it=(_invItems||[]).find(x=>invItemLabel(x)===val)||(_invItems||[]).find(x=>(x.b+' '+x.n)===val.trim());
+  _invRows[ri].lines[li].iid=it?it.id:'';invRender();
+}
+function _invTs(){const d=new Date(Date.now()+8*3600e3).toISOString();return d.slice(0,10).replace(/-/g,'/')+' '+d.slice(11,16)}
+// 對一個庫存品項做 transaction：出貨最多扣到 0（跟庫存 app 一樣），回 {ok,pq,nq,done}
+function invTx(iid,delta){return new Promise((resolve,reject)=>{let pq=0,nq=0,missing=false,done=0;
+  db.ref('inventory/items').transaction(cur=>{missing=false;const arr=Array.isArray(cur)?cur:(cur&&typeof cur==='object'?Object.values(cur):null);if(!arr)return cur;
+    const idx=arr.findIndex(x=>x&&x.id===iid);if(idx<0){missing=true;return arr}
+    pq=Number(arr[idx].q)||0;
+    done=Math.abs(delta);nq=pq+delta;   // 可以變負數（欠貨）
+    arr[idx]=Object.assign({},arr[idx],{q:nq});return arr},
+  (err,committed)=>{if(err)return reject(err);resolve({ok:committed&&!missing&&done>0,pq,nq,done,missing})},false)})}
+function invLogTx(entry){return new Promise((resolve,reject)=>{db.ref('inventory/logs').transaction(cur=>{const arr=Array.isArray(cur)?cur:(cur?Object.values(cur):[]);return [entry,...arr.filter(Boolean)].slice(0,2000)},(e)=>e?reject(e):resolve())})}
+let _invBusy=false;
+async function invCommit(){
+  if(_invBusy)return;_invBusy=true;const btn=document.getElementById('inv-go');if(btn)btn.disabled=true;
+  const msg=document.getElementById('inv-msg');const res=[];
+  try{
+    for(const r of _invRows){
+      const o=findO(r.id);if(!o||!invEligible(o))continue;
+      const key=invKey(o),qty=parseInt(o.qty)||1;
+      if(r.act==='later')continue;
+      if(r.act==='skip'){
+        o.invSkip=true;logActivity(o,'庫存：不用扣（廠商直出／不在庫存／已手動扣）');saveOne(o);
+        await db.ref('invMap/'+key).set({txt:invKeyText(o),skip:true,name:String(o.product||'').slice(0,80),by:currentUser||'',at:new Date().toISOString()});
+        res.push(`${o.name}：不扣（已記住）`);continue;
+      }
+      const lines=r.lines.filter(l=>l.iid);
+      if(!lines.length){res.push(`<span style="color:#b91c1c">${esc(o.name)}：沒選品項，沒扣</span>`);continue}
+      const did=[];
+      for(const l of lines){
+        const it=invFind(l.iid);
+        const tx=await invTx(l.iid,-l.qty);
+        if(!tx.ok){res.push(`<span style="color:#b91c1c">${esc(o.name)}：${esc(it?it.b+' '+it.n:'品項')} ${tx.missing?'已被刪除':'沒扣成功，請重試'}</span>`);continue}
+        await invLogTx({id:'od'+Date.now().toString(36)+Math.random().toString(36).slice(2,6),iid:l.iid,u:currentUser||'撈單',t:_invTs(),a:'📤出貨',
+          n:it?it.n:'',b:it?it.b:'',d:`${INV_LABEL[o.platform]}-${tx.done} #${o.orderNo||''}`,pq:tx.pq,nq:tx.nq,src:'撈單',ord:o.orderNo||'',oid:o.id});
+        did.push({iid:l.iid,b:it?it.b:'',n:it?it.n:'',qty:tx.done});
+        res.push(`${esc(o.name)}：${esc(it?it.b+' '+it.n:'')} ${tx.pq}→${tx.nq}`);
+      }
+      if(did.length){
+        o.invDeducted={lines:did,at:new Date().toISOString(),by:currentUser||''};
+        logActivity(o,'庫存已扣：'+did.map(d=>`${d.b} ${d.n} -${d.qty}`).join('、'));saveOne(o);
+        await db.ref('invMap/'+key).set({txt:invKeyText(o),lines:lines.map(l=>({iid:l.iid,per:Math.max(1,Math.round(l.qty/qty))})),name:String(o.product||'').slice(0,80),by:currentUser||'',at:new Date().toISOString()});
+      }
+    }
+    _invMap=null;
+    if(msg)msg.innerHTML=res.join('<br>')||'沒有變動';
+    renderList();
+    setTimeout(()=>{if(res.every(x=>!/b91c1c/.test(x)))closeModal()},res.length?1800:300);
+  }catch(e){if(msg)msg.innerHTML='<span style="color:#b91c1c">失敗：'+esc(e.message||e)+'（已扣的會留紀錄）</span>'}
+  finally{_invBusy=false;if(btn)btn.disabled=false}
+}
+// 扣過的單改成「已取消」→ 問要不要加回庫存（MOMO 退貨的單也可以從這裡加回）
+async function invOfferReturn(oid){
+  const o=findO(oid);if(!o||!o.invDeducted||o.invReturned)return;
+  const L=o.invDeducted.lines||[];
+  if(!confirm('這張單之前扣過庫存：\n'+L.map(l=>`${l.b} ${l.n} -${l.qty}`).join('\n')+'\n\n要加回庫存嗎？（貨有回到店裡才加）'))return;
+  try{
+    await invLoad(true);
+    for(const l of L){
+      const tx=await invTx(l.iid,l.qty);
+      if(!tx.missing)await invLogTx({id:'or'+Date.now().toString(36)+Math.random().toString(36).slice(2,6),iid:l.iid,u:currentUser||'撈單',t:_invTs(),a:'📥進貨',
+        n:l.n,b:l.b,d:`退貨入庫+${l.qty} #${o.orderNo||''}`,pq:tx.pq,nq:tx.nq,src:'撈單',ord:o.orderNo||'',oid:o.id});
+    }
+    o.invReturned={at:new Date().toISOString(),by:currentUser||''};logActivity(o,'庫存已加回：'+L.map(l=>`${l.b} ${l.n} +${l.qty}`).join('、'));saveOne(o);
+    showToast('已加回庫存');renderList();
+  }catch(e){alert('加回失敗：'+(e.message||e))}
+}
+
+// 庫存清單裡沒有這個商品（杰哥：「或是沒加到庫存」）→ 直接新增一筆（數量 0），接著扣就會變欠貨
+async function invNewItem(ri,li){
+  const o=findO(_invRows[ri].id);if(!o)return;
+  const m=String(o.product||'').match(/【([^】]+)】/);
+  const b=prompt('新增到庫存：品牌',m?m[1].split(/\s+/)[0]:'');if(b===null||!b.trim())return;
+  const n=prompt('型號（庫存清單上顯示的名字）','');if(n===null||!n.trim())return;
+  const z=confirm('放在「店內」嗎？\n（按取消＝倉庫）')?'店內':'倉庫';
+  const it={id:'od'+Date.now().toString(36)+Math.random().toString(36).slice(2,5),b:b.trim(),c:'撈單新增',n:n.trim(),q:0,z};
+  try{
+    await new Promise((resolve,reject)=>db.ref('inventory/items').transaction(cur=>{const arr=Array.isArray(cur)?cur:(cur&&typeof cur==='object'?Object.values(cur):[]);
+      if(arr.some(x=>x&&x.b===it.b&&x.n===it.n))return arr;return [...arr,it]},(e)=>e?reject(e):resolve()));
+    await invLoad(true);
+    const hit=(_invItems||[]).find(x=>x.b===it.b&&x.n===it.n);
+    _invRows[ri].lines[li].iid=hit?hit.id:'';invRender();
+    showToast('已新增到庫存：'+it.b+' '+it.n+'（分類「撈單新增」，之後可到庫存搬分類）');
+  }catch(e){alert('新增失敗：'+(e.message||e))}
+}
+
 function setOrderStatus(oid,next){
   const o=findO(oid);if(!o)return;
   const prev=o.status;
@@ -4275,6 +4461,9 @@ function setOrderStatus(oid,next){
   logActivity(o,`狀態：${prev} → ${o.status}`);
   saveOne(o);
   updateCnt();
+  // 已完成 → 跳扣庫存（PChome／MOMO 單）；扣過庫存的單改已取消 → 問要不要加回
+  if(next==='已完成'&&invEligible(o))setTimeout(()=>openInvDeduct([oid]),50);
+  if(next==='已取消'&&o.invDeducted&&!o.invReturned)setTimeout(()=>invOfferReturn(oid),50);
   // 同步所有顯示此單狀態的按鈕（列表 + 安裝排程卡共用 st-btn）— 一次更新兩處，避免各自 stale
   const btns=document.querySelectorAll(`button.st-btn[onclick*="openStatusMenu('${oid}'"]`);
   btns.forEach(btn=>{btn.className=stCls(o.status);btn.textContent=o.status+' ▾'});
@@ -4814,7 +5003,7 @@ ${a.cam}
 ${a.del}
 </div></div>`});
 h+='</div>';if(truncated){h+=`<div class="card" style="margin-top:8px"><div class="card-b" style="text-align:center;padding:14px"><div style="color:var(--dm);font-size:12px;margin-bottom:8px">顯示 ${LIMIT} / ${fl.length} 筆 — 用搜尋或篩選找特定訂單較快</div><button class="btn" onclick="_mobileExpand=true;renderList()">📋 載入全部 ${fl.length} 筆</button></div></div>`}document.getElementById('list-area').innerHTML=h;renderBatchBar(fl)}
-function renderBatchBar(fl){let bar=document.getElementById('batch-bar');if(!selectedIds.size){if(bar)bar.classList.add('hidden');document.body.classList.remove('has-batch-bar');return}const selOrders=orders.filter(o=>selectedIds.has(o.id));if(selOrders.length===0){if(bar)bar.classList.add('hidden');document.body.classList.remove('has-batch-bar');return}if(!bar){bar=document.createElement('div');bar.id='batch-bar';bar.className='batch-bar';document.body.appendChild(bar)}bar.classList.remove('hidden');document.body.classList.add('has-batch-bar');const total=selOrders.reduce((s,o)=>s+tot(o),0);bar.innerHTML=`<span style="font-size:13px;font-weight:700">已選 ${selOrders.length} 筆 ｜ 合計 $${total.toLocaleString()}</span><span style="flex:1"></span><button onclick="batchSetStatus('已確認')">已確認</button><button onclick="batchSetStatus('已出貨')">已出貨</button><button onclick="batchSetStatus('已完成')">已完成</button><button onclick="batchCopyShipping()">📋 複製</button><button onclick="batchPrintShipping()" title="A4 紙張">🖨 A4</button><button onclick="batchPrintShipping4x6()" title="4×6 熱感應標籤">🏷 4×6</button><button onclick="batchPickingList()" title="按商品分組產生揀貨清單">🛒 揀貨</button><button onclick="batchExportShipping()" title="勾選的訂單匯出成貨運託運單 Excel（備註自動帶品名）">📦 託運單</button><button onclick="batchKerry()" title="大榮出貨：系統取託運單號、上傳大榮、印 3*2 標籤，物流填大榮貨運、單號寫回訂單" style="font-weight:700">🚚 大榮出貨</button><button onclick="batchKerryReprint()" title="已經大榮出貨的單，貼紙印壞或沒印到：補印，不會重新取號">🖨 補印大榮</button><button onclick="batchKerryCancel()" title="已經大榮出貨的單：取消出單，清掉訂單上的單號，之後可以重出">↩ 取消大榮</button><button class="danger" onclick="batchDelete()">🗑 刪</button><button onclick="selectedIds.clear();renderList()">取消</button>`}
+function renderBatchBar(fl){let bar=document.getElementById('batch-bar');if(!selectedIds.size){if(bar)bar.classList.add('hidden');document.body.classList.remove('has-batch-bar');return}const selOrders=orders.filter(o=>selectedIds.has(o.id));if(selOrders.length===0){if(bar)bar.classList.add('hidden');document.body.classList.remove('has-batch-bar');return}if(!bar){bar=document.createElement('div');bar.id='batch-bar';bar.className='batch-bar';document.body.appendChild(bar)}bar.classList.remove('hidden');document.body.classList.add('has-batch-bar');const total=selOrders.reduce((s,o)=>s+tot(o),0);bar.innerHTML=`<span style="font-size:13px;font-weight:700">已選 ${selOrders.length} 筆 ｜ 合計 $${total.toLocaleString()}</span><span style="flex:1"></span><button onclick="batchSetStatus('已確認')">已確認</button><button onclick="batchSetStatus('已出貨')">已出貨</button><button onclick="batchSetStatus('已完成')">已完成</button><button onclick="batchCopyShipping()">📋 複製</button><button onclick="batchPrintShipping()" title="A4 紙張">🖨 A4</button><button onclick="batchPrintShipping4x6()" title="4×6 熱感應標籤">🏷 4×6</button><button onclick="batchPickingList()" title="按商品分組產生揀貨清單">🛒 揀貨</button><button onclick="batchExportShipping()" title="勾選的訂單匯出成貨運託運單 Excel（備註自動帶品名）">📦 託運單</button><button onclick="openInvDeduct([...selectedIds])" title="把勾選的 PChome／MOMO 單扣庫存（已扣過、選過不扣的會自動略過）">📦 扣庫存</button><button onclick="batchKerry()" title="大榮出貨：系統取託運單號、上傳大榮、印 3*2 標籤，物流填大榮貨運、單號寫回訂單" style="font-weight:700">🚚 大榮出貨</button><button onclick="batchKerryReprint()" title="已經大榮出貨的單，貼紙印壞或沒印到：補印，不會重新取號">🖨 補印大榮</button><button onclick="batchKerryCancel()" title="已經大榮出貨的單：取消出單，清掉訂單上的單號，之後可以重出">↩ 取消大榮</button><button class="danger" onclick="batchDelete()">🗑 刪</button><button onclick="selectedIds.clear();renderList()">取消</button>`}
 function batchSetStatus(s){
   const sel=orders.filter(o=>selectedIds.has(o.id));if(!sel.length)return;
   // 防呆：批次標記「已完成」前 → 找出未收款的，列出來再確認一次
@@ -4841,6 +5030,7 @@ function batchSetStatus(s){
   _setSavingBadge();db.ref('orders').update(upd).catch(_saveError);
   renderList();updateCnt();
   showToast(`✅ 已更新 ${sel.length} 筆訂單為「${s}」`,'↩️ 還原',undoLast,8000)
+  if(s==='已完成'){const ids=sel.filter(invEligible).map(o=>o.id);if(ids.length)setTimeout(()=>openInvDeduct(ids),300)}
 }
 function batchCopyShipping(){const sel=orders.filter(o=>selectedIds.has(o.id));if(!sel.length)return;copyText(sel.map(o=>fmtShipping(o)).join('\n\n========\n\n'),`✅ 已複製 ${sel.length} 筆出貨資料`)}
 function batchDelete(){const sel=orders.filter(o=>selectedIds.has(o.id));if(!sel.length)return;if(!confirm(`刪除選取的 ${sel.length} 筆訂單？\n\n（可按 Undo 還原）`))return;pushUndo({kind:'delete-batch',orders:sel.map(o=>JSON.parse(JSON.stringify(o)))});const ids=sel.map(o=>o.id);orders=orders.filter(o=>!selectedIds.has(o.id));selectedIds.clear();deleteOrderIds(ids);renderList();showToast(`已刪除 ${sel.length} 筆訂單`,'↩️ 還原',undoLast,8000);_scheduleOrphanPhotoCleanup(sel)}
@@ -5609,6 +5799,8 @@ try{
   }
 }catch(e){console.warn('saveEdit field-merge skipped:',e)}
 saveOne(o);pendingRemoteOrders=null;closeModal();renderList();
+if(prevStatus!=='已完成'&&o.status==='已完成'&&invEligible(o))setTimeout(()=>openInvDeduct([o.id]),120);
+if(prevStatus!=='已取消'&&o.status==='已取消'&&o.invDeducted&&!o.invReturned)setTimeout(()=>invOfferReturn(o.id),120);
 // 如果用戶在排程 tab 開的 edit，存完也要 refresh 排程
 if(document.querySelector('.tab.active')?.textContent?.includes('安裝')&&typeof renderSchedule==='function')renderSchedule();
 updateCnt();}
