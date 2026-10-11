@@ -4358,7 +4358,7 @@ function invRender(){
     <div style="font-size:12px;color:var(--dm);margin:4px 0 10px;line-height:1.6">訂單改成「已完成」，確認一下要扣庫存的哪一項。選過一次系統會記住，下次同一個商品自動帶出來。「不用扣」也會記住。</div>
     ${dl}<div style="max-height:58vh;overflow:auto">${rows}</div>
     <div id="inv-msg" style="font-size:12px;margin-top:6px"></div>
-    <div class="modal-ft"><button class="btn" onclick="closeModal()">先不處理</button><button class="btn btn-g" id="inv-go" onclick="invCommit()">確認（扣 ${nDed} 張）</button></div>`;
+    <div class="modal-ft"><button class="btn" style="margin-right:auto" onclick="invManage()">記住的對應</button><button class="btn" onclick="closeModal()">先不處理</button><button class="btn btn-g" id="inv-go" onclick="invCommit()">確認（扣 ${nDed} 張）</button></div>`;
 }
 function invPick(ri,li,val){
   const it=(_invItems||[]).find(x=>invItemLabel(x)===val)||(_invItems||[]).find(x=>(x.b+' '+x.n)===val.trim());
@@ -4385,7 +4385,7 @@ async function invCommit(){
       if(r.act==='later')continue;
       if(r.act==='skip'){
         o.invSkip=true;logActivity(o,'庫存：不用扣（廠商直出／不在庫存／已手動扣）');saveOne(o);
-        await db.ref('invMap/'+key).set({txt:invKeyText(o),skip:true,name:String(o.product||'').slice(0,80),by:currentUser||'',at:new Date().toISOString()});
+        await db.ref('invMap/'+key).set({txt:invKeyText(o),skip:true,name:String(o.product||'').slice(0,80),spec:o.specs&&o.specs!=='無'?String(o.specs).slice(0,60):'',plat:o.platform,by:currentUser||'',at:new Date().toISOString()});
         res.push(`${o.name}：不扣（已記住）`);continue;
       }
       const lines=r.lines.filter(l=>l.iid);
@@ -4403,7 +4403,7 @@ async function invCommit(){
       if(did.length){
         o.invDeducted={lines:did,at:new Date().toISOString(),by:currentUser||''};
         logActivity(o,'庫存已扣：'+did.map(d=>`${d.b} ${d.n} -${d.qty}`).join('、'));saveOne(o);
-        await db.ref('invMap/'+key).set({txt:invKeyText(o),lines:lines.map(l=>({iid:l.iid,per:Math.max(1,Math.round(l.qty/qty))})),name:String(o.product||'').slice(0,80),by:currentUser||'',at:new Date().toISOString()});
+        await db.ref('invMap/'+key).set({txt:invKeyText(o),lines:lines.map(l=>({iid:l.iid,per:Math.max(1,Math.round(l.qty/qty))})),name:String(o.product||'').slice(0,80),spec:o.specs&&o.specs!=='無'?String(o.specs).slice(0,60):'',plat:o.platform,by:currentUser||'',at:new Date().toISOString()});
       }
     }
     _invMap=null;
@@ -4430,6 +4430,45 @@ async function invOfferReturn(oid){
   }catch(e){alert('加回失敗：'+(e.message||e))}
 }
 
+/* 記住的對應管理（杰哥 10/11「有些可能顏色對不上，有什麼方式可以手動讓他記住」）
+   扣庫存框裡改品項再確認＝自動記住（商品＋規格/顏色各記各的）；這裡可以一次看全部、改錯的、刪掉。 */
+let _invMgrQ='';
+async function invManage(){
+  try{await invLoad(true)}catch(e){alert('讀不到庫存：'+(e.message||e));return}
+  invManageRender();
+  document.getElementById('modal-overlay').classList.remove('hidden');document.body.style.overflow='hidden';
+}
+function invManageRender(){
+  const dl='<datalist id="inv-dl">'+(_invItems||[]).map(it=>`<option value="${esc(invItemLabel(it))}"></option>`).join('')+'</datalist>';
+  const q=_invMgrQ.trim().toUpperCase();
+  const ents=Object.entries(_invMap||{}).filter(([k,m])=>m&&typeof m==='object')
+    .filter(([k,m])=>!q||[m.name,m.spec,...(m.lines||[]).map(l=>{const it=invFind(l.iid);return it?it.b+' '+it.n:''})].some(x=>String(x||'').toUpperCase().includes(q)))
+    .sort((a,b)=>String(b[1].at||'').localeCompare(String(a[1].at||'')));
+  const rows=ents.map(([k,m])=>{
+    const spec=m.spec||String(m.txt||'').split('|')[1]||'';
+    const cur=m.skip?'<b style="color:#6b7280">不用扣</b>':(m.lines||[]).map(l=>{const it=invFind(l.iid);return it?esc(it.b+' '+it.n)+(l.per>1?' ×'+l.per:''):'<span style="color:#b91c1c">（品項已刪除）</span>'}).join('＋');
+    return `<tr style="border-top:1px solid var(--bd)"><td style="padding:6px">${esc(String(m.name||'').slice(0,48))}${spec?`<div style="font-size:11px;color:#1d4ed8">規格：${esc(spec)}</div>`:''}<div style="font-size:10px;color:var(--dm)">${esc(m.plat||'')} ${esc(m.by||'')} ${esc(String(m.at||'').slice(0,10))}</div></td>
+      <td style="padding:6px">${cur}<div style="display:flex;gap:4px;margin-top:4px"><input list="inv-dl" id="im-${esc(k)}" placeholder="改成…（打型號）" style="flex:1;min-width:140px;font-size:12px">
+        <button class="btn" style="font-size:11px;padding:1px 7px" onclick="invMapSet('${esc(k)}')">改</button>
+        <button class="btn" style="font-size:11px;padding:1px 7px" onclick="invMapSkip('${esc(k)}')">設成不用扣</button>
+        <button class="btn btn-r" style="font-size:11px;padding:1px 7px" onclick="invMapDel('${esc(k)}')">刪</button></div></td></tr>`}).join('');
+  document.getElementById('modal-body').innerHTML=`<h3>記住的對應（商品 → 庫存品項）</h3>
+    <div style="font-size:12px;color:var(--dm);margin:4px 0 8px;line-height:1.6">每個商品＋規格（顏色）各記一筆。在扣庫存框裡改品項再按確認也會自動記住。刪掉的話，下次那個商品會重新讓你選。</div>
+    ${dl}<input placeholder="搜尋商品或品項" value="${esc(_invMgrQ)}" oninput="_invMgrQ=this.value;invManageRender();const i=document.querySelector('#modal-body input[placeholder^=搜尋]');i.focus();i.setSelectionRange(i.value.length,i.value.length)" style="width:100%;margin-bottom:8px">
+    <div style="max-height:60vh;overflow:auto;border:1px solid var(--bd);border-radius:8px"><table style="width:100%;border-collapse:collapse;font-size:12px">
+      <tr style="background:var(--sf2)"><th style="text-align:left;padding:6px">訂單上的商品</th><th style="text-align:left;padding:6px">扣庫存的品項</th></tr>
+      ${rows||'<tr><td colspan="2" style="padding:16px;text-align:center;color:var(--dm)">還沒有記住任何對應</td></tr>'}</table></div>
+    <div class="modal-ft"><button class="btn" onclick="closeModal()">關閉</button></div>`;
+}
+async function invMapSet(k){
+  const el=document.getElementById('im-'+k);const v=el?el.value:'';
+  const it=(_invItems||[]).find(x=>invItemLabel(x)===v)||(_invItems||[]).find(x=>(x.b+' '+x.n)===String(v).trim());
+  if(!it){alert('找不到這個庫存品項，請從下拉清單選');return}
+  const m=Object.assign({},_invMap[k]);delete m.skip;m.lines=[{iid:it.id,per:1}];m.by=currentUser||'';m.at=new Date().toISOString();
+  await db.ref('invMap/'+k).set(m);_invMap[k]=m;showToast('已改成 '+it.b+' '+it.n);invManageRender();
+}
+async function invMapSkip(k){const m=Object.assign({},_invMap[k]);delete m.lines;m.skip=true;m.by=currentUser||'';m.at=new Date().toISOString();await db.ref('invMap/'+k).set(m);_invMap[k]=m;invManageRender()}
+async function invMapDel(k){if(!confirm('刪掉這筆對應？下次這個商品會重新讓你選。'))return;await db.ref('invMap/'+k).remove();delete _invMap[k];invManageRender()}
 // 庫存清單裡沒有這個商品（杰哥：「或是沒加到庫存」）→ 直接新增一筆（數量 0），接著扣就會變欠貨
 async function invNewItem(ri,li){
   const o=findO(_invRows[ri].id);if(!o)return;
@@ -5003,7 +5042,7 @@ ${a.cam}
 ${a.del}
 </div></div>`});
 h+='</div>';if(truncated){h+=`<div class="card" style="margin-top:8px"><div class="card-b" style="text-align:center;padding:14px"><div style="color:var(--dm);font-size:12px;margin-bottom:8px">顯示 ${LIMIT} / ${fl.length} 筆 — 用搜尋或篩選找特定訂單較快</div><button class="btn" onclick="_mobileExpand=true;renderList()">📋 載入全部 ${fl.length} 筆</button></div></div>`}document.getElementById('list-area').innerHTML=h;renderBatchBar(fl)}
-function renderBatchBar(fl){let bar=document.getElementById('batch-bar');if(!selectedIds.size){if(bar)bar.classList.add('hidden');document.body.classList.remove('has-batch-bar');return}const selOrders=orders.filter(o=>selectedIds.has(o.id));if(selOrders.length===0){if(bar)bar.classList.add('hidden');document.body.classList.remove('has-batch-bar');return}if(!bar){bar=document.createElement('div');bar.id='batch-bar';bar.className='batch-bar';document.body.appendChild(bar)}bar.classList.remove('hidden');document.body.classList.add('has-batch-bar');const total=selOrders.reduce((s,o)=>s+tot(o),0);bar.innerHTML=`<span style="font-size:13px;font-weight:700">已選 ${selOrders.length} 筆 ｜ 合計 $${total.toLocaleString()}</span><span style="flex:1"></span><button onclick="batchSetStatus('已確認')">已確認</button><button onclick="batchSetStatus('已出貨')">已出貨</button><button onclick="batchSetStatus('已完成')">已完成</button><button onclick="batchCopyShipping()">📋 複製</button><button onclick="batchPrintShipping()" title="A4 紙張">🖨 A4</button><button onclick="batchPrintShipping4x6()" title="4×6 熱感應標籤">🏷 4×6</button><button onclick="batchPickingList()" title="按商品分組產生揀貨清單">🛒 揀貨</button><button onclick="batchExportShipping()" title="勾選的訂單匯出成貨運託運單 Excel（備註自動帶品名）">📦 託運單</button><button onclick="openInvDeduct([...selectedIds])" title="把勾選的 PChome／MOMO 單扣庫存（已扣過、選過不扣的會自動略過）">📦 扣庫存</button><button onclick="batchKerry()" title="大榮出貨：系統取託運單號、上傳大榮、印 3*2 標籤，物流填大榮貨運、單號寫回訂單" style="font-weight:700">🚚 大榮出貨</button><button onclick="batchKerryReprint()" title="已經大榮出貨的單，貼紙印壞或沒印到：補印，不會重新取號">🖨 補印大榮</button><button onclick="batchKerryCancel()" title="已經大榮出貨的單：取消出單，清掉訂單上的單號，之後可以重出">↩ 取消大榮</button><button class="danger" onclick="batchDelete()">🗑 刪</button><button onclick="selectedIds.clear();renderList()">取消</button>`}
+function renderBatchBar(fl){let bar=document.getElementById('batch-bar');if(!selectedIds.size){if(bar)bar.classList.add('hidden');document.body.classList.remove('has-batch-bar');return}const selOrders=orders.filter(o=>selectedIds.has(o.id));if(selOrders.length===0){if(bar)bar.classList.add('hidden');document.body.classList.remove('has-batch-bar');return}if(!bar){bar=document.createElement('div');bar.id='batch-bar';bar.className='batch-bar';document.body.appendChild(bar)}bar.classList.remove('hidden');document.body.classList.add('has-batch-bar');const total=selOrders.reduce((s,o)=>s+tot(o),0);bar.innerHTML=`<span style="font-size:13px;font-weight:700">已選 ${selOrders.length} 筆 ｜ 合計 $${total.toLocaleString()}</span><span style="flex:1"></span><button onclick="batchSetStatus('已確認')">已確認</button><button onclick="batchSetStatus('已出貨')">已出貨</button><button onclick="batchSetStatus('已完成')">已完成</button><button onclick="batchCopyShipping()">📋 複製</button><button onclick="batchPrintShipping()" title="A4 紙張">🖨 A4</button><button onclick="batchPrintShipping4x6()" title="4×6 熱感應標籤">🏷 4×6</button><button onclick="batchPickingList()" title="按商品分組產生揀貨清單">🛒 揀貨</button><button onclick="batchExportShipping()" title="勾選的訂單匯出成貨運託運單 Excel（備註自動帶品名）">📦 託運單</button><button onclick="openInvDeduct([...selectedIds])" title="把勾選的 PChome／MOMO 單扣庫存（已扣過、選過不扣的會自動略過）">📦 扣庫存</button><button onclick="invManage()" title="看／改／刪 系統記住的「商品 → 庫存品項」對應（顏色對錯可以在這裡改）">對應</button><button onclick="batchKerry()" title="大榮出貨：系統取託運單號、上傳大榮、印 3*2 標籤，物流填大榮貨運、單號寫回訂單" style="font-weight:700">🚚 大榮出貨</button><button onclick="batchKerryReprint()" title="已經大榮出貨的單，貼紙印壞或沒印到：補印，不會重新取號">🖨 補印大榮</button><button onclick="batchKerryCancel()" title="已經大榮出貨的單：取消出單，清掉訂單上的單號，之後可以重出">↩ 取消大榮</button><button class="danger" onclick="batchDelete()">🗑 刪</button><button onclick="selectedIds.clear();renderList()">取消</button>`}
 function batchSetStatus(s){
   const sel=orders.filter(o=>selectedIds.has(o.id));if(!sel.length)return;
   // 防呆：批次標記「已完成」前 → 找出未收款的，列出來再確認一次
