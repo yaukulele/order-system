@@ -7069,9 +7069,9 @@ async function kerryOpenOne(btn,orderKey,kind){
     const path=kind==='detail'?'/api/kerry/detail':'/api/kerry/labels';
     const body=kind==='detail'?{rows:[s.row]}:{rows:[s.row],startSlot:1};
     const L=await kerryApi(path,body);
-    const api=getMomoApi(),token=getMomoToken(),f=(L.files&&L.files[0])||L.id;
+    const f=(L.files&&L.files[0])||L.id;
     const a=document.createElement('a');
-    a.href=`${api}/api/kerry/label/${encodeURIComponent(f)}?token=${encodeURIComponent(token)}`;
+    a.href=kLabelUrl(L,f);
     a.target='_blank';a.rel='noopener';a.className='btn btn-g';a.style.cssText='font-size:10px;padding:2px 7px';a.textContent='開'+old;
     btn.replaceWith(a);
   }catch(e){btn.disabled=false;btn.textContent=old;alert((kind==='detail'?'明細':'標籤')+'產生失敗：'+e.message)}
@@ -7170,9 +7170,8 @@ async function _doKerrySend(groups,st,items,vals,notes,origin,slot){
   if(okRows.length){
     try{
       const L=await kerryApi('/api/kerry/labels',{rows:okRows,startSlot:slot});
-      const api=getMomoApi(), token=getMomoToken();
       const files=L.files||[L.id];
-      labelHtml=files.map((f,i)=>`<a class="btn btn-g" style="margin-right:6px" target="_blank" rel="noopener" href="${api}/api/kerry/label/${encodeURIComponent(f)}?token=${encodeURIComponent(token)}">🖨 開啟標籤${files.length>1?'（第 '+(i+1)+' 張）':''}</a>`).join('')
+      labelHtml=files.map((f,i)=>`<a class="btn btn-g" style="margin-right:6px" target="_blank" rel="noopener" href="${kLabelUrl(L,f)}">🖨 開啟標籤${files.length>1?'（第 '+(i+1)+' 張）':''}</a>`).join('')
         +(L.startSlotIgnored?'<div style="font-size:11px;color:#b45309;margin-top:4px">起始格位移要等拿到大榮真的標籤 PDF 才做，這次從第 1 格印</div>':'');
     }catch(e){labelHtml='<div style="color:#b91c1c;font-size:12px">標籤產生失敗：'+esc(e.message)+'（單號已經取好、資料已送到大榮）<button class="btn" style="font-size:11px;margin-left:6px" onclick="kerryReslot()">重新產生標籤</button></div>'}
     // 下一次（同一天）從印到的下一格開始
@@ -7236,8 +7235,8 @@ async function kerryDetail(){
   area.innerHTML='<span style="font-size:12px;color:var(--dm)">產生託運明細中…</span>';
   try{
     const L=await kerryApi('/api/kerry/detail',{rows:_kerryLastRows});
-    const api=getMomoApi(), token=getMomoToken(), f=(L.files&&L.files[0])||L.id;
-    area.innerHTML=`<a class="btn btn-g" target="_blank" rel="noopener" href="${api}/api/kerry/label/${encodeURIComponent(f)}?token=${encodeURIComponent(token)}">📄 開啟託運明細（司機簽收用）</a>`;
+    const f=(L.files&&L.files[0])||L.id;
+    area.innerHTML=`<a class="btn btn-g" target="_blank" rel="noopener" href="${kLabelUrl(L,f)}">📄 開啟託運明細（司機簽收用）</a>`;
   }catch(e){area.innerHTML='<div style="color:#b91c1c;font-size:12px">託運明細產生失敗：'+esc(e.message)+'</div>'}
 }
 // 改了「標籤從第幾格開始印」→ 用已經取好的單號重印標籤（不會再送一次大榮、不會重複取號）
@@ -7254,9 +7253,19 @@ async function kerryReslot(){
 }
 
 function _kerrySlotPicker(){return `<label style="font-size:12px">標籤從第幾格開始印 <select id="k-slot2">${[1,2,3,4,5,6].map(n=>`<option value="${n}">${n}</option>`).join('')}</select></label>`}
+/* 標籤／明細的連結網址。有「票」就用票 —— 這些 PDF 上有客人姓名電話地址，
+   而連結是真的 <a target=_blank>（程式開新分頁會被擋），所以網址一定會進瀏覽器歷史紀錄。
+   以前網址直接帶主 API token，等於把鑰匙寫進歷史紀錄跟網址列（截圖、門市共用電腦都看得到）。
+   票只能開那一份檔、8 小時過期。後端還沒部署新版時退回舊的帶 token 方式，畫面不會壞。 */
+function kLabelUrl(L,f){
+  const api=getMomoApi();
+  const tk=L&&L.tickets&&L.tickets[f];
+  return tk ? `${api}/api/kerry/label/${encodeURIComponent(f)}?t=${encodeURIComponent(tk)}`
+            : `${api}/api/kerry/label/${encodeURIComponent(f)}?token=${encodeURIComponent(getMomoToken())}`;
+}
 async function _kerryLabelLinks(L){
-  const api=getMomoApi(), token=getMomoToken(), files=L.files||[L.id];
-  return files.map((f,i)=>`<a class="btn btn-g" style="margin-right:6px" target="_blank" rel="noopener" href="${api}/api/kerry/label/${encodeURIComponent(f)}?token=${encodeURIComponent(token)}">🖨 開啟標籤${files.length>1?'（第 '+(i+1)+' 張）':''}</a>`).join('')
+  const files=L.files||[L.id];
+  return files.map((f,i)=>`<a class="btn btn-g" style="margin-right:6px" target="_blank" rel="noopener" href="${kLabelUrl(L,f)}">🖨 開啟標籤${files.length>1?'（第 '+(i+1)+' 張）':''}</a>`).join('')
     +(L.startSlotIgnored?'<div style="font-size:11px;color:#b45309;margin-top:4px">起始格位移要等拿到大榮真的標籤 PDF 才做，這次從第 1 格印</div>':'');
 }
 // 補印：用當初送大榮的那份資料重出標籤，不重新取號
