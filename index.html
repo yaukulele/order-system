@@ -7120,6 +7120,10 @@ async function _doKerrySend(groups,st,items,vals,notes,origin,slot){
   let res;
   try{res=await kerryApi('/api/kerry/ship',{items,confirm:'YES'})}
   catch(e){box.innerHTML='<div style="color:#b91c1c;font-size:12px">送出失敗：'+esc(e.message)+'</div>';return}
+  // 分箱的單要「每一箱都成功」才算這張單出貨完成。只有一部分成功就寫回單號／壓平台，
+  // 會變成有一箱沒託運單號卻被當成已出貨（2026-10-13 過夜測試發現）。
+  const wantBoxes={};
+  for(const it of items){const b=kBase(it.orderKey);wantBoxes[b]=(wantBoxes[b]||0)+1}
   const okRows=[], lines=[], byOrd={};
   for(const x of res.results||[]){
     const o=findO(kBase(x.orderKey)), bn=kBoxNo(x.orderKey);
@@ -7131,7 +7135,15 @@ async function _doKerrySend(groups,st,items,vals,notes,origin,slot){
   }
   // 只有「正式」才寫回訂單。模擬、大榮測試環境的單號都是假的／測試號，寫進去會被拿去壓 MOMO／PChome
   for(const oid of Object.keys(byOrd)){
-    const o=findO(oid);const arr=byOrd[oid].sort((a,b)=>a.bn-b.bn);const x=arr[0].x;
+    const o=findO(oid);const arr=byOrd[oid].sort((a,b)=>a.bn-b.bn);
+    // 少了任何一箱就整張都不寫回：留在「還沒出貨」的狀態，把失敗那箱處理好再重送。
+    // 不然第 1 箱失敗、第 2 箱成功時，會把第 2 箱的號當成主單號寫回去還壓回平台，
+    // 等於第 1 箱沒單號沒標籤、貨還在，平台卻顯示已出貨。
+    if(arr.length<(wantBoxes[oid]||1)){
+      if(o){logActivity(o,`送大榮：${wantBoxes[oid]} 箱裡只有 ${arr.length} 箱成功，先不寫回單號也不壓平台，請把失敗的那箱處理好再重送`);saveOne(o)}
+      continue;
+    }
+    const x=(arr.find(a=>a.bn===1)||arr[0]).x;   // 主單號固定是第 1 箱
     {
       if(res.mode!=='prod'||!o)continue;
       // 已經有別家單號的不蓋（開視窗時已排除，這裡再擋一次以防萬一）
