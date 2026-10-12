@@ -6804,7 +6804,11 @@ function ktInit(){
     if(!document.getElementById('tab-kerry').classList.contains('hidden'))renderKerryTab();
   });
 }
-function isKerryOrd(o){return /大榮|kerry/i.test(String(o.delyGbStr||''))&&/^\d{10,12}$/.test(String(o.trackingNo||'').trim())}
+/* 舊資料有人把分箱的兩個單號擠在同一格（「74359190507/74363911418」）——
+   2026-10-12 用真實資料盤出 2 筆。那種格式以前完全不算大榮單：貨態查不到、連標籤都不顯示。
+   改成拆開來每個號各自追。（新的分箱功能是存在 o.kerry.blns，不會再長成這樣，但手打還是可能。）*/
+const _tnList=(v)=>String(v||'').split(/[\/、,;\s]+/).map(x=>x.trim()).filter(x=>/^\d{10,12}$/.test(x));
+function isKerryOrd(o){return /大榮|kerry/i.test(String(o.delyGbStr||''))&&_tnList(o.trackingNo).length>0}
 function ktDaysSince(t){if(!t)return null;const d=new Date(t.replace(' ','T')+':00+08:00');return Math.floor((Date.now()-d.getTime())/86400000)}
 // 狀態分類：done 已送達／issue 異常／stale 運送中但 3 天沒動／move 運送中／none 大榮還沒有紀錄／unk 還沒查過
 function ktClass(v){if(!v)return 'unk';if(v.cls==='move'&&ktDaysSince(v.t)>=3)return 'stale';return v.cls||'unk'}
@@ -6818,7 +6822,7 @@ function ktChip(bln){
   const date=when&&(k==='done'||k==='move')?' <i>'+esc(when.slice(0,5))+'</i>':'';
   return `<span class="kt kt-${k}" data-kt="${esc(bln)}" title="${esc(tip)}（點開看完整歷程）" onclick="event.stopPropagation();openKerryTrack('${esc(bln)}')"><b class="kt-dot"></b>大榮 ${esc(txt)}${date}</span>`;
 }
-function ktBlnsOf(o){const a=[String(o.trackingNo||'').trim()];if(o.kerry&&Array.isArray(o.kerry.blns))o.kerry.blns.forEach(b=>{b=String(b||'').trim();if(b&&a.indexOf(b)<0)a.push(b)});return a}
+function ktBlnsOf(o){const a=_tnList(o.trackingNo);if(o.kerry&&Array.isArray(o.kerry.blns))o.kerry.blns.forEach(b=>{b=String(b||'').trim();if(b&&a.indexOf(b)<0)a.push(b)});return a}
 function ktChipFor(o){if(!isKerryOrd(o))return '';ktInit();ktBadgeSoon();return ktBlnsOf(o).map(ktChip).join('')}
 /* 2026-10-11 杰哥「檢查串接大榮可以怎樣優化」過夜稽核實際查到：
    74414708059 同時掛在 李育人（新莊）跟 洪書婷（高雄），大榮那號是送高雄 → 李育人那張單號是抄錯的；
