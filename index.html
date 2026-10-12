@@ -4399,7 +4399,7 @@ function invRender(){
     </div>`}).join('');
   const nDed=_invRows.filter(r=>r.act==='deduct').length;
   document.getElementById('modal-body').innerHTML=`<h3>扣庫存</h3>
-    <div style="font-size:12px;color:var(--dm);margin:4px 0 10px;line-height:1.6">訂單改成「已完成」，確認一下要扣庫存的哪一項。選過一次系統會記住，下次同一個商品自動帶出來。「不用扣」也會記住。</div>
+    <div style="font-size:12px;color:var(--dm);margin:4px 0 10px;line-height:1.6">訂單改成「已完成」，確認一下要扣庫存的哪一項。選過一次系統會記住，下次同一個商品自動帶出來。「不用扣」也會記住。<br><b>1 單要扣好幾個的</b>（例如弦「兩包優惠」）：把「扣」那格改成 2 再確認，會記住「每 1 單扣 2」，客人買 2 組就自動扣 4。</div>
     ${dl}<div style="max-height:58vh;overflow:auto">${rows}</div>
     <div id="inv-msg" style="font-size:12px;margin-top:6px"></div>
     <div class="modal-ft"><button class="btn" style="margin-right:auto" onclick="invManage()">記住的對應</button><button class="btn" onclick="closeModal()">先不處理</button><button class="btn btn-g" id="inv-go" onclick="invCommit()">確認（扣 ${nDed} 張）</button></div>`;
@@ -4492,7 +4492,8 @@ function invManageRender(){
     const spec=m.spec||String(m.txt||'').split('|')[1]||'';
     const cur=m.skip?'<b style="color:#6b7280">不用扣</b>':(m.lines||[]).map(l=>{const it=invFind(l.iid);return it?esc(it.b+' '+it.n)+(l.per>1?' ×'+l.per:''):'<span style="color:#b91c1c">（品項已刪除）</span>'}).join('＋');
     return `<tr style="border-top:1px solid var(--bd)"><td style="padding:6px">${esc(String(m.name||'').slice(0,48))}${spec?`<div style="font-size:11px;color:#1d4ed8">規格：${esc(spec)}</div>`:''}<div style="font-size:10px;color:var(--dm)">${esc(m.plat||'')} ${esc(m.by||'')} ${esc(String(m.at||'').slice(0,10))}</div></td>
-      <td style="padding:6px">${cur}<div style="display:flex;gap:4px;margin-top:4px"><input list="inv-dl" id="im-${esc(k)}" placeholder="改成…（打型號）" style="flex:1;min-width:140px;font-size:12px">
+      <td style="padding:6px">${cur}<div style="display:flex;gap:4px;margin-top:4px;align-items:center;flex-wrap:wrap"><input list="inv-dl" id="im-${esc(k)}" placeholder="改成…（打型號，空白＝不換品項）" style="flex:1;min-width:140px;font-size:12px">
+        <span style="font-size:11px;white-space:nowrap">每單扣</span><input type="number" min="1" id="imp-${esc(k)}" value="${(m.lines&&m.lines[0]&&m.lines[0].per)||1}" style="width:48px;font-size:12px">
         <button class="btn" style="font-size:11px;padding:1px 7px" onclick="invMapSet('${esc(k)}')">改</button>
         <button class="btn" style="font-size:11px;padding:1px 7px" onclick="invMapSkip('${esc(k)}')">設成不用扣</button>
         <button class="btn btn-r" style="font-size:11px;padding:1px 7px" onclick="invMapDel('${esc(k)}')">刪</button></div></td></tr>`}).join('');
@@ -4505,11 +4506,17 @@ function invManageRender(){
     <div class="modal-ft"><button class="btn" onclick="closeModal()">關閉</button></div>`;
 }
 async function invMapSet(k){
-  const el=document.getElementById('im-'+k);const v=el?el.value:'';
-  const it=(_invItems||[]).find(x=>invItemLabel(x)===v)||(_invItems||[]).find(x=>(x.b+' '+x.n)===String(v).trim());
-  if(!it){alert('找不到這個庫存品項，請從下拉清單選');return}
-  const m=Object.assign({},_invMap[k]);delete m.skip;m.lines=[{iid:it.id,per:1}];m.by=currentUser||'';m.at=new Date().toISOString();
-  await db.ref('invMap/'+k).set(m);_invMap[k]=m;showToast('已改成 '+it.b+' '+it.n);invManageRender();
+  const el=document.getElementById('im-'+k);const v=el?String(el.value).trim():'';
+  const per=Math.max(1,parseInt((document.getElementById('imp-'+k)||{}).value)||1);   // 每 1 單扣幾個（兩包優惠＝2）
+  const cur=_invMap[k]||{};
+  let iid='';
+  if(v){const it=(_invItems||[]).find(x=>invItemLabel(x)===v)||(_invItems||[]).find(x=>(x.b+' '+x.n)===v);if(!it){alert('找不到這個庫存品項，請從下拉清單選');return}iid=it.id}
+  else if(cur.lines&&cur.lines[0])iid=cur.lines[0].iid;   // 空白＝品項不換，只改每單扣幾個
+  if(!iid){alert('請先選庫存品項');return}
+  const m=Object.assign({},cur);delete m.skip;
+  m.lines=[{iid,per}].concat((cur.lines||[]).slice(1).filter(l=>!v));   // 換品項時只留一個；只改數量時套組其他項保留
+  m.by=currentUser||'';m.at=new Date().toISOString();
+  await db.ref('invMap/'+k).set(m);_invMap[k]=m;const it=invFind(iid);showToast('已改成 '+(it?it.b+' '+it.n:'')+'，每單扣 '+per);invManageRender();
 }
 async function invMapSkip(k){const m=Object.assign({},_invMap[k]);delete m.lines;m.skip=true;m.by=currentUser||'';m.at=new Date().toISOString();await db.ref('invMap/'+k).set(m);_invMap[k]=m;invManageRender()}
 async function invMapDel(k){if(!confirm('刪掉這筆對應？下次這個商品會重新讓你選。'))return;await db.ref('invMap/'+k).remove();delete _invMap[k];invManageRender()}
