@@ -7121,7 +7121,7 @@ async function _doKerrySend(groups,st,items,vals,notes,origin,slot){
   try{res=await kerryApi('/api/kerry/ship',{items,confirm:'YES'})}
   catch(e){box.innerHTML='<div style="color:#b91c1c;font-size:12px">送出失敗：'+esc(e.message)+'</div>';return}
   // 分箱的單要「每一箱都成功」才算這張單出貨完成。只有一部分成功就寫回單號／壓平台，
-  // 會變成有一箱沒託運單號卻被當成已出貨（2026-10-13 過夜測試發現）。
+  // 會變成有一箱沒託運單號卻被當成已出貨（2026-10-12 夜間測試發現）。
   const wantBoxes={};
   for(const it of items){const b=kBase(it.orderKey);wantBoxes[b]=(wantBoxes[b]||0)+1}
   const okRows=[], lines=[], byOrd={};
