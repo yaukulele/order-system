@@ -6933,6 +6933,27 @@ function renderKerryTab(){
   loadKerryToday();
 }
 
+/* 大榮六日與國定假日都不配送（杰哥 2026-10-13 確認）。
+   「指送日期」原本預設填明天 → 週五出貨會變週六、週六出貨會變週日，兩天都是大榮不送的日子，
+   等於標籤上印了一個不可能的配送承諾（而且大榮對這個欄位完全不檢查，照收）。
+   改成預設跳到下一個營業日。
+   🔴 國定假日這裡不處理 —— 我們手上沒有權威的假日表，寫死會過期、猜日期比不填更糟。
+      所以：挑到六日會跳紅字，平日則提醒「國定假日大榮也不送，連假請自己確認」。 */
+function kerryNextWorkday(from){
+  const x=new Date(from.getTime());
+  do{ x.setDate(x.getDate()+1) }while(x.getDay()===0||x.getDay()===6);
+  return x;
+}
+function kerryEtpWarn(){
+  const el=document.getElementById('k-etp'), w=document.getElementById('k-etp-warn');
+  if(!el||!w)return;
+  if(!el.value){w.innerHTML='<span style="color:var(--dm)">沒填＝不指定配送日（大榮照它自己的時程送）</span>';return}
+  const d=new Date(el.value+'T12:00:00'), wd=d.getDay();
+  w.innerHTML=(wd===0||wd===6)
+    ? '<span style="color:#b91c1c;font-weight:700">⚠ '+(wd===6?'週六':'週日')+'大榮不配送</span><span style="color:#b91c1c">，請改營業日或清空（清空＝不指定）</span>'
+    : '<span style="color:var(--dm)">國定假日大榮也不配送，碰到連假請自己確認</span>';
+}
+
 // 哪些單不能送大榮（2026-10-11 稽核）：超商取貨、MOMO 第三方（物流由 MOMO 指定）、已取消
 function kerryBlockReason(o){
   if(o.platform==='MOS')return '超商取貨單（客人去門市拿，不走大榮）';
@@ -6966,7 +6987,7 @@ async function batchKerry(){
   const mem=await loadShipSizes();
   const groups=groupForShipping(sel,mem);
   _kerryGroups=groups;
-  const tomorrow=localDateISO(new Date(Date.now()+86400000));
+  const etpDefault=localDateISO(kerryNextWorkday(new Date()));
   const modeTxt=st.mode==='mock'?'<span style="background:#fef3c7;color:#92400e;padding:2px 8px;border-radius:6px;font-weight:700">模擬模式</span>　還沒拿到大榮帳號：流程走得完、會印出模擬標籤，但<b>不會真的送大榮，也不會寫回訂單</b>'
     :st.mode==='test'?'<span style="background:#dbeafe;color:#1e40af;padding:2px 8px;border-radius:6px;font-weight:700">大榮測試環境</span>　真的送到大榮的測試系統、印出真的大榮標籤格式，但<b>不會派車、不計費，單號也不寫回訂單</b>（測試號不能拿去壓 MOMO／PChome）'
     :'<span style="background:#dcfce7;color:#166534;padding:2px 8px;border-radius:6px;font-weight:700">正式</span>　會真的送大榮、真的取號';
@@ -6988,7 +7009,8 @@ async function batchKerry(){
       <label>出貨地<br><select id="k-origin">
         <option value="store">門市（三峽）客代 18005330 — ${esc(pool('store'))}</option>
         <option value="warehouse">倉庫（土城）客代 10000000 — ${esc(pool('warehouse'))}</option></select></label>
-      <label>指送日期<br><input type="date" id="k-etp" value="${tomorrow}"></label>
+      <label>指送日期<br><input type="date" id="k-etp" value="${etpDefault}" onchange="kerryEtpWarn()">
+        <div id="k-etp-warn" style="font-size:11px;margin-top:2px"></div></label>
       <label>標籤從第幾格開始印<br><select id="k-slot" onchange="kerryReslot()">${[1,2,3,4,5,6].map(n=>`<option value="${n}">${n}</option>`).join('')}</select>
         <span style="color:var(--dm)">（A4 六格：左排上到下 1-3、右排 4-6）</span></label>
     </div>
@@ -7011,6 +7033,7 @@ async function batchKerry(){
     <div class="modal-ft"><button class="btn" onclick="closeModal()">關閉</button>
       <button class="btn btn-g" id="k-go" onclick="doKerry()">🚚 送大榮並印標籤</button></div>`;
   document.getElementById('modal-overlay').classList.remove('hidden');document.body.style.overflow='hidden';
+  kerryEtpWarn();
   // 記住上次的出貨地；同一天接著印就從上次印到的下一格開始（半張貼紙接著用）
   const lo=_kLS('kerryOrigin');if(lo&&document.querySelector('#k-origin option[value="'+lo+'"]'))document.getElementById('k-origin').value=lo;
   try{const ns=JSON.parse(_kLS('kerryNextSlot')||'null');if(ns&&ns.d===localDateISO()&&ns.s>=1&&ns.s<=6)document.getElementById('k-slot').value=String(ns.s)}catch(e){}
