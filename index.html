@@ -7027,9 +7027,14 @@ function renderKerryTodayBox(){
   const rows=all.map(s=>{
     const t=s.uploadedAt?new Date(s.uploadedAt).toLocaleTimeString('zh-TW',{hour:'2-digit',minute:'2-digit'}):'';
     const cx=s.cancelled;
-    return `<tr style="${cx?'opacity:.5':''}"><td style="padding:4px 2px">${cx?'':`<input type="checkbox" class="k-today-cb" value="${esc(s.orderKey)}">`}</td>
+    /* 後端給的是「最近 24 小時」不是「今天」→ 早上看會混進昨天下午出的單。
+       那些貨多半已經被司機收走了，取消它只會把我們自己的單號清掉、貨照樣在路上。
+       所以不是今天的要標出日期，而且「全選」不勾它（要取消得自己手動勾）。2026-10-12 稽核 */
+    const sd=s.uploadedAt?localDateISO(new Date(s.uploadedAt)):'';
+    const old=sd&&sd!==localDateISO();
+    return `<tr style="${cx?'opacity:.5':''}"><td style="padding:4px 2px">${cx?'':`<input type="checkbox" class="k-today-cb${old?' k-today-old':''}" value="${esc(s.orderKey)}">`}</td>
       <td style="padding:4px 6px">${esc(s.consignee||'(無名)')}${kBoxNo(s.orderKey)>1?' <span style="font-size:10px;color:var(--dm)">第'+kBoxNo(s.orderKey)+'箱</span>':''}${cx?' <span style="color:#b91c1c;font-size:10px">已取消</span>':''}<div style="font-size:9px;color:var(--dm)">${esc(s.remark||'')}</div></td>
-      <td class="mono" style="padding:4px 6px">${esc(s.bln)}<div style="font-size:9px;color:var(--dm)">${t}</div></td>
+      <td class="mono" style="padding:4px 6px">${esc(s.bln)}<div style="font-size:9px;color:${old?'#b45309':'var(--dm)'}">${old?esc(fmtD(sd))+' ':''}${t}${old?'（不是今天）':''}</div></td>
       <td style="padding:4px 2px;white-space:nowrap"><button class="btn" style="font-size:10px;padding:2px 7px" onclick='kerryOpenOne(this,${JSON.stringify(s.orderKey)},"label")'>標籤</button>
         <button class="btn" style="font-size:10px;padding:2px 7px" onclick='kerryOpenOne(this,${JSON.stringify(s.orderKey)},"detail")'>明細</button></td></tr>`;
   }).join('');
@@ -7042,11 +7047,23 @@ function renderKerryTodayBox(){
       <span style="font-size:11px;color:var(--dm)">今天有效 ${liveN} 筆${all.length>liveN?('、已取消 '+(all.length-liveN)):''}</span></div>
     <div style="font-size:10px;color:var(--dm);margin-top:4px">取消＝這邊標記作廢、單號釋放（大榮沒有取消 API，交站所前不要收就好）。</div>`;
 }
-function kerryTodayCheckAll(btn){const cbs=[...document.querySelectorAll('.k-today-cb')];const on=cbs.some(c=>!c.checked);cbs.forEach(c=>c.checked=on);if(btn)btn.textContent=on?'全不選':'全選'}
+// 「全選」只勾今天的 —— 昨天出的貨司機早就收走了，取消它只是把我們的單號清掉而已
+function kerryTodayCheckAll(btn){
+  const cbs=[...document.querySelectorAll('.k-today-cb:not(.k-today-old)')];
+  const on=cbs.some(c=>!c.checked);
+  cbs.forEach(c=>c.checked=on);
+  document.querySelectorAll('.k-today-cb.k-today-old').forEach(c=>c.checked=false);
+  if(btn)btn.textContent=on?'全不選':'全選（只勾今天）';
+}
 async function kerryCancelSelected(){
   const keys=[...document.querySelectorAll('.k-today-cb:checked')].map(c=>c.value);
   if(!keys.length){alert('請先勾選要取消的單');return}
-  if(!confirm('確定取消這 '+keys.length+' 筆大榮託運？（單號會釋放，交站所前不要讓司機收就好）'))return;
+  // 後端是刻意「不回收單號」的（回收給別張單用就會撞號）→ 訊息不可以寫「單號會釋放」
+  const _oldN=[...document.querySelectorAll('.k-today-cb.k-today-old:checked')].length;
+  if(!confirm('確定取消這 '+keys.length+' 筆大榮託運？'
+    +(_oldN?('\n\n⚠ 其中 '+_oldN+' 筆不是今天出的，貨可能已經被司機收走了，取消只會清掉我們這邊的單號、攔不住貨。'):'')
+    +'\n\n・大榮沒有取消功能：已經貼好的貼紙請撕掉、那箱不要交給司機'
+    +'\n・單號不會還給別張單用（免得撞號），這張單之後重出會沿用同一個號'))return;
   try{
     const r=await kerryApi('/api/kerry/cancel',{orderKeys:keys,confirm:'YES'});   // 後端沒帶 confirm 一律擋（2026-10-11 前這顆一定失敗）
     const okN=(r.results||[]).filter(x=>x.ok).length;
@@ -7062,8 +7079,9 @@ async function kerryCancelSelected(){
 }
 // 點「標籤/明細」→ 產生後把按鈕換成真的連結讓店員點（程式 a.click() 在 await 後會被當彈窗擋）
 async function kerryOpenOne(btn,orderKey,kind){
-  const s=_kerryToday.find(x=>x.orderKey===orderKey)||null;
-  if(!s||!s.row){alert('找不到這筆的資料，可能太舊了');return}
+  // 要從「全部」裡找：已取消的那幾列也有標籤／明細按鈕，只找未取消的會誤報找不到
+  const s=(_kerryTodayAll||[]).find(x=>x.orderKey===orderKey)||null;
+  if(!s||!s.row){alert('找不到這筆的資料，可能太舊了（清單只到最近 24 小時）');return}
   const old=btn.textContent; btn.disabled=true; btn.textContent='產生中…';
   try{
     const path=kind==='detail'?'/api/kerry/detail':'/api/kerry/labels';
