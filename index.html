@@ -6810,8 +6810,21 @@ function ktInit(){
 const _tnList=(v)=>String(v||'').split(/[\/、,;\s]+/).map(x=>x.trim()).filter(x=>/^\d{10,12}$/.test(x));
 function isKerryOrd(o){return /大榮|kerry/i.test(String(o.delyGbStr||''))&&_tnList(o.trackingNo).length>0}
 function ktDaysSince(t){if(!t)return null;const d=new Date(t.replace(' ','T')+':00+08:00');return Math.floor((Date.now()-d.getTime())/86400000)}
+/* 「幾天沒動」要算營業日，不是日曆天（杰哥 2026-10-13：大榮六日國定假日都沒配送）。
+   日曆天的問題：週五傍晚最後一筆動態 → 週一傍晚就滿 3 天被標「卡住」，
+   但大榮中間休六日、實際只過了一個營業日，等於每個週五出的貨到週一就誤報一次。
+   改算營業日：週五 → 要到週三才滿 3 個營業日，那時候才真的是「大榮有上班卻沒動」。
+   （國定假日沒辦法扣，所以連假後還是可能早一點報，但比日曆天準很多。）*/
+function ktBizDaysSince(t){
+  if(!t)return null;
+  const x=new Date(t.replace(' ','T')+':00+08:00'), now=Date.now();
+  if(isNaN(x.getTime()))return null;
+  let n=0;
+  while(x.getTime()<now){ x.setDate(x.getDate()+1); const w=x.getDay(); if(w!==0&&w!==6)n++ }
+  return n;
+}
 // 狀態分類：done 已送達／issue 異常／stale 運送中但 3 天沒動／move 運送中／none 大榮還沒有紀錄／unk 還沒查過
-function ktClass(v){if(!v)return 'unk';if(v.cls==='move'&&ktDaysSince(v.t)>=3)return 'stale';return v.cls||'unk'}
+function ktClass(v){if(!v)return 'unk';if(v.cls==='move'&&ktBizDaysSince(v.t)>=3)return 'stale';return v.cls||'unk'}
 const KT_LABEL={done:'已送達',issue:'異常',stale:'卡住',move:'運送中',none:'未收件',unk:'未查'};
 function ktChip(bln){
   const v=_KT[bln], k=ktClass(v);
@@ -6846,8 +6859,10 @@ function ktBadOf(o,b){
   const v=_KT[b];
   if(v&&v.cls==='none'){
     const since=(o.kerry&&o.kerry.at)?String(o.kerry.at).slice(0,10):String(o.date||'');
+    // 同樣算營業日：六日大榮不會掃到任何東西，用日曆天會在週末後誤報「單號對不上」
     const age=since?Math.floor((Date.now()-new Date(since+'T12:00:00+08:00'))/86400000):0;
-    if(age>=4)return {kind:'lost',txt:'單號對不上',tip:'出貨（或訂單日）已經 '+age+' 天，大榮系統查不到這個單號。可能是自己配送的單故意填的號（正常），也可能是打錯'};
+    const bizAge=since?ktBizDaysSince(since+' 12:00'):0;
+    if(bizAge>=4)return {kind:'lost',txt:'單號對不上',tip:'出貨（或訂單日）已經 '+age+' 天（'+bizAge+' 個營業日），大榮系統查不到這個單號。可能是自己配送的單故意填的號（正常），也可能是打錯'};
   }
   return null;
 }
