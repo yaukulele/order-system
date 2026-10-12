@@ -6407,6 +6407,19 @@ function sizeKeysFor(o){
   if(nm)ks.push('N:'+_fbKey(nm));
   return ks;
 }
+/* 分箱（杰哥 2026-10-12：「有些東西會分好幾箱寄送，我要每一件是單獨的，大榮合併才數比較貴」）
+   才數那格打「5+3」＝分 2 箱、各 5 才跟 3 才 → 送大榮時拆成 2 張獨立託運單（2 個單號、各自才數、各一張標籤）。
+   只打一個數字＝1 箱 1 張單。記憶裡 cai 存加總（舊的匯出託運單照用），boxes 存每箱。 */
+function parseCaiBoxes(v){
+  const t=String(v==null?'':v).replace(/＋/g,'+').replace(/\s/g,'');if(!t)return null;
+  const a=t.split('+').map(x=>x===''?NaN:Number(x));
+  return (a.length&&a.length<=9&&a.every(n=>isFinite(n)&&n>=0))?a:null;
+}
+function caiText(m){return !m||m.cai==null?'':(Array.isArray(m.boxes)&&m.boxes.length>1?m.boxes.join('+'):String(m.cai))}
+const KBOX='~b';   // 第 2 箱之後的大榮 orderKey＝訂單id~b2、~b3…（第 1 箱沿用訂單 id）
+function kBase(k){return String(k||'').split(KBOX)[0]}
+function kBoxNo(k){const m=String(k||'').match(/~b(\d+)$/);return m?+m[1]:1}
+function kKeysOf(o){const ks=[o.id];for(let j=2;j<=9;j++)ks.push(o.id+KBOX+j);return ks}
 let _shipSizes=null;
 async function loadShipSizes(force){
   if(_shipSizes&&!force)return _shipSizes;
@@ -6498,7 +6511,7 @@ async function openShipMemory(){
   // ① 已經記住的
   for(const k of Object.keys(mem||{})){
     const v=mem[k]||{}; const name=v.name||k;
-    if(!g.has(name))g.set(name,{name,keys:[],cai:v.cai,note:v.note||'',qty:v.qty,at:v.at||'',by:v.by||'',
+    if(!g.has(name))g.set(name,{name,keys:[],cai:v.cai,boxes:v.boxes||null,note:v.note||'',qty:v.qty,at:v.at||'',by:v.by||'',
                                 saved:v.cai!=null,skip:!!v.skip,cnt:0,last:''});
     const row=g.get(name); row.keys.push(k);
     if(v.skip)row.skip=true;
@@ -6555,6 +6568,7 @@ function renderShipMemory(){
   document.getElementById('modal-body').innerHTML=`<h3>📐 才數／備註 記憶</h3>
     <div style="font-size:11px;color:var(--dm);line-height:1.7;margin:6px 0 8px">
       匯出託運單時自動帶的就是這些。改完按「<b>儲存</b>」才會寫進去。<br>
+      <b>分好幾箱寄</b>的商品才數打「5+3」（每箱各自一張託運單、各自才數）。<br>
       <b>還沒填</b>那疊是從訂單抓出來、出過貨但還沒填才數的商品，<b>依出過幾次由多到少排</b> —— 先填常出的最劃算。<br>
       備註留空＝那件商品匯出時用完整品名。MO_／PC_ 抬頭是匯出時才加的，這裡不用打。<br>
       倉庫出、廠商直送這種不走我們託運單的，按那一列的「<b>不用填</b>」收起來，待辦清單才不會被卡著。
@@ -6581,7 +6595,7 @@ function renderShipMemory(){
           </td>
           <td style="padding:6px 8px"><input id="mnote_${i}" value="${esc(r.note)}" style="width:100%" placeholder="留空＝用品名">
             ${gs?`<button type="button" class="btn" style="font-size:10px;padding:1px 7px;margin-top:3px" onclick="useMemGuess(${i})">用「${esc(gs)}」</button>`:''}</td>
-          <td style="padding:6px 8px"><input id="mcai_${i}" type="number" min="0" step="0.1" value="${r.cai==null?'':esc(String(r.cai))}" style="width:100%;text-align:right;${(r.saved||r.skip)?'':'background:#fffaf0'}"></td>
+          <td style="padding:6px 8px"><input id="mcai_${i}" type="text" inputmode="decimal" placeholder="5 或 5+3" value="${r.cai==null?'':esc(caiText(r))}" style="width:100%;text-align:right;${(r.saved||r.skip)?'':'background:#fffaf0'}"></td>
           <td style="padding:6px 8px;text-align:center;white-space:nowrap">
             ${r.saved?`<button class="btn" style="font-size:10px;padding:2px 7px;color:#b91c1c;border-color:#fca5a5" onclick="delShipMemory(${i})">刪</button>`
                      :`<button class="btn" style="font-size:10px;padding:2px 7px" onclick="skipShipMemory(${i},${r.skip?'false':'true'})">${r.skip?'改成要填':'不用填'}</button>`}</td>
@@ -6601,14 +6615,16 @@ async function saveShipMemory(){
     const ce=document.getElementById('mcai_'+i), ne=document.getElementById('mnote_'+i);
     if(!ce||!ne)continue;                       // 被搜尋濾掉沒畫出來的，不動它
     const cai=String(ce.value).trim(), note=String(ne.value).trim();
-    if(cai!==''&&!(Number(cai)>=0)){ msg.textContent='「'+r.name+'」的才數不是數字'; msg.style.color='#b91c1c'; ce.focus(); return }
-    if(String(r.cai??'')===cai&&String(r.note||'')===note)continue;   // 沒改就不寫
+    const bx=cai===''?null:parseCaiBoxes(cai);
+    if(cai!==''&&!bx){ msg.textContent='「'+r.name+'」的才數格式不對（一箱打數字；分箱用 + 隔開，例如 5+3）'; msg.style.color='#b91c1c'; ce.focus(); return }
+    if(caiText(r)===cai&&String(r.note||'')===note)continue;   // 沒改就不寫
     if(cai===''&&note===''&&!r.saved)continue;                       // 本來就沒填、現在也沒填 → 不要寫一筆空的進去
     n++;
     // 填了才數就不再是「不用填」，skip 跟著拿掉，不然兩個狀態會打架
-    for(const k of r.keys)upd[k]={name:r.name,qty:r.qty,cai:cai===''?null:Number(cai),note:note,
+    const sum=bx?Math.round(bx.reduce((a,b)=>a+b,0)*10)/10:null;
+    for(const k of r.keys)upd[k]={name:r.name,qty:r.qty,cai:sum,boxes:bx&&bx.length>1?bx:null,note:note,
       skip:false,at:new Date().toISOString(),by:(typeof currentUser!=='undefined'&&currentUser)||''};
-    r.cai=cai===''?null:Number(cai); r.note=note; r.saved=(cai!==''); r.skip=false; r.at=new Date().toISOString();
+    r.cai=sum; r.boxes=bx&&bx.length>1?bx:null; r.note=note; r.saved=(cai!==''); r.skip=false; r.at=new Date().toISOString();
   }
   if(!n){ msg.textContent='沒有改到任何一筆'; msg.style.color='var(--dm)'; return }
   msg.textContent='存檔中…'; msg.style.color='var(--dm)';
@@ -6686,6 +6702,7 @@ async function doExportShipping(){
     const upd={};const now=new Date().toISOString();const who=(typeof currentUser!=='undefined'&&currentUser)||'';
     groups.forEach((r,i)=>{
       const payload={cai:vals[i],qty:r.qty,name:r.name,note:notes[i],at:now,by:who};
+      if(r.mem&&Array.isArray(r.mem.boxes)&&Math.abs(r.mem.boxes.reduce((a,b)=>a+b,0)-vals[i])<0.01)payload.boxes=r.mem.boxes;   // 加總沒改 → 分箱設定留著
       for(const k of sizeKeysFor(r.orders[0]))upd[k]=payload;
     });
     await db.ref('shipSizes').update(upd);
@@ -6757,7 +6774,8 @@ function ktChip(bln){
   const date=when&&(k==='done'||k==='move')?' <i>'+esc(when.slice(0,5))+'</i>':'';
   return `<span class="kt kt-${k}" data-kt="${esc(bln)}" title="${esc(tip)}（點開看完整歷程）" onclick="event.stopPropagation();openKerryTrack('${esc(bln)}')"><b class="kt-dot"></b>大榮 ${esc(txt)}${date}</span>`;
 }
-function ktChipFor(o){if(!isKerryOrd(o))return '';ktInit();ktBadgeSoon();return ktChip(String(o.trackingNo).trim())}
+function ktBlnsOf(o){const a=[String(o.trackingNo||'').trim()];if(o.kerry&&Array.isArray(o.kerry.blns))o.kerry.blns.forEach(b=>{b=String(b||'').trim();if(b&&a.indexOf(b)<0)a.push(b)});return a}
+function ktChipFor(o){if(!isKerryOrd(o))return '';ktInit();ktBadgeSoon();return ktBlnsOf(o).map(ktChip).join('')}
 /* 2026-10-11 杰哥「檢查串接大榮可以怎樣優化」過夜稽核實際查到：
    74414708059 同時掛在 李育人（新莊）跟 洪書婷（高雄），大榮那號是送高雄 → 李育人那張單號是抄錯的；
    74405335059（黃馨慧 9/17）大榮完全查無此號。全部 6 組單號重複。都是 WEBEDI 手抄單號的錯。
@@ -6830,7 +6848,7 @@ function renderKerryTab(){
   const since=localDateISO(new Date(Date.now()-_ktDays*86400000));
   const list=orders.filter(o=>isKerryOrd(o)&&String(o.date||'')>=since);
   const order={issue:0,stale:1,none:2,unk:3,move:4,done:5};
-  const rows=list.map(o=>{const b=String(o.trackingNo).trim(),v=_KT[b];return{o,b,v,k:ktClass(v),bad:ktBadOf(o,b)}});
+  const rows=list.flatMap(o=>ktBlnsOf(o).map((b,j)=>{const v=_KT[b];return{o,b,v,k:ktClass(v),bad:j?null:ktBadOf(o,b)}}));
   const cnt={}; rows.forEach(r=>{cnt[r.k]=(cnt[r.k]||0)+1});
   const badN=rows.filter(r=>r.bad).length;
   const FILTERS=[['active','還沒送達',rows.filter(r=>r.k!=='done').length],['bad','單號對不上',badN],['issue','異常',cnt.issue||0],['stale','卡住 3 天以上',cnt.stale||0],
@@ -6923,14 +6941,14 @@ async function batchKerry(){
         <span style="color:var(--dm)">（A4 六格：左排上到下 1-3、右排 4-6）</span></label>
     </div>
     ${alreadyN?`<div style="font-size:11px;color:#b45309;margin-bottom:6px">⚠ 有 ${alreadyN} 筆已經有配送單號了，確定要重送嗎？（已經送過大榮的系統會直接沿用原本的號，不會重送）</div>`:''}
-    <div style="font-size:11px;color:var(--dm);margin-bottom:6px">已勾選 ${sel.length} 筆、${groups.length} 種商品。才數、備註跟「📦 託運單」是同一份記憶。</div>
+    <div style="font-size:11px;color:var(--dm);margin-bottom:6px">已勾選 ${sel.length} 筆、${groups.length} 種商品。才數、備註跟「📦 託運單」是同一份記憶。<br><b>分好幾箱寄</b>：才數打「5+3」＝分 2 箱（每箱一張獨立託運單、各自才數）；只打一個數字＝1 箱。數量 2 以上但分開裝箱的也用 + 分開。</div>
     <div style="max-height:44vh;overflow:auto;border:1px solid var(--bd);border-radius:8px">
     <table style="width:100%;min-width:520px;border-collapse:collapse;font-size:12px">
       <tr style="background:var(--sf2)"><th style="text-align:left;padding:6px 8px">商品</th><th style="width:50px">件數</th><th style="width:76px">才數</th><th style="width:170px">備註（型號）</th></tr>
       ${groups.map((r,i)=>`<tr style="border-top:1px solid var(--bd)"><td style="padding:6px 8px"><div style="font-weight:600">${esc(r.name)}</div>
         <div style="font-size:10px;color:var(--dm)">${r.orders.length} 筆${r.mem?'・上次 '+esc(String(r.mem.cai))+' 才':'・<span style="color:#b91c1c;font-weight:700">沒填過</span>'}</div></td>
         <td style="text-align:center">${r.qty}</td>
-        <td style="padding:6px"><input id="kcai_${i}" type="number" min="0" step="0.1" value="${r.mem?esc(String(r.mem.cai)):''}" style="width:100%;text-align:right;${r.mem?'':'border-color:#fca5a5;background:#fef2f2'}"></td>
+        <td style="padding:6px"><input id="kcai_${i}" type="text" inputmode="decimal" placeholder="5 或 5+3" step="0.1" value="${esc(caiText(r.mem))}" style="width:100%;text-align:right;${r.mem?'':'border-color:#fca5a5;background:#fef2f2'}"></td>
         <td style="padding:6px"><input id="knote_${i}" value="${esc((r.mem&&r.mem.note)||'')}" placeholder="留空＝完整品名" style="width:100%">
           ${(!(r.mem&&r.mem.note)&&r.guess)?`<div style="margin-top:3px"><button type="button" class="btn" style="font-size:10px;padding:1px 7px" onclick="useKGuess(${i})">用「${esc(r.guess)}」</button></div>`:''}</td></tr>`).join('')}
     </table></div>
@@ -6966,7 +6984,7 @@ function renderKerryTodayBox(){
     const t=s.uploadedAt?new Date(s.uploadedAt).toLocaleTimeString('zh-TW',{hour:'2-digit',minute:'2-digit'}):'';
     const cx=s.cancelled;
     return `<tr style="${cx?'opacity:.5':''}"><td style="padding:4px 2px">${cx?'':`<input type="checkbox" class="k-today-cb" value="${esc(s.orderKey)}">`}</td>
-      <td style="padding:4px 6px">${esc(s.consignee||'(無名)')}${cx?' <span style="color:#b91c1c;font-size:10px">已取消</span>':''}<div style="font-size:9px;color:var(--dm)">${esc(s.remark||'')}</div></td>
+      <td style="padding:4px 6px">${esc(s.consignee||'(無名)')}${kBoxNo(s.orderKey)>1?' <span style="font-size:10px;color:var(--dm)">第'+kBoxNo(s.orderKey)+'箱</span>':''}${cx?' <span style="color:#b91c1c;font-size:10px">已取消</span>':''}<div style="font-size:9px;color:var(--dm)">${esc(s.remark||'')}</div></td>
       <td class="mono" style="padding:4px 6px">${esc(s.bln)}<div style="font-size:9px;color:var(--dm)">${t}</div></td>
       <td style="padding:4px 2px;white-space:nowrap"><button class="btn" style="font-size:10px;padding:2px 7px" onclick='kerryOpenOne(this,${JSON.stringify(s.orderKey)},"label")'>標籤</button>
         <button class="btn" style="font-size:10px;padding:2px 7px" onclick='kerryOpenOne(this,${JSON.stringify(s.orderKey)},"detail")'>明細</button></td></tr>`;
@@ -6990,7 +7008,7 @@ async function kerryCancelSelected(){
     const okN=(r.results||[]).filter(x=>x.ok).length;
     showToast('已取消 '+okN+' 筆');
     // 正式模式才動訂單；只清「就是這張大榮單號」的，別家單號不碰（跟工具列 ↩取消大榮 同一套）
-    if(r.mode==='prod'){(r.results||[]).forEach(x=>{if(!x.ok)return;const o=findO(x.orderKey);if(!o)return;
+    if(r.mode==='prod'){(r.results||[]).forEach(x=>{if(!x.ok)return;const o=findO(kBase(x.orderKey));if(!o)return;
       if(o.trackingNo===x.bln)o.trackingNo='';
       if(o.delyGbStr==='大榮貨運')o.delyGbStr='';
       o.kerry=Object.assign({},o.kerry||{},{cancelled:true,cancelledAt:new Date().toISOString()});
@@ -7025,20 +7043,22 @@ async function doKerry(){
   const groups=_kerryGroups||[], st=_kerryStatus||{};
   const vals=[], notes=[];
   for(let i=0;i<groups.length;i++){
-    const el=document.getElementById('kcai_'+i), v=el?String(el.value).trim():'';
-    if(v===''||!(Number(v)>=0)){alert('「'+groups[i].name+'」的才數還沒填');if(el)el.focus();return}
-    vals.push(Number(v)); notes.push(String((document.getElementById('knote_'+i)||{}).value||'').trim());
+    const el=document.getElementById('kcai_'+i), bx=parseCaiBoxes(el?el.value:'');
+    if(!bx){alert('「'+groups[i].name+'」的才數還沒填或格式不對（一箱打數字；分箱用 + 隔開，例如 5+3）');if(el)el.focus();return}
+    vals.push(bx); notes.push(String((document.getElementById('knote_'+i)||{}).value||'').trim());
   }
   const origin=document.getElementById('k-origin').value;
   const etp=String(document.getElementById('k-etp').value||'').replace(/-/g,'');
   const slot=Number(document.getElementById('k-slot').value)||1;
   const platPrefix=p=>(p==='MO'||p==='MO3')?'MO_':(p==='PC'?'PC_':'');
   const items=[];
-  groups.forEach((r,i)=>r.orders.forEach(o=>items.push({orderKey:o.id,origin,consignee:o.name||'',phone:o.realPhone||o.phone||'',
-    address:o.address||'',pieces:o.qty||1,volume:vals[i],remark:platPrefix(o.platform)+(notes[i]||o.product||''),etp,shipDate:localDateISO().replace(/-/g,'')})));
-  const _rem=items.map(it=>{const o=findO(it.orderKey);return o?isRemoteAddress(o.address):null}).filter(Boolean);
+  // 一箱一張託運單（件數 1、自己的才數）；分箱的第 2 箱起 orderKey 加 ~b2…，備註最前面標 (1/2)、(2/2)（放後面會被大榮 60 字上限切掉）
+  groups.forEach((r,i)=>r.orders.forEach(o=>{const bx=vals[i],n=bx.length;bx.forEach((c,j)=>items.push({orderKey:j?o.id+KBOX+(j+1):o.id,origin,consignee:o.name||'',phone:o.realPhone||o.phone||'',
+    address:o.address||'',pieces:1,volume:c,remark:platPrefix(o.platform)+(n>1?'('+(j+1)+'/'+n+')':'')+(notes[i]||o.product||''),etp,shipDate:localDateISO().replace(/-/g,'')}))}));
+  const _rem=items.filter(it=>kBoxNo(it.orderKey)===1).map(it=>{const o=findO(it.orderKey);return o?isRemoteAddress(o.address):null}).filter(Boolean);
+  const _nOrd=new Set(items.map(it=>kBase(it.orderKey))).size;
   const _remTxt=_rem.length?('⚠ 其中 '+_rem.length+' 筆是大榮偏遠／外島地址，會被加收運費！\n\n'):'';
-  if(st.mode!=='mock'&&!confirm(`${_remTxt}確定送 ${items.length} 筆到大榮${st.mode==='test'?'（測試環境）':'（正式）'}？\n\n系統會取託運單號並上傳，成功的單號會寫回訂單。`))return;
+  if(st.mode!=='mock'&&!confirm(`${_remTxt}確定送 ${_nOrd} 張訂單（${items.length} 箱＝${items.length} 張託運單）到大榮${st.mode==='test'?'（測試環境）':'（正式）'}？\n\n系統會取託運單號並上傳，成功的單號會寫回訂單。`))return;
   if(_kerryBusy)return;
   _kerryBusy=true; const _btn0=document.getElementById('k-go'); if(_btn0)_btn0.disabled=true;
   _kLS('kerryOrigin',origin);
@@ -7048,7 +7068,7 @@ async function _doKerrySend(groups,st,items,vals,notes,origin,slot){
   // 才數／備註記起來（跟匯出託運單同一份）
   try{
     await authReady; const upd={}, now=new Date().toISOString(), who=(typeof currentUser!=='undefined'&&currentUser)||'';
-    groups.forEach((r,i)=>{const pl={cai:vals[i],qty:r.qty,name:r.name,note:notes[i],at:now,by:who};for(const k of sizeKeysFor(r.orders[0]))upd[k]=pl});
+    groups.forEach((r,i)=>{const bx=vals[i];const pl={cai:Math.round(bx.reduce((a,b)=>a+b,0)*10)/10,boxes:bx.length>1?bx:null,qty:r.qty,name:r.name,note:notes[i],at:now,by:who};for(const k of sizeKeysFor(r.orders[0]))upd[k]=pl});
     await db.ref('shipSizes').update(upd); _shipSizes=Object.assign(_shipSizes||{},upd);
   }catch(e){console.warn('才數記憶寫入失敗',e)}
   const box=document.getElementById('k-result'), btn=document.getElementById('k-go');
@@ -7056,27 +7076,34 @@ async function _doKerrySend(groups,st,items,vals,notes,origin,slot){
   let res;
   try{res=await kerryApi('/api/kerry/ship',{items,confirm:'YES'})}
   catch(e){box.innerHTML='<div style="color:#b91c1c;font-size:12px">送出失敗：'+esc(e.message)+'</div>';return}
-  const okRows=[], lines=[];
+  const okRows=[], lines=[], byOrd={};
   for(const x of res.results||[]){
-    const o=findO(x.orderKey);
-    lines.push(`<tr><td style="padding:3px 6px">${esc(o?o.name:x.orderKey)}</td><td style="font-family:var(--mono)">${esc(x.bln||'—')}</td>
+    const o=findO(kBase(x.orderKey)), bn=kBoxNo(x.orderKey);
+    const multi=(res.results||[]).some(y=>kBase(y.orderKey)===kBase(x.orderKey)&&y.orderKey!==x.orderKey);
+    lines.push(`<tr><td style="padding:3px 6px">${esc(o?o.name:x.orderKey)}${multi?' <span style="color:var(--dm)">第 '+bn+' 箱</span>':''}</td><td style="font-family:var(--mono)">${esc(x.bln||'—')}</td>
       <td style="color:${x.ok?'#15803d':'#b91c1c'}">${x.ok?(x.already?'之前送過（沿用原單號）':'成功'):esc(x.error||'失敗')}${(x.notes||[]).length?'<br><span style="color:#b45309">'+esc(x.notes.join('；'))+'</span>':''}${x.remote?'<br><span style="color:#b91c1c;font-weight:700">大榮判定加收區（區外送費／特服）— 會被加運費</span>':''}</td></tr>`);
     if(x.ok&&x.row)okRows.push(x.row);
-    // 只有真的送成功（測試或正式）才寫回訂單；模擬模式的假號絕不寫進去
-    // 只有「正式」才寫回訂單。模擬、大榮測試環境的單號都是假的／測試號，寫進去會被拿去壓 MOMO／PChome
-    if(x.ok&&res.mode==='prod'&&o&&x.bln){
+    if(x.ok&&x.bln&&o)(byOrd[o.id]=byOrd[o.id]||[]).push({bn,bln:x.bln,x});
+  }
+  // 只有「正式」才寫回訂單。模擬、大榮測試環境的單號都是假的／測試號，寫進去會被拿去壓 MOMO／PChome
+  for(const oid of Object.keys(byOrd)){
+    const o=findO(oid);const arr=byOrd[oid].sort((a,b)=>a.bn-b.bn);const x=arr[0].x;
+    {
+      if(res.mode!=='prod'||!o)continue;
       // 已經有別家單號的不蓋（開視窗時已排除，這裡再擋一次以防萬一）
       if(kerryForeignTrack(o)&&o.trackingNo!==x.bln){logActivity(o,`送大榮成功 ${x.bln}，但訂單原本有 ${o.delyGbStr||''} ${o.trackingNo}，沒有覆蓋`);saveOne(o);continue}
-      o.trackingNo=x.bln; o.delyGbStr='大榮貨運';   // MOMO 出貨確認、PChome 物流商（_pcVendorCodeFromLabel）都看這個
-      o.kerry={bln:x.bln,origin,mode:res.mode,at:new Date().toISOString(),station:x.area&&x.area.StationName||''};
-      logActivity(o,`送大榮${res.mode==='test'?'（測試）':''}：託運單號 ${x.bln}`); saveOne(o);
+      if(res.mode!=='prod')continue;
+      o.trackingNo=x.bln; o.delyGbStr='大榮貨運';   // MOMO 出貨確認、PChome 物流商（_pcVendorCodeFromLabel）都看這個；分箱時是第 1 箱的號
+      o.kerry={bln:x.bln,blns:arr.length>1?arr.map(a=>a.bln):null,origin,mode:res.mode,at:new Date().toISOString(),station:x.area&&x.area.StationName||''};
+      logActivity(o,arr.length>1?`送大榮：分 ${arr.length} 箱，託運單號 ${arr.map(a=>a.bln).join('、')}（主單號 ${x.bln}）`:`送大榮：託運單號 ${x.bln}`); saveOne(o);
     }
   }
   // 自動壓平台：只有正式模式、而且訂單上的單號確實是這次大榮的號才壓
   let pushHtml='';
   const _ap=document.getElementById('k-autopush');
   if(res.mode==='prod'&&_ap&&_ap.checked){
-    const targets=(res.results||[]).filter(x=>x.ok&&x.bln).map(x=>({x,o:findO(x.orderKey)})).filter(t=>t.o&&t.o.trackingNo===t.x.bln&&(t.o.platform==='MO'||t.o.platform==='PC'));
+    // 分箱的單只壓一次（平台只收一個單號 → 主單號＝第 1 箱）；其他箱的單號在訂單紀錄裡
+    const targets=(res.results||[]).filter(x=>x.ok&&x.bln).map(x=>({x,o:findO(kBase(x.orderKey))})).filter(t=>t.o&&t.o.trackingNo===t.x.bln&&(t.o.platform==='MO'||t.o.platform==='PC'));
     if(targets.length){
       box.insertAdjacentHTML('beforeend','<div id="k-push-msg" style="font-size:12px;margin-top:6px">壓 MOMO／PChome 中…</div>');
       const pr=await kerryAutoPush(targets);
@@ -7187,8 +7214,8 @@ async function batchKerryReprint(){
   document.getElementById('modal-overlay').classList.remove('hidden');document.body.style.overflow='hidden';
   document.getElementById('k-go2').onclick=async()=>{
     const box=document.getElementById('k-result2');box.textContent='產生中…';
-    try{const L=await kerryApi('/api/kerry/reprint',{orderKeys:sel.map(o=>o.id),startSlot:Number(document.getElementById('k-slot2').value)||1});
-      box.innerHTML=`<div style="font-size:12px;margin-bottom:6px">找到 ${L.found} 張已出單的${L.found<sel.length?`（另外 ${sel.length-L.found} 筆還沒大榮出貨或已取消，略過）`:''}</div>`+await _kerryLabelLinks(L)}
+    try{const L=await kerryApi('/api/kerry/reprint',{orderKeys:sel.flatMap(kKeysOf),startSlot:Number(document.getElementById('k-slot2').value)||1});
+      box.innerHTML=`<div style="font-size:12px;margin-bottom:6px">找到 ${L.found} 張已出單的託運單（分箱的每箱一張）</div>`+await _kerryLabelLinks(L)}
     catch(e){box.innerHTML='<span style="color:#b91c1c">'+esc(e.message)+'</span>'}
   };
 }
@@ -7203,11 +7230,11 @@ async function batchKerryCancel(){
 ・大榮沒有「取消」功能，已經貼好的貼紙請撕掉、貨不要交給司機
 ・之後同一張單重出會沿用原本的單號`))return;
   let res;
-  try{res=await kerryApi('/api/kerry/cancel',{orderKeys:sel.map(o=>o.id),confirm:'YES'})}catch(e){alert('取消失敗：'+e.message);return}
+  try{res=await kerryApi('/api/kerry/cancel',{orderKeys:sel.flatMap(kKeysOf),confirm:'YES'})}catch(e){alert('取消失敗：'+e.message);return}
   let n=0;const bad=[];
   for(const x of res.results||[]){
-    const o=findO(x.orderKey); if(!o)continue;
-    if(!x.ok){bad.push((o.name||o.id)+'：'+x.error);continue}
+    const o=findO(kBase(x.orderKey)); if(!o)continue;
+    if(!x.ok){if(kBoxNo(x.orderKey)===1)bad.push((o.name||o.id)+'：'+x.error);continue}   // 第 2 箱以後本來就可能沒有，不算錯
     if(res.mode==='prod'){
       if(o.trackingNo===x.bln)o.trackingNo='';
       if(o.delyGbStr==='大榮貨運')o.delyGbStr='';
