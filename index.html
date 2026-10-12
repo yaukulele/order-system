@@ -4313,13 +4313,20 @@ function pickStatus(oid,status,ev){
 // 對應記在 invMap/{key}：同一個商品（MOMO 用商品編號、PChome 用品名）＋規格 → 庫存品項，第一次選、之後自動帶出來。
 // 防重扣：訂單上 o.invDeducted；不扣的記 o.invSkip。過渡期保護：那個品項 3 天內有人手動按過 PC/MOMO 出貨 → 黃字提醒。
 const INV_LABEL={MO:'MOMO出貨',MO3:'MOMO出貨',MOS:'MOMO出貨',PC:'PC出貨'};
-let _invItems=null,_invItemsAt=0,_invMap=null,_invLogs=null,_invLogsAt=0,_invRows=[];
-function invEligible(o){return !!(o&&INV_LABEL[o.platform]&&!o.invDeducted&&!o.invSkip)}
+let _invItems=null,_invItemsAt=0,_invMap=null,_invLogs=null,_invLogsAt=0,_invRows=[],_invKeyOf={};   // _invKeyOf：品項 id → Firebase 陣列位置
+function invEligible(o){return !!(o&&INV_LABEL[o.platform]&&(!o.invDeducted||o.invReturned)&&!o.invSkip)}
+/* 跨裝置防重扣（2026-10-13 過夜測試）：o.invDeducted 只存在本機那份訂單上，兩台同時按「已完成」各自都覺得還沒扣 → 扣兩次。
+   扣之前先到 invLock/{訂單id}_{第幾輪} 搶一個記號（transaction，誰先誰贏）；退貨加回也一樣搶 _ret 記號。
+   「第幾輪」＝這張單被加回過幾次（加回後再出貨要能再扣一次）。記號放獨立路徑，因為 saveOne 會整張訂單覆寫。 */
+function _invRound(o){return (o.invRounds||0)}
+function invClaim(key){return new Promise((resolve,reject)=>{db.ref('invLock/'+key).transaction(cur=>{if(cur)return;return {at:new Date().toISOString(),by:currentUser||''}},
+  (err,committed)=>err?reject(err):resolve(!!committed),false)})}
 async function invLoad(force){
   await authReady;
   if(force||!_invItems||Date.now()-_invItemsAt>30000){
     const v=(await db.ref('inventory/items').once('value')).val();
     _invItems=(Array.isArray(v)?v:(v?Object.values(v):[])).filter(x=>x&&x.id);_invItemsAt=Date.now();
+    _invKeyOf={};if(Array.isArray(v))v.forEach((x,i)=>{if(x&&x.id)_invKeyOf[x.id]=String(i)});else if(v)Object.keys(v).forEach(k=>{if(v[k]&&v[k].id)_invKeyOf[v[k].id]=k});
   }
   if(force||!_invMap)_invMap=(await db.ref('invMap').once('value')).val()||{};
   if(force||!_invLogs||Date.now()-_invLogsAt>60000){
@@ -4409,15 +4416,33 @@ function invPick(ri,li,val){
   _invRows[ri].lines[li].iid=it?it.id:'';invRender();
 }
 function _invTs(){const d=new Date(Date.now()+8*3600e3).toISOString();return d.slice(0,10).replace(/-/g,'/')+' '+d.slice(11,16)}
-// 對一個庫存品項做 transaction：出貨最多扣到 0（跟庫存 app 一樣），回 {ok,pq,nq,done}
-function invTx(iid,delta){return new Promise((resolve,reject)=>{let pq=0,nq=0,missing=false,done=0;
-  db.ref('inventory/items').transaction(cur=>{missing=false;const arr=Array.isArray(cur)?cur:(cur&&typeof cur==='object'?Object.values(cur):null);if(!arr)return cur;
-    const idx=arr.findIndex(x=>x&&x.id===iid);if(idx<0){missing=true;return arr}
-    pq=Number(arr[idx].q)||0;
-    done=Math.abs(delta);nq=pq+delta;   // 可以變負數（欠貨）
-    arr[idx]=Object.assign({},arr[idx],{q:nq});return arr},
-  (err,committed)=>{if(err)return reject(err);resolve({ok:committed&&!missing&&done>0,pq,nq,done,missing})},false)})}
-function invLogTx(entry){return new Promise((resolve,reject)=>{db.ref('inventory/logs').transaction(cur=>{const arr=Array.isArray(cur)?cur:(cur?Object.values(cur):[]);return [entry,...arr.filter(Boolean)].slice(0,2000)},(e)=>e?reject(e):resolve())})}
+// 對一個或好幾個庫存品項做「一次」transaction（可以變負數＝欠貨）。ops=[{iid,delta}] → 回每項 {ok,pq,nq,done,missing}
+// 2026-10-13：一張單好幾個品項（套組）原本每項各一次 transaction，每次都上傳整份品項陣列（~100KB）；改成一次改完。
+// 有品項找不到（被刪掉）就只略過那項；全部都找不到就中止，不再把整份陣列原封不動寫回去。
+function invTxMulti(ops){return new Promise((resolve,reject)=>{let out=[];
+  db.ref('inventory/items').transaction(cur=>{const arr=Array.isArray(cur)?cur:(cur&&typeof cur==='object'?Object.values(cur):null);if(!arr)return cur;
+    out=ops.map(op=>{const idx=arr.findIndex(x=>x&&x.id===op.iid);if(idx<0)return {ok:false,missing:true,pq:0,nq:0,done:0};
+      const pq=Number(arr[idx].q)||0,nq=pq+op.delta;arr[idx]=Object.assign({},arr[idx],{q:nq});return {ok:true,missing:false,pq,nq,done:Math.abs(op.delta)}});
+    if(!out.some(r=>r.ok))return;   // 全部找不到 → 中止，不寫
+    return arr},
+  (err,committed)=>{if(err)return reject(err);if(!committed)out=out.map(r=>Object.assign({},r,{ok:false}));resolve(out)},false)})}
+function invTx(iid,delta){return invTxMulti([{iid,delta}]).then(r=>r[0])}
+/* 2026-10-13 過夜測試：庫存品項是「一整個陣列」，原本每扣一次就把整份陣列（~105KB）重新上傳一次，
+   開著庫存／POS 的每一台也要再收一次整份。改成先只對「那一個品項」做 transaction（inventory/items/{位置}，只傳幾百 bytes），
+   而且確認那個位置上的 id 還是同一個（別人刪了品項、陣列位置跑掉 → 改走原本的整份陣列 transaction，結果一樣）。資料格式沒變。 */
+function _invTxOne(iid,delta){const k=_invKeyOf[iid];if(k==null)return Promise.resolve(null);
+  return new Promise((resolve,reject)=>{let r=null;db.ref('inventory/items/'+k).transaction(cur=>{r=null;if(cur==null)return cur;if(cur.id!==iid)return;
+      const pq=Number(cur.q)||0,nq=pq+delta;r={ok:true,missing:false,pq,nq,done:Math.abs(delta)};return Object.assign({},cur,{q:nq})},
+    (err,committed,snap)=>{if(err)return reject(err);const v=snap&&snap.val();resolve(committed&&r&&v&&v.id===iid?r:null)},false)})}
+async function invTxFast(ops){
+  const out=new Array(ops.length),rest=[],restIx=[];
+  for(let i=0;i<ops.length;i++){let r=null;try{r=await _invTxOne(ops[i].iid,ops[i].delta)}catch(e){r=null}
+    if(r)out[i]=r;else{rest.push(ops[i]);restIx.push(i)}}
+  if(rest.length){const rr=await invTxMulti(rest);rr.forEach((r,j)=>{out[restIx[j]]=r})}   // 位置對不上的走原本整份陣列
+  return out;
+}
+// 紀錄一次寫完（同一張單好幾筆紀錄合成一次 transaction，紀錄陣列 ~250KB）
+function invLogTx(entries){entries=[].concat(entries);return new Promise((resolve,reject)=>{db.ref('inventory/logs').transaction(cur=>{const arr=Array.isArray(cur)?cur:(cur?Object.values(cur):[]);return [...entries,...arr.filter(Boolean)].slice(0,2000)},(e)=>e?reject(e):resolve())})}
 let _invBusy=false;
 async function invCommit(){
   if(_invBusy)return;_invBusy=true;const btn=document.getElementById('inv-go');if(btn)btn.disabled=true;
@@ -4434,17 +4459,22 @@ async function invCommit(){
       }
       const lines=r.lines.filter(l=>l.iid);
       if(!lines.length){res.push(`<span style="color:#b91c1c">${esc(o.name)}：沒選品項，沒扣</span>`);continue}
+      // 先搶記號：另一台（或剛剛連點）已經在扣這張 → 不再扣
+      const rnd=_invRound(o)+(o.invReturned?1:0);   // 加回過 → 這次是新的一輪
+      if(!(await invClaim(o.id+'_'+rnd))){res.push(`<span style="color:#b91c1c">${esc(o.name)}：這張單另一台剛剛已經扣過庫存，這次沒再扣（到庫存紀錄搜訂單號可以確認）</span>`);continue}
       const did=[];
-      for(const l of lines){
-        const it=invFind(l.iid);
-        const tx=await invTx(l.iid,-l.qty);
-        if(!tx.ok){res.push(`<span style="color:#b91c1c">${esc(o.name)}：${esc(it?it.b+' '+it.n:'品項')} ${tx.missing?'已被刪除':'沒扣成功，請重試'}</span>`);continue}
-        await invLogTx({id:'od'+Date.now().toString(36)+Math.random().toString(36).slice(2,6),iid:l.iid,u:currentUser||'撈單',t:_invTs(),a:'📤出貨',
+      const txs=await invTxFast(lines.map(l=>({iid:l.iid,delta:-l.qty})));
+      const logs=[];
+      lines.forEach((l,ix)=>{const it=invFind(l.iid),tx=txs[ix];
+        if(!tx.ok){res.push(`<span style="color:#b91c1c">${esc(o.name)}：${esc(it?it.b+' '+it.n:'品項')} ${tx.missing?'已被刪除':'沒扣成功，請重試'}</span>`);return}
+        logs.push({id:'od'+Date.now().toString(36)+Math.random().toString(36).slice(2,6)+ix,iid:l.iid,u:currentUser||'撈單',t:_invTs(),a:'📤出貨',
           n:it?it.n:'',b:it?it.b:'',d:`${INV_LABEL[o.platform]}-${tx.done} #${o.orderNo||''}`,pq:tx.pq,nq:tx.nq,src:'撈單',ord:o.orderNo||'',oid:o.id});
         did.push({iid:l.iid,b:it?it.b:'',n:it?it.n:'',qty:tx.done});
         res.push(`${esc(o.name)}：${esc(it?it.b+' '+it.n:'')} ${tx.pq}→${tx.nq}`);
-      }
+      });
+      if(logs.length)await invLogTx(logs);
       if(did.length){
+        if(rnd)o.invRounds=rnd;delete o.invReturned;   // 加回後再出貨：記下現在是第幾輪
         o.invDeducted={lines:did,at:new Date().toISOString(),by:currentUser||''};
         logActivity(o,'庫存已扣：'+did.map(d=>`${d.b} ${d.n} -${d.qty}`).join('、'));saveOne(o);
         await db.ref('invMap/'+key).set({txt:invKeyText(o),lines:lines.map(l=>({iid:l.iid,per:Math.max(1,Math.round(l.qty/qty))})),name:String(o.product||'').slice(0,80),spec:o.specs&&o.specs!=='無'?String(o.specs).slice(0,60):'',plat:o.platform,by:currentUser||'',at:new Date().toISOString()});
@@ -4459,16 +4489,18 @@ async function invCommit(){
 }
 // 扣過的單改成「已取消」→ 問要不要加回庫存（MOMO 退貨的單也可以從這裡加回）
 async function invOfferReturn(oid){
-  const o=findO(oid);if(!o||!o.invDeducted||o.invReturned)return;
+  const o=findO(oid);if(!o||!o.invDeducted||o.invReturned)return;   // invReturned＝這一輪已經加回過
   const L=o.invDeducted.lines||[];
   if(!confirm('這張單之前扣過庫存：\n'+L.map(l=>`${l.b} ${l.n} -${l.qty}`).join('\n')+'\n\n要加回庫存嗎？（貨有回到店裡才加）'))return;
   try{
     await invLoad(true);
-    for(const l of L){
-      const tx=await invTx(l.iid,l.qty);
-      if(!tx.missing)await invLogTx({id:'or'+Date.now().toString(36)+Math.random().toString(36).slice(2,6),iid:l.iid,u:currentUser||'撈單',t:_invTs(),a:'📥進貨',
-        n:l.n,b:l.b,d:`退貨入庫+${l.qty} #${o.orderNo||''}`,pq:tx.pq,nq:tx.nq,src:'撈單',ord:o.orderNo||'',oid:o.id});
-    }
+    if(!(await invClaim(o.id+'_'+_invRound(o)+'_ret'))){alert('這張單另一台剛剛已經加回過庫存了，這次不再加。');return}
+    const txs=await invTxFast(L.map(l=>({iid:l.iid,delta:l.qty})));
+    const logs=[];
+    L.forEach((l,ix)=>{const tx=txs[ix];if(tx.missing)return;
+      logs.push({id:'or'+Date.now().toString(36)+Math.random().toString(36).slice(2,6)+ix,iid:l.iid,u:currentUser||'撈單',t:_invTs(),a:'📥進貨',
+        n:l.n,b:l.b,d:`退貨入庫+${l.qty} #${o.orderNo||''}`,pq:tx.pq,nq:tx.nq,src:'撈單',ord:o.orderNo||'',oid:o.id})});
+    if(logs.length)await invLogTx(logs);
     o.invReturned={at:new Date().toISOString(),by:currentUser||''};logActivity(o,'庫存已加回：'+L.map(l=>`${l.b} ${l.n} +${l.qty}`).join('、'));saveOne(o);
     showToast('已加回庫存');renderList();
   }catch(e){alert('加回失敗：'+(e.message||e))}
@@ -4530,7 +4562,7 @@ async function invNewItem(ri,li){
   const it={id:'od'+Date.now().toString(36)+Math.random().toString(36).slice(2,5),b:b.trim(),c:'撈單新增',n:n.trim(),q:0,z};
   try{
     await new Promise((resolve,reject)=>db.ref('inventory/items').transaction(cur=>{const arr=Array.isArray(cur)?cur:(cur&&typeof cur==='object'?Object.values(cur):[]);
-      if(arr.some(x=>x&&x.b===it.b&&x.n===it.n))return arr;return [...arr,it]},(e)=>e?reject(e):resolve()));
+      if(arr.some(x=>x&&x.b===it.b&&x.n===it.n))return;return [...arr,it]},(e)=>e?reject(e):resolve()));
     await invLoad(true);
     const hit=(_invItems||[]).find(x=>x.b===it.b&&x.n===it.n);
     _invRows[ri].lines[li].iid=hit?hit.id:'';invRender();
