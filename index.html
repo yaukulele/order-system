@@ -6858,13 +6858,17 @@ function ktBadgeSoon(){if(_ktBadgeT)return;_ktBadgeT=setTimeout(()=>{_ktBadgeT=n
 function ktBadge(){
   const el=document.getElementById('kt-cnt'); if(!el||typeof orders==='undefined')return;
   const since=localDateISO(new Date(Date.now()-21*86400000));
-  const n=orders.filter(o=>isKerryOrd(o)&&String(o.date||'')>=since).filter(o=>{const k=ktClass(_KT[String(o.trackingNo).trim()]);return k==='issue'||k==='stale'}).length;
+  // 要看「每一箱」：分箱的單第 2 箱有異常，原本只看主單號會算不到，紅字數字會少報。
+  // 跟訂單列上的小標籤（ktChipFor → ktBlnsOf）用同一套來源才會一致。（2026-10-12 稽核）
+  const n=orders.filter(o=>isKerryOrd(o)&&String(o.date||'')>=since)
+    .filter(o=>ktBlnsOf(o).some(b=>{const k=ktClass(_KT[b]);return k==='issue'||k==='stale'})).length;
   el.textContent=n; el.style.display=n?'':'none';
 }
 setTimeout(()=>{try{ktInit();ktBadge()}catch(_){}},4000);
 function openKerryTrack(bln){
   const v=_KT[bln], k=ktClass(v);
-  const os=orders.filter(o=>String(o.trackingNo||'').trim()===bln);
+  // 分箱的第 2 箱點開時，訂單上的主單號是第 1 箱 → 要連 o.kerry.blns 一起比，不然查不到是哪張訂單
+  const os=orders.filter(o=>ktBlnsOf(o).indexOf(bln)>=0);
   const ev=(v&&v.ev)||[];
   document.getElementById('modal-body').innerHTML=`<h3>大榮貨態　<span style="font-family:var(--mono)">${esc(bln)}</span></h3>
     <div style="margin:6px 0 10px">${ktChip(bln)} ${v&&v.at?`<span style="font-size:11px;color:var(--dm)">系統查詢時間 ${esc(new Date(v.at).toLocaleString('zh-TW',{hour12:false}))}</span>`:''}</div>
