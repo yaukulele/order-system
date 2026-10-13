@@ -7291,7 +7291,7 @@ async function _doKerrySend(groups,st,items,vals,notes,origin,slot){
     const o=findO(kBase(x.orderKey)), bn=kBoxNo(x.orderKey);
     const multi=(res.results||[]).some(y=>kBase(y.orderKey)===kBase(x.orderKey)&&y.orderKey!==x.orderKey);
     lines.push(`<tr><td style="padding:3px 6px">${esc(o?o.name:x.orderKey)}${multi?' <span style="color:var(--dm)">第 '+bn+' 箱</span>':''}</td><td style="font-family:var(--mono)">${esc(x.bln||'—')}</td>
-      <td style="color:${x.ok?'#15803d':'#b91c1c'}">${x.ok?(x.already?'之前送過（沿用原單號）':'成功'):esc(x.error||'失敗')}${(x.notes||[]).length?'<br><span style="color:#b45309">'+esc(x.notes.join('；'))+'</span>':''}${x.remote?'<br><span style="color:#b91c1c;font-weight:700">大榮判定加收區（區外送費／特服）— 會被加運費</span>':''}</td></tr>`);
+      <td style="color:${!x.ok?'#b91c1c':(_kStale(x)?'#b45309':'#15803d')}">${x.ok?(x.already?(_kStale(x)?'之前送過，<b>這次改的沒生效</b>':'之前送過（沿用原單號）'):'成功'):esc(x.error||'失敗')}${(x.notes||[]).length?'<br><span style="color:#b45309">'+esc(x.notes.join('；'))+'</span>':''}${x.remote?'<br><span style="color:#b91c1c;font-weight:700">大榮判定加收區（區外送費／特服）— 會被加運費</span>':''}</td></tr>`);
     if(x.ok&&x.row)okRows.push(x.row);
     if(x.ok&&x.bln&&o)(byOrd[o.id]=byOrd[o.id]||[]).push({bn,bln:x.bln,x});
   }
@@ -7451,6 +7451,12 @@ async function batchKerryReprint(){
 /* 這張單是不是已經回報給平台了（MOMO 出貨確認／PChome 單號回填）。
    shippedVia 只有真的回報過平台才會是「出貨」（補寄、自行出貨是別的值）。*/
 function kerryPushedToPlat(o){return !!(o&&o.shippedVia==='出貨'&&(o.platform==='MO'||o.platform==='PC'))}
+/* 這一列是「之前送過，但這次改的資料沒有送出去」嗎？
+   後端回的提醒裡會寫「沒有送到大榮」。這種列原本印綠色的「之前送過（沿用原單號）」——
+   看起來像成功，實際上才數／地址還是舊的（運費照舊的才數算），所以改成橘色、講明沒生效。
+   例：原本一箱才數 8，改成「5+3」分兩箱再送 → 第 1 箱還是 8 才，加上新的第 2 箱 3 才
+       ＝大榮手上宣告 11 才，實際只有 8 才。 */
+function _kStale(x){return !!(x&&x.already&&(x.notes||[]).some(n=>/沒有送到大榮/.test(n)))}
 async function batchKerryCancel(){
   const sel=orders.filter(o=>selectedIds.has(o.id));
   if(!sel.length){alert('請先勾選要取消的訂單');return}
