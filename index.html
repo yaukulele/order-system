@@ -7623,7 +7623,20 @@ const PC_SHIP_VENDORS=[
   {code:'ClTrans',name:'中連貨運'},
   {code:'SP',name:'廠商自行出貨'},
 ];
-function _pcVendorCodeFromLabel(label){if(!label)return '';const hit=PC_SHIP_VENDORS.find(v=>label.includes(v.name)||v.name.includes(label)||label.includes(v.name.slice(0,2)));return hit?hit.code:''}
+/* 物流欄的文字 → PChome 的物流商代碼。比對會抓品牌名的前兩個字（「指定-新竹」→ 新竹貨運），
+   這樣才抓得到店裡自己打的各種寫法，但也因此會誤判 ——
+   🔴 2026-10-13 用真實資料跑過 1084 筆物流欄文字，抓到「其他宅配」被對成「宅配通」（4 筆）：
+      「其他宅配」的意思是「別家、沒指定」，不是宅配通。這種錯比對不到更糟，
+      因為畫面上會預選一個看起來很具體的廠商，人就直接按下去，
+      結果告訴 PChome 一個錯的物流商 → 客人去那家查，查不到自己的貨。
+      所以「其他／不明／未知」這類字眼一律當成「問不出來」，不要猜。
+   （送大榮之後的自動壓單不走這裡，那邊是寫死 Kerry —— 本來就確定是大榮。）*/
+function _pcVendorCodeFromLabel(label){
+  if(!label)return '';
+  if(/其他|不明|未知/.test(label))return '';
+  const hit=PC_SHIP_VENDORS.find(v=>label.includes(v.name)||v.name.includes(label)||label.includes(v.name.slice(0,2)));
+  return hit?hit.code:'';
+}
 // 這張 PChome 單是不是「自行出貨（SP）」？是的話補寄回填單號只存本機、不回傳 PChome。
 // 判準：新單有 pcSelfShipped 印記；舊單退而用 shippedVia/delyGbStr（都只有按 SP／手選自行出貨才會是這值）。
 function pcIsSelfShipped(o){return !!(o&&o.platform==='PC'&&(o.pcSelfShipped===true||o.shippedVia==='自行出貨'||o.delyGbStr==='廠商自行出貨'));}
