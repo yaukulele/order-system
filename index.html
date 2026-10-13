@@ -6960,9 +6960,15 @@ function renderKerryTab(){
    平日就是當天。指送日期則是「出貨日的下一個營業日」，兩個日期連動，
    不會出現「出貨日已經順延到週一、指送日卻還寫週六」那種對不起來的情況。
    國定假日不處理（杰哥：碰到國定假日沒關係）→ 連假要自己手動改。 */
+/* 大榮司機大約下午五點來收件，杰哥 2026-10-13 定「17:30 之後才算順延」——
+   過了這個時間才按的，今天已經收不走了，出貨日要算到下一個營業日。
+   要改時間就改這一行（寫成「幾點幾分」換算成分鐘，比只用整點精準）。 */
+const KERRY_CUTOFF_HHMM=[17,30];
+const _kerryCutoffMin=KERRY_CUTOFF_HHMM[0]*60+KERRY_CUTOFF_HHMM[1];
+function kerryPastCutoff(){ const n=new Date(); return n.getHours()*60+n.getMinutes()>=_kerryCutoffMin }
 function kerryShipDay(){
   const t=localDateISO(), w=new Date(t+'T12:00:00').getDay();
-  return (w===0||w===6) ? _nextWorkday(t) : t;   // 六日 → 下一個營業日（就是週一）
+  return (w===0||w===6||kerryPastCutoff()) ? _nextWorkday(t) : t;   // 六日或過了截止時間 → 下一個營業日
 }
 function kerryEtpDay(){ return _nextWorkday(kerryShipDay()); }
 
@@ -7040,7 +7046,9 @@ async function batchKerry(){
       <label>指送日期<br><input type="date" id="k-etp" value="${etpDefault}" onchange="kerryEtpWarn()">
         <div id="k-etp-warn" style="font-size:11px;margin-top:2px"></div></label>
       <div style="font-size:12px">出貨日<br><b style="font-size:13px">${esc(kerryShipDay())}</b>
-        ${kerryShipDay()!==localDateISO()?`<div style="font-size:11px;color:#b45309">今天是${['日','一','二','三','四','五','六'][new Date(localDateISO()+'T12:00:00').getDay()]}，大榮不收件 → 順延</div>`:''}</div>
+        ${kerryShipDay()!==localDateISO()?`<div style="font-size:11px;color:#b45309">${(()=>{const w=new Date(localDateISO()+'T12:00:00').getDay();
+        return (w===0||w===6)?('今天是'+['日','一','二','三','四','五','六'][w]+'，大榮不收件 → 順延')
+          :(kerryPastCutoff()?('已過 '+KERRY_CUTOFF_HHMM[0]+':'+String(KERRY_CUTOFF_HHMM[1]).padStart(2,'0')+'，大榮今天收過了 → 順延'):'順延');})()}</div>`:''}</div>
       <label>標籤從第幾格開始印<br><select id="k-slot" onchange="kerryReslot()">${[1,2,3,4,5,6].map(n=>`<option value="${n}">${n}</option>`).join('')}</select>
         <span style="color:var(--dm)">（A4 六格：左排上到下 1-3、右排 4-6）</span></label>
     </div>
