@@ -7171,17 +7171,32 @@ async function doKerry(){
     vals.push(bx); notes.push(String((document.getElementById('knote_'+i)||{}).value||'').trim());
   }
   const origin=document.getElementById('k-origin').value;
-  const etp=String(document.getElementById('k-etp').value||'').replace(/-/g,'');
+  /* 指送日期是「開視窗那一刻」算好填進去的，出貨日卻是「按下送出這一刻」才算 ——
+     視窗開著跨過半夜（晚上包貨包到凌晨很常見）就會對不起來：
+     例：週五 23:50 開窗 → 指送填下週一；00:05 才按送出 → 出貨日也變下週一 → 指送＝出貨日，
+     等於叫大榮當天收當天送。送出前重算一次，不晚於出貨日就往後推到下一個營業日。
+     （手動挑的日期如果比出貨日還早或同一天，本來就不合理，一樣要修。）2026-10-13 */
+  const _shipDay=kerryShipDay();
+  let etp=String(document.getElementById('k-etp').value||'').replace(/-/g,'');
+  let _etpFixed='';
+  if(etp&&etp<=_shipDay.replace(/-/g,'')){
+    const fixed=_nextWorkday(_shipDay);
+    _etpFixed='指送日期原本是 '+etp+'，但出貨日是 '+_shipDay.replace(/-/g,'')+'（不能同一天或更早），已自動改成 '+fixed.replace(/-/g,'');
+    etp=fixed.replace(/-/g,'');
+    const _el=document.getElementById('k-etp'); if(_el)_el.value=fixed;
+  }
   const slot=Number(document.getElementById('k-slot').value)||1;
   const platPrefix=p=>(p==='MO'||p==='MO3')?'MO_':(p==='PC'?'PC_':'');
   const items=[];
   // 一箱一張託運單（件數 1、自己的才數）；分箱的第 2 箱起 orderKey 加 ~b2…，備註最前面標 (1/2)、(2/2)（放後面會被大榮 60 字上限切掉）
   groups.forEach((r,i)=>r.orders.forEach(o=>{const bx=vals[i],n=bx.length;bx.forEach((c,j)=>items.push({orderKey:j?o.id+KBOX+(j+1):o.id,origin,consignee:o.name||'',phone:o.realPhone||o.phone||'',
-    address:o.address||'',pieces:1,volume:c,remark:platPrefix(o.platform)+(n>1?'('+(j+1)+'/'+n+')':'')+(notes[i]||o.product||''),etp,shipDate:kerryShipDay().replace(/-/g,'')}))}));
+    address:o.address||'',pieces:1,volume:c,remark:platPrefix(o.platform)+(n>1?'('+(j+1)+'/'+n+')':'')+(notes[i]||o.product||''),etp,shipDate:_shipDay.replace(/-/g,'')}))}));
   const _rem=items.filter(it=>kBoxNo(it.orderKey)===1).map(it=>{const o=findO(it.orderKey);return o?isRemoteAddress(o.address):null}).filter(Boolean);
   const _nOrd=new Set(items.map(it=>kBase(it.orderKey))).size;
   const _remTxt=_rem.length?('⚠ 其中 '+_rem.length+' 筆是大榮偏遠／外島地址，會被加收運費！\n\n'):'';
-  if(st.mode!=='mock'&&!confirm(`${_remTxt}確定送 ${_nOrd} 張訂單（${items.length} 箱＝${items.length} 張託運單）到大榮${st.mode==='test'?'（測試環境）':'（正式）'}？\n\n系統會取託運單號並上傳，成功的單號會寫回訂單。`))return;
+  const _fixTxt=_etpFixed?('⚠ '+_etpFixed+'\n\n'):'';
+  const _etpTxt=etp?etp.replace(/(\d{4})(\d{2})(\d{2})/,'$1-$2-$3'):'不指定';
+  if(st.mode!=='mock'&&!confirm(`${_remTxt}${_fixTxt}確定送 ${_nOrd} 張訂單（${items.length} 箱＝${items.length} 張託運單）到大榮${st.mode==='test'?'（測試環境）':'（正式）'}？\n\n出貨日 ${_shipDay}　指送日期 ${_etpTxt}\n系統會取託運單號並上傳，成功的單號會寫回訂單。`))return;
   if(_kerryBusy)return;
   _kerryBusy=true; const _btn0=document.getElementById('k-go'); if(_btn0)_btn0.disabled=true;
   _kLS('kerryOrigin',origin);
