@@ -6532,7 +6532,10 @@ async function batchExportShipping(){
       new Promise((_,rej)=>setTimeout(()=>rej(new Error('查詢逾時')),6000)),
     ]);
     const ids=new Set(sel.map(o=>o.id));
-    sentBefore=(r.shipments||[]).filter(x=>!x.cancelled&&ids.has(x.orderKey));
+    /* 只有「正式」模式才算數：測試／模擬模式送出去的不是真的貨，
+       拿那個跳「再匯出會多一箱」只會在測試期間一直假警報，
+       而假警報的下場就是真的那次也被當成假的。*/
+    sentBefore=(r.mode==='prod')?(r.shipments||[]).filter(x=>!x.cancelled&&ids.has(x.orderKey)):[];
   }catch(e){}
   const mem=await loadShipSizes();
   const groups=groupForShipping(sel,mem);
