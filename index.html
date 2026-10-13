@@ -7163,12 +7163,20 @@ async function batchKerry(){
     <div style="max-height:44vh;overflow:auto;border:1px solid var(--bd);border-radius:8px">
     <table style="width:100%;min-width:520px;border-collapse:collapse;font-size:12px">
       <tr style="background:var(--sf2)"><th style="text-align:left;padding:6px 8px">商品</th><th style="width:50px">件數</th><th style="width:76px">才數</th><th style="width:170px">備註（型號）</th></tr>
-      ${groups.map((r,i)=>`<tr style="border-top:1px solid var(--bd)"><td style="padding:6px 8px"><div style="font-weight:600">${esc(r.name)}</div>
-        <div style="font-size:10px;color:var(--dm)">${r.orders.length} 筆${r.mem?'・上次 '+esc(String(r.mem.cai))+' 才':'・<span style="color:#b91c1c;font-weight:700">沒填過</span>'}</div></td>
+      ${groups.map((r,i)=>{
+        /* 數量跟上次不一樣就要提醒 —— 📦託運單那邊本來就有，這邊漏了。
+           這邊更嚴重：才數記憶如果記的是「5+3」，帶出來就是分 2 箱 ——
+           真的按下去會取 2 個託運單號、印 2 張標籤、在大榮開 2 筆託運，
+           但手上其實只有 1 箱 → 第 2 個號永遠不會動，變成幽靈件。*/
+        const qtyChanged=r.mem&&r.mem.qty!=null&&Number(r.mem.qty)!==Number(r.qty);
+        const memBoxes=r.mem&&Array.isArray(r.mem.boxes)&&r.mem.boxes.length>1?r.mem.boxes.length:0;
+        return `<tr style="border-top:1px solid var(--bd)"><td style="padding:6px 8px"><div style="font-weight:600">${esc(r.name)}</div>
+        <div style="font-size:10px;color:var(--dm)">${r.orders.length} 筆${r.mem?'・上次 '+esc(String(r.mem.cai))+' 才'+(memBoxes?'（分 '+memBoxes+' 箱）':''):'・<span style="color:#b91c1c;font-weight:700">沒填過</span>'}</div>
+        ${qtyChanged?`<div style="font-size:10px;color:#b45309;font-weight:700">⚠ 這次是 ${r.qty} 件，上次是 ${esc(String(r.mem.qty))} 件${memBoxes?`，而且才數記的是分 ${memBoxes} 箱 —— 真的只有 ${memBoxes} 箱再送，不然會多開託運單`:'，確認才數要不要改'}</div>`:''}</td>
         <td style="text-align:center">${r.qty}</td>
         <td style="padding:6px"><input id="kcai_${i}" type="text" inputmode="decimal" placeholder="5 或 5+3" step="0.1" value="${esc(caiText(r.mem))}" style="width:100%;text-align:right;${r.mem?'':'border-color:#fca5a5;background:#fef2f2'}"></td>
         <td style="padding:6px"><input id="knote_${i}" value="${esc((r.mem&&r.mem.note)||'')}" placeholder="留空＝完整品名" style="width:100%">
-          ${(!(r.mem&&r.mem.note)&&r.guess)?`<div style="margin-top:3px"><button type="button" class="btn" style="font-size:10px;padding:1px 7px" onclick="useKGuess(${i})">用「${esc(r.guess)}」</button></div>`:''}</td></tr>`).join('')}
+          ${(!(r.mem&&r.mem.note)&&r.guess)?`<div style="margin-top:3px"><button type="button" class="btn" style="font-size:10px;padding:1px 7px" onclick="useKGuess(${i})">用「${esc(r.guess)}」</button></div>`:''}</td></tr>`;}).join('')}
     </table></div>
     ${st.mode==='prod'
       ?`<label style="display:flex;gap:6px;align-items:center;font-size:12px;margin-top:8px"><input type="checkbox" id="k-autopush" checked> 送完自動壓 MOMO／PChome（大榮貨運＋這次的單號；PChome 自行出貨 SP 的單不壓）</label>`
