@@ -5887,6 +5887,19 @@ if(prevStatus!=='已完成'&&o.status==='已完成'){
 }
 const newDely=document.getElementById('e-dely')?.value||'';
 const newTracking=(document.getElementById('e-tracking')?.value||'').trim();
+/* 這張是用大榮出過貨的、而且要改掉的就是那個號 → 問一下再改。
+   改掉之後：貨態那一區追不到那箱（isKerryOrd 要物流是大榮＋有單號），
+   平台上壓的也還是舊號，等於那箱貨在系統裡消失，但它還在路上。
+   平常改物流／單號是很常用的操作（手填新竹、黑貓），所以只在「真的會弄丟大榮那箱」時才問。*/
+if(o.kerry&&o.kerry.bln&&String(o.trackingNo||'')===o.kerry.bln&&newTracking!==o.kerry.bln){
+  const NL=String.fromCharCode(10);
+  if(!confirm('這張是用大榮出貨的，單號 '+o.kerry.bln+'。'+NL+NL
+    +'改成「'+(newTracking||'(清空)')+'」之後：'+NL
+    +'・大榮貨態那一區就追不到那箱了'+NL
+    +'・平台上壓的還是原本的號'+NL
+    +'・大榮那邊的託運單不會跟著取消（要取消請用「↩ 取消大榮」）'+NL+NL
+    +'確定要改嗎？'))return;
+}
 if(newDely!==(o.delyGbStr||'')||newTracking!==(o.trackingNo||'')){
   // 物流欄位改了 — 寫 activity log（手動編輯，不是 MOMO 回報）
   const old=`${o.delyGbStr||'(空)'}/${o.trackingNo||'(空)'}`;
