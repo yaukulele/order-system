@@ -7309,7 +7309,7 @@ async function _doKerrySend(groups,st,items,vals,notes,origin,slot){
      那種情況下訂單上還沒寫單號，看起來像完全沒出貨，但大榮其實已經有那筆。
      所以不能只說「失敗」，要講下一步：再按一次會沿用原本的號，不會變成兩箱。 */
   catch(e){
-    btn.disabled=false;   // 🔴 一定要放開 —— 不然上面叫他「再按一次」，按鈕是鎖的根本按不下去
+    btn.disabled=false;   // 外層 doKerry() 的 finally 本來就會放開，這裡是保險（叫人再按一次，按鈕就一定要是能按的）
     box.innerHTML='<div style="color:#b91c1c;font-size:12px">送出失敗：'+esc(e.message)
     +'<div style="color:var(--dm);margin-top:5px;line-height:1.7">這代表<b>我們這邊沒收到回應</b>，不代表大榮沒收到（斷線、逾時都可能已經送出去了）。<br>請過幾分鐘<b>再按一次「送大榮」</b>：已經進大榮的會沿用原本的單號、不會重複出單，沒進去的才會重送。</div></div>';return}
   // 分箱的單要「每一箱都成功」才算這張單出貨完成。只有一部分成功就寫回單號／壓平台，
