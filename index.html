@@ -6522,8 +6522,18 @@ async function batchExportShipping(){
   /* 剛剛用 API 送過大榮的，再匯出上傳 WEBEDI 就會變成兩箱。
      這支匯出是「API 掛掉時的退路」，所以查不到就安靜跳過，絕對不能因此擋住匯出。*/
   let sentBefore=[];
-  try{const r=await kerryApi('/api/kerry/shipments?days=7');const ids=new Set(sel.map(o=>o.id));
-    sentBefore=(r.shipments||[]).filter(x=>!x.cancelled&&ids.has(x.orderKey))}catch(e){}
+  /* 🔴 這支匯出是「API 掛掉時的退路」，所以查詢本身絕對不可以把它卡住。
+     kerryApi 會先 await momoConfigReady，而那個是等 Firebase 回話 ——
+     離線時 Firebase 的 once() 不會失敗、只會一直等，等於整個匯出視窗開不出來。
+     所以這裡加一個 6 秒的賽跑：問得到就提醒，問不到就安靜跳過照常匯出。*/
+  try{
+    const r=await Promise.race([
+      kerryApi('/api/kerry/shipments?days=7'),
+      new Promise((_,rej)=>setTimeout(()=>rej(new Error('查詢逾時')),6000)),
+    ]);
+    const ids=new Set(sel.map(o=>o.id));
+    sentBefore=(r.shipments||[]).filter(x=>!x.cancelled&&ids.has(x.orderKey));
+  }catch(e){}
   const mem=await loadShipSizes();
   const groups=groupForShipping(sel,mem);
   _shipExportGroups=groups;
