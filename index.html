@@ -6956,10 +6956,20 @@ function renderKerryTab(){
    所以現在預設是空的；這支提醒只在「人自己去挑日期」時才派上用場。
    🔴 國定假日這裡不處理 —— 我們手上沒有權威的假日表，寫死會過期、猜日期比不填更糟。
       所以：挑到六日會跳紅字，平日則提醒「國定假日大榮也不送，連假請自己確認」。 */
+/* 出貨日：大榮六日不來收件，所以六日包的貨，實際出貨日是下週一（杰哥 2026-10-13）。
+   平日就是當天。指送日期則是「出貨日的下一個營業日」，兩個日期連動，
+   不會出現「出貨日已經順延到週一、指送日卻還寫週六」那種對不起來的情況。
+   國定假日不處理（杰哥：碰到國定假日沒關係）→ 連假要自己手動改。 */
+function kerryShipDay(){
+  const t=localDateISO(), w=new Date(t+'T12:00:00').getDay();
+  return (w===0||w===6) ? _nextWorkday(t) : t;   // 六日 → 下一個營業日（就是週一）
+}
+function kerryEtpDay(){ return _nextWorkday(kerryShipDay()); }
+
 function kerryEtpWarn(){
   const el=document.getElementById('k-etp'), w=document.getElementById('k-etp-warn');
   if(!el||!w)return;
-  if(!el.value){w.innerHTML='<span style="color:var(--dm)">沒填＝不指定配送日（大榮照它自己的時程送）</span>';return}
+  if(!el.value){w.innerHTML='<span style="color:var(--dm)">清空＝不指定配送日（大榮照自己時程送）</span>';return}
   const d=new Date(el.value+'T12:00:00'), wd=d.getDay();
   w.innerHTML=(wd===0||wd===6)
     ? '<span style="color:#b91c1c;font-weight:700">⚠ '+(wd===6?'週六':'週日')+'大榮不配送</span><span style="color:#b91c1c">，請改營業日或清空（清空＝不指定）</span>'
@@ -7005,7 +7015,7 @@ async function batchKerry(){
      留空＝標籤那欄空白、大榮照自己時程走，不會印出一個他不會兌現的承諾。
      真的要指定某一天再手動挑，挑到六日會在欄位下方跳紅字（kerryEtpWarn）。
      已實測留空在「上傳／標籤／託運明細」三關都正常，版面不會破。 */
-  const etpDefault='';
+  const etpDefault=kerryEtpDay();
   const modeTxt=st.mode==='mock'?'<span style="background:#fef3c7;color:#92400e;padding:2px 8px;border-radius:6px;font-weight:700">模擬模式</span>　還沒拿到大榮帳號：流程走得完、會印出模擬標籤，但<b>不會真的送大榮，也不會寫回訂單</b>'
     :st.mode==='test'?'<span style="background:#dbeafe;color:#1e40af;padding:2px 8px;border-radius:6px;font-weight:700">大榮測試環境</span>　真的送到大榮的測試系統、印出真的大榮標籤格式，但<b>不會派車、不計費，單號也不寫回訂單</b>（測試號不能拿去壓 MOMO／PChome）'
     :'<span style="background:#dcfce7;color:#166534;padding:2px 8px;border-radius:6px;font-weight:700">正式</span>　會真的送大榮、真的取號';
@@ -7029,6 +7039,8 @@ async function batchKerry(){
         <option value="warehouse">倉庫（土城）客代 10000000 — ${esc(pool('warehouse'))}</option></select></label>
       <label>指送日期<br><input type="date" id="k-etp" value="${etpDefault}" onchange="kerryEtpWarn()">
         <div id="k-etp-warn" style="font-size:11px;margin-top:2px"></div></label>
+      <div style="font-size:12px">出貨日<br><b style="font-size:13px">${esc(kerryShipDay())}</b>
+        ${kerryShipDay()!==localDateISO()?`<div style="font-size:11px;color:#b45309">今天是${['日','一','二','三','四','五','六'][new Date().getDay()]}，大榮不收件 → 順延</div>`:''}</div>
       <label>標籤從第幾格開始印<br><select id="k-slot" onchange="kerryReslot()">${[1,2,3,4,5,6].map(n=>`<option value="${n}">${n}</option>`).join('')}</select>
         <span style="color:var(--dm)">（A4 六格：左排上到下 1-3、右排 4-6）</span></label>
     </div>
@@ -7165,7 +7177,7 @@ async function doKerry(){
   const items=[];
   // 一箱一張託運單（件數 1、自己的才數）；分箱的第 2 箱起 orderKey 加 ~b2…，備註最前面標 (1/2)、(2/2)（放後面會被大榮 60 字上限切掉）
   groups.forEach((r,i)=>r.orders.forEach(o=>{const bx=vals[i],n=bx.length;bx.forEach((c,j)=>items.push({orderKey:j?o.id+KBOX+(j+1):o.id,origin,consignee:o.name||'',phone:o.realPhone||o.phone||'',
-    address:o.address||'',pieces:1,volume:c,remark:platPrefix(o.platform)+(n>1?'('+(j+1)+'/'+n+')':'')+(notes[i]||o.product||''),etp,shipDate:localDateISO().replace(/-/g,'')}))}));
+    address:o.address||'',pieces:1,volume:c,remark:platPrefix(o.platform)+(n>1?'('+(j+1)+'/'+n+')':'')+(notes[i]||o.product||''),etp,shipDate:kerryShipDay().replace(/-/g,'')}))}));
   const _rem=items.filter(it=>kBoxNo(it.orderKey)===1).map(it=>{const o=findO(it.orderKey);return o?isRemoteAddress(o.address):null}).filter(Boolean);
   const _nOrd=new Set(items.map(it=>kBase(it.orderKey))).size;
   const _remTxt=_rem.length?('⚠ 其中 '+_rem.length+' 筆是大榮偏遠／外島地址，會被加收運費！\n\n'):'';
