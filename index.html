@@ -7213,8 +7213,13 @@ function renderKerryTodayBox(){
 async function kerryDetailToday(btn){
   const all=(_kerryTodayAll||[]).filter(s=>!s.cancelled&&s.row);
   const picked=[...document.querySelectorAll('.k-today-cb:checked')].map(c=>c.value);
-  const use=picked.length?all.filter(s=>picked.indexOf(s.orderKey)>=0):all;
-  if(!use.length){alert(picked.length?'勾選的這幾筆沒有可以印明細的資料':'今天還沒有送出去的單');return}
+  /* 後端給的是「最近 24 小時」不是「今天」→ 早上看會混進昨天下午出的單，
+     那些貨昨天司機就收走了。印在今天這張簽收單上，等於叫司機簽他已經收過的箱子
+     （真的少一箱時，這張簽名反而證明不了什麼）。所以沒勾的時候只印今天的 ——
+     跟「全選只勾今天」同一個道理。有勾就照他勾的，他自己挑的就尊重他。*/
+  const isToday=s=>s.uploadedAt&&localDateISO(new Date(s.uploadedAt))===localDateISO();
+  const use=picked.length?all.filter(s=>picked.indexOf(s.orderKey)>=0):all.filter(isToday);
+  if(!use.length){alert(picked.length?'勾選的這幾筆沒有可以印明細的資料':'今天還沒有送出去的單（清單裡那幾筆是昨天的，要印請自己勾起來）');return}
   const old=btn.textContent; btn.disabled=true; btn.textContent='產生中…';
   try{
     const L=await kerryApi('/api/kerry/detail',{rows:use.map(s=>s.row)});
