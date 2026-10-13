@@ -5168,7 +5168,17 @@ function batchSetStatus(s){
   if(s==='已完成'){const ids=sel.filter(invEligible).map(o=>o.id);if(ids.length)setTimeout(()=>openInvDeduct(ids),300)}
 }
 function batchCopyShipping(){const sel=orders.filter(o=>selectedIds.has(o.id));if(!sel.length)return;copyText(sel.map(o=>fmtShipping(o)).join('\n\n========\n\n'),`✅ 已複製 ${sel.length} 筆出貨資料`)}
-function batchDelete(){const sel=orders.filter(o=>selectedIds.has(o.id));if(!sel.length)return;if(!confirm(`刪除選取的 ${sel.length} 筆訂單？\n\n（可按 Undo 還原）`))return;pushUndo({kind:'delete-batch',orders:sel.map(o=>JSON.parse(JSON.stringify(o)))});const ids=sel.map(o=>o.id);orders=orders.filter(o=>!selectedIds.has(o.id));selectedIds.clear();deleteOrderIds(ids);renderList();showToast(`已刪除 ${sel.length} 筆訂單`,'↩️ 還原',undoLast,8000);_scheduleOrphanPhotoCleanup(sel)}
+function batchDelete(){const sel=orders.filter(o=>selectedIds.has(o.id));if(!sel.length)return;
+  /* 已經用大榮出貨的單被刪掉：貨還在路上，但系統裡找不到那張訂單了 ——
+     貨態追不到、對不回客人、平台上壓的單號也變成孤兒。
+     可以按 Undo 還原所以不擋，但要在按下去之前講。*/
+  const _NL=String.fromCharCode(10);
+  const _k=sel.filter(o=>o.kerry&&o.kerry.bln&&String(o.trackingNo||'')===o.kerry.bln);
+  const _kw=_k.length?_NL+_NL+'⚠️ 其中 '+_k.length+' 筆是用大榮出貨的，貨可能已經在路上：'+_NL
+    +_k.slice(0,8).map(o=>'　・'+(o.name||o.orderNo||'')+'　'+o.kerry.bln).join(_NL)
+    +(_k.length>8?_NL+'　…還有 '+(_k.length-8)+' 筆':'')
+    +_NL+'　刪掉之後貨態就追不到那幾箱了（大榮那邊的託運單也不會跟著取消）。':'';
+  if(!confirm('刪除選取的 '+sel.length+' 筆訂單？'+_kw+_NL+_NL+'（可按 Undo 還原）'))return;pushUndo({kind:'delete-batch',orders:sel.map(o=>JSON.parse(JSON.stringify(o)))});const ids=sel.map(o=>o.id);orders=orders.filter(o=>!selectedIds.has(o.id));selectedIds.clear();deleteOrderIds(ids);renderList();showToast(`已刪除 ${sel.length} 筆訂單`,'↩️ 還原',undoLast,8000);_scheduleOrphanPhotoCleanup(sel)}
 function batchPrintShipping(){const sel=orders.filter(o=>selectedIds.has(o.id));if(!sel.length)return;openPrintWindow(sel,'a4')}
 function batchPrintShipping4x6(){const sel=orders.filter(o=>selectedIds.has(o.id));if(!sel.length)return;openPrintWindow(sel,'4x6')}
 function batchPickingList(){let sel=orders.filter(o=>selectedIds.has(o.id));if(!sel.length){if(!confirm('沒選取任何訂單。要產生「今日待處理」的揀貨清單嗎？'))return;const today=localDateISO();sel=orders.filter(o=>o.date===today&&isPending(o.status))}if(!sel.length){alert('沒有訂單可產生揀貨清單');return}
