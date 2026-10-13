@@ -7183,17 +7183,31 @@ async function batchKerry(){
   try{const ns=JSON.parse(_kLS('kerryNextSlot')||'null');if(ns&&ns.d===localDateISO()&&ns.s>=1&&ns.s<=6)document.getElementById('k-slot').value=String(ns.s)}catch(e){}
 }
 // 「今天已送大榮」清單：列今天出的每一筆、可勾選取消、重開標籤／明細（杰哥 2026-10-10）
-let _kerryToday=[],_kerryTodayAll=null,_ktTodayAt=0;
+let _kerryToday=[],_kerryTodayAll=null,_ktTodayAt=0,_kerryTodayMode='';
 async function loadKerryToday(force){
   if(!document.getElementById('k-today'))return;
   if(force||_kerryTodayAll===null||Date.now()-_ktTodayAt>60000){
     try{
       const r=await kerryApi('/api/kerry/shipments?days=1');
-      _kerryTodayAll=r.shipments||[]; _ktTodayAt=Date.now();
+      _kerryTodayAll=r.shipments||[]; _ktTodayAt=Date.now(); _kerryTodayMode=r.mode||'';
       _kerryToday=_kerryTodayAll.filter(s=>!s.cancelled);
     }catch(e){const b=document.getElementById('k-today');if(b)b.innerHTML='<div style="font-size:12px;color:#b91c1c">載入失敗：'+esc(e.message)+'</div>';return}
   }
   renderKerryTodayBox();
+}
+/* 對帳：大榮收了這一箱，但訂單上沒有記到這個號。
+   會發生的情境：送大榮成功了，但接著寫回 Firebase 那一步失敗（斷線、權限、瀏覽器被關掉）。
+   後果不是「少一張標籤」而已 —— 訂單上沒單號就不會自動壓 MOMO／PChome，
+   平台那邊一直是未出貨，貨其實已經在路上了，最後是遲出貨罰款。
+   補救很簡單（再按一次「送大榮」就會沿用原號並補寫回去），但要先看得到才會去按。
+   只在正式模式檢查：測試／模擬模式本來就不寫回訂單，每一列都會亮紅字反而變雜訊。*/
+function kerryTodayUnlinked(s){
+  if(_kerryTodayMode!=='prod'||!s||s.cancelled||!s.bln)return '';
+  if(typeof orders==='undefined'||!orders||!orders.length)return '';   // 訂單還沒載好就不要亂講
+  const o=orders.find(x=>x.id===kBase(s.orderKey));
+  if(!o)return '找不到訂單';
+  const has=String(o.trackingNo||'')===s.bln||(o.kerry&&Array.isArray(o.kerry.blns)&&o.kerry.blns.indexOf(s.bln)>=0);
+  return has?'':'訂單沒記到這個號';
 }
 function renderKerryTodayBox(){
   const box=document.getElementById('k-today'); if(!box)return;
@@ -7209,7 +7223,7 @@ function renderKerryTodayBox(){
     const old=sd&&sd!==localDateISO();
     return `<tr style="${cx?'opacity:.5':''}"><td style="padding:4px 2px">${cx?'':`<input type="checkbox" class="k-today-cb${old?' k-today-old':''}" value="${esc(s.orderKey)}">`}</td>
       <td style="padding:4px 6px">${esc(s.consignee||'(無名)')}${kBoxNo(s.orderKey)>1?' <span style="font-size:10px;color:var(--dm)">第'+kBoxNo(s.orderKey)+'箱</span>':''}${cx?' <span style="color:#b91c1c;font-size:10px">已取消</span>':''}<div style="font-size:9px;color:var(--dm)">${esc(s.remark||'')}</div></td>
-      <td class="mono" style="padding:4px 6px">${esc(s.bln)}<div style="font-size:9px;color:${old?'#b45309':'var(--dm)'}">${old?esc(fmtD(sd))+' ':''}${t}${old?'（不是今天）':''}</div></td>
+      <td class="mono" style="padding:4px 6px">${esc(s.bln)}<div style="font-size:9px;color:${old?'#b45309':'var(--dm)'}">${old?esc(fmtD(sd))+' ':''}${t}${old?'（不是今天）':''}</div>${(()=>{const u=kerryTodayUnlinked(s);return u?`<div style="font-size:9.5px;color:#b91c1c;font-weight:700" title="大榮收了這箱，但訂單上沒有這個單號 —— 不會自動壓平台，平台會一直顯示未出貨。再按一次「送大榮」就會沿用原號補寫回去。">⚠ ${esc(u)}</div>`:''})()}</td>
       <td style="padding:4px 2px;white-space:nowrap"><button class="btn" style="font-size:10px;padding:2px 7px" onclick='kerryOpenOne(this,${JSON.stringify(s.orderKey)},"label")'>標籤</button>
         <button class="btn" style="font-size:10px;padding:2px 7px" onclick='kerryOpenOne(this,${JSON.stringify(s.orderKey)},"detail")'>明細</button></td></tr>`;
   }).join('');
