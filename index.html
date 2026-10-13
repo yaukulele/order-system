@@ -6765,7 +6765,6 @@ async function doExportShipping(){
   const header=['出貨日期','收貨人','收貨人電話1','收貨人地址','件數','才數','指送日期','希望配送時段','備註'];
   // 備註帶品名，並依平台加抬頭：MOMO(含第三方)→MO_品名、PChome→PC_品名（杰哥需求）；多品項訂單一筆一列
   // 電話：優先帶真實電話 realPhone，空白才退回一般 phone（杰哥需求；MOMO 第三方 phone 常是遮罩號）
-  const platPrefix=p=>(p==='MO'||p==='MO3')?'MO_':(p==='PC'?'PC_':'');
   // 電話：realPhone 優先，空白才退回一般 phone（含 MOMO 代撥號 — 阿淵確認社長可轉接，要保留）
   // 才數不再寫死 1，改用剛剛在確認視窗填的／記憶帶出來的值
   // 備註：有記住的型號就用型號，沒有才退回完整品名。平台抬頭一律在這裡加（記憶裡不存抬頭，
@@ -6968,6 +6967,10 @@ function renderKerryTab(){
 const KERRY_CUTOFF_HHMM=[17,30];
 const _kerryCutoffMin=KERRY_CUTOFF_HHMM[0]*60+KERRY_CUTOFF_HHMM[1];
 function kerryPastCutoff(){ const n=new Date(); return n.getHours()*60+n.getMinutes()>=_kerryCutoffMin }
+/* 託運單備註的平台抬頭。匯出 Excel 跟送大榮兩條路都要用同一份 ——
+   原本兩邊各寫一份一模一樣的，哪天多一個平台只改到一邊就會不一致
+   （日期就是這樣出過事：兩條路各算各的，一邊對一邊錯）。 */
+const platPrefix=p=>(p==='MO'||p==='MO3')?'MO_':(p==='PC'?'PC_':'');
 function kerryShipDay(){
   const t=localDateISO(), w=new Date(t+'T12:00:00').getDay();
   return (w===0||w===6||kerryPastCutoff()) ? _nextWorkday(t) : t;   // 六日或過了截止時間 → 下一個營業日
@@ -7196,7 +7199,6 @@ async function doKerry(){
     const _el=document.getElementById('k-etp'); if(_el)_el.value=fixed;
   }
   const slot=Number(document.getElementById('k-slot').value)||1;
-  const platPrefix=p=>(p==='MO'||p==='MO3')?'MO_':(p==='PC'?'PC_':'');
   const items=[];
   // 一箱一張託運單（件數 1、自己的才數）；分箱的第 2 箱起 orderKey 加 ~b2…，備註最前面標 (1/2)、(2/2)（放後面會被大榮 60 字上限切掉）
   groups.forEach((r,i)=>r.orders.forEach(o=>{const bx=vals[i],n=bx.length;bx.forEach((c,j)=>items.push({orderKey:j?o.id+KBOX+(j+1):o.id,origin,consignee:o.name||'',phone:o.realPhone||o.phone||'',
