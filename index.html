@@ -6875,11 +6875,31 @@ function ktDupMap(){
   const d={};for(const t in by)if(by[t].size>1)d[t]=by[t].size;
   _ktDup=d;_ktDupAt=Date.now();return d;
 }
+// iso 的前一天（給下面的「事件日期不可能早於出貨日」留一天時差的餘裕）
+function _ktDayBefore(iso){const d=new Date(iso+'T12:00:00+08:00');d.setDate(d.getDate()-1);return localDateISO(d)}
 function ktBadOf(o,b){
   b=b||String(o.trackingNo||'').trim();
   const dup=ktDupMap()[b];
   if(dup)return {kind:'dup',txt:'單號對不上',tip:'這個單號同時出現在 '+dup+' 位不同收件人的訂單上。可能是自己配送的單故意填的號（正常），也可能是抄錯 —— 需要時對一下大榮配送站所／地址'};
   const v=_KT[b];
+  /* 🔴 2026-10-13 實測：大榮的查件 API 不檢查這個號是不是我們的 ——
+     隨便打一個格式對的號（12345678901、70000000000、88888888888…）都會回別人家貨件的
+     真實貨態（站所、時間、狀態全都有）。所以單號只要填錯一碼，這一區就會很有自信地
+     顯示一個完全無關的狀態，甚至顯示「已送達」—— 那比查不到還危險，
+     因為查不到會有人去追，顯示已送達的沒有人會去追。
+     能免費驗的一件事：貨態事件不可能發生在這箱貨出貨（或下單）之前。
+     最新一筆事件比出貨日還早 → 這個號查到的絕對不是我們的貨。
+     （反過來不保證 —— 撿到的號剛好最近也在跑就驗不出來，所以這不是萬靈丹，只是把
+       最常見的那種「舊號／打錯號查到別人貨」抓出來。）
+     不計進分頁上的紅色數字：自己配送的單會故意填假號（杰哥說舊的 11 筆不用清），
+     計進去會變成永遠掛著的紅字，紅字一旦變成常態就沒人看了。*/
+  if(v&&v.t&&v.cls!=='none'){
+    const ref=(o.kerry&&o.kerry.at)?String(o.kerry.at).slice(0,10):String(o.date||'');
+    const ed=String(v.t).slice(0,10);
+    if(ref&&/^\d{4}-\d\d-\d\d$/.test(ed)&&ed<_ktDayBefore(ref))
+      return {kind:'alien',txt:'查到別人的貨',
+        tip:'大榮查這個單號，查到的最新動態是 '+ed+'（'+(v.s||'')+'），比這張單的出貨／下單日 '+ref+' 還早 —— 不可能是這箱貨。大榮查件不檢查單號是不是我們的，填錯一碼就會查到別人家的貨件，所以這裡顯示的貨態不能當真。請核對單號。'};
+  }
   if(v&&v.cls==='none'){
     const since=(o.kerry&&o.kerry.at)?String(o.kerry.at).slice(0,10):String(o.date||'');
     // 同樣算營業日：六日大榮不會掃到任何東西，用日曆天會在週末後誤報「單號對不上」
@@ -6889,7 +6909,7 @@ function ktBadOf(o,b){
   }
   return null;
 }
-function ktBadChip(o,b){const x=ktBadOf(o,b);return x?`<span class="kt kt-unk" title="${esc(x.tip)}">${esc(x.txt)}</span>`:''}
+function ktBadChip(o,b){const x=ktBadOf(o,b);return x?`<span class="kt ${x.kind==='alien'?'kt-issue':'kt-unk'}" title="${esc(x.tip)}">${esc(x.txt)}</span>`:''}
 // 分頁上的紅色數字：最近 21 天大榮單裡「異常＋卡住」幾筆
 let _ktBadgeT=null;
 function ktBadgeSoon(){if(_ktBadgeT)return;_ktBadgeT=setTimeout(()=>{_ktBadgeT=null;ktBadge()},400)}
@@ -6938,7 +6958,8 @@ function renderKerryTab(){
   const since=localDateISO(new Date(Date.now()-_ktDays*86400000));
   const list=orders.filter(o=>isKerryOrd(o)&&String(o.date||'')>=since);
   const order={issue:0,stale:1,none:2,unk:3,move:4,done:5};
-  const rows=list.flatMap(o=>ktBlnsOf(o).map((b,j)=>{const v=_KT[b];return{o,b,v,k:ktClass(v),bad:j?null:ktBadOf(o,b)}}));
+  // 每一箱的單號都各自驗（原本只驗第 1 箱，分箱的第 2 箱撿到別人的貨態就抓不出來）
+  const rows=list.flatMap(o=>ktBlnsOf(o).map((b)=>{const v=_KT[b];return{o,b,v,k:ktClass(v),bad:ktBadOf(o,b)}}));
   const cnt={}; rows.forEach(r=>{cnt[r.k]=(cnt[r.k]||0)+1});
   const badN=rows.filter(r=>r.bad).length;
   const FILTERS=[['active','還沒送達',rows.filter(r=>r.k!=='done').length],['bad','單號對不上',badN],['issue','異常',cnt.issue||0],['stale','卡住 3 天以上',cnt.stale||0],
@@ -6963,7 +6984,7 @@ function renderKerryTab(){
         <td style="padding:7px 8px;white-space:nowrap">${esc(r.o.platform||'')} <span style="font-family:var(--mono);font-size:11px">${esc(r.o.orderNo||'')}</span></td>
         <td style="padding:7px 8px">${esc(r.o.name||'')}<div style="font-size:11px;color:var(--dm)">${esc(String(r.o.product||'').slice(0,34))}</div>${r.bad&&r.bad.kind==='dup'?`<div style="font-size:10.5px;color:#b91c1c">${esc(String(r.o.address||'').slice(0,26))}</div>`:''}</td>
         <td style="padding:7px 8px;font-family:var(--mono)">${esc(r.b)}</td>
-        <td style="padding:7px 8px;white-space:nowrap">${ktChip(r.b)}${r.bad&&_ktFilter==='bad'?'<div style="margin-top:3px">'+ktBadChip(r.o,r.b)+'</div>':''}</td>
+        <td style="padding:7px 8px;white-space:nowrap">${ktChip(r.b)}${r.bad&&(_ktFilter==='bad'||r.bad.kind==='alien')?'<div style="margin-top:3px">'+ktBadChip(r.o,r.b)+'</div>':''}</td>
         <td style="padding:7px 8px;font-size:11.5px">${r.v&&r.v.s?`${esc(r.v.s)}${r.v.st?'・'+esc(r.v.st):''}<div style="color:var(--dm);font-size:10.5px">${esc(r.v.t)}${ktDaysSince(r.v.t)!=null?'（'+ktDaysSince(r.v.t)+' 天前）':''}</div>`:'<span style="color:var(--dm)">—</span>'}</td></tr>`).join('')
         :`<tr><td colspan="6" style="padding:18px;text-align:center;color:var(--dm)">沒有符合的單</td></tr>`}
     </table></div>`;
