@@ -7436,6 +7436,12 @@ async function _doKerrySend(groups,st,items,vals,notes,origin,slot){
       pushHtml=`<div style="font-size:12px;font-weight:700;margin:8px 0 4px">自動壓平台</div><table style="width:100%;font-size:12px;border-collapse:collapse">${pr.map(p=>`<tr><td style="padding:3px 6px">${esc(p.o.name||'')}</td><td>${p.o.platform==='MO'?'MOMO':'PChome'}</td><td style="color:${p.ok?'#15803d':p.skip?'#6b7280':'#b91c1c'}">${esc(p.msg)}</td></tr>`).join('')}</table>`;
     }
   }
+  /* 剛送出去的這批要讓「今天已送」看得到。
+     那份清單有 60 秒快取，送完馬上切到貨態分頁的話會看不到這一批 ——
+     而「託運明細（司機簽收用）」就是從那份清單產的，少了這批＝司機簽的清單蓋不到剛剛那幾箱。
+     （取消那條路本來就有做這件事，送出這條漏了。）*/
+  _kerryTodayAll=null;
+  try{ if(document.getElementById('k-today'))loadKerryToday(true) }catch(e){}
   let labelHtml='';
   if(okRows.length){
     try{
