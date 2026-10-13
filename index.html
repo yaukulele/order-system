@@ -6848,7 +6848,8 @@ async function kerryApi(path, body){
   return d;
 }
 /* ===== 大榮貨態（杰哥 2026-10-08）=====
-   伺服器每 30 分鐘把最近 21 天的大榮單號拿去大榮查件，摘要放 Firebase kerryTrack/{單號}；
+   伺服器每 30 分鐘把最近 35 天的大榮單號拿去大榮查件（挑單看訂單日／出貨日較晚的那個），
+   摘要放 Firebase kerryTrack/{單號}；（分頁上的紅字數字只看最近 21 天，那是另一個範圍）
    這裡只讀那份：每筆訂單的單號下面一個小標籤（顏色＝狀態），加一個「大榮貨態」分頁可以搜、篩、立即更新。 */
 let _KT={}, _ktBound=false, _ktFilter='active', _ktDays=21;
 function ktInit(){
