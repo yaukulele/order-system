@@ -6911,6 +6911,16 @@ function ktDupMap(){
 }
 // iso 的前一天（給下面的「事件日期不可能早於出貨日」留一天時差的餘裕）
 function _ktDayBefore(iso){const d=new Date(iso+'T12:00:00+08:00');d.setDate(d.getDate()-1);return localDateISO(d)}
+/* 這張單在貨態這一區算哪一天：訂單日跟出貨日取比較晚的那個。
+   只看訂單日的話，補貨的單（下單後兩個月才到貨出貨）出貨當天就已經超出範圍，
+   貨態分頁看不到、紅字也不算它 —— 而那正是客人等最久、最在意貨到哪了的單。
+   後端排程 kerry-tracker.js 的 pickDate() 是同一套，兩邊要一致，
+   不然會變成「後端有查、畫面看不到」。舊單沒有 kerry.at 就只能看訂單日。*/
+function ktPickDate(o){
+  const d=String((o&&o.date)||'');
+  const s=(o&&o.kerry&&o.kerry.at)?String(o.kerry.at).slice(0,10):'';
+  return s>d?s:d;
+}
 function ktBadOf(o,b){
   b=b||String(o.trackingNo||'').trim();
   const dup=ktDupMap()[b];
@@ -6952,7 +6962,7 @@ function ktBadge(){
   const since=localDateISO(new Date(Date.now()-21*86400000));
   // 要看「每一箱」：分箱的單第 2 箱有異常，原本只看主單號會算不到，紅字數字會少報。
   // 跟訂單列上的小標籤（ktChipFor → ktBlnsOf）用同一套來源才會一致。（2026-10-12 稽核）
-  const n=orders.filter(o=>isKerryOrd(o)&&String(o.date||'')>=since)
+  const n=orders.filter(o=>isKerryOrd(o)&&ktPickDate(o)>=since)
     .filter(o=>ktBlnsOf(o).some(b=>{const k=ktClass(_KT[b]);return k==='issue'||k==='stale'})).length;
   el.textContent=n; el.style.display=n?'':'none';
 }
@@ -6990,7 +7000,7 @@ function renderKerryTab(){
   const el=document.getElementById('tab-kerry'); if(!el)return;
   const q=((document.getElementById('ktab-q')||{}).value||'').trim().toUpperCase();
   const since=localDateISO(new Date(Date.now()-_ktDays*86400000));
-  const list=orders.filter(o=>isKerryOrd(o)&&String(o.date||'')>=since);
+  const list=orders.filter(o=>isKerryOrd(o)&&ktPickDate(o)>=since);
   const order={issue:0,stale:1,none:2,unk:3,move:4,done:5};
   // 每一箱的單號都各自驗（原本只驗第 1 箱，分箱的第 2 箱撿到別人的貨態就抓不出來）
   const rows=list.flatMap(o=>ktBlnsOf(o).map((b)=>{const v=_KT[b];return{o,b,v,k:ktClass(v),bad:ktBadOf(o,b)}}));
