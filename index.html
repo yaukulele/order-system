@@ -6758,7 +6758,18 @@ async function doExportShipping(){
   // 備註可以留空（留空＝沿用完整品名），所以不擋，只是讀回來
   const notes=groups.map((r,i)=>{const el=document.getElementById('note_'+i);return el?String(el.value).trim():''});
   const sel=[];const caiOf={};const noteOf={};
-  groups.forEach((r,i)=>{r.orders.forEach(o=>{sel.push(o);caiOf[o.id]=vals[i];noteOf[o.id]=notes[i]})});
+  /* 件數＝這一張託運單底下有幾箱貨，不是客人買了幾件。
+     才數打「5+3」＝分 2 箱，WEBEDI 這條路是一個單號底下 2 箱（跟 API 那條路拆成 2 個單號的做法不同，
+     但兩邊都對）。原本件數一律寫訂購數量 → 分箱的單會被宣告成「1 箱」，
+     大榮收到 2 箱卻只認 1 箱，就可能被標成欠件或多件。
+     沒分箱的就沿用訂購數量（實際資料 760 筆大榮單裡 755 筆數量都是 1；
+     剩下 5 筆是弦、踏板、移調夾這類小東西，裝一箱寄，寫數量其實也還好 ——
+     真的要分箱就在才數打「＋」，這裡才有依據，不然我們無從得知是裝幾箱）。*/
+  const boxOf={};
+  groups.forEach((r,i)=>{
+    const bx=(r.mem&&Array.isArray(r.mem.boxes)&&r.mem.boxes.length>1&&Math.abs(r.mem.boxes.reduce((a,b)=>a+b,0)-vals[i])<0.01)?r.mem.boxes.length:null;
+    r.orders.forEach(o=>{sel.push(o);caiOf[o.id]=vals[i];noteOf[o.id]=notes[i];boxOf[o.id]=bx||(Number(o.qty)||1)});
+  });
   let XLSX;try{XLSX=await loadXLSX()}catch(e){alert('Excel 元件載入失敗，請確認網路後再試一次');return}
   // 記起來（寫失敗不擋匯出 —— 匯出比記憶重要，但要講出來，不然下次又是空的還以為記住了）
   try{
@@ -6789,7 +6800,7 @@ async function doExportShipping(){
   // 才數不再寫死 1，改用剛剛在確認視窗填的／記憶帶出來的值
   // 備註：有記住的型號就用型號，沒有才退回完整品名。平台抬頭一律在這裡加（記憶裡不存抬頭，
   // 因為同一件商品可能從 MOMO 也可能從 PChome 進來，抬頭要看那一筆訂單是哪個平台）
-  const rows=sel.map(o=>[shipYmd,(o.name||''),(o.realPhone||o.phone||''),(o.address||''),(o.qty||1),(caiOf[o.id]??1),arriveYmd,'',
+  const rows=sel.map(o=>[shipYmd,(o.name||''),(o.realPhone||o.phone||''),(o.address||''),(boxOf[o.id]||1),(caiOf[o.id]??1),arriveYmd,'',
     platPrefix(o.platform)+(noteOf[o.id]||o.product||'')]);
   const ws=XLSX.utils.aoa_to_sheet([header,...rows]);
   ws['!cols']=[{wch:11},{wch:9},{wch:14},{wch:34},{wch:5},{wch:5},{wch:11},{wch:14},{wch:30}];
