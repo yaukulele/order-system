@@ -6491,14 +6491,34 @@ function groupForShipping(sel,mem){
   return [...g.values()];
 }
 
+/* 匯出的 Excel 是上傳 WEBEDI 用的，大榮那邊會照它開出真的託運單 ——
+   所以「哪些單不該上託運單」這件事，跟按「送大榮」走 API 完全是同一套判準。
+   原本這支匯出完全沒擋：超商取貨單、MOMO 第三方單、已取消的單、已經有新竹／黑貓
+   單號的單，甚至剛剛才用 API 送過大榮的單，都會一起被寫進 Excel ——
+   上傳上去就是多一箱真的貨、多一筆運費，而且第二個號跟訂單上的對不起來。
+   判準故意跟 batchKerry() 共用 kerryBlockReason()／kerryForeignTrack()，
+   不要在這裡自己寫一份（日期就是兩邊各寫一份才出過事）。*/
 async function batchExportShipping(){
-  const sel=orders.filter(o=>selectedIds.has(o.id));
-  if(!sel.length){alert('請先勾選要匯出的訂單');return}
+  const picked=orders.filter(o=>selectedIds.has(o.id));
+  if(!picked.length){alert('請先勾選要匯出的訂單');return}
+  const blocked=picked.map(o=>({o,why:kerryBlockReason(o)})).filter(x=>x.why);
+  const foreign=picked.filter(o=>!kerryBlockReason(o)&&kerryForeignTrack(o));
+  const sel=picked.filter(o=>!kerryBlockReason(o)&&!kerryForeignTrack(o));
+  if(!sel.length){const NL=String.fromCharCode(10);alert('勾選的單都不該放進託運單：'+NL+NL+blocked.map(x=>'・'+(x.o.name||x.o.orderNo)+'：'+x.why).concat(foreign.map(o=>'・'+(o.name||o.orderNo)+'：已經有 '+(o.delyGbStr||'別家')+' 單號 '+o.trackingNo)).join(NL));return}
+  /* 剛剛用 API 送過大榮的，再匯出上傳 WEBEDI 就會變成兩箱。
+     這支匯出是「API 掛掉時的退路」，所以查不到就安靜跳過，絕對不能因此擋住匯出。*/
+  let sentBefore=[];
+  try{const r=await kerryApi('/api/kerry/shipments?days=7');const ids=new Set(sel.map(o=>o.id));
+    sentBefore=(r.shipments||[]).filter(x=>!x.cancelled&&ids.has(x.orderKey))}catch(e){}
   const mem=await loadShipSizes();
   const groups=groupForShipping(sel,mem);
   _shipExportGroups=groups;
   const miss=groups.filter(r=>!r.mem).length;
+  const exWarn=(blocked.length?`<div style="font-size:12px;color:#6b7280;background:#f3f4f6;border-radius:8px;padding:7px 10px;margin-bottom:6px"><b>這 ${blocked.length} 筆不該上託運單，已自動排除：</b><br>${blocked.map(x=>'・'+esc(x.o.name||x.o.orderNo||'')+'　'+esc(x.why)).join('<br>')}</div>`:'')
+    +(foreign.length?`<div style="font-size:12px;color:#b45309;background:#fffbeb;border:1px solid #fde68a;border-radius:8px;padding:7px 10px;margin-bottom:6px"><b>這 ${foreign.length} 筆已經有別家的配送單號，已排除（放進去會多出一箱、還會對不回訂單）：</b><br>${foreign.map(o=>'・'+esc(o.name||o.orderNo||'')+'　'+esc(o.delyGbStr||'')+' '+esc(o.trackingNo)).join('<br>')}<br><span style="color:var(--dm)">真的要改走大榮，先到訂單把原本的單號清掉再勾。</span></div>`:'')
+    +(sentBefore.length?`<div style="font-size:12px;color:#b91c1c;background:#fef2f2;border:1px solid #fca5a5;border-radius:8px;padding:7px 10px;margin-bottom:6px"><b>⚠ 這 ${sentBefore.length} 筆最近 7 天已經用「送大榮」送過了</b> —— 這份 Excel 上傳 WEBEDI 會<b>再開一張託運單＝多一箱貨、多一筆運費</b>。要出的話請改用「送大榮」補印標籤，不要走匯出：<br>${sentBefore.map(x=>'・'+esc(x.consignee||'')+'　'+esc(x.bln)).join('<br>')}</div>`:'');
   document.getElementById('modal-body').innerHTML=`<h3>📦 匯出託運單 — 確認才數與備註</h3>
+    ${exWarn}
     <div style="font-size:11px;color:var(--dm);line-height:1.7;margin:6px 0 10px">
       已勾選 ${sel.length} 筆訂單、${groups.length} 種商品。填過的會自動帶出來，
       ${miss?`還有 <b style="color:#b91c1c">${miss} 種沒填過才數</b>，填完才能匯出。`:'才數這次全部都有紀錄。'}
@@ -7020,12 +7040,11 @@ async function batchKerry(){
   const mem=await loadShipSizes();
   const groups=groupForShipping(sel,mem);
   _kerryGroups=groups;
-  /* 指送日期預設「留空」＝不指定（杰哥 2026-10-13 決定）。
-     理由：大榮本來就隔一個營業日送到，填「下一個營業日」跟不填結果一樣，
-     但填了就多一個碰到國定假日／連假印錯日期的機會（大榮對這個欄位完全不檢查、照收）。
-     留空＝標籤那欄空白、大榮照自己時程走，不會印出一個他不會兌現的承諾。
-     真的要指定某一天再手動挑，挑到六日會在欄位下方跳紅字（kerryEtpWarn）。
-     已實測留空在「上傳／標籤／託運明細」三關都正常，版面不會破。 */
+  /* 指送日期預設「出貨日的下一個營業日」（杰哥 2026-10-13 定案：
+     「還是幫我指定隔天　六日出貨日就自動寫到週一　指定週二出貨」，國定假日不處理）。
+     出貨日本身的六日／17:30 順延在 kerryShipDay()，指送日再往後推一個營業日。
+     大榮對這個欄位完全不檢查、照收，所以日期對不對完全靠我們自己 ——
+     送出前還會再算一次（時間可能已經跨過 17:30 或跨日），手動挑到六日會跳紅字（kerryEtpWarn）。 */
   const etpDefault=kerryEtpDay();
   const modeTxt=st.mode==='mock'?'<span style="background:#fef3c7;color:#92400e;padding:2px 8px;border-radius:6px;font-weight:700">模擬模式</span>　還沒拿到大榮帳號：流程走得完、會印出模擬標籤，但<b>不會真的送大榮，也不會寫回訂單</b>'
     :st.mode==='test'?'<span style="background:#dbeafe;color:#1e40af;padding:2px 8px;border-radius:6px;font-weight:700">大榮測試環境</span>　真的送到大榮的測試系統、印出真的大榮標籤格式，但<b>不會派車、不計費，單號也不寫回訂單</b>（測試號不能拿去壓 MOMO／PChome）'
@@ -7038,7 +7057,6 @@ async function batchKerry(){
     +(blocked.length?`<div style="font-size:12px;color:#6b7280;background:#f3f4f6;border-radius:8px;padding:7px 10px;margin-bottom:6px"><b>這 ${blocked.length} 筆不送大榮，已自動排除：</b><br>${blocked.map(x=>'・'+esc(x.o.name||x.o.orderNo||'')+'　'+esc(x.why)).join('<br>')}</div>`:'')
     +(foreign.length?`<div style="font-size:12px;color:#b45309;background:#fffbeb;border:1px solid #fde68a;border-radius:8px;padding:7px 10px;margin-bottom:6px"><b>這 ${foreign.length} 筆已經有別家的配送單號，先排除（再送會多出一箱、還會蓋掉原單號）：</b><br>${foreign.map(o=>'・'+esc(o.name||o.orderNo||'')+'　'+esc(o.delyGbStr||'')+' '+esc(o.trackingNo)).join('<br>')}<br><span style="color:var(--dm)">真的要改走大榮，先到訂單把原本的單號清掉再勾。</span></div>`:'')
     +(sentBefore.length?`<div style="font-size:12px;color:#1e40af;background:#eff6ff;border-radius:8px;padding:7px 10px;margin-bottom:6px">這 ${sentBefore.length} 筆最近 7 天已經送過大榮，再按會沿用原本的單號、不會重送：${sentBefore.map(x=>esc(x.consignee||'')+' '+esc(x.bln)).join('、')}</div>`:'');
-  const alreadyN=0;
   const remoteList=sel.map(o=>({o,hit:isRemoteAddress(o.address)})).filter(x=>x.hit);
   const remoteBanner=remoteList.length?`<div style="background:#fef2f2;border:1px solid #fca5a5;border-radius:8px;padding:9px 11px;margin-bottom:10px;font-size:12px;line-height:1.7"><b style="color:#b91c1c">⚠ 偏遠／外島地址 ${remoteList.length} 筆</b> — 大榮會加收聯運費／外島運費（差額店家吸收）。送之前先確認運費、或改宅配／郵局、或跟客人補收：<div style="margin-top:3px">${remoteList.map(x=>`・${esc(x.o.name||'(無名)')}　<span style="color:#b91c1c;font-weight:700">${x.hit.island?'外島':'偏遠'}</span>　<span style="color:var(--dm)">${esc(x.hit.city||'')}${esc(x.hit.district||'')}${x.hit.matchedKeyword?'・'+esc(x.hit.matchedKeyword):''}</span>`).join('<br>')}</div></div>`:'';
   document.getElementById('modal-body').innerHTML=`<h3>🚚 送大榮</h3>
@@ -7057,7 +7075,6 @@ async function batchKerry(){
       <label>標籤從第幾格開始印<br><select id="k-slot" onchange="kerryReslot()">${[1,2,3,4,5,6].map(n=>`<option value="${n}">${n}</option>`).join('')}</select>
         <span style="color:var(--dm)">（A4 六格：左排上到下 1-3、右排 4-6）</span></label>
     </div>
-    ${alreadyN?`<div style="font-size:11px;color:#b45309;margin-bottom:6px">⚠ 有 ${alreadyN} 筆已經有配送單號了，確定要重送嗎？（已經送過大榮的系統會直接沿用原本的號，不會重送）</div>`:''}
     <div style="font-size:11px;color:var(--dm);margin-bottom:6px">已勾選 ${sel.length} 筆、${groups.length} 種商品。才數、備註跟「📦 託運單」是同一份記憶。<br><b>分好幾箱寄</b>：才數打「5+3」＝分 2 箱（每箱一張獨立託運單、各自才數）；只打一個數字＝1 箱。數量 2 以上但分開裝箱的也用 + 分開。</div>
     <div style="max-height:44vh;overflow:auto;border:1px solid var(--bd);border-radius:8px">
     <table style="width:100%;min-width:520px;border-collapse:collapse;font-size:12px">
