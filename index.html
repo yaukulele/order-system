@@ -6949,7 +6949,12 @@ function ktBadOf(o,b){
      不計進分頁上的紅色數字：自己配送的單會故意填假號（杰哥說舊的 11 筆不用清），
      計進去會變成永遠掛著的紅字，紅字一旦變成常態就沒人看了。*/
   if(v&&v.t&&v.cls!=='none'){
-    const ref=(o.kerry&&o.kerry.at)?String(o.kerry.at).slice(0,10):String(o.date||'');
+    /* 比的基準用「訂單日」，不是出貨日 —— 出貨日會誤報：
+       取消大榮之後過幾天再重出，kerry.at 會更新成重出那天，
+       但那箱如果中間真的被收走過，它的貨態事件就落在重出之前 → 被誤判成「別人的貨」。
+       誤報一次這個紅字就沒人信了，所以寧可用訂單日（一定早於任何事件）保守一點。
+       代價是「很久以前下單、最近才出貨」的單驗得比較鬆，可以接受。*/
+    const ref=String(o.date||'');
     const ed=String(v.t).slice(0,10);
     if(ref&&/^\d{4}-\d\d-\d\d$/.test(ed)&&ed<_ktDayBefore(ref))
       return {kind:'alien',txt:'查到別人的貨',
