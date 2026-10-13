@@ -7183,8 +7183,15 @@ async function kerryCancelSelected(){
   if(!keys.length){alert('請先勾選要取消的單');return}
   // 後端是刻意「不回收單號」的（回收給別張單用就會撞號）→ 訊息不可以寫「單號會釋放」
   const _oldN=[...document.querySelectorAll('.k-today-cb.k-today-old:checked')].length;
+  // 已經回報給平台的單，取消大榮不會把平台改回來（跟工具列 ↩取消大榮 同一套判準與說法）
+  const _NL=String.fromCharCode(10);
+  const _pushed=keys.map(k=>findO(kBase(k))).filter((o,i,a)=>o&&a.indexOf(o)===i&&kerryPushedToPlat(o));
+  const _pw=_pushed.length?_NL+_NL+'⚠️ 其中 '+_pushed.length+' 筆已經回報給平台了，取消大榮「不會」把平台改回來：'+_NL
+    +_pushed.map(o=>'　・'+(o.platform==='MO'?'MOMO':'PChome')+'　'+(o.name||o.orderNo||'')+'　'+(o.trackingNo||'')).join(_NL)
+    +_NL+'　平台會一直顯示已出貨＋這個單號，客人查不到貨。':'';
   if(!confirm('確定取消這 '+keys.length+' 筆大榮託運？'
     +(_oldN?('\n\n⚠ 其中 '+_oldN+' 筆不是今天出的，貨可能已經被司機收走了，取消只會清掉我們這邊的單號、攔不住貨。'):'')
+    +_pw
     +'\n\n・大榮沒有取消功能：已經貼好的貼紙請撕掉、那箱不要交給司機'
     +'\n・單號不會還給別張單用（免得撞號），這張單之後重出會沿用同一個號'))return;
   try{
@@ -7441,14 +7448,28 @@ async function batchKerryReprint(){
 }
 /* 取消大榮出貨：大榮規格書沒有取消 API → 只在我們這邊取消：
    訂單上的單號、物流清掉，回到可以重出的狀態；那個號不會給別張單用（免得撞號），這張單之後重出會沿用同一號。 */
+/* 這張單是不是已經回報給平台了（MOMO 出貨確認／PChome 單號回填）。
+   shippedVia 只有真的回報過平台才會是「出貨」（補寄、自行出貨是別的值）。*/
+function kerryPushedToPlat(o){return !!(o&&o.shippedVia==='出貨'&&(o.platform==='MO'||o.platform==='PC'))}
 async function batchKerryCancel(){
   const sel=orders.filter(o=>selectedIds.has(o.id));
   if(!sel.length){alert('請先勾選要取消的訂單');return}
+  const NL=String.fromCharCode(10);
+  /* 取消大榮「只取消我們這邊」—— 平台那邊不會跟著回復。
+     MOMO 出貨確認沒有取消 API（壓下去那張單在 MOMO 就變出貨中、查都查不到了），
+     PChome 回填也一樣。所以已經壓過平台的單取消大榮，結果是：
+     平台顯示已出貨＋一個永遠不會動的單號 → 客人查不到貨 → 客訴、甚至平台罰款。
+     這件事一定要在按下去之前講，按完才講就來不及了。*/
+  const pushed=sel.filter(kerryPushedToPlat);
+  const pushWarn=pushed.length?NL+NL+`⚠️ 這 ${pushed.length} 筆已經回報給平台了，取消大榮「不會」把平台改回來：`+NL
+    +pushed.map(o=>'　・'+(o.platform==='MO'?'MOMO':'PChome')+'　'+(o.name||o.orderNo||'')+'　'+(o.trackingNo||'')).join(NL)
+    +NL+'　平台會一直顯示已出貨＋這個單號，客人查不到貨。要嘛這箱還是照原單號出，'+NL
+    +'　要嘛自己進平台後台處理並跟客人說明。':'';
   if(!confirm(`取消這 ${sel.length} 筆的大榮出單？
 
 ・訂單上的大榮單號、物流會清掉，可以重新出貨
 ・大榮沒有「取消」功能，已經貼好的貼紙請撕掉、貨不要交給司機
-・之後同一張單重出會沿用原本的單號`))return;
+・之後同一張單重出會沿用原本的單號`+pushWarn))return;
   let res;
   try{res=await kerryApi('/api/kerry/cancel',{orderKeys:sel.flatMap(kKeysOf),confirm:'YES'})}catch(e){alert('取消失敗：'+e.message);return}
   let n=0;const bad=[];
