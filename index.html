@@ -7200,9 +7200,31 @@ function renderKerryTodayBox(){
     <div style="margin-top:8px;display:flex;gap:8px;align-items:center;flex-wrap:wrap">
       <button class="btn" style="font-size:12px" onclick="kerryTodayCheckAll(this)">全選</button>
       <button class="btn btn-r" style="font-size:12px" onclick="kerryCancelSelected()">↩ 取消勾選的</button>
+      <button class="btn" style="font-size:12px" onclick="kerryDetailToday(this)" title="司機來收貨時簽的那張清單。沒勾就是今天全部，有勾就只印勾的">📄 託運明細（司機簽收用）</button>
       <button class="btn" style="font-size:12px" onclick="loadKerryToday(true)">重新整理</button>
       <span style="font-size:11px;color:var(--dm)">今天有效 ${liveN} 筆${all.length>liveN?('、已取消 '+(all.length-liveN)):''}</span></div>
     <div style="font-size:10px;color:var(--dm);margin-top:4px">取消＝這邊標記作廢、單號釋放（大榮沒有取消 API，交站所前不要收就好）。</div>`;
+}
+/* 今天全部（或勾選的）印成一張託運明細 —— 司機來收貨時簽的那張。
+   原本只有送大榮的結果畫面有「產生託運明細」，而那張只含「那一批」。
+   一天分三批送就會有三張明細，少印一張，司機簽的清單就蓋不到那幾箱 ——
+   之後真的少一箱，手上沒有他簽過的紀錄。所以這裡補一個「今天全部」。
+   已取消的不印（那幾箱根本不會交給司機）。*/
+async function kerryDetailToday(btn){
+  const all=(_kerryTodayAll||[]).filter(s=>!s.cancelled&&s.row);
+  const picked=[...document.querySelectorAll('.k-today-cb:checked')].map(c=>c.value);
+  const use=picked.length?all.filter(s=>picked.indexOf(s.orderKey)>=0):all;
+  if(!use.length){alert(picked.length?'勾選的這幾筆沒有可以印明細的資料':'今天還沒有送出去的單');return}
+  const old=btn.textContent; btn.disabled=true; btn.textContent='產生中…';
+  try{
+    const L=await kerryApi('/api/kerry/detail',{rows:use.map(s=>s.row)});
+    const f=(L.files&&L.files[0])||L.id;
+    const a=document.createElement('a');
+    a.href=kLabelUrl(L,f); a.target='_blank'; a.rel='noopener';
+    a.className='btn btn-g'; a.style.cssText='font-size:12px';
+    a.textContent='📄 開啟託運明細（'+use.length+' 筆）';
+    btn.replaceWith(a);
+  }catch(e){ btn.disabled=false; btn.textContent=old; alert('託運明細產生失敗：'+e.message) }
 }
 // 「全選」只勾今天的 —— 昨天出的貨司機早就收走了，取消它只是把我們的單號清掉而已
 function kerryTodayCheckAll(btn){
