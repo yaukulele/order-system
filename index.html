@@ -6463,7 +6463,13 @@ function sizeKeysFor(o){
    才數那格打「5+3」＝分 2 箱、各 5 才跟 3 才 → 送大榮時拆成 2 張獨立託運單（2 個單號、各自才數、各一張標籤）。
    只打一個數字＝1 箱 1 張單。記憶裡 cai 存加總（舊的匯出託運單照用），boxes 存每箱。 */
 function parseCaiBoxes(v){
-  const t=String(v==null?'':v).replace(/＋/g,'+').replace(/\s/g,'');if(!t)return null;
+  /* 全形數字要先轉半形（fwToHw）。中文輸入法很容易打出「５」，
+     🔴 2026-10-13 實測：全形才數送到大榮，它回「發生未知的錯誤，請聯絡開發人員」——
+        那正是會把「整批打掉又不講是哪一筆」的那個錯誤（出貨日帶橫線也是這個）。
+        我們這邊 Number('５') 是 NaN 所以其實擋得住，不會真的送出去，
+        但店員看到的是「才數沒填或不是數字」，他明明打了 —— 所以乾脆幫他轉。
+     （＋也有全形的，本來就在轉了。）*/
+  const t=fwToHw(String(v==null?'':v)).replace(/＋/g,'+').replace(/\s/g,'');if(!t)return null;
   const a=t.split('+').map(x=>x===''?NaN:Number(x));
   return (a.length&&a.length<=9&&a.every(n=>isFinite(n)&&n>=0))?a:null;
 }
@@ -6759,7 +6765,8 @@ async function doExportShipping(){
   const vals=[];
   for(let i=0;i<groups.length;i++){
     const el=document.getElementById('cai_'+i);
-    const v=el?String(el.value).trim():'';
+    // 全形數字先轉半形 —— 中文輸入法很容易打出「５」，不轉的話他明明填了卻被說「還沒填」
+    const v=fwToHw(el?String(el.value).trim():'').trim();
     if(v===''||!(Number(v)>=0)){alert('「'+groups[i].name+'」的才數還沒填');if(el)el.focus();return}
     vals.push(Number(v));
   }
