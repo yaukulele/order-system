@@ -6951,8 +6951,9 @@ function renderKerryTab(){
 /* 大榮六日與國定假日都不配送（杰哥 2026-10-13 確認）。
    「指送日期」原本預設填明天 → 週五出貨會變週六、週六出貨會變週日，兩天都是大榮不送的日子，
    等於標籤上印了一個不可能的配送承諾（而且大榮對這個欄位完全不檢查，照收）。
-   改成預設跳到下一個營業日 —— 直接用早就存在的 _nextWorkday()（罰款／壓單期限那邊在用的同一支），
-   不另外寫一份，免得以後補假日表要改兩個地方。
+   一開始改成「預設跳到下一個營業日」，後來杰哥決定乾脆預設留空（不指定）——
+   因為大榮本來就隔一個營業日送到，填了跟不填結果一樣，卻多一個碰到連假印錯的機會。
+   所以現在預設是空的；這支提醒只在「人自己去挑日期」時才派上用場。
    🔴 國定假日這裡不處理 —— 我們手上沒有權威的假日表，寫死會過期、猜日期比不填更糟。
       所以：挑到六日會跳紅字，平日則提醒「國定假日大榮也不送，連假請自己確認」。 */
 function kerryEtpWarn(){
@@ -6998,7 +6999,13 @@ async function batchKerry(){
   const mem=await loadShipSizes();
   const groups=groupForShipping(sel,mem);
   _kerryGroups=groups;
-  const etpDefault=_nextWorkday(localDateISO());   // 跳過週末（跟罰款/壓單期限共用同一支）
+  /* 指送日期預設「留空」＝不指定（杰哥 2026-10-13 決定）。
+     理由：大榮本來就隔一個營業日送到，填「下一個營業日」跟不填結果一樣，
+     但填了就多一個碰到國定假日／連假印錯日期的機會（大榮對這個欄位完全不檢查、照收）。
+     留空＝標籤那欄空白、大榮照自己時程走，不會印出一個他不會兌現的承諾。
+     真的要指定某一天再手動挑，挑到六日會在欄位下方跳紅字（kerryEtpWarn）。
+     已實測留空在「上傳／標籤／託運明細」三關都正常，版面不會破。 */
+  const etpDefault='';
   const modeTxt=st.mode==='mock'?'<span style="background:#fef3c7;color:#92400e;padding:2px 8px;border-radius:6px;font-weight:700">模擬模式</span>　還沒拿到大榮帳號：流程走得完、會印出模擬標籤，但<b>不會真的送大榮，也不會寫回訂單</b>'
     :st.mode==='test'?'<span style="background:#dbeafe;color:#1e40af;padding:2px 8px;border-radius:6px;font-weight:700">大榮測試環境</span>　真的送到大榮的測試系統、印出真的大榮標籤格式，但<b>不會派車、不計費，單號也不寫回訂單</b>（測試號不能拿去壓 MOMO／PChome）'
     :'<span style="background:#dcfce7;color:#166534;padding:2px 8px;border-radius:6px;font-weight:700">正式</span>　會真的送大榮、真的取號';
