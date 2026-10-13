@@ -6753,11 +6753,15 @@ async function doExportShipping(){
     _shipSizes=Object.assign(_shipSizes||{},upd);
   }catch(e){ alert('才數這次沒記起來（'+e.message+'），Excel 還是會匯出，但下次要再填一次'); }
   closeModal();
-  const today=localDateISO();
-  // 出貨日期預設今天、指送日期=出貨日期+1天，皆 YYYYMMDD 格式（杰哥需求：例 20260622 / 20260623）；才數預設 1
+  /* 日期規則跟「送大榮」那邊完全一樣（杰哥 2026-10-13）——
+     這支匯出 Excel 給 WEBEDI 用的流程原本是「出貨日＝今天、指送日＝今天+1 天（日曆天）」，
+     所以週五匯出會指送週六、週六匯出會出貨週六、17:30 之後匯出還寫今天出貨，
+     全都是大榮不會收/不會送的日子。改成共用 kerryShipDay()／kerryEtpDay()，
+     兩條路（API 送大榮、匯出 Excel）的日期才不會一邊對一邊錯。 */
   const ymd=s=>s.replace(/-/g,'');
-  const shipYmd=ymd(today);
-  const arriveYmd=ymd(localDateISO(new Date(Date.now()+86400000)));
+  const shipYmd=ymd(kerryShipDay());
+  const arriveYmd=ymd(kerryEtpDay());
+  const today=localDateISO();   // 只用在檔名（你是哪一天匯出的），不是物流用的出貨日
   const header=['出貨日期','收貨人','收貨人電話1','收貨人地址','件數','才數','指送日期','希望配送時段','備註'];
   // 備註帶品名，並依平台加抬頭：MOMO(含第三方)→MO_品名、PChome→PC_品名（杰哥需求）；多品項訂單一筆一列
   // 電話：優先帶真實電話 realPhone，空白才退回一般 phone（杰哥需求；MOMO 第三方 phone 常是遮罩號）
