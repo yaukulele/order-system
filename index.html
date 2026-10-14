@@ -13009,7 +13009,8 @@ function stOpenLabelViewer(w, arrayBuffer){
        最後一張的 page-break-after:always 又會再多生一張白紙。兩個一起修。 */
     '@page{size:A4;margin:0}',
     '@media print{#bar{display:none}body{background:#fff}#pages{padding:0}',
-    'canvas{box-shadow:none;margin:0;max-width:none;width:var(--pw);height:var(--ph);page-break-after:always}',
+    /* height:auto + max-width:100% → 萬一瀏覽器邊界很寬也是等比例縮，不會被擠到下一頁 */
+    'canvas{box-shadow:none;margin:0 auto;width:var(--pw);height:auto;max-width:100%;page-break-after:always;page-break-inside:avoid}',
     'canvas:last-child{page-break-after:auto}}',
     '</style></head><body>',
     /* #fill 是給主頁那邊回填完之後寫進來的（獨立一格，不會被解碼進度的訊息蓋掉） */
@@ -13036,6 +13037,19 @@ function stOpenLabelViewer(w, arrayBuffer){
     ' inp.focus();',
     ' function go(){var v=inp.value.trim();if(!v)return;pwbox.innerHTML="";say("解開標籤中…");render(v,true)}',
     ' btn.onclick=go;inp.onkeydown=function(e){if(e.key==="Enter")go()};}',
+    /* 找出非白色的範圍、四周留 2mm 裁下來；整張都白（或讀不到像素）就原樣回傳 */
+    'function cropWhite(c, scale){',
+    ' try{var W=c.width,H=c.height,d=c.getContext("2d").getImageData(0,0,W,H).data;',
+    '  var x0=W,y0=H,x1=-1,y1=-1;',
+    '  for(var y=0;y<H;y+=2){for(var x=0;x<W;x+=2){var i=(y*W+x)*4;',
+    '   if(d[i+3]>20&&(d[i]<235||d[i+1]<235||d[i+2]<235)){if(x<x0)x0=x;if(x>x1)x1=x;if(y<y0)y0=y;if(y>y1)y1=y;}}}',
+    '  if(x1<0)return c;',
+    '  var pad=Math.round(2/25.4*72*scale);',
+    '  x0=Math.max(0,x0-pad);y0=Math.max(0,y0-pad);x1=Math.min(W-1,x1+pad);y1=Math.min(H-1,y1+pad);',
+    '  var o=document.createElement("canvas");o.width=x1-x0+1;o.height=y1-y0+1;',
+    '  var g=o.getContext("2d");g.fillStyle="#fff";g.fillRect(0,0,o.width,o.height);',
+    '  g.drawImage(c,x0,y0,o.width,o.height,0,0,o.width,o.height);return o;',
+    ' }catch(e){return c}}',
     'function render(pw, remember){',
     ' if(typeof pdfjsLib==="undefined"){bar.textContent="PDF 元件沒載進來（網路被擋？）";return}',
     ' bar.textContent="解開中…（共 "+Math.round(B64.length/1400)+" KB）";',
@@ -13049,12 +13063,18 @@ function stOpenLabelViewer(w, arrayBuffer){
     '     var scale=Math.max(2,Math.min(4,2480/v1.width));',
     '     var vp=page.getViewport({scale:scale});',
     '     var c=document.createElement("canvas");c.width=Math.floor(vp.width);c.height=Math.floor(vp.height);',
-    /* PDF 的 1 單位 = 1/72 英吋 → 換成 mm 釘死，列印出來才是標籤該有的實體大小。
+    /* PDF 的 1 單位 = 1/72 英吋 → 換成 mm 釘死（下面裁完白邊才算），列印出來才是標籤該有的實體大小。
        超商交貨便上印著「本單尺寸10cm x 14cm 請勿調整尺寸」，縮了條碼會掃不過。 */
-    '     c.style.setProperty("--pw", (v1.width/72*25.4).toFixed(2)+"mm");',
-    '     c.style.setProperty("--ph", (v1.height/72*25.4).toFixed(2)+"mm");',
-    '     pages.appendChild(c);',
-    '     return page.render({canvasContext:c.getContext("2d"),viewport:vp}).promise;',
+    '     return page.render({canvasContext:c.getContext("2d"),viewport:vp}).promise.then(function(){',
+    /* 杰哥 2026-10-14：「還是會有兩頁跟邊邊無關的資料，只要中間託運單」。
+       三方 PDF 是整張 A4、標籤只佔上半。Safari 這類瀏覽器不吃 @page margin:0 →
+       A4 圖 + 瀏覽器自己的邊界 = 溢出第二頁、邊邊還印網址日期。
+       把四周白邊裁掉只留標籤本體（比例不動，實體尺寸照算），小很多就不會再溢頁。 */
+    '      var cc=cropWhite(c, scale);',
+    '      cc.style.setProperty("--pw", (cc.width/scale/72*25.4).toFixed(2)+"mm");',
+    '      cc.style.setProperty("--ph", (cc.height/scale/72*25.4).toFixed(2)+"mm");',
+    '      pages.appendChild(cc);',
+    '     });',
     '    });});})(n);}',
     '  chain.then(function(){',
     '   if(remember){try{window.opener&&window.opener.__stSavePdfPw&&window.opener.__stSavePdfPw(pw)}catch(e){}}',
