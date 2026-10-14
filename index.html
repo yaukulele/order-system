@@ -13014,8 +13014,9 @@ function stOpenLabelViewer(w, arrayBuffer){
     'canvas:last-child{page-break-after:auto}}',
     '</style></head><body>',
     /* #fill 是給主頁那邊回填完之後寫進來的（獨立一格，不會被解碼進度的訊息蓋掉） */
-    '<div id="bar"><span id="msg">解開標籤中…</span><span id="pw"></span><span id="fill" style="color:#1a7f37;font-weight:600"></span><button id="back">← 回系統</button></div><div id="pages"></div>',
+    '<div id="bar"><span id="msg">解開標籤中…</span><span id="pw"></span><span id="fill" style="color:#1a7f37;font-weight:600"></span><button id="cleanpdf" style="display:none;background:#1a7f37">印乾淨 PDF（沒有網址頁尾）</button><button id="back">← 回系統</button></div><div id="pages"></div>',
     '<script src="' + PDFJS + 'pdf.min.js"><' + '/script>',
+    '<script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"><' + '/script>',
     '<script>',
     'var B64=' + JSON.stringify(b64) + ', PW=' + JSON.stringify(pw) + ';',
     'var HOME=' + JSON.stringify(location.href) + ';',
@@ -13050,6 +13051,19 @@ function stOpenLabelViewer(w, arrayBuffer){
     '  var g=o.getContext("2d");g.fillStyle="#fff";g.fillRect(0,0,o.width,o.height);',
     '  g.drawImage(c,x0,y0,o.width,o.height,0,0,o.width,o.height);return o;',
     ' }catch(e){return c}}',
+    /* 杰哥 2026-10-14：裁完只剩 1 頁了，但最底下還是有瀏覽器自己印的網址/頁碼。
+       那是瀏覽器的頁尾，網頁 CSS 擋不掉（Chrome 只有邊界=0 時才會藏，有些瀏覽器根本不理）。
+       把裁好的標籤圖直接包成一份 PDF 打開 —— 印 PDF 本來就不會加網址頁尾，每張標籤一頁、實體尺寸不變。 */
+    'function cleanPdf(){',
+    ' try{if(!window.jspdf||!window.jspdf.jsPDF){say("PDF 產生元件沒載進來（網路被擋？），請改在列印視窗取消勾「頁首和頁尾」");return}',
+    '  var cs=document.querySelectorAll("#pages canvas");if(!cs.length)return;',
+    '  var doc=null;',
+    '  for(var i=0;i<cs.length;i++){var c=cs[i],w=parseFloat(c.style.getPropertyValue("--pw")),h=parseFloat(c.style.getPropertyValue("--ph")),o=w>h?"l":"p";',
+    '   if(!doc)doc=new window.jspdf.jsPDF({unit:"mm",format:[w,h],orientation:o});else doc.addPage([w,h],o);',
+    '   doc.addImage(c.toDataURL("image/png"),"PNG",0,0,w,h);}',
+    '  location.href=URL.createObjectURL(doc.output("blob"));',
+    ' }catch(e){say("產生 PDF 失敗："+(e&&e.message||e))}}',
+    'document.getElementById("cleanpdf").onclick=cleanPdf;',
     'function render(pw, remember){',
     ' if(typeof pdfjsLib==="undefined"){bar.textContent="PDF 元件沒載進來（網路被擋？）";return}',
     ' bar.textContent="解開中…（共 "+Math.round(B64.length/1400)+" KB）";',
@@ -13079,6 +13093,7 @@ function stOpenLabelViewer(w, arrayBuffer){
     '  chain.then(function(){',
     '   if(remember){try{window.opener&&window.opener.__stSavePdfPw&&window.opener.__stSavePdfPw(pw)}catch(e){}}',
     '   bar.textContent="已解開，正在開列印視窗…（沒跳出來就按 Ctrl/Cmd + P）";',
+    '   document.getElementById("cleanpdf").style.display="";',
     '   setTimeout(function(){try{window.print()}catch(e){}},400);',
     '  }).catch(function(e){bar.textContent="畫面產生失敗："+(e&&e.message||e)});',
     ' }).catch(function(e){',
