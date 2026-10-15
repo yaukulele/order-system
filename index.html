@@ -1105,6 +1105,27 @@ body.has-batch-bar .main{padding-bottom:140px}
 .pmod .pk-day .hr{font-family:var(--mono);font-weight:800;flex:none}
 .pmod .pk-day.odd{background:transparent}
 .pmod .pk-warn{color:var(--pc);font-weight:700}
+.pmod{--amb-bg:#fef9ec}
+[data-theme="dark"] .pmod{--amb-bg:#332b14}
+.pmod .pk-sh{display:block;font-size:10px;color:var(--ht);font-family:var(--sans);margin-bottom:1px}
+.pmod .pk-mk{display:inline-block;font-size:9.5px;font-weight:800;border-radius:4px;padding:1px 5px;margin-left:5px;white-space:nowrap;border:1px solid;font-family:var(--sans)}
+.pmod .pk-mk.bad{color:var(--pc);background:var(--pc-bg);border-color:var(--pc)}
+.pmod .pk-mk.mut{color:var(--dm);background:var(--sf2);border-color:var(--bd)}
+.pmod .pk-mk.ok{color:var(--grn);background:var(--grn-bg);border-color:var(--grn)}
+.pmod .pk-mk.wait{color:var(--amb);background:var(--amb-bg);border-color:var(--amb)}
+.pmod #pk-ot{margin-top:14px}
+.pmod .ot-form{display:grid;grid-template-columns:150px 110px 1fr auto;gap:8px;align-items:end;padding-bottom:12px;border-bottom:1px dashed var(--bd);margin-bottom:8px}
+.pmod .ot-form label{display:block;font-size:10.5px;font-weight:800;color:var(--dm);margin-bottom:3px}
+.pmod .ot-form input{width:100%;box-sizing:border-box}
+.pmod .ot-row{display:flex;align-items:center;gap:9px;padding:8px 0;border-bottom:1px solid var(--bd);font-size:12.5px;flex-wrap:wrap}
+.pmod .ot-row:last-child{border-bottom:0}
+.pmod .ot-row .who{font-weight:800;flex:none}
+.pmod .ot-row .d{font-family:var(--mono);font-weight:800;flex:none}
+.pmod .ot-row .m{font-family:var(--mono);font-weight:800;flex:none}
+.pmod .ot-row .why{flex:1;min-width:120px;color:var(--dm);font-size:11.5px;word-break:break-word}
+.pmod .ot-row .ref{display:block;font-size:10px;color:var(--ht);margin-top:1px}
+.pmod .ot-row .acts{display:flex;gap:5px;flex:none}
+@media(max-width:860px){.pmod .ot-form{grid-template-columns:1fr 1fr}.pmod .ot-form .why-f{grid-column:1/-1}.pmod .ot-form button{grid-column:1/-1}}
 
 .pmod .pk-shift{margin-top:14px;background:var(--sf);border:1px solid var(--bd);border-radius:14px;overflow:hidden}
 .pmod .sh-wrap{overflow-x:auto}
@@ -1282,6 +1303,7 @@ body.has-batch-bar .main{padding-bottom:140px}
     <div id="pk-today"></div>
     <div id="pk-month"></div>
   </div>
+  <div id="pk-ot"></div>
   <div id="pk-shift"></div>
 </div>
 
@@ -10918,12 +10940,13 @@ window.__tdRender = function(){ try{ if(me) render() }catch(_){} };
 window.PUNCH = (function(){
 'use strict';
 
-const P = { punches:'punches', shifts:'shifts' };
+const P = { punches:'punches', shifts:'shifts', overtime:'overtime' };
 
 let me = null, myRole = '';
 let ym = '';                 // 目前看的月份 YYYY-MM
 let punches = {};            // {user:{id:{...}}}
 let shifts = {};             // {DD:{user:{...}}}
+let overtime = {};           // {user:{id:{date,mins,reason,status,...}}}  加班申請（這個月）
 // 週視圖跨月的時候要讀兩個月（例:8/31 那一週是 8/31 + 9/1~9/6）。
 // 原本只讀 ym 那一包,結果九月那六天整片顯示「休」,看起來像沒排班,
 // 但資料庫裡其實排好了 —— 杰哥 2026-08-24 就是被這個嚇到。
@@ -11043,7 +11066,9 @@ function listen(){
   rp.on('value', s=>{ punches = s.val() || {}; render() }, ()=>{});
   const rs = db.ref(P.shifts+'/'+ym);
   rs.on('value', s=>{ shifts = s.val() || {}; render() }, ()=>{});
-  _bound = [rp, rs];
+  const ro = db.ref(P.overtime+'/'+ym);
+  ro.on('value', s=>{ overtime = s.val() || {}; render() }, ()=>{});
+  _bound = [rp, rs, ro];
 }
 function setMonth(next){
   const [y,mo] = ym.split('-').map(Number);
@@ -11336,6 +11361,7 @@ function render(){
   renderBar();
   renderToday();
   renderMonth();
+  renderOT();
   renderShift();
   const b = $('pk-badge');
   if(b){ const st = stateOf(me); b.textContent = st.working ? '上班中' : '—';
@@ -11434,13 +11460,26 @@ function renderMonth(){
     const txt = d.segs.map(([a,b])=>hm(a)+'–'+hm(b)).join('  ');
     const warn = d.openAt ? '<span class="pk-warn">缺下班卡</span>' : '';
     const restTag = d.rest ? '<span class="pk-rest">休' + d.rest + '</span>' : '';
+    const tag = (cls, t) => '<span class="pk-mk ' + cls + '">' + t + '</span>';
+    const tags = []
+      .concat(d.noShift ? [tag('bad', '沒排班不計')] : [])
+      .concat(d.late ? [tag('bad', '遲到' + d.late + '分')] : [])
+      .concat(d.early ? [tag('bad', '早退' + d.early + '分')] : [])
+      .concat(!d.noShift && d.extra ? [tag('mut', '超時' + d.extra + '分未計')] : [])
+      .concat(d.otOk ? [tag('ok', '加班+' + d.otOk + '分')] : [])
+      .concat(d.otWait ? [tag('wait', '加班申請中' + d.otWait + '分')] : [])
+      .join('');
     rows.push('<div class="pk-day"><span class="d">' + d.ds.slice(5) + '</span>'
-      + '<span class="seg">' + (txt || '—') + ' ' + warn + restTag + '</span>'
-      + '<span class="hr">' + (d.mins ? hrsText(d.mins) : '—') + '</span></div>');
+      + '<span class="seg">'
+      +   '<span class="pk-sh">' + (d.sh ? '班 ' + esc(d.sh.start) + '–' + esc(d.sh.end) : '沒排班') + '</span>'
+      +   (txt || '—') + ' ' + warn + restTag + tags + '</span>'
+      + '<span class="hr">' + (d.mins ? hrsText(d.mins) : '0') + '</span></div>');
   });
-  const _restNote = _ms.rest
-    ? '<span class="side2">已扣休息 ' + hrsText(_ms.rest) + '（毛 ' + hrsText(_ms.gross) + '）</span>'
-    : '';
+  const _restNote = (_ms.rest
+    ? '<span class="side2">已扣休息 ' + hrsText(_ms.rest) + '（打卡共 ' + hrsText(_ms.gross) + '）</span>' : '')
+    + (_ms.extra ? '<span class="side2">超出排班/沒排班未計 ' + hrsText(_ms.extra) + '</span>' : '')
+    + (_ms.ot ? '<span class="side2">含核准加班 ' + hrsText(_ms.ot) + '</span>' : '')
+    + ((_ms.late || _ms.early) ? '<span class="side2">遲到 ' + _ms.late + ' 次・早退 ' + _ms.early + ' 次</span>' : '');
   box.innerHTML = '<div class="pk-card">'
     + '<div class="pk-h"><span class="sh-nav"><button class="btn btn-sm" id="pk-prev">‹</button>'
     +   '<span>' + ym + ' 工時</span>'
@@ -11448,7 +11487,7 @@ function renderMonth(){
     +   '<span class="sp"></span>'
     +   '<span class="mini">' + esc(u) + '</span></div>'
     + '<div class="pk-b">'
-    +   '<div class="pk-sum"><span class="v">' + hrsText(total) + '</span><span class="sp"></span>'
+    +   '<div class="pk-sum"><span class="v">' + hrsText(total) + '</span><span class="u">計薪</span><span class="sp"></span>'
     +     '<span class="side">' + rows.length + ' 天有出勤' + _restNote + '</span></div>'
     +   (rows.length ? rows.join('') : '<div class="pk-empty">這個月還沒有打卡紀錄</div>')
     + '</div></div>';
@@ -11502,49 +11541,109 @@ function dayRest(user, dateStr, grossMin){
   if(typeof r === 'number' && r >= 0) return r;
   return legalRest(grossMin || 0);
 }
+/* 杰哥 2026-10-15：計薪照排班，加班另外申請。
+     - 只算「排班時間內」的打卡：早到、晚走的部分不算錢，標「超時未計」
+     - 遲到、早退照實際少算，標出分鐘數（不寬限，滿 1 分鐘就標）
+     - 沒排班的那天有打卡 → 列出來、標「沒排班不計」，0 元
+     - 加班：員工自己帳號申請，管理員核准了才加進計薪
+   原始打卡一筆都不動（勞基法 §30 出勤紀錄要記到分鐘），只是算錢那欄照上面規則。 */
+function shiftOf(user, ds){
+  if(ds.slice(0,7) !== ym) return null;
+  const sh = (shifts[ds.slice(8,10)] || {})[user];
+  return (sh && sh.start && sh.end) ? sh : null;
+}
+function shiftWin(ds, sh){
+  const a = new Date(ds+'T'+sh.start+':00').getTime();
+  let b = new Date(ds+'T'+sh.end+':00').getTime();
+  if(!(b > a)) b += 86400000;            // 跨午夜的班
+  return [a, b];
+}
+function clipMinutes(segs, a, b){
+  return segs.reduce((n,[x,y])=>{ const s=Math.max(x,a), e=Math.min(y,b); return n + (e>s ? Math.round((e-s)/60000) : 0) }, 0);
+}
+/* 那天的加班申請：核准的分鐘加總 / 申請中的分鐘加總 */
+function otOf(user, ds){
+  const all = overtime[user] || {};
+  let ok = 0, wait = 0;
+  const list = Object.keys(all).map(k=>Object.assign({id:k}, all[k])).filter(r=>r.date===ds);
+  list.forEach(r=>{ const m = parseInt(r.mins,10)||0; if(r.status==='approved') ok += m; else if(r.status==='pending') wait += m; });
+  return {ok, wait, list};
+}
+function dayCalc(u, ds){
+  const list = dayPunches(u, ds);
+  const ot = otOf(u, ds);
+  if(!list.length && !ot.list.length) return null;
+  const {segs, openAt} = pairDay(list);
+  const g = segMinutes(segs);
+  const sh = shiftOf(u, ds);
+  let base = 0, r = 0, late = 0, early = 0, extra = 0, noShift = false;
+  if(sh){
+    const [A, B] = shiftWin(ds, sh);
+    const c = clipMinutes(segs, A, B);
+    r = c > 0 ? Math.min(dayRest(u, ds, c), c) : 0;      // 休息不會扣到變負的
+    base = c - r;
+    extra = Math.max(0, g - c);
+    const firstIn = list.find(p=>p.type==='in');
+    if(firstIn && firstIn.at > A) late = Math.floor((firstIn.at - A)/60000);
+    if(!openAt && segs.length){
+      const lastOut = segs[segs.length-1][1];
+      if(lastOut < B) early = Math.floor((B - lastOut)/60000);
+    }
+  }else if(g > 0){
+    noShift = true; extra = g;
+  }
+  return {ds, segs, list, openAt, sh, gross:g, rest:r, base, late, early, extra, noShift,
+          otOk:ot.ok, otWait:ot.wait, ot:ot.list, mins: base + ot.ok};
+}
 function monthStats(){
   const nd = monthDays();
   const names = orderedUsers();
   const per = {};
   names.forEach(u=>{
     const days = [];
-    let mins = 0, gross = 0, rest = 0, missing = 0;
+    let mins = 0, gross = 0, rest = 0, missing = 0, ot = 0, extra = 0, late = 0, early = 0, noShift = 0;
     for(let d=1; d<=nd; d++){
-      const ds = ym + '-' + two(d);
-      const list = dayPunches(u, ds);
-      if(!list.length) continue;
-      const {segs, openAt} = pairDay(list);
-      const g = segMinutes(segs);
-      const r = g > 0 ? Math.min(dayRest(u, ds, g), g) : 0;   // 休息不會扣到變負的
-      const m = g - r;
-      if(openAt) missing++;
-      gross += g; rest += r; mins += m;
-      days.push({ds, segs, mins:m, gross:g, rest:r, openAt, list});
+      const x = dayCalc(u, ym + '-' + two(d));
+      if(!x) continue;
+      if(x.openAt) missing++;
+      if(x.late) late++;
+      if(x.early) early++;
+      if(x.noShift) noShift++;
+      gross += x.gross; rest += x.rest; mins += x.mins; ot += x.otOk; extra += x.extra;
+      days.push(x);
     }
-    per[u] = {days, mins, gross, rest, missing};
+    per[u] = {days, mins, gross, rest, missing, ot, extra, late, early, noShift};
   });
   return {names, per};
+}
+/* 一天的標記（畫面、CSV、領薪明細共用同一份字） */
+function dayMarks(d){
+  const m = [];
+  if(d.openAt) m.push('缺下班卡');
+  if(d.noShift) m.push('沒排班不計 ' + hrsText(d.extra));
+  if(d.late) m.push('遲到 ' + d.late + ' 分');
+  if(d.early) m.push('早退 ' + d.early + ' 分');
+  if(!d.noShift && d.extra) m.push('超時未計 ' + d.extra + ' 分');
+  if(d.otOk) m.push('核准加班 +' + d.otOk + ' 分');
+  if(d.otWait) m.push('加班申請中 ' + d.otWait + ' 分');
+  if(d.list.some(p=>p.by)) m.push('含補登');
+  return m;
 }
 function hrDec(min){ return Math.round(min/60*100)/100 }   // 2.5 小時這種，Excel 可直接乘
 
 function exportDaily(){
   const {names, per} = monthStats();
-  const rows = [['日期','星期','姓名','上班','下班','時數(小時)','休息(分)','實際時數(小時)','狀態','備註']];
+  // 一天一列：同一天打好幾段卡也併在同一格，計薪是以「一天」為單位算的，拆開反而對不起來
+  const rows = [['日期','星期','姓名','排班','打卡時間','打卡時數(小時)','休息(分)','排班內時數(小時)',
+                 '核准加班(分)','計薪時數(小時)','遲到(分)','早退(分)','超時未計(分)','標記']];
   const wd = ['日','一','二','三','四','五','六'];
   names.forEach(u=>{
     per[u].days.forEach(d=>{
       const w = wd[new Date(d.ds+'T00:00:00').getDay()];
-      if(d.segs.length){
-        d.segs.forEach(([a,b], i)=>{
-          const fixed = d.list.some(p=>p.by);
-          const segMin = Math.round((b-a)/60000);
-          rows.push([d.ds, w, u, hm(a), hm(b), hrDec(segMin),
-                     i===0 ? (d.rest||'') : '',            // 休息掛在當天第一段，不重複扣
-                     i===0 ? hrDec(Math.max(0, segMin-(d.rest||0))) : hrDec(segMin),
-                     i===0 ? '正常' : '同日第'+(i+1)+'段', fixed ? '含補登' : '']);
-        });
-      }
-      if(d.openAt) rows.push([d.ds, w, u, hm(d.openAt), '', 0, '', 0, '缺下班卡', '這段沒有計入時數']);
+      const seg = d.segs.map(([a,b])=>hm(a)+'-'+hm(b)).concat(d.openAt ? [hm(d.openAt)+'-(缺下班卡)'] : []).join(' ');
+      rows.push([d.ds, w, u, d.sh ? (d.sh.start+'-'+d.sh.end) : '沒排班', seg, hrDec(d.gross),
+                 d.rest || '', hrDec(d.base), d.otOk || '', hrDec(d.mins),
+                 d.late || '', d.early || '', d.extra || '', dayMarks(d).join('、')]);
     });
   });
   if(rows.length === 1){ toast('這個月沒有打卡紀錄可以匯出'); return }
@@ -11554,19 +11653,22 @@ function exportDaily(){
 
 function exportSummary(){
   const {names, per} = monthStats();
-  const rows = [['姓名','出勤天數','打卡時數(小時)','休息合計(分)','實際時數(小時)','實際時數(時:分)','缺下班卡天數','時薪','試算金額']];
+  const rows = [['姓名','出勤天數','打卡時數(小時)','休息合計(分)','核准加班(分)','計薪時數(小時)','計薪時數(時:分)',
+                 '超時未計(分)','遲到次數','早退次數','沒排班天數','缺下班卡天數','時薪','試算金額']];
   let any = false;
   names.forEach(u=>{
     const p = per[u];
     if(!p.days.length) return;
     any = true;
     const rate = payRates[u] || '';
-    rows.push([u, p.days.length, hrDec(p.gross), p.rest || '', hrDec(p.mins), hrsText(p.mins),
+    rows.push([u, p.days.length, hrDec(p.gross), p.rest || '', p.ot || '', hrDec(p.mins), hrsText(p.mins),
+               p.extra || '', p.late || '', p.early || '', p.noShift || '',
                p.missing || '', rate, rate ? Math.round(hrDec(p.mins) * rate) : '']);
   });
   if(!any){ toast('這個月沒有打卡紀錄可以匯出'); return }
   rows.push([]);
-  rows.push(['※ 實際時數 = 打卡時數 − 排班上填的休息時間；試算金額 = 實際時數 × 時薪']);
+  rows.push(['※ 計薪時數 = 排班時間內的打卡時數 − 休息 + 核准的加班；試算金額 = 計薪時數 × 時薪']);
+  rows.push(['※ 超出排班、沒排班那天的打卡不計薪（要另外申請加班、管理員核准才算）；原始打卡紀錄全部保留']);
   rows.push(['※ 只是幫忙省計算機，實際發薪請自行核對']);
   dlCSV('工時彙總_' + ym + '.csv', rows);
   logIt('匯出彙總', ym);
@@ -11648,7 +11750,7 @@ function openPrint(title, body){
   setTimeout(()=>{ try{ w.focus(); w.print() }catch(e){} }, 350);
 }
 const DISCLAIM = '<div class="note">※ 金額為系統依「總時數 × 時薪」試算，未包含加班費、全勤、遲到扣款等其他項目，實際發放金額請自行核對。<br>'
-  + '※ 時數來自打卡紀錄；缺下班卡的日子該段不計入時數。</div>';
+  + '※ 計薪時數＝排班時間內的打卡時數 − 休息 ＋ 核准的加班；超出排班、沒排班那天的打卡不計（加班須事先申請、經核准）。缺下班卡的那段不計入。</div>';
 
 function doPayrollAll(list, per){
   const rows = list.map(u=>{
@@ -11663,7 +11765,7 @@ function doPayrollAll(list, per){
       '<h1>' + ym.replace('-', ' 年 ') + ' 月　薪資發放簽名表</h1>'
     + '<div class="sub">列印時間：' + new Date().toLocaleString('zh-TW') + '　·　資料來源：打卡紀錄</div>'
     + '<table><thead><tr><th style="width:16%">姓名</th><th style="width:11%">出勤天數</th>'
-    +   '<th style="width:14%">總時數</th><th style="width:12%">時薪</th>'
+    +   '<th style="width:14%">計薪時數</th><th style="width:12%">時薪</th>'
     +   '<th style="width:17%">應付金額</th><th style="width:30%">簽名</th></tr></thead>'
     + '<tbody>' + rows + '</tbody>'
     + (total ? '<tfoot><tr><td colspan="4" style="text-align:right;padding-right:10px">合計</td>'
@@ -11681,10 +11783,9 @@ function doPayrollEach(list, per){
     const det = p.days.map(d=>{
       const w = wd[new Date(d.ds+'T00:00:00').getDay()];
       const seg = d.segs.map(([a,b])=>hm(a)+'–'+hm(b)).join('  ');
-      const marks = [];
-      if(d.openAt) marks.push('缺下班卡');
-      if(d.list.some(x=>x.by)) marks.push('含補登');
+      const marks = dayMarks(d);
       return '<tr><td class="d">' + d.ds.slice(5) + '</td><td>' + w + '</td>'
+        + '<td class="d">' + (d.sh ? esc(d.sh.start)+'–'+esc(d.sh.end) : '—') + '</td>'
         + '<td class="d">' + (seg || '—') + '</td>'
         + '<td class="d">' + (d.rest ? d.rest : '—') + '</td>'
         + '<td class="d">' + (d.mins ? hrDec(d.mins) : '—') + '</td>'
@@ -11695,13 +11796,13 @@ function doPayrollEach(list, per){
       + '<div class="sub">' + esc(u) + '　·　列印時間：' + new Date().toLocaleString('zh-TW') + '</div>'
       + '<div class="box">'
       +   '<div><div class="k">出勤天數</div><div class="v">' + p.days.length + '</div></div>'
-      +   '<div><div class="k">總時數</div><div class="v">' + hrDec(p.mins) + '</div></div>'
+      +   '<div><div class="k">計薪時數</div><div class="v">' + hrDec(p.mins) + '</div></div>'
       +   '<div><div class="k">時薪</div><div class="v">' + (rate || '—') + '</div></div>'
       +   '<div><div class="k">應付金額</div><div class="v">' + (amt !== null ? amt.toLocaleString() : '—') + '</div></div>'
       + '</div>'
-      + '<table class="det"><thead><tr><th style="width:13%">日期</th><th style="width:8%">星期</th>'
-      +   '<th>上下班時間</th><th style="width:11%">休息(分)</th><th style="width:13%">實際時數</th>'
-      +   '<th style="width:17%">備註</th></tr></thead>'
+      + '<table class="det"><thead><tr><th style="width:9%">日期</th><th style="width:6%">星期</th>'
+      +   '<th style="width:15%">排班</th><th>打卡時間</th><th style="width:8%">休息(分)</th><th style="width:10%">計薪時數</th>'
+      +   '<th style="width:24%">標記</th></tr></thead>'
       + '<tbody>' + det + '</tbody></table>'
       + DISCLAIM
       + '<div class="recv"><div class="t">簽收</div>'
@@ -11748,6 +11849,128 @@ function openRates(){
   };
 }
 
+/* =========================================================================
+   加班申請（杰哥 2026-10-15：「有任何加班都是要另外申請」「自己登入自己的帳號申請」）
+   overtime/{YYYY-MM}/{user}/{pushId} = {date, mins, reason, at, status:'pending'|'approved'|'rejected',
+                                          decidedBy, decidedAt, reqMins(核准時改過分鐘才有)}
+   員工只能替自己申請、只能撤回自己還在申請中的；核准／退回只有管理員。
+   審核那列會附上「那天實際超出排班幾分」，讓管理員對得起來。
+   ========================================================================= */
+function otRows(){
+  const out = [];
+  Object.keys(overtime).forEach(u=>{
+    if(!isAdmin() && u !== me) return;
+    const all = overtime[u] || {};
+    Object.keys(all).forEach(k=>out.push(Object.assign({id:k, user:u}, all[k])));
+  });
+  const rank = {pending:0, approved:1, rejected:2};
+  return out.sort((a,b)=>(rank[a.status]||0)-(rank[b.status]||0) || String(b.date).localeCompare(String(a.date)) || (b.at||0)-(a.at||0));
+}
+function otRefText(u, ds){
+  const x = dayCalc(u, ds);
+  if(!x || !x.list.length) return '那天沒有打卡紀錄';
+  if(x.noShift) return '那天沒排班，打卡共 ' + hrsText(x.gross);
+  return '班 ' + x.sh.start + '–' + x.sh.end + '，實際超出排班 ' + (x.extra || 0) + ' 分';
+}
+function renderOT(){
+  const box = $('pk-ot');
+  if(!box) return;
+  const rows = otRows();
+  const nPend = rows.filter(r=>r.status==='pending').length;
+  const st = {pending:['wait','申請中'], approved:['ok','已核准'], rejected:['bad','已退回']};
+  const list = rows.map(r=>{
+    const s = st[r.status] || st.pending;
+    const acts = [];
+    if(r.status==='pending' && isAdmin()){
+      acts.push('<button class="btn btn-sm btn-g" data-ok="'+esc(r.user)+'|'+esc(r.id)+'">核准</button>');
+      acts.push('<button class="btn btn-sm" data-no="'+esc(r.user)+'|'+esc(r.id)+'">退回</button>');
+    }
+    if(r.status==='pending' && r.user===me) acts.push('<button class="btn btn-sm" data-wd="'+esc(r.id)+'">撤回</button>');
+    return '<div class="ot-row">'
+      + '<span class="pk-mk ' + s[0] + '" style="margin-left:0">' + s[1] + '</span>'
+      + (isAdmin() ? '<span class="who">' + esc(r.user) + '</span>' : '')
+      + '<span class="d">' + esc(String(r.date||'').slice(5)) + '</span>'
+      + '<span class="m">' + (parseInt(r.mins,10)||0) + ' 分' + (r.reqMins && r.reqMins !== r.mins ? '（申請 ' + r.reqMins + '）' : '') + '</span>'
+      + '<span class="why">' + esc(r.reason||'')
+      +   '<span class="ref">' + esc(otRefText(r.user, r.date))
+      +   (r.decidedBy ? '　·　' + esc(r.decidedBy) + (r.status==='approved'?' 核准':' 退回') : '') + '</span></span>'
+      + (acts.length ? '<span class="acts">' + acts.join('') + '</span>' : '')
+      + '</div>';
+  }).join('');
+  // 表單只建一次：Firebase 任何一包資料更新都會整頁重畫，表單跟著重建的話打到一半的字會被洗掉
+  if(!$('ot-list') || box.dataset.me !== me){
+    box.dataset.me = me;
+    box.innerHTML = '<div class="pk-card">'
+      + '<div class="pk-h" id="ot-head"></div>'
+      + '<div class="pk-b">'
+      +   '<div class="ot-form">'
+      +     '<div><label>日期</label><input id="ot-d" type="date" value="' + today() + '"></div>'
+      +     '<div><label>加班幾分鐘</label><input id="ot-m" type="number" min="15" step="15" inputmode="numeric" placeholder="例：30"></div>'
+      +     '<div class="why-f"><label>原因</label><input id="ot-r" maxlength="80" placeholder="例：客人還沒走、幫忙收貨"></div>'
+      +     '<button class="btn btn-b" id="ot-go">送出申請（' + esc(me) + '）</button>'
+      +   '</div>'
+      +   '<div id="ot-list"></div>'
+      + '</div></div>';
+    $('ot-go').onclick = submitOT;
+  }
+  $('ot-head').innerHTML = '加班申請 · ' + ym + '<span class="sp"></span>'
+    + (nPend ? '<span class="pk-mk wait">' + nPend + ' 筆待核准</span>' : '')
+    + '<span class="mini">超出排班的時間要申請、核准後才計薪</span>';
+  $('ot-list').innerHTML = list || '<div class="pk-empty">這個月還沒有加班申請</div>';
+  box.querySelectorAll('[data-ok]').forEach(b=>b.onclick=()=>{ const [u,id]=b.dataset.ok.split('|'); decideOT(u, id, true) });
+  box.querySelectorAll('[data-no]').forEach(b=>b.onclick=()=>{ const [u,id]=b.dataset.no.split('|'); decideOT(u, id, false) });
+  box.querySelectorAll('[data-wd]').forEach(b=>b.onclick=()=>withdrawOT(b.dataset.wd));
+}
+async function submitOT(){
+  const d = ($('ot-d').value||'').trim();
+  const m = parseInt($('ot-m').value, 10);
+  const r = ($('ot-r').value||'').trim();
+  if(!/^\d{4}-\d{2}-\d{2}$/.test(d)){ toast('日期要選'); return }
+  if(!(m > 0) || m > 720){ toast('加班分鐘數要填 1～720'); return }
+  if(!r){ toast('原因要寫，管理員才知道要不要核准'); return }
+  await authReady;
+  try{
+    await db.ref(P.overtime+'/'+d.slice(0,7)+'/'+me).push({
+      date:d, mins:m, reason:r, status:'pending', at: firebase.database.ServerValue.TIMESTAMP
+    });
+    logIt('申請加班', d+' '+m+'分 / '+r);
+    toast('加班申請送出了，等管理員核准');
+    $('ot-m').value = ''; $('ot-r').value = '';
+    if(d.slice(0,7) !== ym){ ym = d.slice(0,7); listen() }
+  }catch(e){ toast('送出失敗：'+e.message) }
+}
+async function decideOT(u, id, ok){
+  if(!isAdmin()){ toast('只有管理員可以核准加班'); return }
+  const r = (overtime[u]||{})[id];
+  if(!r || r.status !== 'pending') return;
+  const upd = {status: ok ? 'approved' : 'rejected', decidedBy: me, decidedAt: firebase.database.ServerValue.TIMESTAMP};
+  if(ok){
+    const ans = prompt(u + ' ' + r.date + ' 申請加班 ' + r.mins + ' 分' + String.fromCharCode(10)
+      + otRefText(u, r.date) + String.fromCharCode(10,10) + '要核准幾分鐘？（可以改）', String(r.mins));
+    if(ans === null) return;
+    const n = parseInt(ans, 10);
+    if(!(n > 0) || n > 720){ toast('分鐘數看不懂'); return }
+    if(n !== parseInt(r.mins,10)){ upd.mins = n; upd.reqMins = parseInt(r.mins,10)||0 }
+  }else if(!confirm('退回 ' + u + ' ' + r.date + ' 的加班申請（' + r.mins + ' 分）？')) return;
+  await authReady;
+  try{
+    await db.ref(P.overtime+'/'+ym+'/'+u+'/'+id).update(upd);
+    logIt(ok ? '核准加班' : '退回加班', u+' '+r.date+' '+(upd.mins||r.mins)+'分');
+    toast(ok ? '已核准' : '已退回');
+  }catch(e){ toast('沒存起來：'+e.message) }
+}
+async function withdrawOT(id){
+  const r = (overtime[me]||{})[id];
+  if(!r || r.status !== 'pending') return;
+  if(!confirm('撤回 ' + r.date + ' 的加班申請？')) return;
+  await authReady;
+  try{
+    await db.ref(P.overtime+'/'+ym+'/'+me+'/'+id).remove();
+    logIt('撤回加班申請', r.date+' '+r.mins+'分');
+    toast('已撤回');
+  }catch(e){ toast('撤回失敗：'+e.message) }
+}
+
 function renderShift(){
   const box = $('pk-shift');
   if(!box) return;
@@ -11792,7 +12015,14 @@ function renderShift(){
       const src = mm === ym ? shifts : (mm === ym2 ? shifts2 : null);
       const sh = src ? ((src[ds.slice(8,10)]||{})[u]) : null;
       const extra = [];
-      if(sh && sh.rest) extra.push('休' + sh.rest);
+      // 休息「自動算」的班沒有 rest 欄位，以前格子上就不顯示 —— 但錢照樣會扣，杰哥 2026-10-15 問「休30會標出來嗎」。
+      // 自動的也照算出來標上去（排班長度套勞基法規則），讓人一眼看得到這天會扣多少。
+      if(sh && typeof sh.rest === 'number'){ if(sh.rest > 0) extra.push('休' + sh.rest) }
+      else if(sh && sh.start && sh.end){
+        const _len = Math.round((shiftWin(ds, sh)[1] - shiftWin(ds, sh)[0]) / 60000);
+        const _ar = legalRest(_len);
+        if(_ar) extra.push('休' + _ar + '(自動)');
+      }
       if(sh && sh.note) extra.push(esc(sh.note));
       const inner = sh
         ? esc(sh.start) + '–' + esc(sh.end) + (extra.length ? '<span class="note">'+extra.join('・')+'</span>' : '')
