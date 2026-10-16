@@ -11930,6 +11930,7 @@ function renderOT(){
       acts.push('<button class="btn btn-sm" data-no="'+esc(r.user)+'|'+esc(r.id)+'">退回</button>');
     }
     if(r.status==='pending' && r.user===me) acts.push('<button class="btn btn-sm" data-wd="'+esc(r.id)+'">撤回</button>');
+    if(r.status!=='pending' && isAdmin()) acts.push('<button class="btn btn-sm" data-otdel="'+esc(r.user)+'|'+esc(r.id)+'" title="核准錯了或員工要取消">刪除</button>');
     return '<div class="ot-row">'
       + '<span class="pk-mk ' + s[0] + '" style="margin-left:0">' + s[1] + '</span>'
       + (isAdmin() ? '<span class="who">' + esc(r.user) + '</span>' : '')
@@ -11964,6 +11965,7 @@ function renderOT(){
   box.querySelectorAll('[data-ok]').forEach(b=>b.onclick=()=>{ const [u,id]=b.dataset.ok.split('|'); decideOT(u, id, true) });
   box.querySelectorAll('[data-no]').forEach(b=>b.onclick=()=>{ const [u,id]=b.dataset.no.split('|'); decideOT(u, id, false) });
   box.querySelectorAll('[data-wd]').forEach(b=>b.onclick=()=>withdrawOT(b.dataset.wd));
+  box.querySelectorAll('[data-otdel]').forEach(b=>b.onclick=()=>{ const [u,id]=b.dataset.otdel.split('|'); delOT(u, id) });
 }
 async function submitOT(){
   const d = ($('ot-d').value||'').trim();
@@ -12002,6 +12004,19 @@ async function decideOT(u, id, ok){
     logIt(ok ? '核准加班' : '退回加班', u+' '+r.date+' '+(upd.mins||r.mins)+'分');
     toast(ok ? '已核准' : '已退回');
   }catch(e){ toast('沒存起來：'+e.message) }
+}
+async function delOT(u, id){
+  if(!isAdmin()) return;
+  const r = (overtime[u]||{})[id];
+  if(!r) return;
+  if(!confirm('刪除 ' + u + ' ' + r.date + ' 的加班（' + r.mins + ' 分，' + (r.status==='approved'?'已核准':'已退回') + '）？'
+      + (r.status==='approved' ? String.fromCharCode(10) + '刪掉之後這 ' + r.mins + ' 分就不算薪水了。' : ''))) return;
+  await authReady;
+  try{
+    await db.ref(P.overtime+'/'+ym+'/'+u+'/'+id).remove();
+    logIt('刪除加班', u+' '+r.date+' '+r.mins+'分('+r.status+')');
+    toast('已刪除');
+  }catch(e){ toast('刪除失敗：'+e.message) }
 }
 async function withdrawOT(id){
   const r = (overtime[me]||{})[id];
@@ -12134,6 +12149,7 @@ function renderLV(){
       acts.push('<button class="btn btn-sm" data-lno="'+esc(l.ym+'|'+l.user+'|'+l.id)+'">退回</button>');
     }
     if(l.user === me && l.status === 'pending') acts.push('<button class="btn btn-sm" data-lwd="'+esc(l.ym+'|'+l.id)+'">撤回</button>');
+    if(l.status !== 'pending' && isAdmin()) acts.push('<button class="btn btn-sm" data-ldel="'+esc(l.ym+'|'+l.user+'|'+l.id)+'" title="員工說不請了、或核准錯了">刪除</button>');
     const canSeeWhy = isAdmin() || l.user === me;
     return '<div class="ot-row">'
       + '<span class="pk-mk ' + s[0] + '" style="margin-left:0">' + s[1] + '</span>'
@@ -12160,6 +12176,7 @@ function renderLV(){
   $('lv-list').querySelectorAll('[data-lok]').forEach(b=>b.onclick=()=>decideLV(b.dataset.lok, true));
   $('lv-list').querySelectorAll('[data-lno]').forEach(b=>b.onclick=()=>decideLV(b.dataset.lno, false));
   $('lv-list').querySelectorAll('[data-lwd]').forEach(b=>b.onclick=()=>withdrawLV(b.dataset.lwd));
+  $('lv-list').querySelectorAll('[data-ldel]').forEach(b=>b.onclick=()=>delLV(b.dataset.ldel));
   lvLiveWarn();
 }
 async function submitLV(){
@@ -12214,6 +12231,20 @@ async function decideLV(key, ok){
     }
     toast(ok ? (l.allDay ? '已核准' : '已核准，時段假記得看排班要不要調') : '已退回');
   }catch(e){ toast('沒存起來：'+e.message) }
+}
+async function delLV(key){
+  if(!isAdmin()) return;
+  const [m, u, id] = key.split('|');
+  const l = ((leavesBy[m]||{})[u]||{})[id];
+  if(!l) return;
+  if(!confirm('刪除 ' + u + ' ' + l.date + ' ' + lvSpan(l) + ' 的請假（' + (l.status==='approved'?'已核准':'已退回') + '）？'
+      + (l.status==='approved' ? String.fromCharCode(10) + '如果之前有順手拿掉他的班，要自己去排班表加回來。' : ''))) return;
+  await authReady;
+  try{
+    await db.ref(P.leaves+'/'+m+'/'+u+'/'+id).remove();
+    logIt('刪除請假', u+' '+l.date+' '+lvSpan(l)+'('+l.status+')');
+    toast('已刪除');
+  }catch(e){ toast('刪除失敗：'+e.message) }
 }
 async function withdrawLV(key){
   const [m, id] = key.split('|');
