@@ -1114,6 +1114,22 @@ body.has-batch-bar .main{padding-bottom:140px}
 .pmod .pk-mk.ok{color:var(--grn);background:var(--grn-bg);border-color:var(--grn)}
 .pmod .pk-mk.wait{color:var(--amb);background:var(--amb-bg);border-color:var(--amb)}
 .pmod #pk-ot{margin-top:14px}
+.pmod #pk-lv{margin-top:14px}
+.pmod .lv-form{display:grid;grid-template-columns:150px auto 1fr auto;gap:8px;align-items:end}
+.pmod .lv-form label{display:block;font-size:10.5px;font-weight:800;color:var(--dm);margin-bottom:3px}
+.pmod .lv-form input{width:100%;box-sizing:border-box}
+.pmod .lv-tm{display:flex;gap:5px;align-items:center}
+.pmod .lv-tm input[type=time]{width:96px}
+.pmod .lv-tm.off input[type=time],.pmod .lv-tm.off .lv-dash{display:none}
+.pmod .lv-staff{display:block;font-size:10px;color:var(--dm);margin-top:1px}
+.pmod .lv-staff.low{color:var(--pc);font-weight:800}
+.pmod .lv-warn{margin:9px 0 2px;padding:8px 11px;border-radius:8px;font-size:12px;line-height:1.6;background:var(--amb-bg);color:var(--amb);border:1px solid var(--amb);font-weight:700}
+.pmod .lv-warn:empty{display:none}
+.pmod .lv-sec{font-size:10.5px;font-weight:800;color:var(--dm);margin:14px 0 2px;letter-spacing:.04em}
+.pmod .sh-cell .lv{display:block;font-size:10px;font-weight:800;font-family:var(--sans);margin-top:2px}
+.pmod .sh-cell .lv.ok{color:var(--pc)}
+.pmod .sh-cell .lv.wait{color:var(--amb)}
+@media(max-width:860px){.pmod .lv-form{grid-template-columns:1fr}}
 .pmod .ot-form{display:grid;grid-template-columns:150px 110px 1fr auto;gap:8px;align-items:end;padding-bottom:12px;border-bottom:1px dashed var(--bd);margin-bottom:8px}
 .pmod .ot-form label{display:block;font-size:10.5px;font-weight:800;color:var(--dm);margin-bottom:3px}
 .pmod .ot-form input{width:100%;box-sizing:border-box}
@@ -1304,6 +1320,7 @@ body.has-batch-bar .main{padding-bottom:140px}
     <div id="pk-month"></div>
   </div>
   <div id="pk-ot"></div>
+  <div id="pk-lv"></div>
   <div id="pk-shift"></div>
 </div>
 
@@ -10940,13 +10957,17 @@ window.__tdRender = function(){ try{ if(me) render() }catch(_){} };
 window.PUNCH = (function(){
 'use strict';
 
-const P = { punches:'punches', shifts:'shifts', overtime:'overtime' };
+const P = { punches:'punches', shifts:'shifts', overtime:'overtime', leaves:'leaves' };
 
 let me = null, myRole = '';
 let ym = '';                 // 目前看的月份 YYYY-MM
 let punches = {};            // {user:{id:{...}}}
 let shifts = {};             // {DD:{user:{...}}}
 let overtime = {};           // {user:{id:{date,mins,reason,status,...}}}  加班申請（這個月）
+let leavesBy = {};           // {YYYY-MM:{user:{id:{...}}}}  請假（看得到的每個月都各自掛一個監聽）
+const _lvBound = {};
+let shiftsBy = {};           // {YYYY-MM:{DD:{user:{...}}}}  請假看人力用，唯讀
+const _shBound = {};
 // 週視圖跨月的時候要讀兩個月（例:8/31 那一週是 8/31 + 9/1~9/6）。
 // 原本只讀 ym 那一包,結果九月那六天整片顯示「休」,看起來像沒排班,
 // 但資料庫裡其實排好了 —— 杰哥 2026-08-24 就是被這個嚇到。
@@ -11045,6 +11066,7 @@ function init(){
   db.ref('userOrder').on('value', s=>{ const v=s.val(); userOrder = Array.isArray(v) ? v : []; render() }, ()=>{});
   db.ref('payRates').on('value', s=>{ payRates = s.val() || {}; render() }, ()=>{});
   listen();
+  { const n = new Date(); ensureLeaves(ymOf(n)); ensureLeaves(ymOf(new Date(n.getFullYear(), n.getMonth()+1, 1))); }
   if(!_clockTimer) _clockTimer = setInterval(()=>{ if(!$('tab-punch') || $('tab-punch').classList.contains('hidden')) return; renderHero() }, 30000);
 }
 
@@ -11054,6 +11076,7 @@ function listenSecond(m){
   _bound2.forEach(r=>{ try{ r.off() }catch(e){} });
   _bound2 = [];
   ym2 = m; shifts2 = {};
+  ensureLeaves(m);
   if(!m){ renderShift(); return }
   const r = db.ref(P.shifts+'/'+m);
   r.on('value', s=>{ shifts2 = s.val() || {}; renderShift() }, ()=>{});
@@ -11069,6 +11092,20 @@ function listen(){
   const ro = db.ref(P.overtime+'/'+ym);
   ro.on('value', s=>{ overtime = s.val() || {}; render() }, ()=>{});
   _bound = [rp, rs, ro];
+  ensureLeaves(ym);
+}
+function ensureShiftsRO(m){
+  if(!m || _shBound[m]) return;
+  const r = db.ref(P.shifts+'/'+m);
+  r.on('value', s=>{ shiftsBy[m] = s.val() || {}; renderLV(); renderShift() }, ()=>{});
+  _shBound[m] = r;
+}
+function ensureLeaves(m){
+  ensureShiftsRO(m);
+  if(!m || _lvBound[m]) return;
+  const r = db.ref(P.leaves+'/'+m);
+  r.on('value', s=>{ leavesBy[m] = s.val() || {}; render() }, ()=>{});
+  _lvBound[m] = r;
 }
 function setMonth(next){
   const [y,mo] = ym.split('-').map(Number);
@@ -11362,11 +11399,17 @@ function render(){
   renderToday();
   renderMonth();
   renderOT();
+  renderLV();
   renderShift();
   const b = $('pk-badge');
-  if(b){ const st = stateOf(me); b.textContent = st.working ? '上班中' : '—';
-         b.style.background = st.working ? '#eef7f1' : '#e8eef9';
-         b.style.color = st.working ? '#2d7a4f' : '#1657b5'; }
+  if(b){ const st = stateOf(me);
+         // 管理員：有加班/請假等著審，分頁上就直接亮出來（不然要點進打卡分頁才會發現有人在等）
+         const nWait = isAdmin() ? (otRows().filter(r=>r.status==='pending').length
+                                    + lvAll().filter(l=>l.status==='pending').length) : 0;
+         b.textContent = nWait ? (nWait + ' 待審') : (st.working ? '上班中' : '—');
+         b.title = nWait ? '有 ' + nWait + ' 筆加班／請假等你核准' : '';
+         b.style.background = nWait ? '#fef9ec' : (st.working ? '#eef7f1' : '#e8eef9');
+         b.style.color = nWait ? '#b45309' : (st.working ? '#2d7a4f' : '#1657b5'); }
 }
 
 function renderHero(){
@@ -11584,10 +11627,11 @@ function dayCalc(u, ds){
     base = c - r;
     extra = Math.max(0, g - c);
     const firstIn = list.find(p=>p.type==='in');
-    if(firstIn && firstIn.at > A) late = Math.floor((firstIn.at - A)/60000);
+    const _lvOk = leavesOn(ds).some(l=>l.user===u && l.status==='approved');
+    if(!_lvOk && firstIn && firstIn.at > A) late = Math.floor((firstIn.at - A)/60000);
     if(!openAt && segs.length){
       const lastOut = segs[segs.length-1][1];
-      if(lastOut < B) early = Math.floor((B - lastOut)/60000);
+      if(!_lvOk && lastOut < B) early = Math.floor((B - lastOut)/60000);
     }
   }else if(g > 0){
     noShift = true; extra = g;
@@ -11971,6 +12015,219 @@ async function withdrawOT(id){
   }catch(e){ toast('撤回失敗：'+e.message) }
 }
 
+/* =========================================================================
+   請假（杰哥 2026-10-17：「讓員工自己去勾需請假時段，某天有人先勾了要提醒，避免同一天所有人都要放」）
+   leaves/{YYYY-MM}/{user}/{pushId} = {date, allDay, start, end, reason, status:'pending'|'approved'|'rejected',
+                                        clash:[同一時段先請的人], at, decidedBy, decidedAt}
+   處理撞期的方式：不擋死（真的有事的人被擋掉只會私下吵），改成
+     1) 一選日期就即時顯示「這天誰已經請了」——大家都看得到
+     2) 撞期還要送 → 再確認一次，單子標「撞期」
+     3) 一律管理員核准才算；審核列撞期的標紅
+   ========================================================================= */
+function lvAll(){
+  const out = [];
+  Object.keys(leavesBy).forEach(m=>{
+    const byU = leavesBy[m] || {};
+    Object.keys(byU).forEach(u=>{
+      const all = byU[u] || {};
+      Object.keys(all).forEach(k=>out.push(Object.assign({id:k, user:u, ym:m}, all[k])));
+    });
+  });
+  return out;
+}
+function leavesOn(ds){ return lvAll().filter(l=>l.date===ds) }
+function lvSpan(l){ return l.allDay ? '全天' : (String(l.start||'') + '–' + String(l.end||'')) }
+function lvMin(t){ const m = /^(\d{1,2}):(\d{2})$/.exec(String(t||'')); return m ? (+m[1])*60 + (+m[2]) : null }
+function lvOverlap(a, b){
+  if(a.allDay || b.allDay) return true;
+  const a1 = lvMin(a.start), a2 = lvMin(a.end), b1 = lvMin(b.start), b2 = lvMin(b.end);
+  if(a1==null || a2==null || b1==null || b2==null) return true;      // 看不懂時間就當撞，寧可多提醒
+  return a1 < b2 && b1 < a2;
+}
+/* 跟這張假（還沒送的也行）撞到的其他人：申請中或已核准的都算 */
+function lvClashes(l){
+  return leavesOn(l.date).filter(x=>x.user !== l.user && x.id !== l.id && x.status !== 'rejected' && lvOverlap(x, l));
+}
+function lvClashText(list){
+  return list.map(x=>x.user + ' ' + lvSpan(x) + (x.status==='approved' ? '（已核准）' : '（申請中）')).join('、');
+}
+function lvDraft(){
+  const allDay = $('lv-all').checked;
+  return {user: me, date: ($('lv-d').value||'').trim(), allDay: allDay,
+          start: allDay ? '' : ($('lv-s').value||''), end: allDay ? '' : ($('lv-e').value||'')};
+}
+function lvShiftOf(user, ds){
+  const m = ds.slice(0,7);
+  const src = m === ym ? shifts : (shiftsBy[m] || null);
+  if(!src) return undefined;                 // 那個月的排班還沒載到 → 不知道，不要亂講
+  const sh = (src[ds.slice(8,10)] || {})[user];
+  return (sh && sh.start && sh.end) ? sh : null;
+}
+/* 這張假如果准了，那個時段還剩誰在班（排班有排、時間重疊、沒有已核准的假） */
+function lvStaff(l){
+  const names = Object.keys(users);
+  if(lvShiftOf(names[0] || me, l.date) === undefined) return null;
+  const on = names.filter(u=>{
+    const sh = lvShiftOf(u, l.date);
+    if(!sh) return false;
+    const slot = {allDay:false, start:sh.start, end:sh.end};
+    if(!lvOverlap(slot, l)) return false;
+    return !leavesOn(l.date).some(x=>x.user===u && x.status==='approved' && x.id!==l.id && lvOverlap(x, l));
+  });
+  const left = on.filter(u=>u !== l.user);
+  return {on, left, mine: on.includes(l.user)};
+}
+function lvStaffText(l){
+  const st = lvStaff(l);
+  if(!st) return '';
+  if(!st.on.length) return '這天這個時段沒有人排班';
+  return '這時段排了 ' + st.on.join('、') + (st.mine ? '，准了剩 ' + (st.left.length ? st.left.join('、') : '0 人') : '（' + l.user + ' 本來就沒排）');
+}
+function lvLiveWarn(){
+  const w = $('lv-warn'); if(!w) return;
+  const d = lvDraft();
+  $('lv-tm').classList.toggle('off', d.allDay);
+  if(!/^\d{4}-\d{2}-\d{2}$/.test(d.date)){ w.textContent = ''; return }
+  ensureLeaves(d.date.slice(0,7));        // 選到更遠的月份：先把那個月的請假掛上來，資料到了會重畫再提醒
+  const c = lvClashes(d);
+  const same = leavesOn(d.date).filter(x=>x.user===me && x.status!=='rejected');
+  w.textContent = (c.length ? '提醒：這天 ' + lvClashText(c) + ' 已經先請了。還是可以送，管理員會看到撞期再決定。' : '')
+    + (same.length ? (c.length ? '　' : '') + '你這天已經有一張了（' + same.map(lvSpan).join('、') + '）。' : '');
+}
+function renderLV(){
+  const box = $('pk-lv');
+  if(!box) return;
+  if(!$('lv-list') || box.dataset.me !== me){
+    box.dataset.me = me;
+    box.innerHTML = '<div class="pk-card">'
+      + '<div class="pk-h" id="lv-head"></div>'
+      + '<div class="pk-b">'
+      +   '<div class="lv-form">'
+      +     '<div><label>請假日期</label><input id="lv-d" type="date"></div>'
+      +     '<div><label>時段</label><div class="lv-tm off" id="lv-tm">'
+      +       '<label style="display:flex;align-items:center;gap:4px;margin:0;font-size:12px;color:var(--tx);font-weight:700;cursor:pointer;white-space:nowrap">'
+      +         '<input type="checkbox" id="lv-all" checked style="width:auto">全天</label>'
+      +       '<input id="lv-s" type="time" value="13:30"><span class="lv-dash">–</span><input id="lv-e" type="time" value="22:00"></div></div>'
+      +     '<div><label>原因</label><input id="lv-r" maxlength="80" placeholder="例：家裡有事、看醫生、考試"></div>'
+      +     '<button class="btn btn-b" id="lv-go">送出請假（' + esc(me) + '）</button>'
+      +   '</div>'
+      +   '<div class="lv-warn" id="lv-warn"></div>'
+      +   '<div id="lv-list"></div>'
+      + '</div></div>';
+    ['lv-d','lv-s','lv-e','lv-all'].forEach(id=>{ const e=$(id); e.oninput = lvLiveWarn; e.onchange = lvLiveWarn });
+    $('lv-go').onclick = submitLV;
+  }
+  const t = today();
+  const all = lvAll().filter(l=>l.status !== 'rejected' || isAdmin() || l.user === me);
+  // 全店看得到的：今天以後誰請假（名字＋時段；原因只有本人跟管理員看得到）
+  const up = all.filter(l=>l.date >= t && l.status !== 'rejected').sort((a,b)=>a.date.localeCompare(b.date) || String(a.user).localeCompare(String(b.user)));
+  const pend = isAdmin() ? all.filter(l=>l.status === 'pending') : [];
+  const mine = all.filter(l=>l.user === me && (l.date < t || l.status === 'rejected')).sort((a,b)=>b.date.localeCompare(a.date)).slice(0, 10);
+  const st = {pending:['wait','申請中'], approved:['ok','已核准'], rejected:['bad','已退回']};
+  const wd = ['日','一','二','三','四','五','六'];
+  const row = l=>{
+    const s = st[l.status] || st.pending;
+    const c = lvClashes(l);
+    const acts = [];
+    if(l.status === 'pending' && isAdmin()){
+      acts.push('<button class="btn btn-sm btn-g" data-lok="'+esc(l.ym+'|'+l.user+'|'+l.id)+'">核准</button>');
+      acts.push('<button class="btn btn-sm" data-lno="'+esc(l.ym+'|'+l.user+'|'+l.id)+'">退回</button>');
+    }
+    if(l.user === me && l.status === 'pending') acts.push('<button class="btn btn-sm" data-lwd="'+esc(l.ym+'|'+l.id)+'">撤回</button>');
+    const canSeeWhy = isAdmin() || l.user === me;
+    return '<div class="ot-row">'
+      + '<span class="pk-mk ' + s[0] + '" style="margin-left:0">' + s[1] + '</span>'
+      + '<span class="who">' + esc(l.user) + '</span>'
+      + '<span class="d">' + esc(String(l.date).slice(5)) + '（' + wd[new Date(l.date+'T00:00:00').getDay()] + '）</span>'
+      + '<span class="m">' + esc(lvSpan(l)) + '</span>'
+      + (c.length ? '<span class="pk-mk bad">撞期：' + esc(lvClashText(c)) + '</span>' : '')
+      + '<span class="why">' + (canSeeWhy ? esc(l.reason||'') : '')
+      +   ((isAdmin() && l.status === 'pending') ? (function(){ const st = lvStaff(l), t2 = lvStaffText(l);
+            return t2 ? '<span class="lv-staff' + (st && st.mine && st.left.length === 0 ? ' low' : '') + '">' + esc(t2) + '</span>' : '' })() : '')
+      +   (l.decidedBy ? '<span class="ref">' + esc(l.decidedBy) + (l.status==='approved'?' 核准':' 退回') + '</span>' : '') + '</span>'
+      + (acts.length ? '<span class="acts">' + acts.join('') + '</span>' : '')
+      + '</div>';
+  };
+  const nPend = all.filter(l=>l.status === 'pending' && isAdmin()).length;
+  $('lv-head').innerHTML = '請假<span class="sp"></span>'
+    + (nPend ? '<span class="pk-mk wait">' + nPend + ' 筆待核准</span>' : '')
+    + '<span class="mini">選了日期會先提醒這天誰已經請了</span>';
+  $('lv-list').innerHTML =
+      (pend.length ? '<div class="lv-sec">待核准</div>' + pend.sort((a,b)=>a.date.localeCompare(b.date)).map(row).join('') : '')
+    + '<div class="lv-sec">接下來誰請假</div>'
+    + (up.length ? up.map(row).join('') : '<div class="pk-empty" style="padding:10px 4px">目前沒有人請假</div>')
+    + (mine.length ? '<div class="lv-sec">我之前請的／被退回的</div>' + mine.map(row).join('') : '');
+  $('lv-list').querySelectorAll('[data-lok]').forEach(b=>b.onclick=()=>decideLV(b.dataset.lok, true));
+  $('lv-list').querySelectorAll('[data-lno]').forEach(b=>b.onclick=()=>decideLV(b.dataset.lno, false));
+  $('lv-list').querySelectorAll('[data-lwd]').forEach(b=>b.onclick=()=>withdrawLV(b.dataset.lwd));
+  lvLiveWarn();
+}
+async function submitLV(){
+  const d = lvDraft();
+  const r = ($('lv-r').value||'').trim();
+  if(!/^\d{4}-\d{2}-\d{2}$/.test(d.date)){ toast('請假日期要選'); return }
+  if(d.date < today()){ toast('只能請今天以後的假；之前的請直接跟管理員說'); return }
+  if(!d.allDay){
+    const a = lvMin(d.start), b = lvMin(d.end);
+    if(a == null || b == null || !(b > a)){ toast('時段的結束要比開始晚'); return }
+  }
+  if(!r){ toast('原因要寫，管理員才好安排'); return }
+  ensureLeaves(d.date.slice(0,7));
+  const c = lvClashes(d);
+  if(c.length && !confirm('這天 ' + lvClashText(c) + ' 已經先請了。' + String.fromCharCode(10,10)
+      + '還是要送嗎？管理員會看到撞期，再決定准誰。')) return;
+  await authReady;
+  try{
+    const rec = {date:d.date, allDay:d.allDay, start:d.start, end:d.end, reason:r, status:'pending',
+                 at: firebase.database.ServerValue.TIMESTAMP};
+    if(c.length) rec.clash = c.map(x=>x.user + ' ' + lvSpan(x));
+    await db.ref(P.leaves+'/'+d.date.slice(0,7)+'/'+me).push(rec);
+    logIt('請假', d.date+' '+lvSpan(d)+' / '+r+(c.length?' / 撞期 '+lvClashText(c):''));
+    toast(c.length ? '請假送出了（有撞期，等管理員決定）' : '請假送出了，等管理員核准');
+    $('lv-r').value = '';
+  }catch(e){ toast('送出失敗：'+e.message) }
+}
+async function decideLV(key, ok){
+  if(!isAdmin()){ toast('只有管理員可以核准請假'); return }
+  const [m, u, id] = key.split('|');
+  const l = ((leavesBy[m]||{})[u]||{})[id];
+  if(!l || l.status !== 'pending') return;
+  const c = lvClashes(Object.assign({id:id, user:u}, l)).filter(x=>x.status==='approved');
+  if(ok && c.length && !confirm('這天已經核准了 ' + lvClashText(c) + '。' + String.fromCharCode(10,10)
+      + '再核准 ' + u + ' 的話，這個時段會同時少 ' + (c.length+1) + ' 個人。確定？')) return;
+  const _st = ok ? lvStaff(Object.assign({id:id, user:u}, l)) : null;
+  if(ok && _st && _st.mine && !_st.left.length && !confirm('准了之後 ' + l.date + ' ' + lvSpan(l) + ' 這個時段就沒有人排班了。確定要准？')) return;
+  if(!ok && !confirm('退回 ' + u + ' ' + l.date + ' ' + lvSpan(l) + ' 的請假？')) return;
+  await authReady;
+  try{
+    await db.ref(P.leaves+'/'+m+'/'+u+'/'+id).update({status: ok?'approved':'rejected', decidedBy: me,
+      decidedAt: firebase.database.ServerValue.TIMESTAMP});
+    logIt(ok ? '核准請假' : '退回請假', u+' '+l.date+' '+lvSpan(l));
+    if(ok && l.allDay && lvShiftOf(u, l.date)){
+      const sh = lvShiftOf(u, l.date);
+      if(confirm('已核准。' + u + ' ' + l.date + ' 本來排了 ' + sh.start + '–' + sh.end + '，要順手把這天的班拿掉嗎？')){
+        await db.ref(P.shifts+'/'+l.date.slice(0,7)+'/'+l.date.slice(8,10)+'/'+u).remove();
+        logIt('請假核准→拿掉排班', u+' '+l.date+' '+sh.start+'-'+sh.end);
+        toast('已核准，' + u + ' 這天的班也拿掉了');
+        return;
+      }
+    }
+    toast(ok ? (l.allDay ? '已核准' : '已核准，時段假記得看排班要不要調') : '已退回');
+  }catch(e){ toast('沒存起來：'+e.message) }
+}
+async function withdrawLV(key){
+  const [m, id] = key.split('|');
+  const l = ((leavesBy[m]||{})[me]||{})[id];
+  if(!l || l.status !== 'pending') return;
+  if(!confirm('撤回 ' + l.date + ' ' + lvSpan(l) + ' 的請假？')) return;
+  await authReady;
+  try{
+    await db.ref(P.leaves+'/'+m+'/'+me+'/'+id).remove();
+    logIt('撤回請假', l.date+' '+lvSpan(l));
+    toast('已撤回');
+  }catch(e){ toast('撤回失敗：'+e.message) }
+}
+
 function renderShift(){
   const box = $('pk-shift');
   if(!box) return;
@@ -12024,9 +12281,11 @@ function renderShift(){
         if(_ar) extra.push('休' + _ar + '(自動)');
       }
       if(sh && sh.note) extra.push(esc(sh.note));
-      const inner = sh
+      const _lv = leavesOn(ds).filter(l=>l.user===u && l.status!=='rejected')
+        .map(l=>'<span class="lv ' + (l.status==='approved'?'ok':'wait') + '">' + (l.status==='approved'?'請假 ':'請假申請中 ') + esc(lvSpan(l)) + '</span>').join('');
+      const inner = (sh
         ? esc(sh.start) + '–' + esc(sh.end) + (extra.length ? '<span class="note">'+extra.join('・')+'</span>' : '')
-        : '<span class="off">休</span>';
+        : '<span class="off">休</span>') + _lv;
       html += '<td' + (ds===t?' class="today"':'') + '>'
         + '<div class="sh-cell' + (isAdmin()?' editable':'') + '" data-d="'+ds+'" data-u="'+esc(u)+'">' + inner + '</div></td>';
     });
