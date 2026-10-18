@@ -4829,6 +4829,21 @@ function toggleFilterPanel(){
   try{ localStorage.setItem(FL_KEY, filterPanelOpen()?'0':'1') }catch(e){}
   applyFilterPanel();
 }
+/* 手機：篩選打開時，往下滑到訂單（整塊篩選已經滑出畫面上方）就自動收起來（阿淵 2026-10-18）。
+   還看得到篩選的時候不收 —— 篩選很長，可能正在往下找按鈕；收起來時把畫面位置補回去，訂單不會跳。 */
+let _flAutoTick=false;
+window.addEventListener('scroll',()=>{if(_flAutoTick)return;_flAutoTick=true;requestAnimationFrame(()=>{_flAutoTick=false;
+  try{
+    if(!filterPanelOpen()||window.innerWidth>768)return;
+    const tab=document.getElementById('tab-list');if(!tab||tab.classList.contains('hidden'))return;
+    const fr=tab.querySelector('.filter-row'),la=document.getElementById('list-area');if(!fr||!la)return;
+    if(fr.getBoundingClientRect().bottom>0)return;
+    const before=la.getBoundingClientRect().top;
+    try{localStorage.setItem(FL_KEY,'0')}catch(e){}
+    applyFilterPanel();
+    window.scrollBy(0,la.getBoundingClientRect().top-before);
+  }catch(e){}
+})},{passive:true});
 // 收起來的時候要看得出「現在被什麼篩選擋住」，不然會以為單不見了
 function updateFilterSummary(){
   const el=document.getElementById('fl-sum'); if(!el) return;
