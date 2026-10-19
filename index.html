@@ -7134,8 +7134,10 @@ function renderKerryTab(){
   if(q)show=show.filter(r=>[r.b,r.o.orderNo,r.o.name,r.o.product,r.o.phone].some(x=>String(x||'').toUpperCase().includes(q)));
   show.sort((a,b)=>(order[a.k]-order[b.k])||(_ktFilter==='bad'?String(a.b).localeCompare(String(b.b)):0)||String(b.o.date||'').localeCompare(String(a.o.date||'')));
   const keepQ=document.activeElement&&document.activeElement.id==='ktab-q';
-  const keepOpen=((document.getElementById('k-today-box')||{}).open)?' open':'';
-  el.innerHTML=`<details id="k-today-box"${keepOpen} style="margin-bottom:12px;border:1px solid var(--bd);border-radius:8px;background:var(--sf2)"><summary style="cursor:pointer;padding:8px 10px;font-weight:700;font-size:13px">📋 今天已送大榮（點開看／可勾選取消重印）</summary><div id="k-today" style="padding:4px 10px 10px">載入中…</div></details><div class="filter-row" style="flex-wrap:wrap;gap:8px;align-items:center">
+  // 預設打開（阿淵 2026-10-19：要一進來就看到今天出的貨）；自己收起來會記住
+  const _kb=document.getElementById('k-today-box');
+  const keepOpen=(_kb?_kb.open:(()=>{try{return localStorage.getItem('ktTodayOpen')!=='0'}catch(e){return true}})())?' open':'';
+  el.innerHTML=`<details id="k-today-box"${keepOpen} ontoggle="try{localStorage.setItem('ktTodayOpen',this.open?'1':'0')}catch(e){}" style="margin-bottom:12px;border:1px solid var(--bd);border-radius:8px;background:var(--sf2)"><summary style="cursor:pointer;padding:8px 10px;font-weight:700;font-size:13px">📋 今天已送大榮（打勾可補印標籤、印託運明細、取消）</summary><div id="k-today" style="padding:4px 10px 10px">載入中…</div></details><div class="filter-row" style="flex-wrap:wrap;gap:8px;align-items:center">
       ${FILTERS.map(([k,t,n])=>`<button class="fbtn${_ktFilter===k?' on':''}" onclick="_ktFilter='${k}';renderKerryTab()">${t} <b>${n}</b></button>`).join('')}
       <select onchange="_ktDays=+this.value;renderKerryTab()" style="font-size:12px">${[7,14,21,30,60].map(d=>`<option value="${d}"${d===_ktDays?' selected':''}>最近 ${d} 天</option>`).join('')}</select>
       <input id="ktab-q" value="${esc(q)}" placeholder="搜尋單號、訂單號、姓名、商品" oninput="renderKerryTab()" style="flex:1;min-width:180px">
@@ -7146,7 +7148,7 @@ function renderKerryTab(){
       <tr style="background:var(--sf2)"><th style="text-align:left;padding:7px 8px">出貨日</th><th style="text-align:left;padding:7px 8px">訂單</th><th style="text-align:left;padding:7px 8px">收件人／商品</th>
         <th style="text-align:left;padding:7px 8px">單號</th><th style="text-align:left;padding:7px 8px">貨態</th><th style="text-align:left;padding:7px 8px">最新動態</th><th style="padding:7px 8px"></th></tr>
       ${show.length?show.slice(0,500).map(r=>`<tr style="border-top:1px solid var(--bd);cursor:pointer" onclick="openKerryTrack('${esc(r.b)}')">
-        <td style="padding:7px 8px;white-space:nowrap">${esc(String(r.o.date||'').slice(5))}</td>
+        <td style="padding:7px 8px;white-space:nowrap">${r.o.kerry&&r.o.kerry.at?esc(localDateISO(new Date(r.o.kerry.at)).slice(5)):esc(String(r.o.date||'').slice(5))+'<div style="font-size:9.5px;color:var(--dm)">訂單日</div>'}</td>
         <td style="padding:7px 8px;white-space:nowrap">${esc(r.o.platform||'')} <span style="font-family:var(--mono);font-size:11px">${esc(r.o.orderNo||'')}</span></td>
         <td style="padding:7px 8px">${esc(r.o.name||'')}<div style="font-size:11px;color:var(--dm)">${esc(String(r.o.product||'').slice(0,34))}</div>${r.bad&&r.bad.kind==='dup'?`<div style="font-size:10.5px;color:#b91c1c">${esc(String(r.o.address||'').slice(0,26))}</div>`:''}</td>
         <td style="padding:7px 8px;font-family:var(--mono)">${esc(r.b)}</td>
@@ -7345,10 +7347,26 @@ function renderKerryTodayBox(){
     <div style="margin-top:8px;display:flex;gap:8px;align-items:center;flex-wrap:wrap">
       <button class="btn" style="font-size:12px" onclick="kerryTodayCheckAll(this)">全選</button>
       <button class="btn btn-r" style="font-size:12px" onclick="kerryCancelSelected()">↩ 取消勾選的</button>
+      <button class="btn btn-g" style="font-size:12px" onclick="kerryLabelsToday(this)" title="勾哪幾張就補印哪幾張的標籤（不重新取號）">🖨 補印勾選的標籤</button>
+      <label style="font-size:11px;color:var(--dm)">從第 <select id="k-today-slot" style="font-size:11px">${[1,2,3,4,5,6].map(n=>`<option value="${n}">${n}</option>`).join('')}</select> 格印</label>
       <button class="btn" style="font-size:12px" onclick="kerryDetailToday(this)" title="司機來收貨時簽的那張清單。沒勾就是今天全部，有勾就只印勾的">📄 託運明細（司機簽收用）</button>
       <button class="btn" style="font-size:12px" onclick="loadKerryToday(true)">重新整理</button>
       <span style="font-size:11px;color:var(--dm)">今天有效 ${liveN} 筆${all.length>liveN?('、已取消 '+(all.length-liveN)):''}</span></div>
     <div style="font-size:10px;color:var(--dm);margin-top:4px">取消＝這邊標記作廢、單號釋放（大榮沒有取消 API，交站所前不要收就好）。</div>`;
+}
+/* 勾選的補印標籤（阿淵 2026-10-19）：用當初送大榮的資料重出，不重新取號；已取消的不印。 */
+async function kerryLabelsToday(btn){
+  const picked=[...document.querySelectorAll('.k-today-cb:checked')].map(c=>c.value);
+  if(!picked.length){alert('先在左邊打勾要補印的那幾張');return}
+  const use=(_kerryTodayAll||[]).filter(s=>!s.cancelled&&s.row&&picked.indexOf(s.orderKey)>=0);
+  if(!use.length){alert('勾選的這幾筆沒有可以印的資料（可能已取消）');return}
+  const slot=Number((document.getElementById('k-today-slot')||{}).value)||1;
+  const old=btn.textContent; btn.disabled=true; btn.textContent='產生中…';
+  try{
+    const L=await kerryApi('/api/kerry/labels',{rows:use.map(s=>s.row),startSlot:slot});
+    const wrap=document.createElement('span'); wrap.innerHTML=await _kerryLabelLinks(L);
+    btn.replaceWith(wrap);
+  }catch(e){btn.disabled=false;btn.textContent=old;alert('標籤產生失敗：'+e.message)}
 }
 /* 今天全部（或勾選的）印成一張託運明細 —— 司機來收貨時簽的那張。
    原本只有送大榮的結果畫面有「產生託運明細」，而那張只含「那一批」。
