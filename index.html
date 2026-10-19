@@ -1851,7 +1851,8 @@ function copyBtn(text,label){
 // escWithHL：把搜尋字 highlight。regex 依當前 q 值快取 — 之前每筆訂單欄位都重編 regex，
 // 500 筆 × 3 欄 = 1500 次 new RegExp 每次 render，現在只算一次。
 let _hlCache={q:null,re:null};
-function escWithHL(s){const safe=esc(s||'');const q=fwToHw((document.getElementById('q')?.value||'')).trim().toLowerCase();if(!q)return safe;if(_hlCache.q!==q){try{const SEP='[\\s\\-_/.]*';const parts=q.split(/\s+/).filter(Boolean).map(term=>{const chars=term.replace(/[\s\-_/.]+/g,'').split('').map(c=>c.replace(/[.*+?^${}()|[\]\\]/g,'\\$&'));return chars.length?chars.join(SEP):null}).filter(Boolean);_hlCache={q,re:parts.length?new RegExp(parts.join('|'),'gi'):null}}catch(e){_hlCache={q,re:null}}}if(!_hlCache.re)return safe;return safe.replace(_hlCache.re,m=>'<mark style="background:#fef9ec;padding:0 2px;border-radius:2px;color:inherit">'+m+'</mark>')}
+function escWithHL(s){const safe=esc(s||'');const q=fwToHw((document.getElementById('q')?.value||'')).trim().toLowerCase();if(!q)return safe;if(_hlCache.q!==q){try{const SEP='[\\s\\-_/.]*';const parts=q.split(/\s+/).filter(Boolean).map(term=>{const chars=term.replace(/[\s\-_/.]+/g,'').split('').map(c=>c.replace(/[.*+?^${}()|[\]\\]/g,'\\$&'));return chars.length?chars.join(SEP):null}).filter(Boolean);_hlCache={q,re:parts.length?new RegExp(parts.join('|'),'gi'):null}}catch(e){_hlCache={q,re:null}}}if(!_hlCache.re)return safe;/* 先在原文找、再逐段 esc（原本在 esc 過的字上找，搜「39」「amp」會把 &#39; 拆開，名字顯示成亂碼）2026-10-20 */
+const raw=String(s||'');let out='',last=0;raw.replace(_hlCache.re,(m,...a)=>{const off=a[a.length-2];if(typeof off!=='number'||!m)return m;out+=esc(raw.slice(last,off))+'<mark style="background:#fef9ec;padding:0 2px;border-radius:2px;color:inherit">'+esc(m)+'</mark>';last=off+m.length;return m});return out+esc(raw.slice(last))}
 function mapsLink(addr){if(!addr)return'';const url='https://www.google.com/maps/search/?api=1&query='+encodeURIComponent(addr);return `<a href="${url}" target="_blank" rel="noopener" style="color:inherit;text-decoration:none;border-bottom:1px dashed currentColor" title="點擊用 Google Maps 開啟">${esc(addr)}</a>`}
 function platformPill(p){if(p==='MO')return '<span class="brand-pill brand-mo" title="momo">M</span>';if(p==='PC')return '<span class="brand-pill brand-pc" title="PChome 24h">P</span>';if(p==='ST')return '<span class="brand-pill brand-store" title="店內銷售">店</span>';if(p==='SCH')return '<span class="brand-pill brand-school" title="學校團購">校</span>';if(p==='MO3')return '<span class="brand-pill brand-third" title="MOMO 第三方物流">三</span>';if(p==='EXPO')return '<span class="brand-pill brand-expo" title="店內寄出">寄</span>';if(p==='TR')return '<span class="brand-pill brand-trade" title="同行調貨">調</span>';if(p==='MOS')return '<span class="brand-pill brand-mstore" title="MOMO 超商取貨（客人到門市自取）">超</span>';return `<span class="tag">${esc(p||'')}</span>`}
 // cleanNote：濾掉 activity log + 安裝/加購 meta 行。單次 pass + regex 預編譯，
@@ -3345,7 +3346,8 @@ function momoLiveOf(o){
   if(!o||(o.platform!=='MO'&&o.platform!=='MO3'))return null;
   if(!_momoLiveAt)return null;
   const no=String(o.orderNo||'').trim();if(!no)return null;
-  const hit=_momoLive[no]||_momoLivePrefix[no.split('-')[0]];
+  // 有完整品項編號（14碼-xxx-xxx-xxx）就只認完全相同的；用前綴會讓「已出貨的品項」對到同單「還沒出的另一項」→ 誤標未出貨＋不一致（2026-10-20）
+  const hit=_momoLive[no]||(no.includes('-')?null:_momoLivePrefix[no.split('-')[0]]);
   if(hit)return hit;
   // 不在未出貨 → 去對帳找，找得到才說得出是「出貨」還是「未出即退」
   const c=_momoClosed[no]||_momoClosedPrefix[no.split('-')[0]];
@@ -9734,6 +9736,7 @@ function schedDropUnschedule(e){
   e.preventDefault();
   e.currentTarget.classList.remove('drop-target-active');
   const oid=e.dataTransfer.getData('text/plain')||_schedDragOid;
+  try{_clearSchedDrag()}catch(_){}   // 重畫後拖曳元素不見，dragend 可能不會來 → 不清的話別台更新會卡 12 秒（2026-10-20）
   if(!oid)return;
   unscheduleOrder(oid);
 }
@@ -9792,8 +9795,8 @@ function moveCardInCell(oid,dir){
   const o=findO(oid);if(!o)return;
   const slotKey=effectiveSlot(o)||'未排時段';
   // 撈出跟此卡同一格（同日 + 同時段 + 目前師傅篩選）的所有單，跟週表 cell 成員一致
-  const cell=orders.filter(x=>isServiceActive(x)&&!x.installDone&&x.status!=='已取消'&&x.status!=='轉線下'
-    &&x.installDate===o.installDate&&(effectiveSlot(x)||'未排時段')===slotKey
+  // 用跟畫面一樣的 _schedCandidates（排除已完成／線下完），不然跟看不到的單互換，按了像沒反應（2026-10-20）
+  const cell=_schedCandidates().filter(x=>x.installDate===o.installDate&&(effectiveSlot(x)||'未排時段')===slotKey
     &&(schedInstaller==='all'||(x.installer||'')===schedInstaller));
   cell.sort((a,b)=>{
     const sa=(typeof a.installSeq==='number')?a.installSeq:9999;
