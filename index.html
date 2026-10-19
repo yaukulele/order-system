@@ -12990,7 +12990,7 @@ function stRender(){
         + step(stIsThird()?2:3) + '印標籤</button>'
       + '<button class="btn" id="st-dt"' + (stPick.size?'':' disabled') + '>印明細</button>'
       + (stIsThird()
-          ? '<button class="btn" id="st-all"' + (stPick.size?'':' disabled')
+          ? '<button class="btn" id="st-sum"' + (stPick.size?'':' disabled')
             + ' title="momo第三方物流到廠取貨總表 —— 司機來收貨時雙方簽名那張">印出貨總表</button>'
           : '')
       + '<span class="st-sp"></span>'
@@ -13168,7 +13168,7 @@ function stRender(){
   const pf = $s('st-pdf-file'); if(pf) pf.onchange = ()=>stImportLabelPdf(pf.files);
   const lb = $s('st-label'); if(lb) lb.onclick = ()=>stPrint('label');
   const db = $s('st-dt'); if(db) db.onclick = ()=>stPrint('dt');
-  const allBtn = $s('st-all'); if(allBtn) allBtn.onclick = ()=>stPrint('all');
+  const sumBtn = $s('st-sum'); if(sumBtn) sumBtn.onclick = ()=>stPrint('all');   // 原本跟「全選」撞同一個 id，按了沒反應、反而把全選鈕蓋掉（2026-10-19）
 }
 
 /* 轉店到店的實際動作。拆出來是因為出貨確認前要自動跑一次（杰哥：我們只有店到店），
