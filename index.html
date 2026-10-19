@@ -6595,8 +6595,11 @@ function lookupSize(o,mem){
 function groupForShipping(sel,mem){
   const g=new Map();
   for(const o of sel){
-    const k=sizeKeysFor(o)[0]||('N:'+_fbKey(o.product||o.id));
-    if(!g.has(k))g.set(k,{key:k,name:o.product||'(無品名)',orders:[],qty:0,mem:lookupSize(o,mem),
+    /* 同商品但每單件數不同要分開列：一列只填一個才數、會套到列裡每一張單，
+       1 件跟 2 件的單共用才數＝少報材積（2026-10-20 過夜稽核） */
+    const per=Number(o.qty)||1;
+    const k=(sizeKeysFor(o)[0]||('N:'+_fbKey(o.product||o.id)))+'|q'+per;
+    if(!g.has(k))g.set(k,{key:k,per,name:o.product||'(無品名)',orders:[],qty:0,mem:lookupSize(o,mem),
                           guess:guessModel(o.product),
                           // 標過「不用填」的商品若真的上了託運單，還是要才數 ——
                           // 這裡標起來，畫面上才講得出來「為什麼又叫我填」
@@ -6660,7 +6663,7 @@ async function batchExportShipping(){
         <th style="padding:6px 8px;width:56px">件數</th><th style="padding:6px 8px;width:82px">才數</th>
         <th style="padding:6px 8px;width:190px">備註（型號）</th></tr>
       ${groups.map((r,i)=>{
-        const qtyChanged=r.mem&&r.mem.qty!=null&&Number(r.mem.qty)!==Number(r.qty);
+        const qtyChanged=r.mem&&r.mem.qty!=null&&Number(r.mem.qty)!==Number(r.per||r.qty);
         const note=(r.mem&&r.mem.note)||'';
         // 建議只在「看起來真的像型號」時才出現，而且要點了才填進去 —— 不自動代入，免得錯了沒人發現
         const sug=(!note&&r.guess)?`<div style="margin-top:3px"><button type="button" class="btn"
@@ -6672,7 +6675,7 @@ async function batchExportShipping(){
               ${r.mem?`・上次 ${esc(String(r.mem.cai))} 才${r.mem.qty!=null?`（${esc(String(r.mem.qty))} 件）`:''}`
                      :(r.skipped?'・<span style="color:#b45309;font-weight:700">您標了「不用填」，但這次它上了託運單，大榮還是要一個才數</span>'
                                 :'・<span style="color:#b91c1c;font-weight:700">沒填過</span>')}
-              ${qtyChanged?`<span style="color:#b45309;font-weight:700">　⚠ 這次是 ${r.qty} 件，跟上次不同，確認才數要不要改</span>`:''}
+              ${qtyChanged?`<span style="color:#b45309;font-weight:700">　⚠ 這次每單 ${r.per||r.qty} 件，跟上次不同，確認才數要不要改</span>`:''}
             </div>
           </td>
           <td style="padding:6px 8px;text-align:center">${r.qty}</td>
@@ -6905,7 +6908,7 @@ async function doExportShipping(){
     await authReady;
     const upd={};const now=new Date().toISOString();const who=(typeof currentUser!=='undefined'&&currentUser)||'';
     groups.forEach((r,i)=>{
-      const payload={cai:vals[i],qty:r.qty,name:r.name,note:notes[i],at:now,by:who};
+      const payload={cai:vals[i],qty:r.per||r.qty,name:r.name,note:notes[i],at:now,by:who};
       if(r.mem&&Array.isArray(r.mem.boxes)&&Math.abs(r.mem.boxes.reduce((a,b)=>a+b,0)-vals[i])<0.01)payload.boxes=r.mem.boxes;   // 加總沒改 → 分箱設定留著
       for(const k of sizeKeysFor(r.orders[0]))upd[k]=payload;
     });
@@ -7031,9 +7034,11 @@ function _ktDayBefore(iso){const d=new Date(iso+'T12:00:00+08:00');d.setDate(d.g
    貨態分頁看不到、紅字也不算它 —— 而那正是客人等最久、最在意貨到哪了的單。
    後端排程 kerry-tracker.js 的 pickDate() 是同一套，兩邊要一致，
    不然會變成「後端有查、畫面看不到」。舊單沒有 kerry.at 就只能看訂單日。*/
+// kerry.at 是 toISOString()（UTC）；台灣 00:00~08:00 送的單切前 10 碼會變前一天 → 換成台灣日期（2026-10-20）
+function _ktAtDay(at){const d=new Date(at);return isNaN(d)?String(at||'').slice(0,10):localDateISO(d)}
 function ktPickDate(o){
   const d=String((o&&o.date)||'');
-  const s=(o&&o.kerry&&o.kerry.at)?String(o.kerry.at).slice(0,10):'';
+  const s=(o&&o.kerry&&o.kerry.at)?_ktAtDay(o.kerry.at):'';
   return s>d?s:d;
 }
 function ktBadOf(o,b){
@@ -7065,7 +7070,7 @@ function ktBadOf(o,b){
         tip:'大榮查這個單號，查到的最新動態是 '+ed+'（'+(v.s||'')+'），比這張單的出貨／下單日 '+ref+' 還早 —— 不可能是這箱貨。大榮查件不檢查單號是不是我們的，填錯一碼就會查到別人家的貨件，所以這裡顯示的貨態不能當真。請核對單號。'};
   }
   if(v&&v.cls==='none'){
-    const since=(o.kerry&&o.kerry.at)?String(o.kerry.at).slice(0,10):String(o.date||'');
+    const since=(o.kerry&&o.kerry.at)?_ktAtDay(o.kerry.at):String(o.date||'');
     // 同樣算營業日：六日大榮不會掃到任何東西，用日曆天會在週末後誤報「單號對不上」
     const age=since?Math.floor((Date.now()-new Date(since+'T12:00:00+08:00'))/86400000):0;
     const bizAge=since?ktBizDaysSince(since+' 12:00'):0;
@@ -7216,7 +7221,11 @@ function kerryEtpDay(){ return _nextWorkday(kerryShipDay()); }
 function kerryShipDayChange(){
   const sd=(document.getElementById('k-shipday')||{}).value||kerryShipDay();
   const el=document.getElementById('k-etp'); if(!el)return;
-  el.value=_nextWorkday(sd); kerryEtpWarn();
+  /* 照上面註解做（原本不管怎樣都蓋掉）：清空＝不指定 → 保持空白；手動挑的日期比新出貨日晚 → 保留；
+     其餘（系統自動帶的、或不晚於出貨日的）才改成新出貨日的下一個營業日（2026-10-20） */
+  const cur=el.value, auto=el.dataset.auto||kerryEtpDay();
+  if(cur&&(cur===auto||cur<=sd)){el.value=_nextWorkday(sd); el.dataset.auto=el.value}
+  kerryEtpWarn();
 }
 
 function kerryEtpWarn(){
@@ -7240,8 +7249,9 @@ function kerryBlockReason(o){
 function kerryForeignTrack(o){
   const t=String(o.trackingNo||'').trim();
   if(!t)return false;
-  if(/大榮|kerry/i.test(String(o.delyGbStr||'')))return false;
   if(o.kerry&&o.kerry.bln===t)return false;
+  /* 物流寫「大榮」但單號不是這套系統取的（WEBEDI 手打的號）也算別家：
+     後端沒見過這張單 → 會再開一張新託運單（多一箱、多一筆運費）還把原本的號蓋掉（2026-10-20 過夜稽核） */
   return true;
 }
 function _kLS(k,v){try{if(v===undefined)return localStorage.getItem(k);localStorage.setItem(k,v)}catch(e){return null}}
@@ -7308,11 +7318,11 @@ async function batchKerry(){
            這邊更嚴重：才數記憶如果記的是「5+3」，帶出來就是分 2 箱 ——
            真的按下去會取 2 個託運單號、印 2 張標籤、在大榮開 2 筆託運，
            但手上其實只有 1 箱 → 第 2 個號永遠不會動，變成幽靈件。*/
-        const qtyChanged=r.mem&&r.mem.qty!=null&&Number(r.mem.qty)!==Number(r.qty);
+        const qtyChanged=r.mem&&r.mem.qty!=null&&Number(r.mem.qty)!==Number(r.per||r.qty);
         const memBoxes=r.mem&&Array.isArray(r.mem.boxes)&&r.mem.boxes.length>1?r.mem.boxes.length:0;
         return `<tr style="border-top:1px solid var(--bd)"><td style="padding:6px 8px"><div style="font-weight:600">${esc(r.name)}</div>
         <div style="font-size:10px;color:var(--dm)">${r.orders.length} 筆${r.mem?'・上次 '+esc(String(r.mem.cai))+' 才'+(memBoxes?'（分 '+memBoxes+' 箱）':''):'・<span style="color:#b91c1c;font-weight:700">沒填過</span>'}</div>
-        ${qtyChanged?`<div style="font-size:10px;color:#b45309;font-weight:700">⚠ 這次是 ${r.qty} 件，上次是 ${esc(String(r.mem.qty))} 件${memBoxes?`，而且才數記的是分 ${memBoxes} 箱 —— 真的只有 ${memBoxes} 箱再送，不然會多開託運單`:'，確認才數要不要改'}</div>`:''}</td>
+        ${qtyChanged?`<div style="font-size:10px;color:#b45309;font-weight:700">⚠ 這次每單 ${r.per||r.qty} 件，上次是 ${esc(String(r.mem.qty))} 件${memBoxes?`，而且才數記的是分 ${memBoxes} 箱 —— 真的只有 ${memBoxes} 箱再送，不然會多開託運單`:'，確認才數要不要改'}</div>`:''}</td>
         <td style="text-align:center">${r.qty}</td>
         <td style="padding:6px"><input id="kcai_${i}" type="text" inputmode="decimal" placeholder="5 或 5+3" step="0.1" value="${esc(caiText(r.mem))}" style="width:100%;text-align:right;${r.mem?'':'border-color:#fca5a5;background:#fef2f2'}"></td>
         <td style="padding:6px"><input id="knote_${i}" value="${esc((r.mem&&r.mem.note)||'')}" placeholder="留空＝完整品名" style="width:100%">
@@ -7458,6 +7468,11 @@ async function kerryCancelSelected(){
     showToast('已取消 '+okN+' 筆');
     // 正式模式才動訂單；只清「就是這張大榮單號」的，別家單號不碰（跟工具列 ↩取消大榮 同一套）
     if(r.mode==='prod'){(r.results||[]).forEach(x=>{if(!x.ok)return;const o=findO(kBase(x.orderKey));if(!o)return;
+      /* 分箱的單只取消第 2 箱以後（沒勾第 1 箱）→ 主單號／大榮貨運／整張取消的印記都不能動，
+         不然第 1 箱還在路上、訂單卻掉出大榮貨態跟取消按鈕（2026-10-20 過夜稽核） */
+      const _main=kBoxNo(x.orderKey)===1||(o.kerry&&o.kerry.bln===x.bln);
+      if(!_main){if(o.kerry&&Array.isArray(o.kerry.blns))o.kerry=Object.assign({},o.kerry,{blns:o.kerry.blns.filter(b=>b!==x.bln)});
+        logActivity(o,`取消大榮第 ${kBoxNo(x.orderKey)} 箱（單號 ${x.bln}），主單號 ${o.trackingNo||''} 保留`);saveOne(o);return}
       if(o.trackingNo===x.bln)o.trackingNo='';
       if(o.delyGbStr==='大榮貨運')o.delyGbStr='';
       o.kerry=Object.assign({},o.kerry||{},{cancelled:true,cancelledAt:new Date().toISOString()});
@@ -7554,7 +7569,7 @@ async function _doKerrySend(groups,st,items,vals,notes,origin,slot,gifts){
   try{
     await authReady; const upd={}, now=new Date().toISOString(), who=(typeof currentUser!=='undefined'&&currentUser)||'';
     groups.forEach((r,i)=>{if(gifts[i])return;   // 只寄贈品的這次不記（不然下次寄整組會帶成 1 才）
-      const bx=vals[i];const pl={cai:Math.round(bx.reduce((a,b)=>a+b,0)*10)/10,boxes:bx.length>1?bx:null,qty:r.qty,name:r.name,note:notes[i],at:now,by:who};for(const k of sizeKeysFor(r.orders[0]))upd[k]=pl});
+      const bx=vals[i];const pl={cai:Math.round(bx.reduce((a,b)=>a+b,0)*10)/10,boxes:bx.length>1?bx:null,qty:r.per||Number(r.orders[0].qty)||1,name:r.name,note:notes[i],at:now,by:who};for(const k of sizeKeysFor(r.orders[0]))upd[k]=pl});
     await db.ref('shipSizes').update(upd); _shipSizes=Object.assign(_shipSizes||{},upd);
   }catch(e){console.warn('才數記憶寫入失敗',e)}
   const box=document.getElementById('k-result'), btn=document.getElementById('k-go');
@@ -7611,7 +7626,7 @@ async function _doKerrySend(groups,st,items,vals,notes,origin,slot,gifts){
     const targets=(res.results||[]).filter(x=>x.ok&&x.bln).map(x=>({x,o:findO(kBase(x.orderKey))})).filter(t=>t.o&&t.o.trackingNo===t.x.bln&&(t.o.platform==='MO'||t.o.platform==='PC'));
     if(targets.length){
       box.insertAdjacentHTML('beforeend','<div id="k-push-msg" style="font-size:12px;margin-top:6px">壓 MOMO／PChome 中…</div>');
-      const pr=await kerryAutoPush(targets,(items[0]&&items[0].etp)||"");
+      const pr=await kerryAutoPush(targets,(items[0]&&items[0].etp)||"",(items[0]&&items[0].shipDate)||"");
       pushHtml=`<div style="font-size:12px;font-weight:700;margin:8px 0 4px">自動壓平台</div><table style="width:100%;font-size:12px;border-collapse:collapse">${pr.map(p=>`<tr><td style="padding:3px 6px">${esc(p.o.name||'')}</td><td>${p.o.platform==='MO'?'MOMO':'PChome'}</td><td style="color:${p.ok?'#15803d':p.skip?'#6b7280':'#b91c1c'}">${esc(p.msg)}</td></tr>`).join('')}</table>`;
     }
   }
@@ -7645,26 +7660,42 @@ async function _doKerrySend(groups,st,items,vals,notes,origin,slot,gifts){
    - MOMO：平台快照說這張已經不在未出貨（已出貨／已結案），或已經是「已配送」
    - PChome：按過 SP 自行出貨的（🔴 鐵則：SP 單絕不壓單號，壓了結不到帳）；平台已結單／檢核中／已取消
    MOMO 約配單如果還沒回押指定配送日，MOMO 可能會拒絕「已配送」→ 會列在失敗裡，照舊用 📤 出貨確認手動處理。 */
-async function kerryAutoPush(targets,etp){
+async function kerryAutoPush(targets,etp,shipYmd){
   await momoConfigReady;
   /* MOMO 指定配送日（阿淵 2026-10-19「都做」）：按大榮出貨後先壓「已確認指定配送日」再壓「已配送」。
      日期＝這次託運單的指送日期（出貨日的下一個營業日，六日順延；國定假日不處理），跟大榮標籤上同一天。
      送大榮時把指送日期清空（不指定）的話，一樣用出貨日的下一個營業日。
      平台已經是「已確認指定配送日」的單 → 直接壓「已配送」，不重押日期（阿淵：已經有指定配送的就直接壓）。 */
   const _etp=String(etp||'').replace(/\D/g,'');
-  const scmISO=_etp.length===8?_etp.slice(0,4)+'-'+_etp.slice(4,6)+'-'+_etp.slice(6,8):kerryEtpDay();
+  // 指送清空時要從「這次選的出貨日」往後推，不是從今天推（出貨日選明天時會變成指定配送日＝出貨日）2026-10-20
+  const _sd=String(shipYmd||'').replace(/\D/g,'');
+  const scmISO=_etp.length===8?_etp.slice(0,4)+'-'+_etp.slice(4,6)+'-'+_etp.slice(6,8)
+    :(_sd.length===8?_nextWorkday(_sd.slice(0,4)+'-'+_sd.slice(4,6)+'-'+_sd.slice(6,8)):kerryEtpDay());
   const scmDate=scmISO.replace(/-/g,'/');
   const api=getMomoApi(),token=getMomoToken();
   const out=[];
-  for(const {x,o} of targets){
+  /* 🔴 SP 鐵則：PChome 後台按過「自行出貨」但本機沒印記的單，只能靠平台快照認出來；
+     快照查不到／超過 30 分鐘就等於不知道 → 壓之前先跟平台重問這幾張（唯讀），問不到就不自動壓（2026-10-20 過夜稽核） */
+  const _pcNeed=targets.map(t=>findO(t.o.id)||t.o).filter(o=>o.platform==='PC'&&!pcIsSelfShipped(o)&&(!pcLiveOf(o)||pcEntryStale(pcLiveOf(o))))
+    .map(o=>String(o.orderNo||'').trim()).filter(Boolean);
+  if(_pcNeed.length){try{await pcRecheckIds(_pcNeed)}catch(e){console.warn('PChome 重問失敗',e)}}
+  for(const t of targets){
+    const x=t.x;
+    // 每張都重抓一次：等平台回應的時候別台可能存過這張，拿舊的那份改了存不回去（2026-10-20 過夜稽核）
+    const o=findO(t.o.id)||t.o;
     const bln=x.bln;
+    /* 同一個大榮單號已經自動壓過了 → 不重壓。送完再按一次「送大榮」後端會回「之前送過（沿用原單號）」，
+       MOMO 平台快照又還沒更新，原本會把「指定配送日」「已配送」再 force 送一輪（2026-10-20 過夜稽核） */
+    if(o.shippedVia==='出貨'&&o.shippedAt&&o.trackingNo===bln){out.push({o,skip:true,msg:'這個單號已經壓過平台了，沒重壓'});continue}
     try{
       if(o.platform==='MO'){
         const L=momoLiveOf(o);
         if(L&&L.gone){out.push({o,skip:true,msg:'平台已經不在未出貨（已出貨或已結案），沒壓'});continue}
         if(L&&L.st==='已配送'){out.push({o,skip:true,msg:'平台已經是「已配送」，沒重壓'});continue}
         let dateMsg='';
-        if(!(L&&L.st==='已確認指定配送日')){
+        // 本機已經押過指定配送日（店員手動跟客人約好的日子）→ 不蓋掉，平台快照可能還沒更新（2026-10-20）
+        if(o.scmDelyDate&&!(L&&L.st==='已確認指定配送日')){dateMsg='（之前已押指定配送日 '+String(o.scmDelyDate).slice(5)+'，沒改，直接壓已配送）'}
+        else if(!(L&&L.st==='已確認指定配送日')){
           const it1={completeOrderNo:o.orderNo,remark5VStr:'已確認指定配送日',msgNote:'',delyGbStr:'',slipNo:'',scmDelyDate:scmDate};
           const r1=await fetch(`${api}/api/orders/momo/confirm-shipment?force=1`,{method:'POST',headers:{'Content-Type':'application/json','X-API-Token':token},body:JSON.stringify({items:[it1]})});
           const d1=await r1.json().catch(()=>({}));
@@ -7688,7 +7719,9 @@ async function kerryAutoPush(targets,etp){
         out.push({o,ok:true,msg:'已壓：'+(dateMsg.startsWith('指定')?dateMsg:'')+'已配送 大榮 '+bln+(dateMsg.startsWith('（')?' '+dateMsg:'')});
       }else if(o.platform==='PC'){
         if(pcIsSelfShipped(o)){out.push({o,skip:true,msg:'這張是廠商自行出貨（SP），照規定不壓單號（只存本機）'});continue}
-        const L=pcLiveOf(o);
+        const L=pcLiveOf(o)||_pcLive[String(o.orderNo||'').trim()]||null;
+        if(!L||pcEntryStale(L)||L.missing){out.push({o,skip:true,msg:'查不到這張在 PChome 的目前狀態，怕是自行出貨單，沒自動壓（請用 📤 出貨回填手動壓）'});continue}
+        if(L.kind==='sp'||L.vendor==='SP'||(L.vendor==='pchome'&&L.slip==='systempass')){out.push({o,skip:true,msg:'PChome 上是廠商自行出貨（SP），照規定不壓單號'});continue}
         if(L&&['checking','shipped','sp','cancelled'].includes(L.kind)){out.push({o,skip:true,msg:'PChome 已經'+(_PC_LABEL[_pcState(L)]||L.kind)+'，沒重壓'});continue}
         const payload={orderId:o.orderNo,shipVendorId:'Kerry',shipId:bln,shipQty:parseInt(o.qty)||1};
         const r=await fetch(`${api}/api/orders/pchome/shipinfo`,{method:'POST',headers:{'Content-Type':'application/json','X-API-Token':token},body:JSON.stringify(payload)});
