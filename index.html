@@ -1447,7 +1447,9 @@ if(!window._dupChecked){window._dupChecked=true;const dupGroups=new Map();
   // 「未被人碰過的原始匯入單」判定 — 這些欄位在剛匯入時都空，一有值就代表有人手改過，不可自動刪。
   // 加上 realPhone/安裝費/加購費/物流/管理室/電梯（原本漏掉 → 手改過這些的單會被誤刪）
   const _initial=(o)=>o.install==='未確認'&&o.addon==='未確認'&&o.status==='未確認'&&!o.trackingNo&&!o.note&&!o.installPaidAmount&&!o.addonPaidAmount
-    &&!o.realPhone&&!o.installFee&&!o.addonFee&&!o.delyGbStr&&!o.addrMgmt&&!o.addrElev;
+    &&!o.realPhone&&!o.installFee&&!o.addonFee&&!o.delyGbStr&&!o.addrMgmt&&!o.addrElev
+    // 2026-10-20：出貨照片／大榮託運紀錄／庫存印記／貨款追蹤也算「有人動過」，不可自動刪
+    &&!(o.photos&&o.photos.length)&&!o.kerry&&!o.invDeducted&&!o.invSkip&&!o.amountDue&&!o.shippedAt;
   const toDelete=[],toDeleteObjs=[];let conflictGroups=0;
   for(const grp of dupSets){
     // 排序：使用者改過的排前面，同樣狀態下 id 字典序小（早建立）排前面
@@ -4520,15 +4522,19 @@ async function invCommit(){
       if(r.act==='skip'){
         o.invSkip=true;logActivity(o,'庫存：不用扣（廠商直出／不在庫存／已手動扣）');saveOne(o);
         await db.ref('invMap/'+key).set({txt:invKeyText(o),skip:true,name:String(o.product||'').slice(0,80),spec:o.specs&&o.specs!=='無'?String(o.specs).slice(0,60):'',plat:o.platform,by:currentUser||'',at:new Date().toISOString()});
-        res.push(`${o.name}：不扣（已記住）`);continue;
+        res.push(`${esc(o.name)}：不扣（已記住）`);continue;
       }
       const lines=r.lines.filter(l=>l.iid);
       if(!lines.length){res.push(`<span style="color:#b91c1c">${esc(o.name)}：沒選品項，沒扣</span>`);continue}
       // 先搶記號：另一台（或剛剛連點）已經在扣這張 → 不再扣
       const rnd=_invRound(o)+(o.invReturned?1:0);   // 加回過 → 這次是新的一輪
-      if(!(await invClaim(o.id+'_'+rnd))){res.push(`<span style="color:#b91c1c">${esc(o.name)}：這張單另一台剛剛已經扣過庫存，這次沒再扣（到庫存紀錄搜訂單號可以確認）</span>`);continue}
+      const _lockKey=o.id+'_'+rnd;
+      if(!(await invClaim(_lockKey))){res.push(`<span style="color:#b91c1c">${esc(o.name)}：這張單另一台剛剛已經扣過庫存，這次沒再扣（到庫存紀錄搜訂單號可以確認）</span>`);continue}
+      // 記號搶到了但庫存沒扣成（斷線／品項被刪）→ 要把記號放掉，不然這張單之後永遠被說「另一台已經扣過」（2026-10-20 過夜稽核）
+      const _unlock=()=>db.ref('invLock/'+_lockKey).remove().catch(()=>{});
       const did=[];
-      const txs=await invTxFast(lines.map(l=>({iid:l.iid,delta:-l.qty})));
+      let txs;
+      try{txs=await invTxFast(lines.map(l=>({iid:l.iid,delta:-l.qty})))}catch(e){await _unlock();throw e}
       const logs=[];
       lines.forEach((l,ix)=>{const it=invFind(l.iid),tx=txs[ix];
         if(!tx.ok){res.push(`<span style="color:#b91c1c">${esc(o.name)}：${esc(it?it.b+' '+it.n:'品項')} ${tx.missing?'已被刪除':'沒扣成功，請重試'}</span>`);return}
@@ -4537,11 +4543,14 @@ async function invCommit(){
         did.push({iid:l.iid,b:it?it.b:'',n:it?it.n:'',qty:tx.done});
         res.push(`${esc(o.name)}：${esc(it?it.b+' '+it.n:'')} ${tx.pq}→${tx.nq}`);
       });
-      if(logs.length)await invLogTx(logs);
-      if(did.length){
-        if(rnd)o.invRounds=rnd;delete o.invReturned;   // 加回後再出貨：記下現在是第幾輪
-        o.invDeducted={lines:did,at:new Date().toISOString(),by:currentUser||''};
-        logActivity(o,'庫存已扣：'+did.map(d=>`${d.b} ${d.n} -${d.qty}`).join('、'));saveOne(o);
+      if(!did.length){await _unlock();continue}
+      {
+        // 先把「已扣」記在訂單上再寫庫存紀錄：紀錄寫失敗時庫存其實已經扣了，訂單沒標會被當成還沒扣、之後又扣一次
+        const o2=findO(r.id)||o;   // 等庫存回應時別台可能存過這張 → 改最新那份
+        if(rnd)o2.invRounds=rnd;delete o2.invReturned;   // 加回後再出貨：記下現在是第幾輪
+        o2.invDeducted={lines:did,at:new Date().toISOString(),by:currentUser||''};
+        logActivity(o2,'庫存已扣：'+did.map(d=>`${d.b} ${d.n} -${d.qty}`).join('、'));saveOne(o2);
+        try{await invLogTx(logs)}catch(e){res.push(`<span style="color:#b91c1c">${esc(o.name)}：庫存已扣，但庫存紀錄沒寫進去（${esc(e.message||e)}）</span>`)}
         await db.ref('invMap/'+key).set({txt:invKeyText(o),lines:lines.map(l=>({iid:l.iid,per:Math.max(1,Math.round(l.qty/qty))})),name:String(o.product||'').slice(0,80),spec:o.specs&&o.specs!=='無'?String(o.specs).slice(0,60):'',plat:o.platform,by:currentUser||'',at:new Date().toISOString()});
       }
     }
@@ -4565,8 +4574,9 @@ async function invOfferReturn(oid){
     L.forEach((l,ix)=>{const tx=txs[ix];if(tx.missing)return;
       logs.push({id:'or'+Date.now().toString(36)+Math.random().toString(36).slice(2,6)+ix,iid:l.iid,u:currentUser||'撈單',t:_invTs(),a:'📥進貨',
         n:l.n,b:l.b,d:`退貨入庫+${l.qty} #${o.orderNo||''}`,pq:tx.pq,nq:tx.nq,src:'撈單',ord:o.orderNo||'',oid:o.id})});
-    if(logs.length)await invLogTx(logs);
-    o.invReturned={at:new Date().toISOString(),by:currentUser||''};logActivity(o,'庫存已加回：'+L.map(l=>`${l.b} ${l.n} +${l.qty}`).join('、'));saveOne(o);
+    { const o2=findO(oid)||o;   // 等庫存回應時別台可能存過這張 → 改最新那份（2026-10-20）
+      o2.invReturned={at:new Date().toISOString(),by:currentUser||''};logActivity(o2,'庫存已加回：'+L.map(l=>`${l.b} ${l.n} +${l.qty}`).join('、'));saveOne(o2); }
+    if(logs.length){try{await invLogTx(logs)}catch(e){alert('庫存已加回，但庫存紀錄沒寫進去：'+(e.message||e))}}
     showToast('已加回庫存');renderList();
   }catch(e){alert('加回失敗：'+(e.message||e))}
 }
@@ -5986,7 +5996,14 @@ if(o.kerry&&o.kerry.bln&&String(o.trackingNo||'')===o.kerry.bln&&newTracking!==o
     +'・大榮貨態那一區就追不到那箱了'+NL
     +'・平台上壓的還是原本的號'+NL
     +'・大榮那邊的託運單不會跟著取消（要取消請用「↩ 取消大榮」）'+NL+NL
-    +'確定要改嗎？'))return;
+    +'確定要改嗎？')){
+    // 按取消要跟上面未收款防呆一樣回滾：上面已經改了金額／狀態／安裝欄位、也寫了紀錄，
+    // 不回滾的話下一次存檔（或任何一次 saveOne）會把「取消」掉的修改送上雲端，
+    // 而且第二次按儲存時 prevStatus 已經是新狀態 → 扣庫存視窗跟未收款提醒都不會跳（2026-10-20 過夜稽核）
+    for(const k of Object.keys(o))if(!(k in _snap))delete o[k];
+    Object.assign(o,_snap);
+    return;
+  }
 }
 if(newDely!==(o.delyGbStr||'')||newTracking!==(o.trackingNo||'')){
   // 物流欄位改了 — 寫 activity log（手動編輯，不是 MOMO 回報）
@@ -6031,6 +6048,11 @@ try{
       if(k==='note'||k==='id')continue;
       const sv=JSON.stringify(_snap[k]);
       if(JSON.stringify(o[k])===sv&&JSON.stringify(rem[k])!==sv)o[k]=rem[k];
+    }
+    /* 別台「刪掉」的庫存印記也要跟上（上面只看遠端還在的欄位）：
+       例 別台退貨後重扣 → 刪了 invReturned；這台把舊的 invReturned 寫回去 → 之後會再扣一次庫存 */
+    for(const k of ['invReturned','invDeducted','invSkip','invRounds']){
+      if(!(k in rem)&&(k in _snap)&&JSON.stringify(o[k])===JSON.stringify(_snap[k]))delete o[k];
     }
   }
 }catch(e){console.warn('saveEdit field-merge skipped:',e)}
