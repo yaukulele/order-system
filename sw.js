@@ -3,7 +3,7 @@
 //   有差異就 postMessage 通知頁面跳「有新版本」toast。兼顧「開頁快」+「拿得到最新」。
 // 其他 shell asset: stale-while-revalidate
 // Bumps cache version on every release; old caches cleaned up on activate.
-const CACHE = "order-system-v448";
+const CACHE = "order-system-v449";
 const SHELL = ["./", "./index.html", "./manifest.json", "./icon.svg"];
 
 self.addEventListener("install", (event) => {
@@ -18,9 +18,15 @@ self.addEventListener("install", (event) => {
 
 self.addEventListener("activate", (event) => {
   event.waitUntil(
-    caches.keys().then((keys) =>
-      Promise.all(keys.filter((k) => k !== CACHE).map((k) => caches.delete(k)))
-    )
+    caches.keys().then((keys) => {
+      const hadOld = keys.some((k) => k !== CACHE && k.startsWith("order-system-"));
+      return Promise.all(keys.filter((k) => k !== CACHE).map((k) => caches.delete(k))).then(() => hadOld);
+    }).then((hadOld) => {
+      // 一整天開著沒重整的分頁：背景每 5 分鐘 update() 只會裝好新 SW，不會再抓 HTML → 原本永遠收不到「有新版本」。
+      // 換版（有舊版快取）時直接通知所有開著的分頁（2026-10-20）
+      if (!hadOld) return;
+      return self.clients.matchAll({ type: "window", includeUncontrolled: true }).then((cs) => cs.forEach((c) => { try { c.postMessage({ type: "new-version" }); } catch (e) {} }));
+    })
   );
   self.clients.claim();
 });

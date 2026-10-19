@@ -1585,7 +1585,9 @@ function _cacheOrdersToLocal(val,preJson){
       .then(()=>{try{localStorage.removeItem(ORDERS_CACHE_KEY)}catch(_){}}) // 已經在 IndexedDB 了 → 把 localStorage 那 2MB 騰出來
       .catch(e=>{ // IndexedDB 不能用（少數無痕模式）→ 退回原本的 localStorage（一樣守 2000 單上限防爆）
         console.warn('idb cache save failed, fallback localStorage:',e&&e.message);
-        if(n<=2000){try{localStorage.setItem(ORDERS_CACHE_KEY,json)}catch(e2){console.warn('cache save failed (quota?):',e2.message)}}
+        // 存不進去（爆容量）或超過上限 → 把舊的那份刪掉，不然下次開頁會拿好幾天前的清單當現況（2026-10-20）
+        if(n<=2000){try{localStorage.setItem(ORDERS_CACHE_KEY,json)}catch(e2){console.warn('cache save failed (quota?):',e2.message);try{localStorage.removeItem(ORDERS_CACHE_KEY)}catch(_){}}}
+        else{try{localStorage.removeItem(ORDERS_CACHE_KEY)}catch(_){}}
       });
   },1500); // 1.5s debounce — 多次 update 連續來時只寫最後一次
 }
@@ -3577,7 +3579,10 @@ function preOrderBadge(o){
   const d=pcPreOrderDate(o);
   if(!d) return '';
   const today=localDateISO();
-  const late=today>d, soon=!late&&today===d;
+  /* 已經出貨／平台已收單的不再掛紅字（原本出完貨的預購單永遠紅色，大家就不看紅字了）2026-10-20 */
+  const L=(typeof pcLiveOf==='function')?pcLiveOf(o):null;
+  const done=L?!['open','error'].includes(L.kind):(!isPending(o.status)||!!o.trackingNo||(typeof pcIsSelfShipped==='function'&&pcIsSelfShipped(o)));
+  const late=!done&&today>d, soon=!done&&!late&&today===d;
   const tip=['PChome 預購單，預購出貨日：'+d,
              'PChome 規定：預購日前要填宅配單號，不然要填「不出貨」。',
              late?'※ 已經過了預購日':(soon?'※ 今天就是預購日':'')].filter(Boolean);
@@ -4353,7 +4358,7 @@ function openProdPage(oid){
   if(!url){alert('這筆沒有商品編號也沒有商品名稱可以查');return}
   openTab(url);
 }
-function logActivity(o,action){const d=new Date();const p=n=>String(n).padStart(2,'0');const ts=`${d.getFullYear()}-${p(d.getMonth()+1)}-${p(d.getDate())} ${p(d.getHours())}:${p(d.getMinutes())}`;const who=currentUser?` @${currentUser}`:'';let note=((o.note||'')+`\n[${ts}${who}] ${action}`).trim();const lines=note.split('\n');if(lines.length>60)note=lines.slice(-60).join('\n');o.note=note}
+function logActivity(o,action){const d=new Date();const p=n=>String(n).padStart(2,'0');const ts=`${d.getFullYear()}-${p(d.getMonth()+1)}-${p(d.getDate())} ${p(d.getHours())}:${p(d.getMinutes())}`;const who=currentUser?` @${currentUser}`:'';let note=((o.note||'')+`\n[${ts}${who}] ${action}`).trim();const lines=note.split('\n');if(lines.length>60){/* 只砍最舊的操作紀錄行；不是紀錄的行（其他品項、出貨地址、訂金、改地址標記…）一律保留（2026-10-20） */const isLog=l=>/^\[\d{4}-\d\d-\d\d \d\d:\d\d/.test(String(l).trim());const nonLog=lines.filter(l=>!isLog(l)).length;const logIdx=[];lines.forEach((l,i)=>{if(isLog(l))logIdx.push(i)});const room=Math.max(20,60-nonLog);const keepFrom=logIdx.length>room?logIdx[logIdx.length-room]:0;note=lines.filter((l,i)=>!isLog(l)||i>=keepFrom).join('\n')}o.note=note}
 /* 編輯視窗存檔時的「欄位逐一比對」（杰哥 2026-10-05：「訂單我改 19000 了～備註沒有更動。
    只要有操作。就要記錄」）。
 
@@ -5308,7 +5313,16 @@ ${a.del}
 h+='</div>';if(truncated){h+=`<div class="card" style="margin-top:8px"><div class="card-b" style="text-align:center;padding:14px"><div style="color:var(--dm);font-size:12px;margin-bottom:8px">顯示 ${LIMIT} / ${fl.length} 筆 — 用搜尋或篩選找特定訂單較快</div><button class="btn" onclick="_mobileExpand=true;renderList()">📋 載入全部 ${fl.length} 筆</button></div></div>`}document.getElementById('list-area').innerHTML=h;renderBatchBar(fl)}
 function renderBatchBar(fl){let bar=document.getElementById('batch-bar');if(!selectedIds.size){if(bar)bar.classList.add('hidden');document.body.classList.remove('has-batch-bar');return}const selOrders=orders.filter(o=>selectedIds.has(o.id));if(selOrders.length===0){if(bar)bar.classList.add('hidden');document.body.classList.remove('has-batch-bar');return}if(!bar){bar=document.createElement('div');bar.id='batch-bar';bar.className='batch-bar';document.body.appendChild(bar)}bar.classList.remove('hidden');document.body.classList.add('has-batch-bar');const total=selOrders.reduce((s,o)=>s+tot(o),0);bar.innerHTML=`<span style="font-size:13px;font-weight:700">已選 ${selOrders.length} 筆 ｜ 合計 $${total.toLocaleString()}</span><span style="flex:1"></span><button onclick="batchSetStatus('已確認')">已確認</button><button onclick="batchSetStatus('已出貨')">已出貨</button><button onclick="batchSetStatus('已完成')">已完成</button><button onclick="batchCopyShipping()">📋 複製</button><button onclick="batchPrintShipping()" title="A4 紙張">🖨 A4</button><button onclick="batchPrintShipping4x6()" title="4×6 熱感應標籤">🏷 4×6</button><button onclick="batchPickingList()" title="按商品分組產生揀貨清單">🛒 揀貨</button><button onclick="batchExportShipping()" title="勾選的訂單匯出成貨運託運單 Excel（備註自動帶品名）">📦 託運單</button><button onclick="openInvDeduct([...selectedIds])" title="把勾選的 PChome／MOMO 單扣庫存（已扣過、選過不扣的會自動略過）">📦 扣庫存</button><button onclick="invManage()" title="看／改／刪 系統記住的「商品 → 庫存品項」對應（顏色對錯可以在這裡改）">對應</button><button onclick="batchKerry()" title="大榮出貨：系統取託運單號、上傳大榮、印 3*2 標籤，物流填大榮貨運、單號寫回訂單" style="font-weight:700">🚚 大榮出貨</button><button onclick="batchKerryReprint()" title="已經大榮出貨的單，貼紙印壞或沒印到：補印，不會重新取號">🖨 補印大榮</button><button onclick="batchKerryCancel()" title="已經大榮出貨的單：取消出單，清掉訂單上的單號，之後可以重出">↩ 取消大榮</button><button class="danger" onclick="batchDelete()">🗑 刪</button><button onclick="selectedIds.clear();renderList()">取消</button>`}
 function batchSetStatus(s){
-  const sel=orders.filter(o=>selectedIds.has(o.id));if(!sel.length)return;
+  let sel=orders.filter(o=>selectedIds.has(o.id));if(!sel.length)return;
+  /* 批次「已確認／已出貨」不把已收錢／已完成／已取消…的單往回拉（全選混到舊單時很容易發生）2026-10-20 */
+  if(s==='已確認'||s==='已出貨'){
+    const back=sel.filter(o=>_SHIP_NO_DOWNGRADE.includes(o.status||''));
+    if(back.length){
+      if(back.length===sel.length){alert(`選取的 ${sel.length} 筆都已經是「${[...new Set(back.map(o=>o.status))].join('／')}」，不改回「${s}」`);return}
+      if(!confirm(`其中 ${back.length} 筆已經是「${[...new Set(back.map(o=>o.status))].join('／')}」，這幾筆不會改回「${s}」。\n只改其他 ${sel.length-back.length} 筆，繼續嗎？`))return;
+      sel=sel.filter(o=>!back.includes(o));
+    }
+  }
   // 防呆：批次標記「已完成」前 → 找出未收款的，列出來再確認一次
   if(s==='已完成'){
     const pending=sel.filter(o=>isPendingPayment(o));
@@ -5814,6 +5828,10 @@ function customerHistoryBadge(o){if(!o.name)return'';const key=customerKey(o);co
 // 從歷史訂單蒐集加購內容當 datalist autocomplete 候選
 function getAddonSuggestions(){const set=new Set();orders.forEach(o=>{if(o.addonItems){o.addonItems.split(/[,，、+/]/).forEach(s=>{const t=s.trim();if(t&&t.length<=20)set.add(t)})}});return [...set].sort()}
 function activityTimelineHTML(note){if(!note)return'';const lines=note.split('\n').filter(l=>l.trim());const events=[];const others=[];for(const ln of lines){const m=ln.match(/^\[(\d{4}-\d{2}-\d{2}(?:\s\d{2}:\d{2})?)(?:\s@([^\]]+))?\]\s*(.+)/);if(m)events.push({ts:m[1],who:m[2]||'',msg:m[3]});else others.push(ln)}if(!events.length)return'';events.reverse();const list=events.slice(0,8).map(e=>`<div style="display:flex;gap:8px;font-size:11px;line-height:1.5;padding:3px 0;border-bottom:1px dashed #f0ede6"><span style="color:var(--ht);font-family:var(--mono);font-size:10px;white-space:nowrap;flex-shrink:0">${esc(e.ts)}${e.who?` <span style="color:var(--mo)">${esc(e.who)}</span>`:''}</span><span>${esc(e.msg)}</span></div>`).join('');return`<details style="background:var(--sf2);border:1px solid var(--bd);border-radius:8px;padding:8px 12px;margin-bottom:8px"><summary style="cursor:pointer;font-size:11px;font-weight:700;color:var(--dm)">📋 活動紀錄 (${events.length})${events.length>8?' — 顯示最近 8 筆':''}</summary><div style="margin-top:6px">${list}</div></details>`}
+/* 物流下拉：訂單上的物流不在清單裡（黑貓宅急便、中華郵政、HCT…）時要多放一個選中的選項，
+   不然下拉顯示空白，只改個電話按儲存就把物流清掉了（2026-10-20） */
+function _delyOpts(o,list){const cur=String(o.delyGbStr||'');const extra=(cur&&!list.includes(cur))?`<option selected>${esc(cur)}</option>`:'';
+  return extra+list.map(c=>`<option ${cur===c?'selected':''}>${esc(c)}</option>`).join('')}
 function openEdit(oid){const o=findO(oid);if(!o)return;editId=oid;shipId=null;_modalDirty=false;
 document.getElementById('modal-body').innerHTML=`<h3>編輯訂單${customerHistoryBadge(o)}</h3>
 <div class="fg"><div class="fi"><label>日期</label><input type="date" id="e-date" value="${o.date}"></div><div class="fi"><label>平台</label><select id="e-plat"><option ${o.platform==='MO'?'selected':''}>MO</option><option ${o.platform==='MO3'?'selected':''}>MO3</option><option ${o.platform==='PC'?'selected':''}>PC</option><option ${o.platform==='ST'?'selected':''}>ST</option><option ${o.platform==='SCH'?'selected':''}>SCH</option><option ${o.platform==='EXPO'?'selected':''}>EXPO</option><option ${o.platform==='TR'?'selected':''}>TR</option><option ${o.platform==='MOS'?'selected':''}>MOS</option></select></div></div>
@@ -5825,7 +5843,7 @@ document.getElementById('modal-body').innerHTML=`<h3>編輯訂單${customerHisto
 <div class="fg full"><div class="fi"><label>地址</label><input id="e-addr" value="${esc(o.address)}"></div></div>
 <div class="fg" style="margin-bottom:8px"><div class="fi"><label>🏢 管理室</label><div class="sched-row" id="e-mgmt"><button class="sched-btn ${o.addrMgmt==='有'?'picked':''}" onclick="pickRadio('e-mgmt','有',this)">有</button><button class="sched-btn ${o.addrMgmt==='無'?'picked':''}" onclick="pickRadio('e-mgmt','無',this)">無</button><button class="sched-btn ${(!o.addrMgmt||o.addrMgmt==='')?'picked':''}" onclick="pickRadio('e-mgmt','',this)">未填</button></div></div><div class="fi"><label>🛗 電梯（2 樓以上）</label><div class="sched-row" id="e-elev"><button class="sched-btn ${o.addrElev==='有'?'picked':''}" onclick="pickRadio('e-elev','有',this)">有</button><button class="sched-btn ${o.addrElev==='無'?'picked':''}" onclick="pickRadio('e-elev','無',this)">無</button><button class="sched-btn ${o.addrElev==='不適用'?'picked':''}" onclick="pickRadio('e-elev','不適用',this)">不適用</button><button class="sched-btn ${(!o.addrElev||o.addrElev==='')?'picked':''}" onclick="pickRadio('e-elev','',this)">未填</button></div></div></div>
 <div class="fg"><div class="fi"><label>數量</label><input type="text" inputmode="numeric" id="e-qty" value="${o.qty||1}" oninput="this.value=cn(this.value)"></div><div class="fi"><label>商品金額</label><input type="text" inputmode="numeric" id="e-amt" value="${o.amount||''}" oninput="this.value=cn(this.value);calcT()"></div></div>
-<div class="fg"><div class="fi"><label>貨款 <span style="font-size:10px;color:var(--ht)">（這筆的錢要我們自己跟客人收才選）</span></label><select id="e-amtdue"><option value="">不追貨款（平台代收／不適用）</option><option value="unpaid" ${o.amountDue&&Number(o.amountPaid||0)<Number(o.amount||0)?'selected':''}>貨款未收</option><option value="paid" ${o.amountDue&&Number(o.amountPaid||0)>=Number(o.amount||0)&&Number(o.amount||0)>0?'selected':''}>貨款已收</option></select></div></div>
+<div class="fg"><div class="fi"><label>貨款 <span style="font-size:10px;color:var(--ht)">（這筆的錢要我們自己跟客人收才選）</span></label><select id="e-amtdue"><option value="">不追貨款（平台代收／不適用）</option><option value="unpaid" ${o.amountDue&&!(Number(o.amount||0)>0&&Number(o.amountPaid||0)>=Number(o.amount||0))?'selected':''}>貨款未收</option><option value="paid" ${o.amountDue&&Number(o.amountPaid||0)>=Number(o.amount||0)&&Number(o.amount||0)>0?'selected':''}>貨款已收</option></select></div></div>
 <div style="border:1px solid var(--bd);border-radius:8px;padding:12px;margin:8px 0;background:var(--sf2)"><div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px"><span style="font-size:12px;font-weight:700">安裝/配送</span><select id="ei-sel" onchange="togEISel()" title="直接選：待確認 / 要安裝 / 要配送 / 不安裝" style="font-size:12px;font-weight:700;padding:6px 10px;border:1px solid var(--bd);border-radius:6px;background:var(--sf);cursor:pointer"><option value="未確認" ${(!o.install||o.install==='未確認')?'selected':''}>待確認</option><option value="是" ${o.install==='是'?'selected':''}>要安裝</option><option value="配送" ${o.install==='配送'?'selected':''}>要配送</option><option value="否" ${o.install==='否'?'selected':''}>不安裝</option></select></div>
 <div id="ei-panel" class="${isServiceActive(o)?'':'hidden'}"><div class="fg"><div class="fi"><label>安裝費用</label><input type="text" inputmode="numeric" id="e-instf" value="${o.installFee||''}" oninput="this.value=cn(this.value);calcT();updateInstallPaidHint()"></div><div class="fi"><label>安裝已收 <span style="font-weight:400;color:var(--ht);font-size:10px">（0=未收，可填部分）</span></label><input type="text" inputmode="numeric" id="e-instpaid" value="${o.installPaidAmount||''}" oninput="this.value=cn(this.value);updateInstallPaidHint()" placeholder="0"></div></div>
 <div id="ei-paid-hint" style="font-size:11px;color:var(--dm);margin-top:-4px;margin-bottom:6px;padding:4px 8px;background:var(--sf2);border-radius:4px;display:none"></div>
@@ -5842,7 +5860,7 @@ document.getElementById('modal-body').innerHTML=`<h3>編輯訂單${customerHisto
 <div class="fi"><label>加購內容（例如：琴架、變壓器、調音器…）</label><input type="text" id="e-addonitems" value="${esc(o.addonItems||'')}" placeholder="加購了什麼" list="addon-items-suggestions"></div></div></div>
 <datalist id="addon-items-suggestions">${getAddonSuggestions().map(s=>`<option value="${esc(s)}"></option>`).join('')}</datalist>
 <div class="total-box"><div class="t-label">合計金額</div><div class="t-val" id="e-tot">$${tot(o).toLocaleString()}</div></div>
-${o.platform==='ST'?`<div style="border:1px solid var(--bd);border-radius:8px;padding:12px;margin:8px 0;background:var(--sf2)"><div style="font-size:12px;font-weight:700;margin-bottom:8px">📦 物流 <span style="font-weight:400;color:var(--dm);font-size:10px">（外送/寄送才需填）</span></div><div class="fg"><div class="fi"><label>物流公司</label><select id="e-dely"><option value="">— 未填（現場取走） —</option>${MOMO_DELY_COMPANIES.map(c=>`<option ${o.delyGbStr===c?'selected':''}>${c}</option>`).join('')}</select></div><div class="fi"><label>物流單號</label><input id="e-tracking" value="${esc(o.trackingNo||'')}" placeholder="(可空)" style="font-family:var(--mono)"></div></div><div style="margin-top:6px;font-size:10px;color:var(--dm)">店內訂單通常現場取走，物流可空</div></div>`:`<div style="border:1px solid var(--bd);border-radius:8px;padding:12px;margin:8px 0;background:var(--sf2)"><div style="font-size:12px;font-weight:700;margin-bottom:8px">📦 物流</div><div class="fg"><div class="fi"><label>物流公司</label><select id="e-dely"><option value="">— 未填 —</option>${(o.platform==='PC'?[...MOMO_DELY_COMPANIES,'廠商自行出貨']:MOMO_DELY_COMPANIES).map(c=>`<option ${o.delyGbStr===c?'selected':''}>${c}</option>`).join('')}</select></div><div class="fi"><label>物流單號</label><input id="e-tracking" value="${esc(o.trackingNo||'')}" placeholder="物流單號" style="font-family:var(--mono)"></div></div>${o.platform==='MO'?`<div style="margin-top:8px;display:flex;gap:8px;align-items:center;flex-wrap:wrap"><button type="button" class="btn" onclick="syncShipFromEdit()" style="background:var(--mo);color:#fff;border-color:var(--mo);font-size:11px;font-weight:700">📤 同步到 MOMO 後台</button><span style="font-size:10px;color:var(--dm)">用上面的單號開「出貨確認」回填到 MOMO（會跳 DRY RUN 預覽）</span></div>`:o.platform==='MO3'?`<div style="margin-top:8px;display:flex;gap:8px;align-items:center;flex-wrap:wrap"><button type="button" class="btn" onclick="fetchThirdLabelForEdit(this)" style="background:var(--mo);color:#fff;border-color:var(--mo);font-size:11px;font-weight:700">📥 補抓託運單電話/地址</button><span style="font-size:10px;color:var(--dm)">第三方單個資遮罩 → 從 MOMO 託運單解出代撥電話＋完整地址</span></div>`:o.platform==='PC'?`<div style="margin-top:8px;display:flex;gap:8px;align-items:center;flex-wrap:wrap"><button type="button" class="btn" onclick="syncShipPchomeFromEdit()" style="background:var(--pc);color:#fff;border-color:var(--pc);font-size:11px;font-weight:700">📤 回填到 PChome 後台</button><span style="font-size:10px;color:var(--dm)">用上面的單號開「出貨回填」送到 PChome</span></div>`:''}</div>`}
+${o.platform==='ST'?`<div style="border:1px solid var(--bd);border-radius:8px;padding:12px;margin:8px 0;background:var(--sf2)"><div style="font-size:12px;font-weight:700;margin-bottom:8px">📦 物流 <span style="font-weight:400;color:var(--dm);font-size:10px">（外送/寄送才需填）</span></div><div class="fg"><div class="fi"><label>物流公司</label><select id="e-dely"><option value="">— 未填（現場取走） —</option>${_delyOpts(o,MOMO_DELY_COMPANIES)}</select></div><div class="fi"><label>物流單號</label><input id="e-tracking" value="${esc(o.trackingNo||'')}" placeholder="(可空)" style="font-family:var(--mono)"></div></div><div style="margin-top:6px;font-size:10px;color:var(--dm)">店內訂單通常現場取走，物流可空</div></div>`:`<div style="border:1px solid var(--bd);border-radius:8px;padding:12px;margin:8px 0;background:var(--sf2)"><div style="font-size:12px;font-weight:700;margin-bottom:8px">📦 物流</div><div class="fg"><div class="fi"><label>物流公司</label><select id="e-dely"><option value="">— 未填 —</option>${_delyOpts(o,o.platform==='PC'?[...MOMO_DELY_COMPANIES,'廠商自行出貨']:MOMO_DELY_COMPANIES)}</select></div><div class="fi"><label>物流單號</label><input id="e-tracking" value="${esc(o.trackingNo||'')}" placeholder="物流單號" style="font-family:var(--mono)"></div></div>${o.platform==='MO'?`<div style="margin-top:8px;display:flex;gap:8px;align-items:center;flex-wrap:wrap"><button type="button" class="btn" onclick="syncShipFromEdit()" style="background:var(--mo);color:#fff;border-color:var(--mo);font-size:11px;font-weight:700">📤 同步到 MOMO 後台</button><span style="font-size:10px;color:var(--dm)">用上面的單號開「出貨確認」回填到 MOMO（會跳 DRY RUN 預覽）</span></div>`:o.platform==='MO3'?`<div style="margin-top:8px;display:flex;gap:8px;align-items:center;flex-wrap:wrap"><button type="button" class="btn" onclick="fetchThirdLabelForEdit(this)" style="background:var(--mo);color:#fff;border-color:var(--mo);font-size:11px;font-weight:700">📥 補抓託運單電話/地址</button><span style="font-size:10px;color:var(--dm)">第三方單個資遮罩 → 從 MOMO 託運單解出代撥電話＋完整地址</span></div>`:o.platform==='PC'?`<div style="margin-top:8px;display:flex;gap:8px;align-items:center;flex-wrap:wrap"><button type="button" class="btn" onclick="syncShipPchomeFromEdit()" style="background:var(--pc);color:#fff;border-color:var(--pc);font-size:11px;font-weight:700">📤 回填到 PChome 後台</button><span style="font-size:10px;color:var(--dm)">用上面的單號開「出貨回填」送到 PChome</span></div>`:''}</div>`}
 <div class="fg" style="margin-top:10px"><div class="fi"><label>狀態</label><select id="e-st">${ST.map(s=>`<option ${o.status===s?'selected':''}>${s}</option>`).join('')}</select></div></div>
 ${(o.photos&&o.photos.length)?`<div class="fg full"><div class="fi"><label>📷 出貨照片（${o.photos.length} 張，點圖放大）</label><div style="display:flex;gap:6px;flex-wrap:wrap;padding:8px;background:var(--sf2);border:1px solid var(--bd);border-radius:8px">${o.photos.map((p,i)=>`<div style="position:relative"><a href="${esc(p.url)}" target="_blank" rel="noopener" style="display:block;width:88px;height:88px;border-radius:6px;overflow:hidden;border:1px solid var(--bd);background:#fff"><img src="${esc(p.url)}" style="width:100%;height:100%;object-fit:cover;display:block" loading="lazy"></a><button onclick="removeOrderPhoto('${o.id}',${i})" style="position:absolute;top:-6px;right:-6px;width:22px;height:22px;border-radius:50%;background:var(--pc);color:#fff;border:0;font-size:12px;cursor:pointer;font-weight:700;line-height:1" title="刪除此照片">×</button><div style="font-size:9px;color:var(--dm);text-align:center;margin-top:2px;font-family:var(--mono)">${new Date(p.ts).toLocaleString('zh-TW',{month:'2-digit',day:'2-digit',hour:'2-digit',minute:'2-digit'})}</div></div>`).join('')}</div></div></div>`:''}
 <div class="fg full"><div class="fi"><label>備註（新增即時同步・自動記錄誰＋時間）</label><div class="note-presets">${['不安裝不加購-直接出貨！','壓SP.貨到直接出！','電聯不上已壓SP','日期壓後面一點，貨到出貨。','已加line交涉中','要到電話！'].map(t=>`<button type="button" class="note-preset-chip" data-preset="${esc(t)}" onclick="noteQuickAdd(this.dataset.preset)">${esc(t)}</button>`).join('')}</div><div style="display:flex;gap:6px;margin-top:2px"><input id="e-note-add" placeholder="輸入備註，Enter 或按新增（即時同步）" onkeydown="if(event.key==='Enter'&&!imeBusy(event)){event.preventDefault();noteAddFromInput()}" style="flex:1;padding:6px 10px;border:1px solid var(--grn);border-radius:6px;font-size:12px;font-family:var(--sans);outline:none;background:var(--grn-bg)"><button type="button" class="btn btn-g" onclick="noteAddFromInput()" style="white-space:nowrap">＋ 新增</button></div><div id="e-note-timeline" style="margin-top:8px;max-height:230px;overflow:auto;background:var(--sf2);border:1px solid var(--bd);border-radius:8px;padding:4px 10px">${noteHistoryHTML(o.note,o.id)}</div><div style="margin-top:6px"><button type="button" class="btn" style="font-size:11px" onclick="toggleNoteRaw(this)">✎ 編輯／刪除舊備註（整段覆蓋）</button></div><textarea id="e-note" data-dirty="0" oninput="this.dataset.dirty='1';_modalDirty=true" style="display:none;margin-top:6px" placeholder="直接改整段（含舊紀錄）；儲存會覆蓋整段，請小心">${esc(o.note)}</textarea></div></div>
@@ -6255,7 +6273,11 @@ document.addEventListener('keydown',e=>{
   // ? 顯示快捷鍵說明
   if(e.key==='?'){showShortcutsHelp();return}
   // Ctrl+Z 還原刪除
-  if((e.ctrlKey||e.metaKey)&&e.key==='z'){e.preventDefault();undoLast();return}
+  if((e.ctrlKey||e.metaKey)&&e.key==='z'){e.preventDefault();
+    // 鍵盤 Ctrl+Z 沒有時間限制 → 超過 1 分鐘的還原先問（可能把早就刻意刪掉的重複單救回來又出一次貨）2026-10-20
+    const _u=undoStack[undoStack.length-1];
+    if(_u&&Date.now()-(_u.t||0)>60000){const _m=Math.round((Date.now()-_u.t)/60000);const _what=_u.kind==='bulk-restore-status'?'批次改狀態':(_u.kind==='delete-batch'?('刪除 '+((_u.orders||[]).length)+' 筆訂單'):'刪除訂單');if(!confirm('要還原 '+_m+' 分鐘前的「'+_what+'」嗎？'))return}
+    undoLast();return}
 });
 function showShortcutsHelp(){const lines=['🎹 鍵盤捷徑','','/ 或 Ctrl+K — 聚焦搜尋','Esc — 關 modal / 清搜尋 / 取消批次','Ctrl+Z — 還原刪除（最近 10 次）','1 — 匯入分頁','2 — 列表','3 — 輸出','4 — 統計','5 — 客戶','6 — 帳號','? — 顯示這個說明'];alert(lines.join('\n'))}
 function confirmWipeAll(){
@@ -6481,7 +6503,7 @@ function saveExpoSale(){
   if(!isFree)noteParts.push('售價 '+price.toLocaleString()+(install?'／安裝 '+install.toLocaleString():'')+'／合計 '+total.toLocaleString());
   noteParts.push(payLine);
   if(userNote)noteParts.push(userNote);
-  const o={id:gid(),date,dateFmt:fmtD(date),platform:'EXPO',orderNo:'EXPO-'+Date.now().toString().slice(-9),product,specs:'',name,phone,realPhone:phone,address:addr,addrMgmt:'',addrElev:'',install:install>0?'是':'否',installFee:install,installDay:'',installTime:'',installPaidAmount:(status==='已完成'?install:0),addon:'否',addonFee:0,addonItems:'',addonPaidAmount:0,amount:price,qty:1,status,note:noteParts.join('\n'),delyGbStr:'',trackingNo:''};
+  const o={id:gid(),date,dateFmt:fmtD(date),platform:'EXPO',orderNo:'EXPO-'+Date.now().toString().slice(-9),product,specs:'',name,phone,realPhone:phone,address:addr,addrMgmt:'',addrElev:'',install:install>0?'是':'否',installFee:install,installDay:'',installTime:'',installPaidAmount:((!isFree&&received>=total)?install:0)/* 2026-10-20：原本看 status==='已完成' 但這裡從來不會是已完成 → 付清的安裝費永遠顯示未收 */,addon:'否',addonFee:0,addonItems:'',addonPaidAmount:0,amount:price,qty:1,status,note:noteParts.join('\n'),delyGbStr:'',trackingNo:''};
   logActivity(o,'店內寄出建單');
   orders.push(o);
   _setSavingBadge();db.ref('orders/'+o.id).set(o).catch(_saveError);
@@ -8889,9 +8911,9 @@ function _dvRenderRegion(list){
     +block('未填','❓ 未填地區（請補地址）','#92400e','#fffbeb');
 }
 const _dvKey=o=>(o.product||'未命名').slice(0,60);
-function _dvGroupArr(k){return _dvOrders().filter(o=>_dvKey(o)===k).sort((a,b)=>((a.shipSeq||9999)-(b.shipSeq||9999))||_dvDateCmp(a,b));}
+function _dvGroupArr(k){/* 跟畫面一樣用目前範圍（補貨／全部／未完成）的清單，不然補貨卡片按 ▲▼ 會動到別張（2026-10-20） */return _dvScopeOrders().filter(o=>_dvKey(o)===k).sort((a,b)=>((a.shipSeq||9999)-(b.shipSeq||9999))||_dvDateCmp(a,b));}
 function _dvApplyOrder(arr){arr.forEach((x,i)=>{if(x.shipSeq!==i+1){x.shipSeq=i+1;saveOne(x)}});renderDelivery();}
-function _dvMove(oid,dir){const o=findO(oid);if(!o)return;const arr=_dvGroupArr(_dvKey(o));const i=arr.findIndex(x=>x.id===oid);const j=i+dir;if(j<0||j>=arr.length)return;arr.splice(j,0,arr.splice(i,1)[0]);_dvApplyOrder(arr);}
+function _dvMove(oid,dir){const o=findO(oid);if(!o)return;const arr=_dvGroupArr(_dvKey(o));const i=arr.findIndex(x=>x.id===oid);if(i<0)return;const j=i+dir;if(j<0||j>=arr.length)return;arr.splice(j,0,arr.splice(i,1)[0]);_dvApplyOrder(arr);}
 function _dvAutoSort(oid){const o=findO(oid);if(!o)return;const arr=_dvGroupArr(_dvKey(o));const mode=(document.getElementById('deliv-sort')||{}).value||'date';
   arr.sort((a,b)=>{
     if(mode==='unconfirmed')return delivStage(a)-delivStage(b)||String(a.date||'').localeCompare(String(b.date||''));
@@ -9063,7 +9085,8 @@ function rtOrders(){
   const m=new Map();orders.forEach(o=>{if(o&&o.id)m.set(o.id,o)});
   const keep=[],out=[];
   routeIds.forEach(id=>{const o=m.get(id);if(o){keep.push(id);out.push(o)}});
-  if(keep.length!==routeIds.length){routeIds=keep;_rtSave()}   // 單被刪掉 → 自動清掉
+  // 單被刪掉 → 自動清掉。但訂單還沒載入（重整後一開頁就在區域分頁）時全部都「找不到」，不能當成被刪 → 等載入完才清（2026-10-20）
+  if(keep.length!==routeIds.length&&ordersLoaded&&orders.length){routeIds=keep;_rtSave()}
   return out;
 }
 function rtToggle(id,on){
@@ -9151,11 +9174,13 @@ async function _rtGeocode(addr,force){
   if(!force&&rtGeo[key])return rtGeo[key].fail?null:rtGeo[key];
   // 連縣市都認不出來的地址（「我家」「同上」）根本無從驗證 → 直接當定位失敗，別亂猜
   if(!addrCity(addr)){rtGeo[key]={fail:1,why:'no-city'};_rtGeoSave();return null}
+  let _netErr=false;   // 斷線／被限流（429、5xx）不能當成「這個地址查不到」永久記住（2026-10-20）
   for(const v of _rtVariants(addr)){
     await _rtThrottle(1100);   // Nominatim 使用規範：每秒最多 1 次
     try{
       const u='https://nominatim.openstreetmap.org/search?format=jsonv2&limit=1&addressdetails=1&countrycodes=tw&accept-language=zh-TW&q='+encodeURIComponent(v);
       const r=await fetch(u,{headers:{Accept:'application/json'}});
+      if(!r.ok)_netErr=true;
       if(r.ok){
         const j=await r.json();
         if(j&&j.length&&j[0].lat&&_rtCityOk(addr,j[0].display_name)){
@@ -9163,7 +9188,7 @@ async function _rtGeocode(addr,force){
           rtGeo[key]=hit;_rtGeoSave();return hit;
         }
       }
-    }catch(_){}
+    }catch(_){_netErr=true}
   }
   // Nominatim 全部落空 → 換 Photon（也是 OSM 資料但比對邏輯不同，救得回一部分）
   for(const v of _rtVariants(addr).slice(0,2)){
@@ -9171,6 +9196,7 @@ async function _rtGeocode(addr,force){
     try{
       const u='https://photon.komoot.io/api/?limit=1&lang=default&q='+encodeURIComponent(v.replace(/,/g,' '));
       const r=await fetch(u);
+      if(!r.ok)_netErr=true;
       if(r.ok){
         const j=await r.json();
         const f=j&&j.features&&j.features[0];
@@ -9181,8 +9207,9 @@ async function _rtGeocode(addr,force){
           rtGeo[key]=hit;_rtGeoSave();return hit;
         }
       }
-    }catch(_){}
+    }catch(_){_netErr=true}
   }
+  if(_netErr)return null;   // 這次網路有問題 → 不記失敗，下次再查
   rtGeo[key]={fail:1};_rtGeoSave();return null;
 }
 function rtClearGeoCache(){
@@ -9954,7 +9981,7 @@ if('serviceWorker' in navigator){
       _newVerToastShown=true;
       if(_autoReloadOK()){location.reload();return}
       if(typeof showToast==='function'){
-        showToast('系統有新版本','🔄 立即更新',()=>location.reload(),600000);
+        showToast('系統有新版本','🔄 立即更新',()=>{if((typeof _modalDirty!=='undefined'&&_modalDirty)&&!confirm('編輯視窗還有沒存的修改，更新會不見。仍要更新？'))return;location.reload()},600000);   /* iPhone 沒有離開前提醒，按了就直接丟掉編輯中的內容（2026-10-20） */
         /* 🔴 待辦提醒的遮罩 z-index 也是 300，而且比 toast 晚進 DOM → 同一層時它蓋在上面，
            「立即更新」就點不到（杰哥 2026-09-29 就是卡在這）。這顆 toast 拉高一層。 */
         try{ if(_toastEl)_toastEl.style.zIndex='9500' }catch(_){}
