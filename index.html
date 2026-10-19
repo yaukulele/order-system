@@ -1403,6 +1403,25 @@ async function ensureStorage(){
   return _storageReadyPromise;
 }
 const db=firebase.database();
+/* 存單基準跟著「這台自己的寫入」一起走（2026-10-20 過夜複查發現的回歸）：
+   自己寫完的回音如果剛好被延後（視窗開著／輸入框有焦點）就會被丟掉，基準停在舊版 →
+   之後把值改回原本那個（數量 1→2→1、狀態 A→B→A、撤回刪除）會被當成「沒變」而沒寫。
+   所以所有寫到 orders 底下的 update/set/remove 都同步改基準。transaction 不在這裡處理（備註那條自己改）。 */
+function _baseApply(rel,v,mode){
+  if(!_baseJson&&!_baseParsed)return;const b=_ordersBase();if(!b)return;
+  const put=(path,val)=>{const ks=String(path||'').split('/').filter(Boolean);if(!ks.length){_setOrdersBase(null);return}
+    let n=b;for(let i=0;i<ks.length-1;i++){if(n[ks[i]]==null||typeof n[ks[i]]!=='object'){if(val==null)return;n[ks[i]]={}}n=n[ks[i]]}
+    const last=ks[ks.length-1];if(val==null)delete n[last];else n[last]=JSON.parse(JSON.stringify(val))};
+  if(mode==='update'){for(const k of Object.keys(v||{}))put(rel?rel+'/'+k:k,v[k])}else put(rel,v);
+}
+{const _origRef=db.ref.bind(db);
+ db.ref=function(path){const r=_origRef(path);const p=String(path==null?'':path).replace(/^\/+/,'');
+  if(p==='orders'||p.startsWith('orders/')){const rel=p==='orders'?'':p.slice(7);
+    const u=r.update.bind(r),st=r.set.bind(r),rm=r.remove.bind(r);
+    r.update=function(obj,...a){try{_baseApply(rel,obj,'update')}catch(e){console.warn('baseApply',e)}return u(obj,...a)};
+    r.set=function(val,...a){try{_baseApply(rel,val,'set')}catch(e){console.warn('baseApply',e)}return st(val,...a)};
+    r.remove=function(...a){try{_baseApply(rel,null,'set')}catch(e){console.warn('baseApply',e)}return rm(...a)};}
+  return r};}
 // 🚀 衍生資料快取（搜尋乾草堆 + 客戶彙總）— 宣告在前，讓 _setSavingBadge 能安全清快取（避免 TDZ）
 // 不變量：任何寫入 orders 到 DB 前都會呼叫 _setSavingBadge()，那裡統一清快取 → 就地改/直寫/匯入/刪除全涵蓋
 const _hayCache=new Map();
@@ -1671,10 +1690,12 @@ function _orderFieldDiff(id,o,b,updates){
   if(!b||typeof b!=='object'){updates[id]=o;return}
   const ks=new Set(Object.keys(o).concat(Object.keys(b)));
   for(const k of ks){const ov=o[k];if(typeof ov==='function')continue;
-    if(JSON.stringify(ov===undefined?null:ov)!==JSON.stringify(b[k]===undefined?null:b[k]))updates[id+'/'+k]=(ov===undefined?null:ov)}
+    if(!_jeq(ov===undefined?null:ov,b[k]===undefined?null:b[k]))updates[id+'/'+k]=(ov===undefined?null:ov)}   // _jeq 不看 key 順序
 }
 function _doSaveOnes(){_saveOneTimer=null;if(_pendingOneIds.size===0)return;const updates={};let base=null;try{base=_ordersBase()}catch(e){base=null}
   for(const id of _pendingOneIds){const o=findO(id);if(!o)continue;
+    // 別台已經刪掉這張（暫存的雲端版本裡沒有）→ 不要寫出一張只有幾個欄位的殘缺訂單
+    if(_pendingVal&&base&&base[id]&&!_pendingVal[id]){console.warn('別台已刪除這張訂單，這次存檔略過',id);continue}
     {const pz=_pendingObjs.get(id);if(pz&&pz!==o){try{_mergeStaleOrder(id,pz,o)}catch(e){console.warn(e)}}}
     if(base){try{_orderFieldDiff(id,o,base[id],updates)}catch(e){updates[id]=o}}else updates[id]=o}
   /* 備註只是「在後面多加幾行」（logActivity 的操作紀錄）→ 不整段覆蓋，改用 transaction 把新的行接到雲端最新那份後面，
@@ -1683,7 +1704,7 @@ function _doSaveOnes(){_saveOneTimer=null;if(_pendingOneIds.size===0)return;cons
     const bv=b&&typeof b.note==='string'?b.note:null, ov=updates[k];
     if(bv!==null&&typeof ov==='string'&&ov.length>bv.length&&ov.startsWith(bv)){
       const add=ov.slice(bv.length).split(String.fromCharCode(10)).map(x=>x.trim()).filter(Boolean);
-      if(add.length){delete updates[k];db.ref('orders/'+id+'/note').transaction(cur=>{let t=String(cur||'').replace(/\s+$/,'');
+      if(add.length){delete updates[k];if(base[id])base[id].note=ov;db.ref('orders/'+id+'/note').transaction(cur=>{let t=String(cur||'').replace(/\s+$/,'');
         const NL=String.fromCharCode(10);for(const ln of add){if(!t.split(NL).some(x=>x.trim()===ln))t=t?t+NL+ln:ln}return t}).catch(_saveError)}}}}
   _pendingOneIds.clear();_pendingObjs.clear();if(!Object.keys(updates).length){setSyncOn();return}/* 沒有欄位變動＝不用寫；別台的暫存更新留著給之後套用 */db.ref('orders').update(updates).catch(_saveError);pendingRemoteOrders=null}
 // saveAll = update 整包 orders（不用 set，避免 multi-device wipe）— 取消 pending saveOne，由 saveAll 統一處理
@@ -4556,7 +4577,7 @@ async function invTxFast(ops){
   const out=new Array(ops.length),rest=[],restIx=[];
   for(let i=0;i<ops.length;i++){let r=null;try{r=await _invTxOne(ops[i].iid,ops[i].delta)}catch(e){r=null}
     if(r)out[i]=r;else{rest.push(ops[i]);restIx.push(i)}}
-  if(rest.length){const rr=await invTxMulti(rest);rr.forEach((r,j)=>{out[restIx[j]]=r})}   // 位置對不上的走原本整份陣列
+  if(rest.length){let rr;try{rr=await invTxMulti(rest)}catch(e){e.partial=out.filter(Boolean).length;throw e}rr.forEach((r,j)=>{out[restIx[j]]=r})}   // 位置對不上的走原本整份陣列（失敗時標出前面已經扣成的件數）
   return out;
 }
 // 紀錄一次寫完（同一張單好幾筆紀錄合成一次 transaction，紀錄陣列 ~250KB）
@@ -4585,7 +4606,7 @@ async function invCommit(){
       const _unlock=()=>db.ref('invLock/'+_lockKey).remove().catch(()=>{});
       const did=[];
       let txs;
-      try{txs=await invTxFast(lines.map(l=>({iid:l.iid,delta:-l.qty})))}catch(e){await _unlock();throw e}
+      try{txs=await invTxFast(lines.map(l=>({iid:l.iid,delta:-l.qty})))}catch(e){if(!e.partial)await _unlock();throw e}   // 有一部分已經扣了就留著記號，免得重試再扣一次
       const logs=[];
       lines.forEach((l,ix)=>{const it=invFind(l.iid),tx=txs[ix];
         if(!tx.ok){res.push(`<span style="color:#b91c1c">${esc(o.name)}：${esc(it?it.b+' '+it.n:'品項')} ${tx.missing?'已被刪除':'沒扣成功，請重試'}</span>`);return}
