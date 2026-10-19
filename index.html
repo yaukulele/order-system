@@ -1413,6 +1413,8 @@ function _baseApply(rel,v,mode){
     let n=b;for(let i=0;i<ks.length-1;i++){if(n[ks[i]]==null||typeof n[ks[i]]!=='object'){if(val==null)return;n[ks[i]]={}}n=n[ks[i]]}
     const last=ks[ks.length-1];if(val==null)delete n[last];else n[last]=JSON.parse(JSON.stringify(val))};
   if(mode==='update'){for(const k of Object.keys(v||{}))put(rel?rel+'/'+k:k,v[k])}else put(rel,v);
+  // 這台自己又寫了這張（例：撤回刪除）→ 不再算「別台刪掉的」
+  try{if(mode==='update'){for(const k of Object.keys(v||{})){const id=String(rel?rel+'/'+k:k).split('/')[0];if(v[k]!=null)_remoteGone.delete(id)}}else if(v!=null)_remoteGone.delete(String(rel).split('/')[0])}catch(e){}
 }
 {const _origRef=db.ref.bind(db);
  db.ref=function(path){const r=_origRef(path);const p=String(path==null?'':path).replace(/^\/+/,'');
@@ -1462,6 +1464,7 @@ function setSyncOn(){const sb=document.getElementById('sync-badge');if(sb){_last
    存的時候逐欄跟那一版比，只寫有變的欄位（orders/{id}/{欄位}）。
    不知道基準（例如剛從離線快取還原又被套用過暫存版本）→ 退回原本整張寫，行為跟以前一樣。 */
 let _baseJson=null,_baseParsed=null,_pendingJson=null,_pendingVal=null;
+let _remoteGone=new Set();   // 延後套用期間「別台刪掉」的訂單 id（在延後的那一刻算好，不事後推）
 function _setOrdersBase(json){_baseJson=(typeof json==='string'&&json)?json:null;_baseParsed=null}
 function _ordersBase(){if(!_baseJson)return null;if(!_baseParsed){try{_baseParsed=JSON.parse(_baseJson)}catch(e){_baseJson=null;_baseParsed=null}}return _baseParsed}
 /* 舊那份訂單也能存（2026-10-20）：按鈕送平台、等回應的那幾秒，別台一存，orders 就整批換成新物件，
@@ -1478,7 +1481,7 @@ function _mergeStaleOrder(id,passed,cur){
   for(const k of Object.keys(tmp)){const f=k.slice(id.length+1);if(!f||f==='id')continue;const v=tmp[k];if(v===null)delete cur[f];else cur[f]=v}
 }
 function _safeOrderList(val){const out=[];for(const o of Object.values(val||{})){if(o&&typeof o==='object'&&/^[\w-]+$/.test(String(o.id||'')))out.push(o);else console.warn('略過格式不對的訂單',o&&o.id)}return out}
-function applyRemoteOrders(val,json){if(json===undefined)json=(val&&val===_pendingVal)?_pendingJson:null;const _pj=_baseJson;_setOrdersBase(val?json:'');_pendingVal=null;_pendingJson=null;const sc=window.scrollY;const wasLoaded=ordersLoaded;const prevIds=new Set(orders.map(o=>o.id));pendingRemoteOrders=null;orders=val?_safeOrderList(val):[];orders.forEach(migrateStatus);_markOrdersGen(_pj);_invalidateOrderCaches();
+function applyRemoteOrders(val,json){_remoteGone.clear();if(json===undefined)json=(val&&val===_pendingVal)?_pendingJson:null;const _pj=_baseJson;_setOrdersBase(val?json:'');_pendingVal=null;_pendingJson=null;const sc=window.scrollY;const wasLoaded=ordersLoaded;const prevIds=new Set(orders.map(o=>o.id));pendingRemoteOrders=null;orders=val?_safeOrderList(val):[];orders.forEach(migrateStatus);_markOrdersGen(_pj);_invalidateOrderCaches();
 // 清掉 selectedIds 裡已不存在的 ids（其他裝置刪掉的）— 避免 batch bar 顯示假筆數
 if(selectedIds.size){const valid=new Set(orders.map(o=>o.id));for(const id of [...selectedIds])if(!valid.has(id))selectedIds.delete(id)}
 // 偵測其他裝置剛加進來的新訂單 — toast 提示（自己 import 的不會觸發，因為 self-echo 在 line 287 已 skip）
@@ -1616,13 +1619,13 @@ function _onOrdersValue(snap){
     _fbOrdersArrived=true;
     const json=val?JSON.stringify(val):'';
     _cacheOrdersToLocal(val,json); // 共用上面算好的 json，不重算
-    if(_sameAsLocalOrders(val)){_setOrdersBase(json);pendingRemoteOrders=null;_pendingVal=null;_pendingJson=null;ordersLoaded=true;updateCnt();setSyncOn();return}
+    if(_sameAsLocalOrders(val)){_remoteGone.clear();_setOrdersBase(json);pendingRemoteOrders=null;_pendingVal=null;_pendingJson=null;ordersLoaded=true;updateCnt();setSyncOn();return}
     // 還有 pending 本地 save → 不能直接 applyRemoteOrders 否則會把本地未送出的 edit 沖掉
     // （之前 race：toggleStatus → saveOne 300ms 排隊中 → 別人寫 Y → value 來 → applyRemoteOrders →
     //  本地 status edit 沒進 cloud 就被遠端蓋掉，saveOne 拿到的是被覆蓋後的值，寫回去也沒救）
     // 拖曳中也要 defer — 拖曳卡片時 re-render 會把 DOM 砍掉，原本 drag 中斷
     const dragging=(typeof _schedDragOid!=='undefined'&&_schedDragOid)||(typeof _touchDragOid!=='undefined'&&_touchDragOid);
-    if(isModalOpen()||isInputFocused()||_saveOneTimer||_saveAllTimer||dragging){pendingRemoteOrders=val;_pendingVal=val;_pendingJson=json;setSyncOn();return}
+    if(isModalOpen()||isInputFocused()||_saveOneTimer||_saveAllTimer||dragging){pendingRemoteOrders=val;_pendingVal=val;_pendingJson=json;try{const _b=_ordersBase();_remoteGone=new Set();if(_b)for(const k in _b)if(!val||!val[k])_remoteGone.add(k)}catch(e){_remoteGone=new Set()}setSyncOn();return}
     applyRemoteOrders(val,json)
   }catch(e){
     // listener body 出例外會讓整個 realtime sync 死掉 — 至少 log + 提示用戶
@@ -1696,7 +1699,7 @@ function _orderFieldDiff(id,o,b,updates){
 function _doSaveOnes(){_saveOneTimer=null;if(_pendingOneIds.size===0)return;const updates={};let base=null;try{base=_ordersBase()}catch(e){base=null}
   for(const id of _pendingOneIds){const o=findO(id);if(!o)continue;
     // 別台已經刪掉這張（暫存的雲端版本裡沒有）→ 不要寫出一張只有幾個欄位的殘缺訂單
-    if(_pendingVal&&base&&base[id]&&!_pendingVal[id]){console.warn('別台已刪除這張訂單，這次存檔略過',id);continue}
+    if(_remoteGone.has(id)){console.warn('別台已刪除這張訂單，這次存檔略過',id);continue}
     {const pz=_pendingObjs.get(id);if(pz&&pz!==o){try{_mergeStaleOrder(id,pz,o)}catch(e){console.warn(e)}}}
     if(base){try{_orderFieldDiff(id,o,base[id],updates)}catch(e){updates[id]=o}}else updates[id]=o}
   /* 備註只是「在後面多加幾行」（logActivity 的操作紀錄）→ 不整段覆蓋，改用 transaction 把新的行接到雲端最新那份後面，
@@ -3192,14 +3195,15 @@ async function syncMomoLive(opt){
     // 兩支都掛掉 → 保留上次快照，不要清成空的害列表全部變「平台已結案」
     // 只掛一支也一樣保留上次快照（2026-10-20）：只有廠配回來時，三方的單在新快照裡全部不見，
     // 會被當成「MOMO 已結案」而且時間是剛剛 —— 寧可顯示舊一點的資料
-    if(fail.length){
+    const _momoFail=fail.length>0;   // 失敗只跳過 MOMO 快照，PChome／已結案／退換貨照樣更新（不然一支一直掛，PChome 狀態也永遠不更新）
+    if(_momoFail){
       if(!silent)alert('MOMO 平台狀態同步失敗（保留上次資料）：\n\n'+fail.join('\n'));
-      return{ok:false,err:fail.join('; ')};
-    }
+    }else{
     // 同一張單多品項（14 碼前綴相同）狀態若不一致，就不給前綴查表，避免標錯到別的品項
     const prefix={};
     for(const p in prefixHits){const a=prefixHits[p];if(a.every(x=>x.st===a[0].st&&x.scm===a[0].scm))prefix[p]=a[0]}
     _momoLive=map;_momoLivePrefix=prefix;_momoLiveWin=win;_momoLiveAt=Date.now();
+    }
     // 順便更新「已結案」索引（一小時一次就好，結案的單不會再變）
     if(Date.now()-_momoClosedAt>MOMO_CLOSED_REFRESH_MS)await _syncMomoClosed(base,token).catch(()=>{});
     if(!opt||opt.forceRet||Date.now()-_momoRetAt>MOMO_CLOSED_REFRESH_MS)await _syncMomoReturns(base,token).catch(e=>{fail.push('退換貨：'+String(e&&e.message||e).slice(0,50))});
@@ -3208,11 +3212,12 @@ async function syncMomoLive(opt){
     // 手動時改成 2 分鐘冷卻（只防連按打爆 PChome），不再沿用 30 分。
     const _pcMinAge = silent ? 30*60*1000 : 2*60*1000;
     if(Date.now()-_pcLiveAt>_pcMinAge)await _syncPcLive(base,token).catch(e=>{fail.push('PChome：'+String(e&&e.message||e).slice(0,50))});
-    try{localStorage.setItem(MOMO_LIVE_KEY,JSON.stringify({map,prefix,win,at:_momoLiveAt,
+    try{localStorage.setItem(MOMO_LIVE_KEY,JSON.stringify({map:_momoLive,prefix:_momoLivePrefix,win:_momoLiveWin,at:_momoLiveAt,
       closed:_momoClosed,closedPrefix:_momoClosedPrefix,closedAt:_momoClosedAt,closedFrom:_momoClosedFrom,
       ret:_momoRet,retAt:_momoRetAt,
       pc:_pcLive,pcAt:_pcLiveAt}))}catch(e){}
     renderList();
+    if(_momoFail)return{ok:false,err:fail.join('; ')};
     if(!silent)showToast&&showToast('MOMO 平台狀態已更新：未出貨 '+Object.keys(map).length+' 筆'+(fail.length?'（'+fail.join('；')+'）':''));
     return{ok:true,count:Object.keys(map).length,fail};
   }finally{_momoLiveSyncing=false;updateMomoLiveBtn()}
@@ -5897,7 +5902,7 @@ function noteAppendCommit(oid,lines){
     return base;
   },(err,committed,snap)=>{
     if(err){if(typeof _saveError==='function')_saveError(err);return}
-    if(committed&&snap){const val=snap.val()||'';o.note=val;if(pendingRemoteOrders&&pendingRemoteOrders[oid])pendingRemoteOrders[oid].note=val;_invalidateOrderCaches();if(editId===oid)refreshModalNoteUI(oid);try{renderList()}catch(_){}}
+    if(committed&&snap){const val=snap.val()||'';o.note=val;try{const _b=_ordersBase();if(_b&&_b[oid])_b[oid].note=val}catch(_){}if(pendingRemoteOrders&&pendingRemoteOrders[oid])pendingRemoteOrders[oid].note=val;_invalidateOrderCaches();if(editId===oid)refreshModalNoteUI(oid);try{renderList()}catch(_){}}
   });
 }
 // 點快選 chip / 手動新增 → 追加一行「正文 ⟨@誰 · 時間⟩」（客戶備註仍會出現在出貨/列表，署名記在後面）
