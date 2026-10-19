@@ -1677,6 +1677,14 @@ function _doSaveOnes(){_saveOneTimer=null;if(_pendingOneIds.size===0)return;cons
   for(const id of _pendingOneIds){const o=findO(id);if(!o)continue;
     {const pz=_pendingObjs.get(id);if(pz&&pz!==o){try{_mergeStaleOrder(id,pz,o)}catch(e){console.warn(e)}}}
     if(base){try{_orderFieldDiff(id,o,base[id],updates)}catch(e){updates[id]=o}}else updates[id]=o}
+  /* 備註只是「在後面多加幾行」（logActivity 的操作紀錄）→ 不整段覆蓋，改用 transaction 把新的行接到雲端最新那份後面，
+     別台同時加的紀錄才不會被洗掉。有刪改舊行（全文編輯）才整段寫。2026-10-20 */
+  if(base){for(const k of Object.keys(updates)){if(!k.endsWith('/note'))continue;const id=k.slice(0,-5);const b=base[id];
+    const bv=b&&typeof b.note==='string'?b.note:null, ov=updates[k];
+    if(bv!==null&&typeof ov==='string'&&ov.length>bv.length&&ov.startsWith(bv)){
+      const add=ov.slice(bv.length).split(String.fromCharCode(10)).map(x=>x.trim()).filter(Boolean);
+      if(add.length){delete updates[k];db.ref('orders/'+id+'/note').transaction(cur=>{let t=String(cur||'').replace(/\s+$/,'');
+        const NL=String.fromCharCode(10);for(const ln of add){if(!t.split(NL).some(x=>x.trim()===ln))t=t?t+NL+ln:ln}return t}).catch(_saveError)}}}}
   _pendingOneIds.clear();_pendingObjs.clear();if(!Object.keys(updates).length){setSyncOn();return}/* 沒有欄位變動＝不用寫；別台的暫存更新留著給之後套用 */db.ref('orders').update(updates).catch(_saveError);pendingRemoteOrders=null}
 // saveAll = update 整包 orders（不用 set，避免 multi-device wipe）— 取消 pending saveOne，由 saveAll 統一處理
 function saveAll(immediate){_setSavingBadge();_pendingOneIds.clear();if(_saveOneTimer){clearTimeout(_saveOneTimer);_saveOneTimer=null}if(_saveAllTimer)clearTimeout(_saveAllTimer);if(immediate)_doSaveAll();else _saveAllTimer=setTimeout(_doSaveAll,200)}
