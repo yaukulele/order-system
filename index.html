@@ -7301,7 +7301,7 @@ async function batchKerry(){
           ${(!(r.mem&&r.mem.note)&&r.guess)?`<div style="margin-top:3px"><button type="button" class="btn" style="font-size:10px;padding:1px 7px" onclick="useKGuess(${i})">用「${esc(r.guess)}」</button></div>`:''}</td></tr>`;}).join('')}
     </table></div>
     ${st.mode==='prod'
-      ?`<label style="display:flex;gap:6px;align-items:center;font-size:12px;margin-top:8px"><input type="checkbox" id="k-autopush" checked> 送完自動壓 MOMO／PChome（大榮貨運＋這次的單號；PChome 自行出貨 SP 的單不壓）</label>`
+      ?`<label style="display:flex;gap:6px;align-items:center;font-size:12px;margin-top:8px"><input type="checkbox" id="k-autopush" checked> 送完自動壓 MOMO／PChome（大榮貨運＋這次的單號；MOMO 會先押指定配送日＝指送日期再壓已配送；PChome 自行出貨 SP 的單不壓）</label>`
       :`<div style="font-size:11px;color:var(--dm);margin-top:8px">正式模式送完會自動壓 MOMO／PChome；現在是${st.mode==='test'?'測試':'模擬'}模式，不會壓（測試號不能給平台）。</div>`}
     <div id="k-result" style="margin-top:10px"></div>
     <div class="modal-ft"><button class="btn" onclick="closeModal()">關閉</button>
@@ -7570,7 +7570,7 @@ async function _doKerrySend(groups,st,items,vals,notes,origin,slot){
     const targets=(res.results||[]).filter(x=>x.ok&&x.bln).map(x=>({x,o:findO(kBase(x.orderKey))})).filter(t=>t.o&&t.o.trackingNo===t.x.bln&&(t.o.platform==='MO'||t.o.platform==='PC'));
     if(targets.length){
       box.insertAdjacentHTML('beforeend','<div id="k-push-msg" style="font-size:12px;margin-top:6px">壓 MOMO／PChome 中…</div>');
-      const pr=await kerryAutoPush(targets);
+      const pr=await kerryAutoPush(targets,etp);
       pushHtml=`<div style="font-size:12px;font-weight:700;margin:8px 0 4px">自動壓平台</div><table style="width:100%;font-size:12px;border-collapse:collapse">${pr.map(p=>`<tr><td style="padding:3px 6px">${esc(p.o.name||'')}</td><td>${p.o.platform==='MO'?'MOMO':'PChome'}</td><td style="color:${p.ok?'#15803d':p.skip?'#6b7280':'#b91c1c'}">${esc(p.msg)}</td></tr>`).join('')}</table>`;
     }
   }
@@ -7604,8 +7604,15 @@ async function _doKerrySend(groups,st,items,vals,notes,origin,slot){
    - MOMO：平台快照說這張已經不在未出貨（已出貨／已結案），或已經是「已配送」
    - PChome：按過 SP 自行出貨的（🔴 鐵則：SP 單絕不壓單號，壓了結不到帳）；平台已結單／檢核中／已取消
    MOMO 約配單如果還沒回押指定配送日，MOMO 可能會拒絕「已配送」→ 會列在失敗裡，照舊用 📤 出貨確認手動處理。 */
-async function kerryAutoPush(targets){
+async function kerryAutoPush(targets,etp){
   await momoConfigReady;
+  /* MOMO 指定配送日（阿淵 2026-10-19「都做」）：按大榮出貨後先壓「已確認指定配送日」再壓「已配送」。
+     日期＝這次託運單的指送日期（出貨日的下一個營業日，六日順延；國定假日不處理），跟大榮標籤上同一天。
+     送大榮時把指送日期清空（不指定）的話，一樣用出貨日的下一個營業日。
+     平台已經是「已確認指定配送日」的單 → 直接壓「已配送」，不重押日期（阿淵：已經有指定配送的就直接壓）。 */
+  const _etp=String(etp||'').replace(/\D/g,'');
+  const scmISO=_etp.length===8?_etp.slice(0,4)+'-'+_etp.slice(4,6)+'-'+_etp.slice(6,8):kerryEtpDay();
+  const scmDate=scmISO.replace(/-/g,'/');
   const api=getMomoApi(),token=getMomoToken();
   const out=[];
   for(const {x,o} of targets){
@@ -7615,14 +7622,29 @@ async function kerryAutoPush(targets){
         const L=momoLiveOf(o);
         if(L&&L.gone){out.push({o,skip:true,msg:'平台已經不在未出貨（已出貨或已結案），沒壓'});continue}
         if(L&&L.st==='已配送'){out.push({o,skip:true,msg:'平台已經是「已配送」，沒重壓'});continue}
+        let dateMsg='';
+        if(!(L&&L.st==='已確認指定配送日')){
+          const it1={completeOrderNo:o.orderNo,remark5VStr:'已確認指定配送日',msgNote:'',delyGbStr:'',slipNo:'',scmDelyDate:scmDate};
+          const r1=await fetch(`${api}/api/orders/momo/confirm-shipment?force=1`,{method:'POST',headers:{'Content-Type':'application/json','X-API-Token':token},body:JSON.stringify({items:[it1]})});
+          const d1=await r1.json().catch(()=>({}));
+          if(r1.ok&&d1.ok){
+            o.scmDelyDate=scmDate;o.momoContacted=true;
+            logActivity(o,`出貨回報：已確認指定配送日 ${scmDate}（送大榮後自動壓）`);
+            dateMsg='指定配送日 '+scmDate.slice(5)+' → ';
+          }else{
+            // 押日期沒成功不擋後面的「已配送」（有些單 MOMO 不需要約配），但要講出來
+            dateMsg='（指定配送日沒押成功：'+String(d1.error||('HTTP '+r1.status)).slice(0,60)+'）';
+            logActivity(o,`自動壓 MOMO 指定配送日失敗：${String(d1.error||r1.status).slice(0,120)}`);
+          }
+        }else dateMsg='（平台已有指定配送日 '+(L.scm?String(L.scm).slice(5):'')+'，直接壓已配送）';
         const item={completeOrderNo:o.orderNo,remark5VStr:'已配送',msgNote:'',delyGbStr:'大榮貨運',slipNo:bln,
           shipTypeStr:o.shipTypeStr||'原箱',packTypeStr:o.packTypeStr||'',packUnit:o.packUnit||''};
         const r=await fetch(`${api}/api/orders/momo/confirm-shipment?force=1`,{method:'POST',headers:{'Content-Type':'application/json','X-API-Token':token},body:JSON.stringify({items:[item]})});
         const d=await r.json().catch(()=>({}));
-        if(!r.ok||!d.ok){out.push({o,ok:false,msg:'MOMO 沒收：'+String(d.error||('HTTP '+r.status)).slice(0,120)+'（請用 📤 出貨確認手動壓）'});logActivity(o,`自動壓 MOMO 失敗：${String(d.error||r.status).slice(0,120)}`);saveOne(o);continue}
+        if(!r.ok||!d.ok){out.push({o,ok:false,msg:(dateMsg.startsWith('指定')?dateMsg+'但 ':'')+'已配送 MOMO 沒收：'+String(d.error||('HTTP '+r.status)).slice(0,120)+'（請用 📤 出貨確認手動壓）'});logActivity(o,`自動壓 MOMO 失敗：${String(d.error||r.status).slice(0,120)}`);saveOne(o);continue}
         o.shipTypeStr=item.shipTypeStr;applyShipStatus(o);o.shippedAt=new Date().toISOString();o.shippedBy=currentUser||'';o.shippedVia='出貨';
         logActivity(o,`出貨回報：已配送 ｜ 大榮貨運 ｜ ${bln}（送大榮後自動壓）`);saveOne(o);
-        out.push({o,ok:true,msg:'已壓：已配送 大榮 '+bln});
+        out.push({o,ok:true,msg:'已壓：'+(dateMsg.startsWith('指定')?dateMsg:'')+'已配送 大榮 '+bln+(dateMsg.startsWith('（')?' '+dateMsg:'')});
       }else if(o.platform==='PC'){
         if(pcIsSelfShipped(o)){out.push({o,skip:true,msg:'這張是廠商自行出貨（SP），照規定不壓單號（只存本機）'});continue}
         const L=pcLiveOf(o);
