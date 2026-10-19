@@ -1648,6 +1648,7 @@ db.ref('orders').on('value',_onOrdersValue,_onOrdersCancel);
 db.ref('users').on('value',snap=>{
   const v=snap.val();
   _usersCache=v||null;
+  try{const ov=document.getElementById('login-overlay');if(v&&ov&&!ov.classList.contains('hidden')){const hid=document.getElementById('login-user');const cur=hid&&hid.value;renderLoginChips();if(cur&&hid){hid.value=cur;document.querySelectorAll('#login-userchips .login-chip').forEach(el=>el.classList.toggle('on',el.dataset.u===cur))}}}catch(e){}
   // 帳號被管理員刪掉 / 角色被調整 → 已經開著的分頁要即時反應，不能等他重新整理。
   // （離職的人如果分頁沒關，原本會一直保有權限；管理員刪了以為斷了，其實沒斷。）
   // 只在「確實讀到一包 users」時才動作 — v 是 null 代表離線或讀取失敗，不能當成帳號被刪。
@@ -2136,15 +2137,20 @@ function renderLoginChips(){
   const hid=document.getElementById('login-user');
   const last=localStorage.getItem('orderSysUser')||'';
   box.innerHTML='';
-  LOGIN_USERS.forEach(name=>{
+  /* 帳號頁「新增帳號」加的人原本不在寫死的名單裡 → 永遠點不到、登不進來（2026-10-20）
+     名單＝寫死的順序（雲端還在的）＋雲端多出來的帳號 */
+  const _uc=(typeof _usersCache!=='undefined'&&_usersCache)||null;
+  const names=_uc?LOGIN_USERS.filter(n=>_uc[n]).concat(Object.keys(_uc).filter(n=>!LOGIN_USERS.includes(n))):LOGIN_USERS.slice();
+  if(!names.length)names.push(...LOGIN_USERS);
+  names.forEach(name=>{
     const b=document.createElement('button');
     b.type='button';b.dataset.u=name;
     b.className='login-chip'+(name===last?' on':'');
-    b.innerHTML='<span>👤</span><span>'+name+'</span>';
+    b.innerHTML='<span>👤</span><span>'+esc(name)+'</span>';
     b.onclick=()=>pickLoginUser(name);
     box.appendChild(b);
   });
-  hid.value=(last&&LOGIN_USERS.includes(last))?last:'';
+  hid.value=(last&&names.includes(last))?last:'';
 }
 function pickLoginUser(name){
   const hid=document.getElementById('login-user');if(hid)hid.value=name;
@@ -2743,7 +2749,8 @@ async function sendSmsCore(oid,vendor,msg,opts){
   if(_smsSending.has(oid))return; // 防連點：發送中直接擋
   const raw=String(o.realPhone||'').replace(/[\s\-()]/g,'');
   if(!/^09\d{8}$/.test(raw)){alert('⚠ 沒有客戶真實手機，無法發送');openEdit(oid);return;}
-  const already=o.smsSent?`\n\n⚠ 這筆已在 ${o.smsTime||'先前'} 發過（${o.smsVendor||''}），確定再發一次（會再扣點）？`:'';
+  const already=o.smsSent?`\n\n⚠ 這筆已在 ${o.smsTime||'先前'} 發過（${o.smsVendor||''}），確定再發一次（會再扣點）？`
+    :(o.smsUnsure?`\n\n⚠ 上次（${o.smsUnsure}）發送時連線中斷，結果不明，簡訊可能已經送出、也已扣點。確定再發一次？`:'');
   // confirm 會原樣顯示換行 → 你可以先看清楚排版再送；自訂內容已在編輯框預覽，只在「已發過」時再確認
   if(opts.noPreview){
     if(already&&!confirm(`發給 ${o.name||''}（${raw}）\n${msg.length} 字 ≈ ${_smsSegs(msg)} 點${already}`))return;
@@ -2758,7 +2765,7 @@ async function sendSmsCore(oid,vendor,msg,opts){
     const r=await fetch(`${api}/api/sms/send`,{method:'POST',headers:{'Content-Type':'application/json','X-API-Token':token},body:JSON.stringify({phone:raw,message:msg,orderNo:o.orderNo||'',vendor})});
     const d=await r.json().catch(()=>({}));
     if(r.ok&&d.ok){
-      o.smsSent=true;o.smsTime=_smsNow();o.smsMsgId=d.msgid||'';o.smsVendor=vendor;
+      o.smsSent=true;o.smsTime=_smsNow();o.smsMsgId=d.msgid||'';o.smsVendor=vendor;delete o.smsUnsure;
       if(d.accountPoint!=null){o.smsPoint=d.accountPoint;db.ref('sms_config').update({accountPoint:d.accountPoint,updatedAt:new Date().toISOString()}).catch(()=>{});_renderSmsBalance(d.accountPoint)}
       logActivity(o,`發簡訊[${vendor}]→${raw}${d.accountPoint!=null?`（剩 ${d.accountPoint} 點）`:''}`);
       saveOne(o);renderList();
@@ -2766,7 +2773,10 @@ async function sendSmsCore(oid,vendor,msg,opts){
     }else{
       alert('❌ 簡訊發送失敗：\n'+(d.error||('HTTP '+r.status)));
     }
-  }catch(e){alert('❌ 連線失敗：'+e.message);}
+  }catch(e){
+    /* 連線斷掉不代表沒送出（伺服器可能已經發了、只是回應沒回來）→ 記下來，下次再按會提醒可能重複扣點（2026-10-20） */
+    try{const cur=findO(oid)||o;cur.smsUnsure=_smsNow();logActivity(cur,`發簡訊[${vendor}]→${raw} 連線中斷，結果不明（可能已送出）`);saveOne(cur)}catch(_){}
+    alert('❌ 連線失敗：'+e.message+'\n\n簡訊可能已經送出了（只是回應沒收到），再發之前先問客人有沒有收到，免得重複扣點。');}
   finally{_smsSending.delete(oid);}
 }
 // 從「編輯訂單」視窗直接發簡訊：讀「真實電話」輸入框當下值（免先儲存），同步進訂單後開廠商選單
@@ -3180,7 +3190,9 @@ async function syncMomoLive(opt){
       }catch(err){fail.push(name+'：'+String(err&&err.message||err).slice(0,50))}
     }));
     // 兩支都掛掉 → 保留上次快照，不要清成空的害列表全部變「平台已結案」
-    if(fail.length===eps.length){
+    // 只掛一支也一樣保留上次快照（2026-10-20）：只有廠配回來時，三方的單在新快照裡全部不見，
+    // 會被當成「MOMO 已結案」而且時間是剛剛 —— 寧可顯示舊一點的資料
+    if(fail.length){
       if(!silent)alert('MOMO 平台狀態同步失敗（保留上次資料）：\n\n'+fail.join('\n'));
       return{ok:false,err:fail.join('; ')};
     }
@@ -3728,7 +3740,7 @@ async function _pcRunVerify(){
   _pcVerifyBusy=true;list.forEach(x=>_pcVerifying.add(x));
   try{renderList()}catch(e){}
   let res=null;
-  try{res=await pcRecheckIds(list)}
+  try{res=await pcRecheckIds(list);list.forEach(x=>{if(!_pcVerifyDoneAt[x]||Date.now()-_pcVerifyDoneAt[x]>5000)_pcVerifyDoneAt[x]=Date.now()})}   // 後端沒回到的編號（格式不同）也記時間，不然每 0.4 秒重打一次（2026-10-20）
   catch(e){list.forEach(x=>{_pcVerifyDoneAt[x]=Date.now()})}   // 失敗也記時間，別無限重打
   finally{
     list.forEach(x=>_pcVerifying.delete(x));
@@ -11411,10 +11423,20 @@ function setMonth(next){
    ========================================================================= */
 async function doPunch(type){
   await authReady;
-  const st = stateOf(me);
+  let st = stateOf(me);
+  const nowYm = ymOf(new Date());
+  /* 畫面正在看別的月份時，punches 裡沒有今天的卡 → 會誤判「還沒打上班卡」擋下班、或讓人重複打上班（2026-10-20）
+     → 直接讀這個月自己的打卡判斷 */
+  if(nowYm !== ym){
+    try{
+      const s = await db.ref(P.punches+'/'+nowYm+'/'+me).once('value');
+      const t = today();
+      const list = Object.values(s.val()||{}).filter(p=>p && p.at && dstr(new Date(p.at))===t).sort((a,b)=>a.at-b.at);
+      st = {working: !!(list.length && list[list.length-1].type==='in')};
+    }catch(e){}
+  }
   if(type==='in' && st.working){ toast('你已經是上班中了'); return }
   if(type==='out' && !st.working){ toast('還沒打上班卡'); return }
-  const nowYm = ymOf(new Date());
   try{
     await db.ref(P.punches+'/'+nowYm+'/'+me).push({
       type: type, at: firebase.database.ServerValue.TIMESTAMP
@@ -13586,10 +13608,13 @@ async function _stShipGoInner(){
   if(stillDirect.length){
     stShipMsg = '先自動轉店到店（' + stillDirect.length + ' 張）…'; stRender();
     const cr = await stConvertRun(stillDirect, false);
-    if(!cr.ok){
+    if(!cr.ok || cr.failed>0){
       // 🔴 轉失敗就整個停下來不出貨 —— 出貨確認做下去就再也轉不了，寧可停在這裡讓人處理
+      //    只轉成一部分（ok 但 failed>0）也要停：沒轉成的那幾張一出貨就永遠是直配（2026-10-20）
+      const _part = cr.ok && cr.failed>0;
       stShipMsg = ''; stRender();
-      alert('自動轉店到店沒成功，所以停下來沒有出貨：\n\n' + (cr.msg||'')
+      if(_part) try{ stLoad() }catch(e){}   // 轉成功的要重抓成「已是店到店」，不然再按會把它們又轉一次（轉換是切換型的）
+      alert((_part ? ('自動轉店到店只成功 ' + cr.success + ' 張、失敗 ' + cr.failed + ' 張，所以停下來沒有出貨：\n\n') : '自動轉店到店沒成功，所以停下來沒有出貨：\n\n') + (cr.msg||'')
         + '\n\n（出貨確認一做下去就再也轉不了店到店，所以寧可停在這一步。）'
         + '\n先別重複按，把這段截圖給我。');
       return;
@@ -13728,9 +13753,10 @@ async function stFlowGo(){
     else{
       stFlowSet(iConv, 'run', '轉 ' + stillDirect.length + ' 張…');
       const cr = await stConvertRun(stillDirect, false);
-      if(!cr.ok){
-        // 🔴 轉失敗絕不往下做：出貨確認一下去就再也轉不了店到店了
-        stFlowSet(iConv, 'fail', cr.msg || '沒有回報原因');
+      if(!cr.ok || cr.failed>0){
+        // 🔴 轉失敗絕不往下做：出貨確認一下去就再也轉不了店到店了（只轉成一部分也一樣停，2026-10-20）
+        stFlowSet(iConv, 'fail', (cr.ok ? ('只轉成 ' + cr.success + ' 張、失敗 ' + cr.failed + ' 張：') : '') + (cr.msg || '沒有回報原因'));
+        if(cr.ok) setTimeout(()=>{ try{ stLoad(true) }catch(e){} }, 300);   // 轉好的要重抓，不然再按會被轉回去
         stFlow.busy = false;
         stFlow.stoppedWhy = '轉店到店沒成功，所以停在這裡，沒有出貨。'
           + '（出貨確認一做下去就再也轉不了店到店，寧可停在這一步。）先別重複按，把這段截圖給我。';
@@ -14245,15 +14271,14 @@ function stPrintNosImpl(nos, type, preWin){
   const url = api
     + (stIsThird() ? '/api/orders/momo/third/labels?printType=' : '/api/orders/momo/stores/label?printType=') + type
     + '&orderNo=' + encodeURIComponent(nos.join(','))
-    + gbQS
-    + '&token=' + encodeURIComponent(tok);
+    + gbQS;   // token 改放 header（放網址會留在伺服器紀錄／瀏覽紀錄）2026-10-20
   /* 先同步開一個空白分頁（不然非同步之後 window.open 會被擋），
      抓回來是 PDF 才把它放進去；是錯誤就把分頁關掉、用人看得懂的話講。
      以前直接把網址丟進新分頁，失敗時使用者看到的是一段 JSON。 */
   const w = preWin || window.open('', '_blank');
   if(!w){ alert('瀏覽器擋掉彈出視窗了，請允許彈出視窗才能開 PDF'); return Promise.resolve(false) }
   try{ w.document.write('<p style="font:14px sans-serif;padding:16px">產生標籤中…</p>') }catch(e){}
-  return fetch(url)
+  return fetch(url, {headers:{'X-API-Token': tok}})
     .then(r=>r.blob().then(b=>({r:r, b:b})))
     .then(({r,b})=>{
       const ct = (r.headers.get('content-type')||'').toLowerCase();
