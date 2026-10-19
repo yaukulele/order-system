@@ -5570,7 +5570,7 @@ function parseReconCSV(text){
   const meta={item:'',range:'',total:null};
   let curPay=false,orderCol=-1,amtCol=-1,sawItem=false;const map=new Map();let n=0;
   const sections=[];let sec=null;
-  const pushRow=(r)=>{if(orderCol<0||amtCol<0||r.length<=amtCol)return;const base=((r[orderCol]||'').replace(/[^\d-]/g,'').split('-')[0]);if(!/^\d{10,}$/.test(base))return;const amt=parseInt((r[amtCol]||'').replace(/[^\d-]/g,''),10)||0;if(sec){sec.n++}const cur=map.get(base)||{amt:0,name:(r[2]||r[1]||'').slice(0,26)};cur.amt+=amt;map.set(base,cur);n++};
+  const pushRow=(r)=>{if(orderCol<0||amtCol<0||r.length<=amtCol)return;const base=((r[orderCol]||'').replace(/[^\d-]/g,'').split('-')[0]);if(!/^\d{10,}$/.test(base))return;const amt=Math.round(parseFloat((r[amtCol]||'').replace(/[^\d.-]/g,'')))||0;   /* 保留小數點：「1,280.00」原本被讀成 128000（2026-10-20） */if(sec){sec.n++}const cur=map.get(base)||{amt:0,name:(r[2]||r[1]||'').slice(0,26)};cur.amt+=amt;map.set(base,cur);n++};
   for(const r of rows){const c0=r[0]||'';
     if(/^對帳項目/.test(c0)){sawItem=true;const it=r[1]||'';sec={item:it,total:0,n:0};sections.push(sec);curPay=/貨款明細/.test(it)&&!/退貨/.test(it);orderCol=-1;amtCol=-1;if(curPay&&!meta.item)meta.item=it;continue}
     if(/^(列帳)?日期區間/.test(c0)){if(!meta.range)meta.range=r[1]||'';continue}
@@ -10087,6 +10087,14 @@ function visibleToMe(t){ return true }
 
 
 
+/* 暫停提醒是「每個人各自的」：換人登入要改綁新的人（原本一直沿用第一個登入者的暫停／提醒時間）2026-10-20 */
+let _snoozeBoundFor = null;
+function _bindSnooze(){
+  if(_snoozeBoundFor === me) return;
+  if(_snoozeBoundFor) try{ db.ref(PATHS.snooze+'/'+_snoozeBoundFor).off() }catch(e){}
+  _snoozeBoundFor = me; snoozeUntil = 0;
+  if(me) db.ref(PATHS.snooze+'/'+me).on('value', s=>{ snoozeUntil = (s.val()||{}).until || 0 });
+}
 function onReady(){
   sessionStart = Date.now();
   lastRemind = lsGet('todoSysLastRemind_'+me, {});
@@ -10097,7 +10105,7 @@ function onReady(){
     settings = {enabled: v.enabled !== false, everyMin: v.everyMin || DEFAULT_EVERY};
     render();
   });
-  db.ref(PATHS.snooze+'/'+me).on('value', s=>{ snoozeUntil = (s.val()||{}).until || 0 });
+  _bindSnooze();
   db.ref(PATHS.todos).on('value', s=>{
     const v = s.val() || {};
     todos = Object.keys(v).map(k=>Object.assign({id:k}, v[k]));
@@ -11222,7 +11230,7 @@ function tdBoot(){
     me = u;
     myRole = ((typeof currentRole === 'undefined') ? '' : currentRole) || 'user';
     if(!booted){ booted = true; onReady() }
-    else { $('set-b').classList.toggle('hidden', !isAdmin()); render() }
+    else { lastRemind = lsGet('todoSysLastRemind_'+me, {}); _bindSnooze(); $('set-b').classList.toggle('hidden', !isAdmin()); render() }
   };
   if(typeof _usersCache !== 'undefined' && _usersCache) users = _usersCache;
   db.ref('users').on('value', s=>{
