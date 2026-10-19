@@ -7667,7 +7667,9 @@ async function kerryAutoPush(targets,etp){
         logActivity(o,`PChome 出貨回填：出貨：大榮貨運 ｜ 單號 ${bln} ｜ ${payload.shipQty} 件（送大榮後自動壓）`);saveOne(o);
         out.push({o,ok:true,msg:'已壓：大榮 '+bln});
       }
-    }catch(e){out.push({o,ok:false,msg:'連線失敗：'+String(e&&e.message||e).slice(0,80)+'（請手動壓）'})}
+    }catch(e){out.push({o,ok:false,msg:'連線失敗：'+String(e&&e.message||e).slice(0,80)+'（請手動壓）'});
+      // 2026-10-19 詹韋賢 PC 單自動壓沒成功卻查不到原因 —— 例外也要留紀錄
+      try{logActivity(o,`自動壓 ${o.platform==='MO'?'MOMO':'PChome'} 失敗（連線／程式錯誤）：${String(e&&e.message||e).slice(0,120)}`);saveOne(o)}catch(_){}}
   }
   try{syncMomoLive({silent:true}).catch(()=>{})}catch(e){}
   renderList();
