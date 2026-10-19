@@ -7211,6 +7211,13 @@ function kerryShipDay(){
   return (w===0||w===6||kerryPastCutoff()) ? _nextWorkday(t) : t;   // 六日或過了截止時間 → 下一個營業日
 }
 function kerryEtpDay(){ return _nextWorkday(kerryShipDay()); }
+/* 送大榮視窗的「出貨日」可選今天／明天（阿淵 2026-10-19：今天先印單、明天才出，指定後天）。
+   選了明天 → 指送日期自動跟著改成明天的下一個營業日；手動改過的指送日如果不晚於新出貨日也一併推後。 */
+function kerryShipDayChange(){
+  const sd=(document.getElementById('k-shipday')||{}).value||kerryShipDay();
+  const el=document.getElementById('k-etp'); if(!el)return;
+  el.value=_nextWorkday(sd); kerryEtpWarn();
+}
 
 function kerryEtpWarn(){
   const el=document.getElementById('k-etp'), w=document.getElementById('k-etp-warn');
@@ -7283,7 +7290,9 @@ async function batchKerry(){
         <option value="warehouse">倉庫（土城）客代 10000000 — ${esc(pool('warehouse'))}</option></select></label>
       <label>指送日期<br><input type="date" id="k-etp" value="${etpDefault}" onchange="kerryEtpWarn()">
         <div id="k-etp-warn" style="font-size:11px;margin-top:2px"></div></label>
-      <div style="font-size:12px">出貨日<br><b style="font-size:13px">${esc(kerryShipDay())}</b>
+      <label style="font-size:12px">出貨日<br><select id="k-shipday" onchange="kerryShipDayChange()">${(()=>{const a=kerryShipDay(),b=_nextWorkday(a),wd=d=>['日','一','二','三','四','五','六'][new Date(d+'T12:00:00').getDay()];
+          return `<option value="${a}">${a===localDateISO()?'今天':'最快'} ${a.slice(5).replace('-','/')}（${wd(a)}）</option><option value="${b}">${a===localDateISO()?'明天':'再下一個營業日'} ${b.slice(5).replace('-','/')}（${wd(b)}）</option>`})()}</select></label>
+      <div style="font-size:12px">
         ${kerryShipDay()!==localDateISO()?`<div style="font-size:11px;color:#b45309">${(()=>{const w=new Date(localDateISO()+'T12:00:00').getDay();
         return (w===0||w===6)?('今天是'+['日','一','二','三','四','五','六'][w]+'，大榮不收件 → 順延')
           :(kerryPastCutoff()?('已過 '+KERRY_CUTOFF_HHMM[0]+':'+String(KERRY_CUTOFF_HHMM[1]).padStart(2,'0')+'，大榮今天收過了 → 順延'):'順延');})()}</div>`:''}</div>
@@ -7493,7 +7502,9 @@ async function doKerry(){
      例：週五 23:50 開窗 → 指送填下週一；00:05 才按送出 → 出貨日也變下週一 → 指送＝出貨日，
      等於叫大榮當天收當天送。送出前重算一次，不晚於出貨日就往後推到下一個營業日。
      （手動挑的日期如果比出貨日還早或同一天，本來就不合理，一樣要修。）2026-10-13 */
-  const _shipDay=kerryShipDay();
+  // 出貨日：視窗有選「明天」就用選的；選的比現在最快能出的日子還早（視窗開著跨過 17:30／半夜）就用最快那天
+  const _pickDay=String((document.getElementById('k-shipday')||{}).value||'');
+  const _shipDay=(_pickDay&&_pickDay>kerryShipDay())?_pickDay:kerryShipDay();
   let etp=String(document.getElementById('k-etp').value||'').replace(/-/g,'');
   let _etpFixed='';
   if(etp&&etp<=_shipDay.replace(/-/g,'')){
