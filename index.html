@@ -3350,7 +3350,7 @@ function momoLiveOf(o){
   const hit=_momoLive[no]||(no.includes('-')?null:_momoLivePrefix[no.split('-')[0]]);
   if(hit)return hit;
   // 不在未出貨 → 去對帳找，找得到才說得出是「出貨」還是「未出即退」
-  const c=_momoClosed[no]||_momoClosedPrefix[no.split('-')[0]];
+  const c=_momoClosed[no]||_momoClosedPrefix[no.split('-')[0]];   // 對帳的編號格式沒查證，維持前綴備援（2026-10-20 複查：可能借到同單別品項的紀錄，待確認）
   if(c)return {gone:true,closed:c};
   // 兩份資料的窗都涵蓋不到就別下判斷（舊單一律標「已結案」會誤導）
   if(_momoLiveWin&&o.date){const from=_momoDateISO(_momoLiveWin.from);if(from&&o.date<from)return null}
@@ -5318,7 +5318,8 @@ function batchSetStatus(s){
   let sel=orders.filter(o=>selectedIds.has(o.id));if(!sel.length)return;
   /* 批次「已確認／已出貨」不把已收錢／已完成／已取消…的單往回拉（全選混到舊單時很容易發生）2026-10-20 */
   if(s==='已確認'||s==='已出貨'){
-    const back=sel.filter(o=>_SHIP_NO_DOWNGRADE.includes(o.status||''));
+    const _noBack=s==='已確認'?_SHIP_NO_DOWNGRADE.concat(['已包裝','已出貨']):_SHIP_NO_DOWNGRADE;
+    const back=sel.filter(o=>_noBack.includes(o.status||''));
     if(back.length){
       if(back.length===sel.length){alert(`選取的 ${sel.length} 筆都已經是「${[...new Set(back.map(o=>o.status))].join('／')}」，不改回「${s}」`);return}
       if(!confirm(`其中 ${back.length} 筆已經是「${[...new Set(back.map(o=>o.status))].join('／')}」，這幾筆不會改回「${s}」。\n只改其他 ${sel.length-back.length} 筆，繼續嗎？`))return;
@@ -9088,7 +9089,7 @@ function rtOrders(){
   const keep=[],out=[];
   routeIds.forEach(id=>{const o=m.get(id);if(o){keep.push(id);out.push(o)}});
   // 單被刪掉 → 自動清掉。但訂單還沒載入（重整後一開頁就在區域分頁）時全部都「找不到」，不能當成被刪 → 等載入完才清（2026-10-20）
-  if(keep.length!==routeIds.length&&ordersLoaded&&orders.length){routeIds=keep;_rtSave()}
+  if(keep.length!==routeIds.length&&_fbOrdersArrived&&orders.length){routeIds=keep;_rtSave()}   // 要等雲端資料到（離線快取可能是舊的）
   return out;
 }
 function rtToggle(id,on){
