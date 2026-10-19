@@ -7625,11 +7625,19 @@ async function _kerryLabelLinks(L){
 async function batchKerryReprint(){
   const sel=orders.filter(o=>selectedIds.has(o.id));
   if(!sel.length){alert('請先勾選要補印的訂單');return}
-  document.getElementById('modal-body').innerHTML=`<h3>🖨 補印大榮標籤</h3>
+  document.getElementById('modal-body').innerHTML=`<h3>🖨 補印大榮標籤／託運明細</h3>
     <div style="font-size:12px;color:var(--dm);margin:6px 0 10px">已勾選 ${sel.length} 筆。只會印「已經大榮出貨」的，不會重新取號。</div>
     ${_kerrySlotPicker()}<div id="k-result2" style="margin-top:10px"></div>
-    <div class="modal-ft"><button class="btn" onclick="closeModal()">關閉</button><button class="btn btn-g" id="k-go2">產生標籤</button></div>`;
+    <div class="modal-ft"><button class="btn" onclick="closeModal()">關閉</button><button class="btn" id="k-go2d" title="司機來收貨時簽的那張清單，勾哪幾張就印哪幾張（不限今天）">📄 補印託運明細</button><button class="btn btn-g" id="k-go2">產生標籤</button></div>`;
   document.getElementById('modal-overlay').classList.remove('hidden');document.body.style.overflow='hidden';
+  // 補印託運明細（阿淵 2026-10-19：原本只有「今天已送大榮」那區能印、而且只到 24 小時）
+  document.getElementById('k-go2d').onclick=async()=>{
+    const box=document.getElementById('k-result2');box.textContent='產生託運明細中…';
+    try{const L=await kerryApi('/api/kerry/reprint',{orderKeys:sel.flatMap(kKeysOf),kind:'detail'});
+      const f=(L.files&&L.files[0])||L.id;
+      box.innerHTML=`<div style="font-size:12px;margin-bottom:6px">找到 ${L.found} 張已出單的託運單</div><a class="btn btn-g" target="_blank" rel="noopener" href="${kLabelUrl(L,f)}">📄 開啟託運明細（${L.found} 筆）</a>`}
+    catch(e){box.innerHTML='<span style="color:#b91c1c">'+esc(e.message)+'</span>'}
+  };
   document.getElementById('k-go2').onclick=async()=>{
     const box=document.getElementById('k-result2');box.textContent='產生中…';
     try{const L=await kerryApi('/api/kerry/reprint',{orderKeys:sel.flatMap(kKeysOf),startSlot:Number(document.getElementById('k-slot2').value)||1});
