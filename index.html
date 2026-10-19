@@ -4391,6 +4391,8 @@ function editDiffLines(snap,now){
     const av=(a===undefined||a===null)?'':String(a);
     const bv=(b===undefined||b===null)?'':String(b);
     if(av===bv)continue;
+    // 舊單沒有這個欄位、存檔補上預設值（數量 1、金額 0）不算「改了」，不然每張舊單第一次存都多兩行雜訊（2026-10-20）
+    if(av===''&&((k==='qty'&&bv==='1')||(_EDIT_MONEY_FIELDS.has(k)&&Number(bv)===0)))continue;
     const fmt=v=>{
       if(v==='')return '(空)';
       if(_EDIT_MONEY_FIELDS.has(k))return '$'+(Number(v)||0).toLocaleString();
@@ -9306,7 +9308,10 @@ async function rtCompute(optimize){
       }
       order=path.map(x=>okIdx[x-base]);
       const newIds=order.map(i=>stops[i].id).concat(bad.map(o=>o.id));
-      routeIds=newIds;_rtSave();
+      /* 定位要跑好幾分鐘，這段時間店員可能又勾了／移掉站 → 以「現在的」路線為準：
+         移掉的不要加回來，新加的接在最後（原本直接覆蓋，等於把這段時間的修改還原）2026-10-20 */
+      const _cur=new Set(routeIds);const merged=newIds.filter(id=>_cur.has(id));for(const id of routeIds)if(!merged.includes(id))merged.push(id);
+      routeIds=merged;_rtSave();
     }
     // 算每段（依目前 routeIds 的實際順序）
     const idxOfOrder=new Map();okIdx.forEach((i,j)=>idxOfOrder.set(stops[i].id,base+j));
