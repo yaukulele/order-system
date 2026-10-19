@@ -7570,7 +7570,7 @@ async function _doKerrySend(groups,st,items,vals,notes,origin,slot){
     const targets=(res.results||[]).filter(x=>x.ok&&x.bln).map(x=>({x,o:findO(kBase(x.orderKey))})).filter(t=>t.o&&t.o.trackingNo===t.x.bln&&(t.o.platform==='MO'||t.o.platform==='PC'));
     if(targets.length){
       box.insertAdjacentHTML('beforeend','<div id="k-push-msg" style="font-size:12px;margin-top:6px">壓 MOMO／PChome 中…</div>');
-      const pr=await kerryAutoPush(targets,etp);
+      const pr=await kerryAutoPush(targets,(items[0]&&items[0].etp)||"");
       pushHtml=`<div style="font-size:12px;font-weight:700;margin:8px 0 4px">自動壓平台</div><table style="width:100%;font-size:12px;border-collapse:collapse">${pr.map(p=>`<tr><td style="padding:3px 6px">${esc(p.o.name||'')}</td><td>${p.o.platform==='MO'?'MOMO':'PChome'}</td><td style="color:${p.ok?'#15803d':p.skip?'#6b7280':'#b91c1c'}">${esc(p.msg)}</td></tr>`).join('')}</table>`;
     }
   }
