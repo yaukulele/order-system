@@ -11240,12 +11240,14 @@ function stateOf(user){
 /* 把一天的打卡配成 in→out 的區段;落單的 in 不計時數(還沒下班) */
 function pairDay(list){
   const segs = [];
-  let open = null;
+  let open = null, dupIn = 0;
   list.forEach(p=>{
-    if(p.type==='in'){ if(open===null) open = p.at }        // 連續兩次上班只算第一次
+    if(p.type==='in'){ if(open===null) open = p.at; else dupIn++ }        // 連續兩次上班只算第一次
     else { if(open!==null){ segs.push([open, p.at]); open = null } }
   });
-  return {segs, openAt: open};
+  /* dupIn：中間少一張下班卡（例 10:00 上、14:00 又上、22:00 下）→ 照舊從第一張算，
+     但要標出來給管理員看，不然中間不知道有沒有在上班的那段會默默算進薪水（2026-10-20 過夜稽核，計法不變只加標記） */
+  return {segs, openAt: open, dupIn};
 }
 function segMinutes(segs){ return segs.reduce((n,[a,b])=> n + Math.max(0, Math.round((b-a)/60000)), 0) }
 function hrsText(min){
@@ -11829,7 +11831,7 @@ function dayCalc(u, ds){
   const list = dayPunches(u, ds);
   const ot = otOf(u, ds);
   if(!list.length && !ot.list.length) return null;
-  const {segs, openAt} = pairDay(list);
+  const {segs, openAt, dupIn} = pairDay(list);
   const g = segMinutes(segs);
   const sh = shiftOf(u, ds);
   let base = 0, r = 0, late = 0, early = 0, extra = 0, noShift = false;
@@ -11849,7 +11851,7 @@ function dayCalc(u, ds){
   }else if(g > 0){
     noShift = true; extra = g;
   }
-  return {ds, segs, list, openAt, sh, gross:g, rest:r, base, late, early, extra, noShift,
+  return {ds, segs, list, openAt, dupIn, sh, gross:g, rest:r, base, late, early, extra, noShift,
           otOk:ot.ok, otWait:ot.wait, ot:ot.list, mins: base + ot.ok};
 }
 function monthStats(){
@@ -11862,7 +11864,7 @@ function monthStats(){
     for(let d=1; d<=nd; d++){
       const x = dayCalc(u, ym + '-' + two(d));
       if(!x) continue;
-      if(x.openAt) missing++;
+      if(x.openAt||x.dupIn) missing++;
       if(x.late) late++;
       if(x.early) early++;
       if(x.noShift) noShift++;
@@ -11877,6 +11879,7 @@ function monthStats(){
 function dayMarks(d){
   const m = [];
   if(d.openAt) m.push('缺下班卡');
+  if(d.dupIn) m.push('連打兩次上班卡（中間可能漏打下班，請確認）');
   if(d.noShift) m.push('沒排班不計 ' + hrsText(d.extra));
   if(d.late) m.push('遲到 ' + d.late + ' 分');
   if(d.early) m.push('早退 ' + d.early + ' 分');
@@ -12348,9 +12351,9 @@ function renderLV(){
   const t = today();
   const all = lvAll().filter(l=>l.status !== 'rejected' || isAdmin() || l.user === me);
   // 全店看得到的：今天以後誰請假（名字＋時段；原因只有本人跟管理員看得到）
-  const up = all.filter(l=>l.date >= t && l.status !== 'rejected').sort((a,b)=>a.date.localeCompare(b.date) || String(a.user).localeCompare(String(b.user)));
+  const up = all.filter(l=>l.date >= t && l.status !== 'rejected').sort((a,b)=>String(a.date||'').localeCompare(String(b.date||'')) || String(a.user).localeCompare(String(b.user)));
   const pend = isAdmin() ? all.filter(l=>l.status === 'pending') : [];
-  const mine = all.filter(l=>l.user === me && (l.date < t || l.status === 'rejected')).sort((a,b)=>b.date.localeCompare(a.date)).slice(0, 10);
+  const mine = all.filter(l=>l.user === me && (l.date < t || l.status === 'rejected')).sort((a,b)=>String(b.date||'').localeCompare(String(a.date||''))).slice(0, 10);
   const st = {pending:['wait','申請中'], approved:['ok','已核准'], rejected:['bad','已退回']};
   const wd = ['日','一','二','三','四','五','六'];
   const row = l=>{
@@ -12382,7 +12385,7 @@ function renderLV(){
     + (nPend ? '<span class="pk-mk wait">' + nPend + ' 筆待核准</span>' : '')
     + '<span class="mini">選了日期會先提醒這天誰已經請了</span>';
   $('lv-list').innerHTML =
-      (pend.length ? '<div class="lv-sec">待核准</div>' + pend.sort((a,b)=>a.date.localeCompare(b.date)).map(row).join('') : '')
+      (pend.length ? '<div class="lv-sec">待核准</div>' + pend.sort((a,b)=>String(a.date||'').localeCompare(String(b.date||''))).map(row).join('') : '')
     + '<div class="lv-sec">接下來誰請假</div>'
     + (up.length ? up.map(row).join('') : '<div class="pk-empty" style="padding:10px 4px">目前沒有人請假</div>')
     + (mine.length ? '<div class="lv-sec">我之前請的／被退回的</div>' + mine.map(row).join('') : '');
@@ -12436,7 +12439,9 @@ async function decideLV(key, ok){
     if(ok && l.allDay && lvShiftOf(u, l.date)){
       const sh = lvShiftOf(u, l.date);
       if(confirm('已核准。' + u + ' ' + l.date + ' 本來排了 ' + sh.start + '–' + sh.end + '，要順手把這天的班拿掉嗎？')){
-        await db.ref(P.shifts+'/'+l.date.slice(0,7)+'/'+l.date.slice(8,10)+'/'+u).remove();
+        // 請假已經核准成功了；拿掉班失敗不能講成「沒存起來」（2026-10-20）
+        try{ await db.ref(P.shifts+'/'+l.date.slice(0,7)+'/'+l.date.slice(8,10)+'/'+u).remove() }
+        catch(e){ toast('請假已核准，但排班沒拿掉（'+e.message+'），請到排班表手動刪'); return }
         logIt('請假核准→拿掉排班', u+' '+l.date+' '+sh.start+'-'+sh.end);
         toast('已核准，' + u + ' 這天的班也拿掉了');
         return;
