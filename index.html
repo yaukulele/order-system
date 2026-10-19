@@ -1433,7 +1433,11 @@ function isModalOpen(){return !document.getElementById('modal-overlay').classLis
 function isInputFocused(){const a=document.activeElement;return a&&['INPUT','TEXTAREA','SELECT'].includes(a.tagName)&&!['q','cq','oq','of-from','of-to','raw-input'].includes(a.id)}
 let _lastSyncAt=null;
 function setSyncOn(){const sb=document.getElementById('sync-badge');if(sb){_lastSyncAt=new Date();const ts=_lastSyncAt.toLocaleTimeString('zh-TW',{hour:'2-digit',minute:'2-digit',hour12:false});sb.className='sync-dot sync-on';sb.title=`最後同步：${ts}`;sb.innerHTML=`<span class="dot dot-on"></span>${ts}`}}
-function applyRemoteOrders(val){const sc=window.scrollY;const wasLoaded=ordersLoaded;const prevIds=new Set(orders.map(o=>o.id));pendingRemoteOrders=null;orders=val?Object.values(val):[];orders.forEach(migrateStatus);_invalidateOrderCaches();
+/* 訂單 id 會被直接塞進一百多個 onclick="fn('${o.id}')"。正常 id 都是英數／底線／連字號（gid()、expo_…）；
+   資料庫規則是匿名登入就能寫，萬一有人塞進一張 id 帶引號／括號的「訂單」，點一下就會執行他的程式。
+   不合格式的不載入、只在 console 警告（2026-10-20 過夜稽核；當下 1478 張全部合格）。 */
+function _safeOrderList(val){const out=[];for(const o of Object.values(val||{})){if(o&&typeof o==='object'&&/^[\w-]+$/.test(String(o.id||'')))out.push(o);else console.warn('略過格式不對的訂單',o&&o.id)}return out}
+function applyRemoteOrders(val){const sc=window.scrollY;const wasLoaded=ordersLoaded;const prevIds=new Set(orders.map(o=>o.id));pendingRemoteOrders=null;orders=val?_safeOrderList(val):[];orders.forEach(migrateStatus);_invalidateOrderCaches();
 // 清掉 selectedIds 裡已不存在的 ids（其他裝置刪掉的）— 避免 batch bar 顯示假筆數
 if(selectedIds.size){const valid=new Set(orders.map(o=>o.id));for(const id of [...selectedIds])if(!valid.has(id))selectedIds.delete(id)}
 // 偵測其他裝置剛加進來的新訂單 — toast 提示（自己 import 的不會觸發，因為 self-echo 在 line 287 已 skip）
@@ -1504,7 +1508,7 @@ function _restoreOrdersCache(json,src){
   if(_fbOrdersArrived||!json||typeof json!=='string')return false;
   const parsed=JSON.parse(json);
   if(!parsed||typeof parsed!=='object')return false;
-  orders=Object.values(parsed);orders.forEach(migrateStatus);_invalidateOrderCaches();
+  orders=_safeOrderList(parsed);orders.forEach(migrateStatus);_invalidateOrderCaches();
   ordersLoaded=true;
   // 不 render 任何 tab — 第一次 showTab 就會 render，省 init blocking
   // 但 tab badge（列表/安裝筆數）立刻更新，開頁就看得到數字（不用等 Firebase）
@@ -1771,7 +1775,7 @@ function copyText(txt,okMsg){return navigator.clipboard.writeText(txt).then(()=>
 // 一鍵複製小按鈕（手機長按選字常失效 → 直接點一下複製單一欄位）。line-icon、無 emoji
 function copyBtn(text,label){
   if(text===undefined||text===null||text==='')return'';
-  const arg=JSON.stringify(String(text)).replace(/"/g,'&quot;');
+  const arg=jsArg(String(text));
   return `<button type="button" class="copy-mini" onclick="event.stopPropagation();copyText(${arg},'已複製${label}')" title="複製${label}" aria-label="複製${label}"><svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="9" width="11" height="11" rx="2"></rect><path d="M5 15V5a2 2 0 0 1 2-2h10"></path></svg></button>`;
 }
 // 搜尋字標亮 — 把文字中跟當前 search query 相符的部分包 <mark> （已 esc 過的字串才能用）
@@ -1952,6 +1956,11 @@ function tot(o){return(o.amount||0)+(o.installFee||0)+(o.addonFee||0)}
 function isTradeIn(o){return o&&o.platform==='TR'&&o.trDir==='in'}
 function $(n){return n?'$'+n.toLocaleString():'—'}
 function esc(s){return String(s==null?'':s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;').replace(/'/g,'&#39;')}
+/* 放進 onclick="fn(...)" 的參數一律用這個（2026-10-20 過夜稽核）：
+   '${esc(x)}' 不安全 —— 瀏覽器先把 &#39; 解回 ' 才執行 JS，客人名字／單號裡有 ' 就跳出字串；
+   舊寫法 JSON.stringify 後只把雙引號換成 &quot; 也不安全 —— & 沒跳脫，名字裡寫 &quot; 會被解回 "。
+   正解＝先 JSON.stringify（JS 字串跳脫）再整段 esc（HTML 屬性跳脫），呼叫時外面不要再加引號。 */
+function jsArg(v){return esc(JSON.stringify(v===undefined?null:v))}
 function phoneTel(p){if(!p)return'';const s=String(p).trim();if(!s)return'';const safe=esc(s);const m=s.match(/^(\+?\d+)((?:#\d+)+)$/);const href=m?`tel:${m[1]}${m[2].replace(/#/g,',')}`:`tel:${s.replace(/[^\d+]/g,'')}`;const extDesc=m?m[2].replace(/^#/,'').split('#').join(' → '):'';return `<a href="${href}" class="tel-link" title="${m?'代撥：撥打總機後自動送出 '+extDesc:'撥打 '+safe}" style="color:inherit;text-decoration:none;border-bottom:1px dashed currentColor">${safe}</a>`}
 // PC 後台「看電話」貼上格式 0928000899,576-0647 → 0928000899#5760647#1（代撥 + 分機 + 自動選 1）
 // 只在 paste 觸發、不在每個 keystroke：避免用戶逐字打字時被中段格式化（例如先打 0928000899,57 就被吃掉）
@@ -2256,7 +2265,7 @@ function renderAccount(){
     html+='<div style="display:flex;flex-wrap:wrap;gap:6px">';
     for(const name of installers){
       const safe=esc(name);const cnt=orders.filter(o=>o.installer===name&&o.install==='是').length;
-      const jsName=JSON.stringify(name).replace(/"/g,'&quot;');
+      const jsName=jsArg(name);
       html+=`<span class="tag" style="display:inline-flex;align-items:center;gap:6px;padding:6px 10px;background:var(--blu);color:#fff;border-radius:6px;font-weight:700">${safe}<span style="font-size:10px;opacity:.85;font-weight:400">${cnt} 單</span>${isAdmin()?` <button class="act" onclick="renameInstaller(${jsName})" style="background:#fff;color:var(--blu);border:none;padding:2px 6px;font-size:10px" title="改名">改名</button> <button class="act" onclick="removeInstaller(${jsName})" style="background:#fff;color:var(--pc);border:none;padding:2px 6px;font-size:10px" title="移除">×</button>`:''}</span>`;
     }
     html+='</div>';
@@ -2288,7 +2297,7 @@ async function _renderAccountAdmin(){
   let html='<div class="card"><div class="card-h"><h3>帳號管理</h3><button class="btn btn-g" onclick="addUser()">+ 新增帳號</button></div><div class="card-b" style="overflow-x:auto"><table style="width:100%"><thead><tr><th>使用者</th><th>密碼</th><th>角色</th><th>建立時間</th><th>操作</th></tr></thead><tbody>';
   for(const [u,d] of Object.entries(users)){
     const isMe=u===currentUser;
-    const uJS=JSON.stringify(u).replace(/"/g,'&quot;');
+    const uJS=jsArg(u);
     const otherRole=d.role==='admin'?'user':'admin';
     const adminBtns=isMe?'':` <button class="act" onclick="setUserRole(${uJS},&quot;${otherRole}&quot;)">${d.role==='admin'?'降一般':'升管理'}</button> <button class="act" onclick="deleteUser(${uJS})" style="color:var(--pc);border-color:#e8a8a4">刪</button>`;
     html+=`<tr><td><strong>${esc(u)}${isMe?' (我)':''}</strong></td>`+
@@ -2740,7 +2749,7 @@ async function testNotify(){
     if(!r.ok||!d.ok){st.textContent=`❌ ${d.error||'HTTP '+r.status}`;st.style.color='var(--pc)';return}
     const ch=d.channels||{};const dis=ch.discord;const ln=ch.line;
     const parts=[];
-    if(dis){parts.push(dis.sent?'✅ Discord 已送達':`❌ Discord：${dis.reason||'失敗'}`)}
+    if(dis){parts.push(dis.sent?'✅ Discord 已送達':`❌ Discord：${esc(dis.reason||'失敗')}`)}
     else parts.push('⚪ Discord 未設定');
     if(Array.isArray(ln)&&ln.length){const okN=ln.filter(x=>x.sent).length;parts.push(`${okN===ln.length?'✅':'⚠️'} LINE：${okN}/${ln.length} 收到`)}
     else parts.push('⚪ LINE 未設定');
@@ -3585,7 +3594,7 @@ function pcLiveBadge(o){
     h+='<span class="ct-badge ct-fine" title="'+esc(ftip)+'">'+(risk.level==='over'?'逾期未壓單':'今天要壓單')+'</span>';
   }
   // 紅牌一律附一顆「再問平台」—— 人不用相信畫面，可以當場自己驗
-  if((alarm||risk)&&no)h+='<button class="ct-badge ct-recheck" onclick="pcRecheckOne('+JSON.stringify(no).replace(/"/g,'&quot;')+',event)" title="馬上打一次 PChome，看這筆現在到底壓成功了沒">↻ 再問平台</button>';
+  if((alarm||risk)&&no)h+='<button class="ct-badge ct-recheck" onclick="pcRecheckOne('+jsArg(no)+',event)" title="馬上打一次 PChome，看這筆現在到底壓成功了沒">↻ 再問平台</button>';
   return h;
 }
 
@@ -4460,7 +4469,7 @@ function invRender(){
         ${it?'':`<button class="btn" style="font-size:10px;padding:1px 6px" onclick="invNewItem(${ri},${li})" title="庫存清單裡還沒有這個商品 → 直接新增一筆再扣">庫存沒有 → 新增</button>`}
         ${r.lines.length>1?`<button class="btn" style="font-size:10px;padding:1px 6px" onclick="_invRows[${ri}].lines.splice(${li},1);invRender()">移除</button>`:''}
         ${warn.length?'<div style="flex-basis:100%;font-size:11px;line-height:1.6">'+warn.join('<br>')+'</div>':''}</div>`}).join('');
-    const alts=r.alts&&r.alts.length?`<div style="font-size:11px;margin-top:3px;color:var(--dm)">其他可能：${r.alts.map(a=>{const it=invFind(a);return it?`<a href="javascript:void 0" onclick="_invRows[${ri}].lines[0].iid='${esc(a)}';invRender()">${esc(it.b+' '+it.n)}</a>`:''}).join('、')}</div>`:'';
+    const alts=r.alts&&r.alts.length?`<div style="font-size:11px;margin-top:3px;color:var(--dm)">其他可能：${r.alts.map(a=>{const it=invFind(a);return it?`<a href="javascript:void 0" onclick="_invRows[${ri}].lines[0].iid=${jsArg(a)};invRender()">${esc(it.b+' '+it.n)}</a>`:''}).join('、')}</div>`:'';
     return `<div style="border:1px solid var(--bd);border-radius:8px;padding:8px 10px;margin-bottom:8px;${r.act==='deduct'?'':'opacity:.75'}">
       <div style="font-size:12px"><b>${esc({MO:'MOMO',MO3:'MOMO第三方',MOS:'MOMO超商',PC:'PChome'}[o.platform]||o.platform)}</b>　${esc(o.name||'')}　<span style="color:var(--dm)">${esc(o.orderNo||'')}</span></div>
       <div style="font-size:12px;margin:2px 0">${esc(String(o.product||'').slice(0,70))}${o.specs&&o.specs!=='無'?'（'+esc(o.specs)+'）':''} × ${parseInt(o.qty)||1}</div>
@@ -5156,7 +5165,7 @@ const checked=selectedIds.has(o.id);
 // 規格併入品名 cell — 用小 pill 顯示，省一整欄寬度給操作欄
 // 規格放最前面 — 之前放品名後面，品名太長會被 truncate 切掉，看不到規格要點編輯。
 const prodSpecCombined=`${r.ps.specs?`<span class="spec-pill" title="${esc(r.ps.specs)}" style="margin-right:6px;flex-shrink:0">${esc(r.ps.specs)}</span>`:''}${escWithHL(r.ps.name)}`;
-h+=`<tr${r.scmActive?' class="row-scm"':''}><td class="batch-cell"><input type="checkbox" data-oid="${o.id}" ${checked?'checked':''} onclick="toggleRowSelected('${o.id}')"></td><td class="mono" style="width:56px">${fmtD(o.date)}${r.newBadge?' '+r.newBadge:''}</td><td style="width:44px;text-align:center">${platformPill(o.platform)}${r.addrBadge?' '+r.addrBadge:''}</td><td class="prod-cell" onclick="openEdit('${oid}')" style="cursor:pointer" title="點擊編輯：${esc(o.product)}">${prodSpecCombined}</td><td class="tab-list-mobile-hide qty-cell"><input type="text" inputmode="numeric" value="${r.qty}" oninput="this.value=cn(this.value);setQty('${oid}',this.value)" class="fee-input qty-input" style="width:34px${r.qty>1?';border-color:var(--mo);background:var(--mo-bg);color:var(--mo);font-weight:800':''}"></td><td class="name-cell" title="${r.ph?'電話 '+esc(r.ph):''}${o.address?'\n地址 '+esc(o.address):''}${r.noteShort?'\n備註 '+esc(r.noteShort):''}"><span style="white-space:normal">${o.name?`<span style="cursor:pointer;white-space:nowrap;text-decoration:underline;text-decoration-style:dotted;text-decoration-color:var(--ht);text-underline-offset:2px" onclick="event.stopPropagation();searchCustomerOrders(${JSON.stringify(o.name).replace(/"/g,'&quot;')})" title="🔒 鎖定看「${esc(o.name)}」的所有訂單">${escWithHL(o.name)}</span>`:'(無姓名)'}${r.region?`<span style="font-size:9px;color:#1657b5;background:#e8eef9;border-radius:3px;padding:1px 5px;margin-left:5px;font-weight:700;white-space:nowrap;display:inline-block" title="${esc(o.address||'')}">${esc(r.region)}</span>`:''}${r.remoteBadge?`<span style="margin-left:4px">${r.remoteBadge}</span>`:''}${r.scmBadge?`<span style="margin-left:4px">${r.scmBadge}</span>`:''}</span>${r.ph?`<div style="font-size:9px;color:var(--dm);font-family:var(--mono);margin-top:1px;max-width:140px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${phoneTel(r.ph)}</div>`:''}${r.noteShort?`<div style="font-size:9px;color:#b45309;background:#fef9ec;border-radius:3px;padding:2px 5px;margin-top:2px;max-width:190px;white-space:normal;line-height:1.3;overflow:hidden;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical" title="${esc(r.noteShort)}">${escWithHL(r.noteShort)}</div>`:''}</td><td class="tab-list-mobile-hide acc-cell">${ib}</td><td class="tab-list-mobile-hide acc-cell">${ab}</td><td class="total-cell" id="tot-${oid}" style="width:78px">${$(tot(o))}${r.trackInfo}</td><td style="width:96px;white-space:nowrap"><button class="${stCls(o.status)}" onclick="openStatusMenu('${oid}',event)" title="本機狀態（點擊修改）">${o.status} ▾</button>${ktChipFor(o,true)}${(r.momoBadge||r.momoDiff)?`<div style="margin-top:3px;display:flex;flex-direction:column;gap:2px;align-items:flex-start">${r.momoBadge}${r.momoDiff}</div>`:''}</td><td class="act-cell"><div class="act-wrap">${a.addrAck}${a.ship}${a.shipDone}${a.amtPaidBtn}${a.instPaid}${a.addonPaid}${a.prodLink}${a.fillLabel}${a.sms}${a.edit}${a.copy}${a.cam}${a.del}</div></td></tr>`});
+h+=`<tr${r.scmActive?' class="row-scm"':''}><td class="batch-cell"><input type="checkbox" data-oid="${o.id}" ${checked?'checked':''} onclick="toggleRowSelected('${o.id}')"></td><td class="mono" style="width:56px">${fmtD(o.date)}${r.newBadge?' '+r.newBadge:''}</td><td style="width:44px;text-align:center">${platformPill(o.platform)}${r.addrBadge?' '+r.addrBadge:''}</td><td class="prod-cell" onclick="openEdit('${oid}')" style="cursor:pointer" title="點擊編輯：${esc(o.product)}">${prodSpecCombined}</td><td class="tab-list-mobile-hide qty-cell"><input type="text" inputmode="numeric" value="${r.qty}" oninput="this.value=cn(this.value);setQty('${oid}',this.value)" class="fee-input qty-input" style="width:34px${r.qty>1?';border-color:var(--mo);background:var(--mo-bg);color:var(--mo);font-weight:800':''}"></td><td class="name-cell" title="${r.ph?'電話 '+esc(r.ph):''}${o.address?'\n地址 '+esc(o.address):''}${r.noteShort?'\n備註 '+esc(r.noteShort):''}"><span style="white-space:normal">${o.name?`<span style="cursor:pointer;white-space:nowrap;text-decoration:underline;text-decoration-style:dotted;text-decoration-color:var(--ht);text-underline-offset:2px" onclick="event.stopPropagation();searchCustomerOrders(${jsArg(o.name)})" title="🔒 鎖定看「${esc(o.name)}」的所有訂單">${escWithHL(o.name)}</span>`:'(無姓名)'}${r.region?`<span style="font-size:9px;color:#1657b5;background:#e8eef9;border-radius:3px;padding:1px 5px;margin-left:5px;font-weight:700;white-space:nowrap;display:inline-block" title="${esc(o.address||'')}">${esc(r.region)}</span>`:''}${r.remoteBadge?`<span style="margin-left:4px">${r.remoteBadge}</span>`:''}${r.scmBadge?`<span style="margin-left:4px">${r.scmBadge}</span>`:''}</span>${r.ph?`<div style="font-size:9px;color:var(--dm);font-family:var(--mono);margin-top:1px;max-width:140px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${phoneTel(r.ph)}</div>`:''}${r.noteShort?`<div style="font-size:9px;color:#b45309;background:#fef9ec;border-radius:3px;padding:2px 5px;margin-top:2px;max-width:190px;white-space:normal;line-height:1.3;overflow:hidden;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical" title="${esc(r.noteShort)}">${escWithHL(r.noteShort)}</div>`:''}</td><td class="tab-list-mobile-hide acc-cell">${ib}</td><td class="tab-list-mobile-hide acc-cell">${ab}</td><td class="total-cell" id="tot-${oid}" style="width:78px">${$(tot(o))}${r.trackInfo}</td><td style="width:96px;white-space:nowrap"><button class="${stCls(o.status)}" onclick="openStatusMenu('${oid}',event)" title="本機狀態（點擊修改）">${o.status} ▾</button>${ktChipFor(o,true)}${(r.momoBadge||r.momoDiff)?`<div style="margin-top:3px;display:flex;flex-direction:column;gap:2px;align-items:flex-start">${r.momoBadge}${r.momoDiff}</div>`:''}</td><td class="act-cell"><div class="act-wrap">${a.addrAck}${a.ship}${a.shipDone}${a.amtPaidBtn}${a.instPaid}${a.addonPaid}${a.prodLink}${a.fillLabel}${a.sms}${a.edit}${a.copy}${a.cam}${a.del}</div></td></tr>`});
 h+='</tbody></table></div>';if(dtrunc)h+=`<div style="text-align:center;padding:12px 8px"><button class="btn" onclick="_deskExpand=true;renderList()">顯示全部 ${fl.length} 筆（目前先顯示前 ${DLIMIT} 筆，避免大量訂單卡頓）</button></div>`;h+='</div>';
 // 水平捲動位置沿用上一次 render — 視窗不夠寬要滑到右邊看操作鈕時，按一下鈕就整個彈回最左邊（姓名/尚未電聯 那排跟著跳掉）很難用
 const _prevSL=document.querySelector('#list-area .tbl-scroll')?.scrollLeft||0;
@@ -5194,7 +5203,7 @@ h+=`<div class="ord-card${r.scmActive?' row-scm':''}" data-oid="${oid}">
 ${platformPill(o.platform)}${r.addrBadge}${r.newBadge}${r.scmBadge}
 <span class="ord-total">${$(tot(o))}</span>
 </div>
-<div class="ord-card-name">${o.name?`<span style="cursor:pointer;text-decoration:underline;text-decoration-style:dotted;text-decoration-color:var(--ht);text-underline-offset:3px" onclick="event.stopPropagation();searchCustomerOrders(${JSON.stringify(o.name).replace(/"/g,'&quot;')})" title="🔒 鎖定看「${esc(o.name)}」的所有訂單">${escWithHL(o.name)}</span>`:'(無姓名)'}${r.region?`<span style="font-size:10px;color:#1657b5;background:#e8eef9;border-radius:4px;padding:2px 7px;font-weight:700;margin-left:6px;vertical-align:middle" title="${esc(o.address||'')}">${esc(r.region)}</span>`:''}${r.remoteBadge?`<span style="margin-left:4px;vertical-align:middle">${r.remoteBadge}</span>`:''}${r.qty>1?` <span class="qty-pill large">× ${r.qty}</span>`:''}${copyBtn(o.name,'姓名')}</div>
+<div class="ord-card-name">${o.name?`<span style="cursor:pointer;text-decoration:underline;text-decoration-style:dotted;text-decoration-color:var(--ht);text-underline-offset:3px" onclick="event.stopPropagation();searchCustomerOrders(${jsArg(o.name)})" title="🔒 鎖定看「${esc(o.name)}」的所有訂單">${escWithHL(o.name)}</span>`:'(無姓名)'}${r.region?`<span style="font-size:10px;color:#1657b5;background:#e8eef9;border-radius:4px;padding:2px 7px;font-weight:700;margin-left:6px;vertical-align:middle" title="${esc(o.address||'')}">${esc(r.region)}</span>`:''}${r.remoteBadge?`<span style="margin-left:4px;vertical-align:middle">${r.remoteBadge}</span>`:''}${r.qty>1?` <span class="qty-pill large">× ${r.qty}</span>`:''}${copyBtn(o.name,'姓名')}</div>
 <div class="ord-card-prod" onclick="openEdit('${oid}')" style="cursor:pointer">${r.ps.specs?`<span class="spec-pill" style="margin-right:6px">${esc(r.ps.specs)}</span>`:''}${escWithHL(r.ps.name||o.product||'')}</div>
 <div class="ord-card-meta">
 <button class="${stCls(o.status)}" onclick="openStatusMenu('${oid}',event)" style="min-height:30px" title="本機狀態（點擊修改）">${o.status} ▾</button>${ktChipFor(o)}${r.momoBadge||''}${r.momoDiff||''}
@@ -5399,10 +5408,10 @@ function _ensureSheetJS(){
 async function runMomoReconXls(f){
   const area=document.getElementById('recon-area');
   area.innerHTML='<div class="card"><div class="card-b" style="color:var(--dm)">⏳ 讀取 MOMO 對帳單中…</div></div>';
-  let XLSX;try{XLSX=await _ensureSheetJS()}catch(e){area.innerHTML='<div class="card"><div class="card-b" style="color:#c0392b;font-weight:600">⚠️ '+e.message+'</div></div>';return}
+  let XLSX;try{XLSX=await _ensureSheetJS()}catch(e){area.innerHTML='<div class="card"><div class="card-b" style="color:#c0392b;font-weight:600">⚠️ '+esc(e.message)+'</div></div>';return}
   try{const buf=await f.arrayBuffer();const wb=XLSX.read(new Uint8Array(buf),{type:'array'});
     const res=parseMomoXls(wb,XLSX);
-    if(!res.ok){area.innerHTML='<div class="card"><div class="card-b" style="color:#c0392b;font-weight:600">⚠️ '+res.err+'</div></div>';return}
+    if(!res.ok){area.innerHTML='<div class="card"><div class="card-b" style="color:#c0392b;font-weight:600">⚠️ '+esc(res.err)+'</div></div>';return}
     // 預設比對期間＝上個月（MOMO 月結，這份多半是上月）；杰哥可自己調
     const now=new Date();const pm=new Date(now.getFullYear(),now.getMonth()-1,1);const pe=new Date(now.getFullYear(),now.getMonth(),0);
     const iso=d=>d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0');
@@ -5455,7 +5464,7 @@ function renderMomoRecon(res,fromD,toD){
     if(diff===0){tag='✓ 相符';col='var(--grn)';matchN++}
     else if(diff>0){tag='⚠ 撈單少 '+diff;col='#c0392b';if(sysN===0)noSysN++;else lessN++}
     else{tag='➕ 撈單多 '+(-diff);col='#b45309';moreN++}
-    return '<tr><td style="padding:4px 7px;border-bottom:1px solid #f4f4f4;white-space:nowrap">'+x.code+'</td><td style="padding:4px 7px;border-bottom:1px solid #f4f4f4">'+esc((x.name||'').slice(0,30))+(x.spec&&x.spec!=='無'?' <span style="color:var(--dm)">('+esc(x.spec)+')</span>':'')+'</td><td style="padding:4px 7px;border-bottom:1px solid #f4f4f4;text-align:right;font-weight:600">'+x.qty+'</td><td style="padding:4px 7px;border-bottom:1px solid #f4f4f4;text-align:right">'+sysN+' <span style="font-size:9px;color:var(--ht)">'+via+'</span></td><td style="padding:4px 7px;border-bottom:1px solid #f4f4f4;text-align:center;color:'+col+';font-weight:700;white-space:nowrap">'+tag+'</td><td style="padding:4px 7px;border-bottom:1px solid #f4f4f4;text-align:right;color:var(--dm)">'+M(x.gross)+'</td></tr>';
+    return '<tr><td style="padding:4px 7px;border-bottom:1px solid #f4f4f4;white-space:nowrap">'+esc(x.code)+'</td><td style="padding:4px 7px;border-bottom:1px solid #f4f4f4">'+esc((x.name||'').slice(0,30))+(x.spec&&x.spec!=='無'?' <span style="color:var(--dm)">('+esc(x.spec)+')</span>':'')+'</td><td style="padding:4px 7px;border-bottom:1px solid #f4f4f4;text-align:right;font-weight:600">'+x.qty+'</td><td style="padding:4px 7px;border-bottom:1px solid #f4f4f4;text-align:right">'+sysN+' <span style="font-size:9px;color:var(--ht)">'+via+'</span></td><td style="padding:4px 7px;border-bottom:1px solid #f4f4f4;text-align:center;color:'+col+';font-weight:700;white-space:nowrap">'+tag+'</td><td style="padding:4px 7px;border-bottom:1px solid #f4f4f4;text-align:right;color:var(--dm)">'+M(x.gross)+'</td></tr>';
   }).join('');
   const clean=(lessN+noSysN)===0;
   let h='<div class="card"><div class="card-b">'+
@@ -5471,7 +5480,7 @@ function renderMomoRecon(res,fromD,toD){
     '<div style="margin-top:8px;padding:9px;background:#fff7ed;border:1px solid #fdba74;border-radius:8px;color:#9a3412;font-size:11.5px;line-height:1.6">💡 MOMO 對帳單是<strong>商品層級</strong>（品號彙總、沒逐筆訂單號），我用<strong>品號＝撈單 goodsCode</strong>逐商品比「數量」（少數舊單沒品號→退回用型號比對，該列標「型號」）。<br><strong>金額不逐筆比</strong>：MOMO 金額是「撥款成本」、撈單金額是「客人售價」，基礎不同；請直接核「<strong>淨撥款 '+M(res.netPay)+'</strong>」對不對得上 MOMO 撥進銀行的錢。</div>'+
     '</div></div>';
   h+=_recSec('📦 逐商品核對（'+s.items.length+' 項，撥款高→低）',rows,['品號','商品','MOMO結算','撈單筆數','核對','撥款(成本)']);
-  if(rt.items.length)h+=_recSec('↩️ 退貨扣款（'+rt.items.length+' 筆）',rt.items.map(x=>'<tr><td style="padding:4px 7px;border-bottom:1px solid #f4f4f4;white-space:nowrap">'+x.code+'</td><td style="padding:4px 7px;border-bottom:1px solid #f4f4f4">'+esc((x.name||'').slice(0,32))+'</td><td style="padding:4px 7px;border-bottom:1px solid #f4f4f4;text-align:right;color:#c0392b;font-weight:600">'+M(x.gross)+'</td></tr>').join(''),['品號','商品','扣款']);
+  if(rt.items.length)h+=_recSec('↩️ 退貨扣款（'+rt.items.length+' 筆）',rt.items.map(x=>'<tr><td style="padding:4px 7px;border-bottom:1px solid #f4f4f4;white-space:nowrap">'+esc(x.code)+'</td><td style="padding:4px 7px;border-bottom:1px solid #f4f4f4">'+esc((x.name||'').slice(0,32))+'</td><td style="padding:4px 7px;border-bottom:1px solid #f4f4f4;text-align:right;color:#c0392b;font-weight:600">'+M(x.gross)+'</td></tr>').join(''),['品號','商品','扣款']);
   document.getElementById('recon-area').innerHTML=h;
 }
 function _decodeReconBuf(buf){const b=new Uint8Array(buf);if(b.length>=2&&b[0]===0xFF&&b[1]===0xFE)return new TextDecoder('utf-16le').decode(b);if(b.length>=2&&b[0]===0xFE&&b[1]===0xFF)return new TextDecoder('utf-16be').decode(b);let nul=0;for(let i=0;i<Math.min(b.length,3000);i++)if(b[i]===0)nul++;if(nul>200)return new TextDecoder('utf-16le').decode(b);return new TextDecoder('utf-8').decode(b)}
@@ -5503,7 +5512,7 @@ function parseReconCSV(text){
 function runRecon(text){
   const area=document.getElementById('recon-area');
   const p=parseReconCSV(text);
-  if(!p.ok){area.innerHTML=`<div class="card"><div class="card-b" style="color:#c0392b;font-weight:600">⚠️ 解析失敗：${p.err}<div style="font-size:11px;color:var(--dm);font-weight:400;margin-top:4px">請確認是平台後台下載的對帳單 CSV。</div></div></div>`;return}
+  if(!p.ok){area.innerHTML=`<div class="card"><div class="card-b" style="color:#c0392b;font-weight:600">⚠️ 解析失敗：${esc(p.err)}<div style="font-size:11px;color:var(--dm);font-weight:400;margin-top:4px">請確認是平台後台下載的對帳單 CSV。</div></div></div>`;return}
   const osBase=new Map();
   for(const o of orders){const b=String(o.orderNo||'').split('-')[0];if(!b)continue;const cur=osBase.get(b)||{amt:0,status:new Set(),date:new Set(),plat:new Set(),prod:[]};cur.amt+=(o.amount||0);cur.status.add(o.status||'');cur.date.add(o.date||'');cur.plat.add(o.platform||'');cur.prod.push(o.product||'');osBase.set(b,cur)}
   const ok=[],mism=[],miss=[];let csvTotal=0;
@@ -5528,12 +5537,12 @@ function renderReconResult(r){
   if(secs.length){
     const sign=it=>(/退貨貨款明細/.test(it)||/罰金|物流費|運費|安裝費|退出/.test(it))?-1:1;
     const cat=it=>/退貨貨款明細/.test(it)?'退款':(/罰金/.test(it)?'罰金':(/物流費|運費|安裝費|退出/.test(it)?'費用':(/獎勵金/.test(it)?'獎勵':(/貨款明細/.test(it)?'貨款':'其他'))));
-    let net=0;const rowsH=secs.map(s=>{const sg=sign(s.item);net+=s.total*sg;const c=cat(s.item);const col=sg<0?'#c0392b':(c==='貨款'?'#1e824c':'var(--dm)');return `<tr><td style="padding:4px 7px;border-bottom:1px solid #f4f4f4"><span style="display:inline-block;min-width:34px;font-size:10px;color:#fff;background:${sg<0?'#e08a8a':(c==='貨款'?'#7bc298':'#c9b6bf')};border-radius:8px;text-align:center;padding:1px 4px;margin-right:6px">${c}</span>${s.item}</td><td style="padding:4px 7px;border-bottom:1px solid #f4f4f4;text-align:right;color:${col};font-weight:${c==='貨款'||sg<0?700:400}">${sg<0?'-':'+'}$${Math.abs(s.total).toLocaleString()}</td></tr>`}).join('');
+    let net=0;const rowsH=secs.map(s=>{const sg=sign(s.item);net+=s.total*sg;const c=cat(s.item);const col=sg<0?'#c0392b':(c==='貨款'?'#1e824c':'var(--dm)');return `<tr><td style="padding:4px 7px;border-bottom:1px solid #f4f4f4"><span style="display:inline-block;min-width:34px;font-size:10px;color:#fff;background:${sg<0?'#e08a8a':(c==='貨款'?'#7bc298':'#c9b6bf')};border-radius:8px;text-align:center;padding:1px 4px;margin-right:6px">${esc(c)}</span>${esc(s.item)}</td><td style="padding:4px 7px;border-bottom:1px solid #f4f4f4;text-align:right;color:${col};font-weight:${c==='貨款'||sg<0?700:400}">${sg<0?'-':'+'}$${Math.abs(s.total).toLocaleString()}</td></tr>`}).join('');
     h+=`<div class="card"><div class="card-b"><div style="font-weight:700;margin-bottom:8px;font-size:13px">💰 對帳單所有項目明細</div><div style="overflow-x:auto"><table style="width:100%;border-collapse:collapse;font-size:12px"><thead><tr><th style="text-align:left;border-bottom:1px solid #eee;padding:5px 7px;color:var(--dm)">對帳項目</th><th style="text-align:right;border-bottom:1px solid #eee;padding:5px 7px;color:var(--dm)">金額</th></tr></thead><tbody>${rowsH}<tr><td style="padding:7px;border-top:2px solid #eee;font-weight:800">估算實際撥款（貨款−退貨−費用＋獎勵）</td><td style="padding:7px;border-top:2px solid #eee;text-align:right;font-weight:800;color:var(--mo)">$${net.toLocaleString()}</td></tr></tbody></table></div><div style="font-size:11px;color:var(--ht);margin-top:6px">※ 獎勵金若為「已開折讓單」屬抵稅、非現金撥入，淨額僅供快速核對參考，實際以 PChome 撥款單為準。</div></div></div>`;
   }
-  if(r.mism.length)h+=_recSec('⚠️ 金額不符（撈單 vs 對帳單）',r.mism.map(x=>`<tr><td style="padding:4px 7px;border-bottom:1px solid #f4f4f4">${x.b}</td><td style="padding:4px 7px;border-bottom:1px solid #f4f4f4">${x.prod}</td><td style="padding:4px 7px;border-bottom:1px solid #f4f4f4;text-align:right">${M(x.os)}</td><td style="padding:4px 7px;border-bottom:1px solid #f4f4f4;text-align:right">${M(x.csv)}</td><td style="padding:4px 7px;border-bottom:1px solid #f4f4f4;text-align:right;color:#c0392b;font-weight:700">${x.diff>0?'+':''}${x.diff.toLocaleString()}</td></tr>`).join(''),['訂單編號','商品','撈單','對帳單','差']);
-  if(r.miss.length)h+=_recSec('❌ 漏單：對帳單有、撈單系統沒有',r.miss.map(x=>`<tr><td style="padding:4px 7px;border-bottom:1px solid #f4f4f4">${x.b}</td><td style="padding:4px 7px;border-bottom:1px solid #f4f4f4">${x.name}</td><td style="padding:4px 7px;border-bottom:1px solid #f4f4f4;text-align:right">${M(x.amt)}</td></tr>`).join(''),['訂單編號','商品','金額']);
-  if(r.extra.length){const isOff=e=>e.status==='已取消'||e.status==='轉線下'||e.status==='線下完';const cc=r.extra.filter(isOff).length;h+=_recSec(`➕ 撈單有、對帳單沒有（${r.extra.length} 筆：取消/轉線下 ${cc}、其餘通常是近期單下期才結）`,r.extra.sort((a,b)=>a.date<b.date?-1:1).map(e=>`<tr><td style="padding:4px 7px;border-bottom:1px solid #f4f4f4">${e.b}</td><td style="padding:4px 7px;border-bottom:1px solid #f4f4f4">${e.prod}</td><td style="padding:4px 7px;border-bottom:1px solid #f4f4f4">${e.date}</td><td style="padding:4px 7px;border-bottom:1px solid #f4f4f4;color:${isOff(e)?'#c0392b':'var(--dm)'}">${e.status}</td><td style="padding:4px 7px;border-bottom:1px solid #f4f4f4;text-align:right">${M(e.amt)}</td></tr>`).join(''),['訂單編號','商品','日期','狀態','金額'])}
+  if(r.mism.length)h+=_recSec('⚠️ 金額不符（撈單 vs 對帳單）',r.mism.map(x=>`<tr><td style="padding:4px 7px;border-bottom:1px solid #f4f4f4">${esc(x.b)}</td><td style="padding:4px 7px;border-bottom:1px solid #f4f4f4">${esc(x.prod)}</td><td style="padding:4px 7px;border-bottom:1px solid #f4f4f4;text-align:right">${M(x.os)}</td><td style="padding:4px 7px;border-bottom:1px solid #f4f4f4;text-align:right">${M(x.csv)}</td><td style="padding:4px 7px;border-bottom:1px solid #f4f4f4;text-align:right;color:#c0392b;font-weight:700">${x.diff>0?'+':''}${x.diff.toLocaleString()}</td></tr>`).join(''),['訂單編號','商品','撈單','對帳單','差']);
+  if(r.miss.length)h+=_recSec('❌ 漏單：對帳單有、撈單系統沒有',r.miss.map(x=>`<tr><td style="padding:4px 7px;border-bottom:1px solid #f4f4f4">${esc(x.b)}</td><td style="padding:4px 7px;border-bottom:1px solid #f4f4f4">${esc(x.name)}</td><td style="padding:4px 7px;border-bottom:1px solid #f4f4f4;text-align:right">${M(x.amt)}</td></tr>`).join(''),['訂單編號','商品','金額']);
+  if(r.extra.length){const isOff=e=>e.status==='已取消'||e.status==='轉線下'||e.status==='線下完';const cc=r.extra.filter(isOff).length;h+=_recSec(`➕ 撈單有、對帳單沒有（${r.extra.length} 筆：取消/轉線下 ${cc}、其餘通常是近期單下期才結）`,r.extra.sort((a,b)=>a.date<b.date?-1:1).map(e=>`<tr><td style="padding:4px 7px;border-bottom:1px solid #f4f4f4">${esc(e.b)}</td><td style="padding:4px 7px;border-bottom:1px solid #f4f4f4">${esc(e.prod)}</td><td style="padding:4px 7px;border-bottom:1px solid #f4f4f4">${e.date}</td><td style="padding:4px 7px;border-bottom:1px solid #f4f4f4;color:${isOff(e)?'#c0392b':'var(--dm)'}">${e.status}</td><td style="padding:4px 7px;border-bottom:1px solid #f4f4f4;text-align:right">${M(e.amt)}</td></tr>`).join(''),['訂單編號','商品','日期','狀態','金額'])}
   document.getElementById('recon-area').innerHTML=h;
 }
 function _statsMonthVal(){return (typeof statsPeriod==='string'&&statsPeriod.startsWith('month:'))?statsPeriod.slice(6):''}
@@ -5697,7 +5706,7 @@ if(o.phone){const isM=o.phone.includes('#')||o.phone.startsWith('0971191888');if
 if(o.date>cur.lastDate)cur.lastDate=o.date;m.set(key,cur)});const arr=[...m.values()];const sorters={lastDate:(a,b)=>(b.lastDate||'').localeCompare(a.lastDate||''),total:(a,b)=>b.total-a.total,cnt:(a,b)=>b.orders.length-a.orders.length,name:(a,b)=>a.name.localeCompare(b.name,'zh-TW')};arr.sort(sorters[customerSort]||sorters.lastDate);_custAggCache=arr;_custAggKey=_ck;_custAggLen=orders.length;_custAggLastId=_lastId;return arr}
 // 客戶一筆的衍生資料 — desktop/mobile 共用
 function prepareCustomerRow(c){
-  const cnJS=JSON.stringify(c.name).replace(/"/g,'&quot;');
+  const cnJS=jsArg(c.name);
   const repeat=c.orders.length>=3?'<span class="tag" style="margin-left:4px;background:#fef0f5;color:var(--mo);font-size:9px">回頭客</span>':'';
   const addr=[...c.addresses][0]||'';
   const moreAddrs=c.addresses.size>1?`+${c.addresses.size-1} 個其他地址`:'';
@@ -5721,7 +5730,7 @@ const html=`<div class="card"><div style="overflow-x:auto"><table><thead><tr><th
 document.getElementById('cust-area').innerHTML=html+(ctrunc?_custMore(fl.length):'')}
 
 // ===== EDIT MODAL =====
-function customerHistoryBadge(o){if(!o.name)return'';const key=customerKey(o);const same=orders.filter(x=>x.id!==o.id&&customerKey(x)===key);if(!same.length)return'';const total=same.filter(x=>x.status!=='已取消'&&x.status!=='轉線下').reduce((s,x)=>s+tot(x),0);const lastDate=same.map(x=>x.date).filter(Boolean).sort().pop();const cnJS=JSON.stringify(o.name).replace(/"/g,'&quot;');return`<span style="display:inline-block;background:#fef0f5;color:var(--mo);font-size:10px;padding:3px 8px;border-radius:10px;font-weight:700;margin-left:6px;cursor:pointer" title="點此查看此客戶所有訂單" onclick="if(closeModal())searchCustomerOrders(${cnJS})">回頭客 ｜ ${same.length} 筆 ｜ $${total.toLocaleString()} ｜ 最後 ${lastDate||'?'}</span>`}
+function customerHistoryBadge(o){if(!o.name)return'';const key=customerKey(o);const same=orders.filter(x=>x.id!==o.id&&customerKey(x)===key);if(!same.length)return'';const total=same.filter(x=>x.status!=='已取消'&&x.status!=='轉線下').reduce((s,x)=>s+tot(x),0);const lastDate=same.map(x=>x.date).filter(Boolean).sort().pop();const cnJS=jsArg(o.name);return`<span style="display:inline-block;background:#fef0f5;color:var(--mo);font-size:10px;padding:3px 8px;border-radius:10px;font-weight:700;margin-left:6px;cursor:pointer" title="點此查看此客戶所有訂單" onclick="if(closeModal())searchCustomerOrders(${cnJS})">回頭客 ｜ ${same.length} 筆 ｜ $${total.toLocaleString()} ｜ 最後 ${lastDate||'?'}</span>`}
 // 從歷史訂單蒐集加購內容當 datalist autocomplete 候選
 function getAddonSuggestions(){const set=new Set();orders.forEach(o=>{if(o.addonItems){o.addonItems.split(/[,，、+/]/).forEach(s=>{const t=s.trim();if(t&&t.length<=20)set.add(t)})}});return [...set].sort()}
 function activityTimelineHTML(note){if(!note)return'';const lines=note.split('\n').filter(l=>l.trim());const events=[];const others=[];for(const ln of lines){const m=ln.match(/^\[(\d{4}-\d{2}-\d{2}(?:\s\d{2}:\d{2})?)(?:\s@([^\]]+))?\]\s*(.+)/);if(m)events.push({ts:m[1],who:m[2]||'',msg:m[3]});else others.push(ln)}if(!events.length)return'';events.reverse();const list=events.slice(0,8).map(e=>`<div style="display:flex;gap:8px;font-size:11px;line-height:1.5;padding:3px 0;border-bottom:1px dashed #f0ede6"><span style="color:var(--ht);font-family:var(--mono);font-size:10px;white-space:nowrap;flex-shrink:0">${esc(e.ts)}${e.who?` <span style="color:var(--mo)">${esc(e.who)}</span>`:''}</span><span>${esc(e.msg)}</span></div>`).join('');return`<details style="background:var(--sf2);border:1px solid var(--bd);border-radius:8px;padding:8px 12px;margin-bottom:8px"><summary style="cursor:pointer;font-size:11px;font-weight:700;color:var(--dm)">📋 活動紀錄 (${events.length})${events.length>8?' — 顯示最近 8 筆':''}</summary><div style="margin-top:6px">${list}</div></details>`}
@@ -7030,7 +7039,7 @@ function ktChip(bln){
   const days=v&&v.t?ktDaysSince(v.t):null;
   const txt=k==='stale'?`卡住 ${days} 天`:k==='issue'?'異常・'+String(v.s||'').slice(0,6):KT_LABEL[k];
   const date=when&&(k==='done'||k==='move')?' <i>'+esc(when.slice(0,5))+'</i>':'';
-  return `<span class="kt kt-${k}" data-kt="${esc(bln)}" title="${esc(tip)}（點開看完整歷程）" onclick="event.stopPropagation();openKerryTrack('${esc(bln)}')"><b class="kt-dot"></b>大榮 ${esc(txt)}${date}</span>`;
+  return `<span class="kt kt-${k}" data-kt="${esc(bln)}" title="${esc(tip)}（點開看完整歷程）" onclick="event.stopPropagation();openKerryTrack(${jsArg(bln)})"><b class="kt-dot"></b>大榮 ${esc(txt)}${date}</span>`;
 }
 function ktBlnsOf(o){const a=_tnList(o.trackingNo);if(o.kerry&&Array.isArray(o.kerry.blns))o.kerry.blns.forEach(b=>{b=String(b||'').trim();if(b&&a.indexOf(b)<0)a.push(b)});return a}
 function ktChipFor(o){if(!isKerryOrd(o))return '';ktInit();ktBadgeSoon();return ktBlnsOf(o).map(ktChip).join('')}
@@ -7129,8 +7138,8 @@ function openKerryTrack(bln){
         :`<div style="font-size:12px;color:var(--dm)">${k==='unk'?'還沒查過。':'大榮還沒有這張單的動態（通常是還沒收件）。'}</div>`}
     </div>
     <div id="kt-msg" style="font-size:12px;margin-top:8px"></div>
-    <div class="modal-ft"><button class="btn" onclick="navigator.clipboard&&navigator.clipboard.writeText('${esc(bln)}');this.textContent='已複製'">複製單號</button>
-      <button class="btn" onclick="ktRefresh(['${esc(bln)}'])">立即重查</button><button class="btn" onclick="closeModal()">關閉</button></div>`;
+    <div class="modal-ft"><button class="btn" onclick="navigator.clipboard&&navigator.clipboard.writeText(${jsArg(bln)});this.textContent='已複製'">複製單號</button>
+      <button class="btn" onclick="ktRefresh([${jsArg(bln)}])">立即重查</button><button class="btn" onclick="closeModal()">關閉</button></div>`;
   document.getElementById('modal-overlay').classList.remove('hidden');document.body.style.overflow='hidden';
 }
 async function ktRefresh(blns){
@@ -7198,7 +7207,7 @@ function renderKerryTab(){
     <table style="width:100%;border-collapse:collapse;font-size:12px">
       <tr style="background:var(--sf2)"><th style="text-align:left;padding:7px 8px">出貨日</th><th style="text-align:left;padding:7px 8px">訂單</th><th style="text-align:left;padding:7px 8px">收件人／商品</th>
         <th style="text-align:left;padding:7px 8px">單號</th><th style="text-align:left;padding:7px 8px">貨態</th><th style="text-align:left;padding:7px 8px">最新動態</th><th style="padding:7px 8px"></th></tr>
-      ${show.length?show.slice(0,500).map(r=>`<tr style="border-top:1px solid var(--bd);cursor:pointer" onclick="openKerryTrack('${esc(r.b)}')">
+      ${show.length?show.slice(0,500).map(r=>`<tr style="border-top:1px solid var(--bd);cursor:pointer" onclick="openKerryTrack(${jsArg(r.b)})">
         <td style="padding:7px 8px;white-space:nowrap">${r.o.kerry&&r.o.kerry.at?esc(localDateISO(new Date(r.o.kerry.at)).slice(5)):esc(String(r.o.date||'').slice(5))+'<div style="font-size:9.5px;color:var(--dm)">訂單日</div>'}</td>
         <td style="padding:7px 8px;white-space:nowrap">${esc(r.o.platform||'')} <span style="font-family:var(--mono);font-size:11px">${esc(r.o.orderNo||'')}</span></td>
         <td style="padding:7px 8px">${esc(r.o.name||'')}<div style="font-size:11px;color:var(--dm)">${esc(String(r.o.product||'').slice(0,34))}</div>${r.bad&&r.bad.kind==='dup'?`<div style="font-size:10.5px;color:#b91c1c">${esc(String(r.o.address||'').slice(0,26))}</div>`:''}</td>
@@ -7206,7 +7215,7 @@ function renderKerryTab(){
         <td style="padding:7px 8px;white-space:nowrap">${ktChip(r.b)}${r.bad&&(_ktFilter==='bad'||r.bad.kind==='alien')?'<div style="margin-top:3px">'+ktBadChip(r.o,r.b)+'</div>':''}</td>
         <td style="padding:7px 8px;font-size:11.5px">${r.v&&r.v.s?`${esc(r.v.s)}${r.v.st?'・'+esc(r.v.st):''}<div style="color:var(--dm);font-size:10.5px">${esc(r.v.t)}${ktDaysSince(r.v.t)!=null?'（'+ktDaysSince(r.v.t)+' 天前）':''}</div>`:'<span style="color:var(--dm)">—</span>'}</td>
         <td style="padding:7px 8px;white-space:nowrap">${(r.k==='none'||r.k==='unk')&&r.o.kerry&&!r.o.kerry.cancelled&&ktBlnsOf(r.o)[0]===r.b
-          ?`<button class="btn" style="font-size:11px;padding:2px 8px;color:#b91c1c;border-color:#fca5a5" onclick="event.stopPropagation();ktCancel('${esc(r.o.id)}',this)" title="大榮還沒收件才能取消；按下去會先跟大榮重查一次">取消</button>`:''}</td></tr>`).join('')
+          ?`<button class="btn" style="font-size:11px;padding:2px 8px;color:#b91c1c;border-color:#fca5a5" onclick="event.stopPropagation();ktCancel(${jsArg(r.o.id)},this)" title="大榮還沒收件才能取消；按下去會先跟大榮重查一次">取消</button>`:''}</td></tr>`).join('')
         :`<tr><td colspan="7" style="padding:18px;text-align:center;color:var(--dm)">沒有符合的單</td></tr>`}
     </table></div>`;
   if(keepQ){const i=document.getElementById('ktab-q');i.focus();i.setSelectionRange(i.value.length,i.value.length)}
@@ -7405,8 +7414,8 @@ function renderKerryTodayBox(){
     return `<tr style="${cx?'opacity:.5':''}"><td style="padding:4px 2px">${cx?'':`<input type="checkbox" class="k-today-cb${old?' k-today-old':''}" value="${esc(s.orderKey)}">`}</td>
       <td style="padding:4px 6px">${esc(s.consignee||'(無名)')}${kBoxNo(s.orderKey)>1?' <span style="font-size:10px;color:var(--dm)">第'+kBoxNo(s.orderKey)+'箱</span>':''}${cx?' <span style="color:#b91c1c;font-size:10px">已取消</span>':''}<div style="font-size:9px;color:var(--dm)">${esc(s.remark||'')}</div></td>
       <td class="mono" style="padding:4px 6px">${esc(s.bln)}<div style="font-size:9px;color:${old?'#b45309':'var(--dm)'}">${old?esc(fmtD(sd))+' ':''}${t}${old?'（不是今天）':''}</div>${(()=>{const u=kerryTodayUnlinked(s);return u?`<div style="font-size:9.5px;color:#b91c1c;font-weight:700" title="大榮收了這箱，但訂單上沒有這個單號 —— 不會自動壓平台，平台會一直顯示未出貨。再按一次「送大榮」就會沿用原號補寫回去。">⚠ ${esc(u)}</div>`:''})()}</td>
-      <td style="padding:4px 2px;white-space:nowrap"><button class="btn" style="font-size:10px;padding:2px 7px" onclick='kerryOpenOne(this,${JSON.stringify(s.orderKey)},"label")'>標籤</button>
-        <button class="btn" style="font-size:10px;padding:2px 7px" onclick='kerryOpenOne(this,${JSON.stringify(s.orderKey)},"detail")'>明細</button></td></tr>`;
+      <td style="padding:4px 2px;white-space:nowrap"><button class="btn" style="font-size:10px;padding:2px 7px" onclick="kerryOpenOne(this,${jsArg(s.orderKey)},'label')">標籤</button>
+        <button class="btn" style="font-size:10px;padding:2px 7px" onclick="kerryOpenOne(this,${jsArg(s.orderKey)},'detail')">明細</button></td></tr>`;
   }).join('');
   const liveN=all.filter(s=>!s.cancelled).length;
   box.innerHTML=`<table style="width:100%;font-size:12px;border-collapse:collapse"><tr style="color:var(--dm);font-size:11px"><th style="width:20px"></th><th style="text-align:left">收件人</th><th style="text-align:left">單號／時間</th><th></th></tr>${rows}</table>
@@ -8458,7 +8467,7 @@ function syncSchedInstallerRow(){
   for(const name of installers){
     const safe=esc(name);const jsName=name.replace(/\\/g,'\\\\').replace(/'/g,"\\'");
     const cnt=countByInstaller[name]||0;
-    html+=`<button class="fbtn ${schedInstaller===name?'on':''}" onclick="setSchedInstaller('${jsName}',this)">${safe} <span style="opacity:.7;font-size:10px">${cnt}</span></button>`;
+    html+=`<button class="fbtn ${schedInstaller===name?'on':''}" onclick="setSchedInstaller(${jsArg(name)},this)">${safe} <span style="opacity:.7;font-size:10px">${cnt}</span></button>`;
   }
   if(unassigned>0){
     html+=`<span style="font-size:11px;color:#dc2626;font-weight:600;margin-left:8px">未指派 ${unassigned} 單</span>`;
@@ -8593,7 +8602,7 @@ function _regionCard(o){
   const addonPill=o.addon==='是'?`<span class="qty-pill" style="color:var(--mo);border-color:var(--mo);cursor:pointer" onclick="event.stopPropagation();openEdit('${oid}')" title="${r.addonInfo?esc(r.addonInfo):''} — 點擊編輯">加購${o.addonFee?' +$'+o.addonFee:''}${r.addonInfo?' '+esc(r.addonInfo):''}</span>`:'';
   return `<div class="ord-card${r.scmActive?' row-scm':''}" data-oid="${oid}">
 <div class="ord-card-h"><input type="checkbox" class="rt-cb" data-oid="${oid}" ${rtHas(oid)?'checked':''} onclick="event.stopPropagation()" onchange="rtToggle('${oid}',this.checked)" title="打勾→加進上面的配送路線"><span class="ord-date">${fmtD(o.date)}</span>${platformPill(o.platform)}${r.remoteBadge||''}${r.scmBadge||''}<span class="ord-total">${$(tot(o))}</span></div>
-<div class="ord-card-name">${o.name?`<span style="cursor:pointer;text-decoration:underline;text-decoration-style:dotted;text-decoration-color:var(--ht);text-underline-offset:3px" onclick="event.stopPropagation();searchCustomerOrders(${JSON.stringify(o.name).replace(/"/g,'&quot;')})" title="🔒 看「${esc(o.name)}」所有訂單">${escWithHL(o.name)}</span>`:'(無姓名)'}${r.remoteBadge?'':''}</div>
+<div class="ord-card-name">${o.name?`<span style="cursor:pointer;text-decoration:underline;text-decoration-style:dotted;text-decoration-color:var(--ht);text-underline-offset:3px" onclick="event.stopPropagation();searchCustomerOrders(${jsArg(o.name)})" title="🔒 看「${esc(o.name)}」所有訂單">${escWithHL(o.name)}</span>`:'(無姓名)'}${r.remoteBadge?'':''}</div>
 <div class="ord-card-prod" onclick="openEdit('${oid}')" style="cursor:pointer">${r.ps.specs?`<span class="spec-pill" style="margin-right:6px">${esc(r.ps.specs)}</span>`:''}${escWithHL(r.ps.name||o.product||'')}</div>
 <div class="ord-card-meta"><button class="${stCls(o.status)}" onclick="openStatusMenu('${oid}',event)" style="min-height:30px" title="本機狀態（點擊修改）">${o.status} ▾</button>${ktChipFor(o)}${r.momoBadge||''}${r.momoDiff||''}${instPill}${addonPill}</div>
 ${o.address?`<div class="ord-card-addr">📍 ${mapsLink(o.address)}${copyBtn(o.address,'地址')}</div>`:''}
@@ -9467,7 +9476,7 @@ function renderWeekGrid(filtered,noDate,monday,overdue){
   if(noDate&&noDate.length){
     const allChecked=noDate.every(o=>_schedBatch.has(o.id));
     const oidList=noDate.map(o=>o.id);
-    html+=`<div class="card sched-unschedule-drop" ondragover="schedDragOver(event)" ondragleave="schedDragLeave(event)" ondrop="schedDropUnschedule(event)" style="margin-top:10px;border-color:#f0c4d8"><div class="card-h" style="background:var(--mo-bg);display:flex;align-items:center;gap:8px;flex-wrap:wrap"><h3 style="flex:0 0 auto">還沒排安裝日 <span class="badge" style="background:var(--mo);color:#fff">${noDate.length}</span></h3><label style="font-size:11px;color:var(--mo);font-weight:600;display:flex;align-items:center;gap:4px;cursor:pointer;margin-left:auto"><input type="checkbox" ${allChecked?'checked':''} onchange="schedBatchToggleAll(${JSON.stringify(oidList).replace(/"/g,'&quot;')},this.checked)" style="transform:scale(1.15);accent-color:var(--mo)">全選</label><span style="font-size:11px;color:var(--mo);font-weight:600">拖卡片來此 = 取消排程</span></div><div class="card-b" style="padding:0">`;
+    html+=`<div class="card sched-unschedule-drop" ondragover="schedDragOver(event)" ondragleave="schedDragLeave(event)" ondrop="schedDropUnschedule(event)" style="margin-top:10px;border-color:#f0c4d8"><div class="card-h" style="background:var(--mo-bg);display:flex;align-items:center;gap:8px;flex-wrap:wrap"><h3 style="flex:0 0 auto">還沒排安裝日 <span class="badge" style="background:var(--mo);color:#fff">${noDate.length}</span></h3><label style="font-size:11px;color:var(--mo);font-weight:600;display:flex;align-items:center;gap:4px;cursor:pointer;margin-left:auto"><input type="checkbox" ${allChecked?'checked':''} onchange="schedBatchToggleAll(${jsArg(oidList)},this.checked)" style="transform:scale(1.15);accent-color:var(--mo)">全選</label><span style="font-size:11px;color:var(--mo);font-weight:600">拖卡片來此 = 取消排程</span></div><div class="card-b" style="padding:0">`;
     for(const o of noDate.slice(0,50))html+=renderSchedRow(o,{draggable:true});
     html+=`</div></div>`;
   }else{
