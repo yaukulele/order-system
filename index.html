@@ -1354,6 +1354,21 @@ body.has-batch-bar .main{padding-bottom:140px}
 <!-- firebase-storage 仍 lazy load — 只在按 📷 拍照時才載入。
      firebase-auth 改 eager — 為了讓 Firebase rules 能設 `.write: auth != null`，必須開頁就 signInAnonymously -->
 <script>
+/* 全域請求逾時（2026-10-19 阿淵「避免當機」）：撈單有 37 個地方打後端／MOMO／PChome，原本都沒有逾時，
+   後端卡住（Railway 重新部署那幾分鐘、MOMO API 慢）時，按鈕就一直停在「處理中…」、畫面看起來像當機。
+   沒自帶 signal 的請求一律最多等 90 秒就放棄並報錯（自己有設逾時的，例如送大榮 4 分鐘，照它自己的）。 */
+(function(){
+  if(typeof window.fetch!=='function'||typeof AbortController==='undefined')return;
+  const _origFetch=window.fetch.bind(window);
+  window.fetch=function(input,init){
+    init=init||{};
+    if(init.signal)return _origFetch(input,init);
+    const ctl=new AbortController();const tm=setTimeout(()=>ctl.abort(),90000);
+    return _origFetch(input,Object.assign({},init,{signal:ctl.signal}))
+      .catch(err=>{if(err&&err.name==='AbortError')throw new Error('等了 90 秒沒有回應（網路或伺服器忙），請稍後再試');throw err})
+      .finally(()=>clearTimeout(tm));
+  };
+})();
 // ===== FIREBASE CONFIG (你的專案設定) =====
 firebase.initializeApp({
   apiKey:"AIzaSyBFIekk-vqXwYlnwBSRqJ6LtIq1vgInOaI",
@@ -4882,7 +4897,7 @@ function restoreFilterUI(){try{applyFilterPanel()}catch(e){}syncPlatChips();
 restoreFilterUI();
 // 記住上次所在分頁 — 重新整理（含右上 🔄）後回到當前畫面，不要每次都跳回「匯入」首頁
 // 用 rAF 延到整段 script 跑完再切：renderList 會用到後面才宣告的 _CITY_REGION 等（同步呼叫會 TDZ）
-try{const _savedTab=localStorage.getItem('orderSysTab');const _validTabs=['import','list','schedule','region','output','stats','recon','customers','account'];if(_savedTab&&_savedTab!=='import'&&_validTabs.includes(_savedTab)){requestAnimationFrame(()=>{try{if(typeof showTab==='function')showTab(_savedTab)}catch(_){}})}}catch(_){}
+try{const _savedTab=localStorage.getItem('orderSysTab');const _validTabs=['import','list','schedule','region','output','stats','recon','customers','account','kerry','punch','todo','stores','delivery'];if(_savedTab&&_savedTab!=='import'&&_validTabs.includes(_savedTab)){requestAnimationFrame(()=>{try{if(typeof showTab==='function')showTab(_savedTab)}catch(_){}})}}catch(_){}
 // makeDateBucketer：一次算好今天/昨天/週/30 天邊界，回傳的函式每筆訂單呼叫只是字串比較
 // renderList/renderListMobile 都用這個避免 O(n*5 Date 物件) 的成本
 function makeDateBucketer(){const today=localDateISO();const yest=localDateISO(new Date(Date.now()-86400000));const now=new Date();const dow=now.getDay();const startOfWeek=localDateISO(new Date(now.getTime()-dow*86400000));const startOfLastWeek=localDateISO(new Date(now.getTime()-(dow+7)*86400000));const cutoff30=localDateISO(new Date(Date.now()-30*86400000));return function(d){if(!d)return'其他';if(d===today)return'🆕 今天';if(d===yest)return'昨天';if(d>=startOfWeek)return'本週';if(d>=startOfLastWeek)return'上週';if(d>=cutoff30)return'近 30 天';return'更早'}}
