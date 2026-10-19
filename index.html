@@ -7091,6 +7091,32 @@ async function ktRefresh(blns){
     if(blns&&blns.length===1)setTimeout(()=>{if(!document.getElementById('modal-overlay').classList.contains('hidden'))openKerryTrack(blns[0])},300);
   }catch(e){if(m){m.style.color='#b91c1c';m.textContent='更新失敗：'+e.message}}
 }
+/* 大榮貨態分頁直接取消（阿淵 2026-10-19）。防呆：只有大榮那邊「完全沒有動態」（未收件）才能取消 ——
+   按下去先強制跟大榮重查這張單的每一箱，任何一箱有收件／運送／送達紀錄就擋下來（貨已經在大榮手上，取消只會讓訂單跟貨對不起來）。
+   查不到（大榮或網路掛掉）也不取消，寧可擋。只處理用系統（API）送的單；WEBEDI 舊單我們這邊沒有號碼池可以取消。
+   真正取消走既有的 batchKerryCancel（同一套確認視窗：平台已壓出貨會列出警告）。 */
+async function ktCancel(oid,btn){
+  const o=findO(oid); if(!o)return;
+  if(!o.kerry||o.kerry.cancelled){alert('這張不是用撈單送大榮的（或已經取消），系統這邊沒辦法取消。WEBEDI 開的單請到大榮網頁處理。');return}
+  const blns=ktBlnsOf(o); if(!blns.length){alert('這張單沒有大榮單號');return}
+  const old=btn.textContent; btn.disabled=true; btn.textContent='跟大榮確認中…';
+  let ok=false;
+  try{
+    await kerryApi('/api/kerry/track-refresh',{blns,force:true});
+    const vals=await Promise.all(blns.map(b=>db.ref('kerryTrack/'+b).once('value').then(sn=>sn.val())));
+    const unknown=blns.filter((b,i)=>!vals[i]);
+    const moved=blns.map((b,i)=>({b,v:vals[i]})).filter(x=>x.v&&x.v.cls&&x.v.cls!=='none');
+    if(moved.length){alert('❌ 不能取消：大榮已經有這箱的紀錄了'+String.fromCharCode(10)+moved.map(x=>'　'+x.b+'：'+(x.v.s||KT_LABEL[x.v.cls]||x.v.cls)+(x.v.t?'（'+x.v.t+'）':'')).join(String.fromCharCode(10))+String.fromCharCode(10)+String.fromCharCode(10)+'貨已經在大榮手上，要改請打大榮客服 02-412-8999 報單號。');return}
+    if(unknown.length){alert('查不到大榮的最新貨態（'+unknown.join('、')+'），為了安全這次先不取消，請稍後再試。');return}
+    ok=true;
+  }catch(e){alert('跟大榮確認貨態失敗，為了安全這次先不取消：'+e.message);return}
+  finally{btn.disabled=false;btn.textContent=old}
+  if(!ok)return;
+  selectedIds.clear(); selectedIds.add(o.id);
+  await batchKerryCancel();
+  selectedIds.clear();
+  renderKerryTab();
+}
 function renderKerryTab(){
   ktInit();
   const el=document.getElementById('tab-kerry'); if(!el)return;
@@ -7118,15 +7144,17 @@ function renderKerryTab(){
     <div style="overflow:auto;border:1px solid var(--bd);border-radius:8px">
     <table style="width:100%;border-collapse:collapse;font-size:12px">
       <tr style="background:var(--sf2)"><th style="text-align:left;padding:7px 8px">出貨日</th><th style="text-align:left;padding:7px 8px">訂單</th><th style="text-align:left;padding:7px 8px">收件人／商品</th>
-        <th style="text-align:left;padding:7px 8px">單號</th><th style="text-align:left;padding:7px 8px">貨態</th><th style="text-align:left;padding:7px 8px">最新動態</th></tr>
+        <th style="text-align:left;padding:7px 8px">單號</th><th style="text-align:left;padding:7px 8px">貨態</th><th style="text-align:left;padding:7px 8px">最新動態</th><th style="padding:7px 8px"></th></tr>
       ${show.length?show.slice(0,500).map(r=>`<tr style="border-top:1px solid var(--bd);cursor:pointer" onclick="openKerryTrack('${esc(r.b)}')">
         <td style="padding:7px 8px;white-space:nowrap">${esc(String(r.o.date||'').slice(5))}</td>
         <td style="padding:7px 8px;white-space:nowrap">${esc(r.o.platform||'')} <span style="font-family:var(--mono);font-size:11px">${esc(r.o.orderNo||'')}</span></td>
         <td style="padding:7px 8px">${esc(r.o.name||'')}<div style="font-size:11px;color:var(--dm)">${esc(String(r.o.product||'').slice(0,34))}</div>${r.bad&&r.bad.kind==='dup'?`<div style="font-size:10.5px;color:#b91c1c">${esc(String(r.o.address||'').slice(0,26))}</div>`:''}</td>
         <td style="padding:7px 8px;font-family:var(--mono)">${esc(r.b)}</td>
         <td style="padding:7px 8px;white-space:nowrap">${ktChip(r.b)}${r.bad&&(_ktFilter==='bad'||r.bad.kind==='alien')?'<div style="margin-top:3px">'+ktBadChip(r.o,r.b)+'</div>':''}</td>
-        <td style="padding:7px 8px;font-size:11.5px">${r.v&&r.v.s?`${esc(r.v.s)}${r.v.st?'・'+esc(r.v.st):''}<div style="color:var(--dm);font-size:10.5px">${esc(r.v.t)}${ktDaysSince(r.v.t)!=null?'（'+ktDaysSince(r.v.t)+' 天前）':''}</div>`:'<span style="color:var(--dm)">—</span>'}</td></tr>`).join('')
-        :`<tr><td colspan="6" style="padding:18px;text-align:center;color:var(--dm)">沒有符合的單</td></tr>`}
+        <td style="padding:7px 8px;font-size:11.5px">${r.v&&r.v.s?`${esc(r.v.s)}${r.v.st?'・'+esc(r.v.st):''}<div style="color:var(--dm);font-size:10.5px">${esc(r.v.t)}${ktDaysSince(r.v.t)!=null?'（'+ktDaysSince(r.v.t)+' 天前）':''}</div>`:'<span style="color:var(--dm)">—</span>'}</td>
+        <td style="padding:7px 8px;white-space:nowrap">${(r.k==='none'||r.k==='unk')&&r.o.kerry&&!r.o.kerry.cancelled&&ktBlnsOf(r.o)[0]===r.b
+          ?`<button class="btn" style="font-size:11px;padding:2px 8px;color:#b91c1c;border-color:#fca5a5" onclick="event.stopPropagation();ktCancel('${esc(r.o.id)}',this)" title="大榮還沒收件才能取消；按下去會先跟大榮重查一次">取消</button>`:''}</td></tr>`).join('')
+        :`<tr><td colspan="7" style="padding:18px;text-align:center;color:var(--dm)">沒有符合的單</td></tr>`}
     </table></div>`;
   if(keepQ){const i=document.getElementById('ktab-q');i.focus();i.setSelectionRange(i.value.length,i.value.length)}
   loadKerryToday();
