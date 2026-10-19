@@ -7316,7 +7316,8 @@ async function batchKerry(){
         <td style="text-align:center">${r.qty}</td>
         <td style="padding:6px"><input id="kcai_${i}" type="text" inputmode="decimal" placeholder="5 或 5+3" step="0.1" value="${esc(caiText(r.mem))}" style="width:100%;text-align:right;${r.mem?'':'border-color:#fca5a5;background:#fef2f2'}"></td>
         <td style="padding:6px"><input id="knote_${i}" value="${esc((r.mem&&r.mem.note)||'')}" placeholder="留空＝完整品名" style="width:100%">
-          ${(!(r.mem&&r.mem.note)&&r.guess)?`<div style="margin-top:3px"><button type="button" class="btn" style="font-size:10px;padding:1px 7px" onclick="useKGuess(${i})">用「${esc(r.guess)}」</button></div>`:''}</td></tr>`;}).join('')}
+          ${(!(r.mem&&r.mem.note)&&r.guess)?`<div style="margin-top:3px"><button type="button" class="btn" style="font-size:10px;padding:1px 7px" onclick="useKGuess(${i})">用「${esc(r.guess)}」</button></div>`:''}
+          <label style="display:flex;gap:4px;align-items:center;font-size:10.5px;margin-top:4px;color:#b45309;cursor:pointer"><input type="checkbox" id="kgift_${i}" onchange="kGiftToggle(${i})"> 只寄贈品／部分（才數不記憶）</label></td></tr>`;}).join('')}
     </table></div>
     ${st.mode==='prod'
       ?`<label style="display:flex;gap:6px;align-items:center;font-size:12px;margin-top:8px"><input type="checkbox" id="k-autopush" checked> 送完自動壓 MOMO／PChome（大榮貨運＋這次的單號；MOMO 會先押指定配送日＝指送日期再壓已配送；PChome 自行出貨 SP 的單不壓）</label>`
@@ -7486,15 +7487,32 @@ function useKGuess(i){
   const g=(_kerryGroups||[])[i]; const el=document.getElementById('knote_'+i);
   if(g&&el){ el.value=g.guess||''; el.focus(); }
 }
+/* 「只寄贈品／部分商品」（阿淵 2026-10-19：主商品廠商直出、店內只寄贈品，這次 1 才但商品平常是好幾箱）：
+   勾了 → 這次的才數／備註不寫進記憶（下次寄整組還是帶原本的），備註先填「贈品：」讓店員接著打要寄什麼（會印在標籤上），
+   送出後訂單紀錄寫「店內寄贈品」。平台照樣壓這張大榮單號（阿淵選 B）。 */
+function kGiftToggle(i){
+  const cb=document.getElementById('kgift_'+i), n=document.getElementById('knote_'+i), c=document.getElementById('kcai_'+i);
+  if(!cb||!n)return;
+  if(cb.checked){
+    n.dataset.prev=n.value; if(c){c.dataset.prev=c.value; c.value=''; c.placeholder='這次幾才'}
+    if(!/^贈品/.test(n.value)) n.value='贈品：';
+    n.focus(); try{n.setSelectionRange(n.value.length,n.value.length)}catch(e){}
+  }else{
+    if(n.dataset.prev!=null) n.value=n.dataset.prev;
+    if(c&&c.dataset.prev!=null){c.value=c.dataset.prev; c.placeholder='5 或 5+3'}
+  }
+}
 let _kerryBusy=false;
 async function doKerry(){
   if(_kerryBusy)return;   // 連點兩下不能送兩次（2026-10-11 稽核）
   const groups=_kerryGroups||[], st=_kerryStatus||{};
-  const vals=[], notes=[];
+  const vals=[], notes=[], gifts=[];
   for(let i=0;i<groups.length;i++){
     const el=document.getElementById('kcai_'+i), bx=parseCaiBoxes(el?el.value:'');
     if(!bx){alert('「'+groups[i].name+'」的才數還沒填或格式不對（一箱打數字；分箱用 + 隔開，例如 5+3）');if(el)el.focus();return}
     vals.push(bx); notes.push(String((document.getElementById('knote_'+i)||{}).value||'').trim());
+    gifts.push(!!(document.getElementById('kgift_'+i)||{}).checked);
+    if(gifts[i]&&/^贈品[：:]?\s*$/.test(notes[i])){alert('「'+groups[i].name+'」勾了只寄贈品，備註請寫要寄什麼（例：贈品：鼓椅＋耳機），標籤上會印');const n=document.getElementById('knote_'+i);if(n)n.focus();return}
   }
   const origin=document.getElementById('k-origin').value;
   /* 指送日期是「開視窗那一刻」算好填進去的，出貨日卻是「按下送出這一刻」才算 ——
@@ -7527,13 +7545,16 @@ async function doKerry(){
   if(_kerryBusy)return;
   _kerryBusy=true; const _btn0=document.getElementById('k-go'); if(_btn0)_btn0.disabled=true;
   _kLS('kerryOrigin',origin);
-  try{ await _doKerrySend(groups,st,items,vals,notes,origin,slot) } finally { _kerryBusy=false; const b=document.getElementById('k-go'); if(b)b.disabled=false }
+  try{ await _doKerrySend(groups,st,items,vals,notes,origin,slot,gifts) } finally { _kerryBusy=false; const b=document.getElementById('k-go'); if(b)b.disabled=false }
 }
-async function _doKerrySend(groups,st,items,vals,notes,origin,slot){
+async function _doKerrySend(groups,st,items,vals,notes,origin,slot,gifts){
+  gifts=gifts||[];
+  const giftNote={}; groups.forEach((r,i)=>{ if(gifts[i]) r.orders.forEach(o=>{ giftNote[o.id]=notes[i]||'贈品' }) });
   // 才數／備註記起來（跟匯出託運單同一份）
   try{
     await authReady; const upd={}, now=new Date().toISOString(), who=(typeof currentUser!=='undefined'&&currentUser)||'';
-    groups.forEach((r,i)=>{const bx=vals[i];const pl={cai:Math.round(bx.reduce((a,b)=>a+b,0)*10)/10,boxes:bx.length>1?bx:null,qty:r.qty,name:r.name,note:notes[i],at:now,by:who};for(const k of sizeKeysFor(r.orders[0]))upd[k]=pl});
+    groups.forEach((r,i)=>{if(gifts[i])return;   // 只寄贈品的這次不記（不然下次寄整組會帶成 1 才）
+      const bx=vals[i];const pl={cai:Math.round(bx.reduce((a,b)=>a+b,0)*10)/10,boxes:bx.length>1?bx:null,qty:r.qty,name:r.name,note:notes[i],at:now,by:who};for(const k of sizeKeysFor(r.orders[0]))upd[k]=pl});
     await db.ref('shipSizes').update(upd); _shipSizes=Object.assign(_shipSizes||{},upd);
   }catch(e){console.warn('才數記憶寫入失敗',e)}
   const box=document.getElementById('k-result'), btn=document.getElementById('k-go');
@@ -7579,7 +7600,7 @@ async function _doKerrySend(groups,st,items,vals,notes,origin,slot){
       if(res.mode!=='prod')continue;
       o.trackingNo=x.bln; o.delyGbStr='大榮貨運';   // MOMO 出貨確認、PChome 物流商（_pcVendorCodeFromLabel）都看這個；分箱時是第 1 箱的號
       o.kerry={bln:x.bln,blns:arr.length>1?arr.map(a=>a.bln):null,origin,mode:res.mode,at:new Date().toISOString(),station:x.area&&x.area.StationName||''};
-      logActivity(o,arr.length>1?`送大榮：分 ${arr.length} 箱，託運單號 ${arr.map(a=>a.bln).join('、')}（主單號 ${x.bln}）`:`送大榮：託運單號 ${x.bln}`); saveOne(o);
+      logActivity(o,((typeof giftNote!=='undefined'&&giftNote[o.id])?`店內寄贈品／部分商品（${giftNote[o.id]}）・`:'')+(arr.length>1?`送大榮：分 ${arr.length} 箱，託運單號 ${arr.map(a=>a.bln).join('、')}（主單號 ${x.bln}）`:`送大榮：託運單號 ${x.bln}`)); saveOne(o);
     }
   }
   // 自動壓平台：只有正式模式、而且訂單上的單號確實是這次大榮的號才壓
