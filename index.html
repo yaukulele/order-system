@@ -1399,7 +1399,7 @@ async function ensureStorage(){
     await _loadFbScript('https://www.gstatic.com/firebasejs/10.12.0/firebase-storage-compat.js');
     await authReady;  // reuse top-level anon auth — don't double sign-in
     return firebase.storage();
-  })();
+  })().catch(e=>{_storageReadyPromise=null;throw e});   // 載入失敗一次不要卡死到重整（2026-10-20）
   return _storageReadyPromise;
 }
 const db=firebase.database();
@@ -1445,8 +1445,21 @@ function setSyncOn(){const sb=document.getElementById('sync-badge');if(sb){_last
 let _baseJson=null,_baseParsed=null,_pendingJson=null,_pendingVal=null;
 function _setOrdersBase(json){_baseJson=(typeof json==='string'&&json)?json:null;_baseParsed=null}
 function _ordersBase(){if(!_baseJson)return null;if(!_baseParsed){try{_baseParsed=JSON.parse(_baseJson)}catch(e){_baseJson=null;_baseParsed=null}}return _baseParsed}
+/* 舊那份訂單也能存（2026-10-20）：按鈕送平台、等回應的那幾秒，別台一存，orders 就整批換成新物件，
+   程式手上的 o 變成舊的那份 → 改在舊物件上、saveOne 去找新物件 → 改的東西沒存（例：一鍵 SP 自行出貨的印記）。
+   每次整批換新記一個「代」；saveOne 收到上一代的舊物件時，拿它跟上一代基準比出「這台改了哪幾格」，套到新物件再存。
+   隔了兩代以上就不猜（照舊不存），避免拿錯基準把別台的修改改回去。 */
+let _ordersGen=0,_objGen=new WeakMap(),_prevGenJson=null,_prevGenParsed=null;const _pendingObjs=new Map();
+function _markOrdersGen(prevJson){_prevGenJson=(typeof prevJson==='string'&&prevJson)?prevJson:null;_prevGenParsed=null;_ordersGen++;for(const o of orders)_objGen.set(o,_ordersGen)}
+function _mergeStaleOrder(id,passed,cur){
+  if(_objGen.get(passed)!==_ordersGen-1||!_prevGenJson){console.warn('訂單物件太舊，這次修改沒套用',id);return}
+  if(!_prevGenParsed){try{_prevGenParsed=JSON.parse(_prevGenJson)}catch(e){_prevGenJson=null;return}}
+  const pb=_prevGenParsed[id];if(!pb||typeof pb!=='object')return;
+  const tmp={};_orderFieldDiff(id,passed,pb,tmp);
+  for(const k of Object.keys(tmp)){const f=k.slice(id.length+1);if(!f||f==='id')continue;const v=tmp[k];if(v===null)delete cur[f];else cur[f]=v}
+}
 function _safeOrderList(val){const out=[];for(const o of Object.values(val||{})){if(o&&typeof o==='object'&&/^[\w-]+$/.test(String(o.id||'')))out.push(o);else console.warn('略過格式不對的訂單',o&&o.id)}return out}
-function applyRemoteOrders(val,json){if(json===undefined)json=(val&&val===_pendingVal)?_pendingJson:null;_setOrdersBase(val?json:'');_pendingVal=null;_pendingJson=null;const sc=window.scrollY;const wasLoaded=ordersLoaded;const prevIds=new Set(orders.map(o=>o.id));pendingRemoteOrders=null;orders=val?_safeOrderList(val):[];orders.forEach(migrateStatus);_invalidateOrderCaches();
+function applyRemoteOrders(val,json){if(json===undefined)json=(val&&val===_pendingVal)?_pendingJson:null;const _pj=_baseJson;_setOrdersBase(val?json:'');_pendingVal=null;_pendingJson=null;const sc=window.scrollY;const wasLoaded=ordersLoaded;const prevIds=new Set(orders.map(o=>o.id));pendingRemoteOrders=null;orders=val?_safeOrderList(val):[];orders.forEach(migrateStatus);_markOrdersGen(_pj);_invalidateOrderCaches();
 // 清掉 selectedIds 裡已不存在的 ids（其他裝置刪掉的）— 避免 batch bar 顯示假筆數
 if(selectedIds.size){const valid=new Set(orders.map(o=>o.id));for(const id of [...selectedIds])if(!valid.has(id))selectedIds.delete(id)}
 // 偵測其他裝置剛加進來的新訂單 — toast 提示（自己 import 的不會觸發，因為 self-echo 在 line 287 已 skip）
@@ -1517,7 +1530,7 @@ function _restoreOrdersCache(json,src){
   if(_fbOrdersArrived||!json||typeof json!=='string')return false;
   const parsed=JSON.parse(json);
   if(!parsed||typeof parsed!=='object')return false;
-  orders=_safeOrderList(parsed);orders.forEach(migrateStatus);_invalidateOrderCaches();_setOrdersBase(json);
+  orders=_safeOrderList(parsed);orders.forEach(migrateStatus);_markOrdersGen(null);_invalidateOrderCaches();_setOrdersBase(json);
   ordersLoaded=true;
   // 不 render 任何 tab — 第一次 showTab 就會 render，省 init blocking
   // 但 tab badge（列表/安裝筆數）立刻更新，開頁就看得到數字（不用等 Firebase）
@@ -1662,12 +1675,13 @@ function _orderFieldDiff(id,o,b,updates){
 }
 function _doSaveOnes(){_saveOneTimer=null;if(_pendingOneIds.size===0)return;const updates={};let base=null;try{base=_ordersBase()}catch(e){base=null}
   for(const id of _pendingOneIds){const o=findO(id);if(!o)continue;
+    {const pz=_pendingObjs.get(id);if(pz&&pz!==o){try{_mergeStaleOrder(id,pz,o)}catch(e){console.warn(e)}}}
     if(base){try{_orderFieldDiff(id,o,base[id],updates)}catch(e){updates[id]=o}}else updates[id]=o}
-  _pendingOneIds.clear();if(!Object.keys(updates).length){setSyncOn();return}/* 沒有欄位變動＝不用寫；別台的暫存更新留著給之後套用 */db.ref('orders').update(updates).catch(_saveError);pendingRemoteOrders=null}
+  _pendingOneIds.clear();_pendingObjs.clear();if(!Object.keys(updates).length){setSyncOn();return}/* 沒有欄位變動＝不用寫；別台的暫存更新留著給之後套用 */db.ref('orders').update(updates).catch(_saveError);pendingRemoteOrders=null}
 // saveAll = update 整包 orders（不用 set，避免 multi-device wipe）— 取消 pending saveOne，由 saveAll 統一處理
 function saveAll(immediate){_setSavingBadge();_pendingOneIds.clear();if(_saveOneTimer){clearTimeout(_saveOneTimer);_saveOneTimer=null}if(_saveAllTimer)clearTimeout(_saveAllTimer);if(immediate)_doSaveAll();else _saveAllTimer=setTimeout(_doSaveAll,200)}
 // saveOne = single order update — 如果 saveAll 已 pending，等 saveAll 處理（包括這個 order）
-function saveOne(o){if(!o||!o.id)return;_setSavingBadge();if(_saveAllTimer)return;_pendingOneIds.add(o.id);if(_saveOneTimer)clearTimeout(_saveOneTimer);_saveOneTimer=setTimeout(_doSaveOnes,200)}
+function saveOne(o){if(!o||!o.id)return;_setSavingBadge();if(_saveAllTimer)return;_pendingOneIds.add(o.id);_pendingObjs.set(o.id,o);if(_saveOneTimer)clearTimeout(_saveOneTimer);_saveOneTimer=setTimeout(_doSaveOnes,200)}
 // 刪除單筆 — 必須顯式 remove，不能靠 saveAll（現在用 update 不會自動清舊 keys）
 function deleteOrderId(id){_setSavingBadge();db.ref('orders/'+id).remove().catch(_saveError)}
 function deleteOrderIds(ids){if(!ids||!ids.length)return;_setSavingBadge();const updates={};for(const id of ids)updates[id]=null;db.ref('orders').update(updates).catch(_saveError)}
@@ -1741,22 +1755,24 @@ function undoLast(){const u=undoStack.pop();if(!u){showToast('沒有可還原的
   else if(u.kind==='delete-batch'){
     orders.push(...u.orders);
     // 只 update 還原的那批
-    const updates={};for(const o of u.orders)updates[o.id]=o;
-    _setSavingBadge();db.ref('orders').update(updates).catch(_saveError);
+    for(const o of u.orders)saveOne(o);
     renderList();updateCnt();
     showToast(`✅ 已還原 ${u.orders.length} 筆訂單`)
   }
   else if(u.kind==='bulk-restore-status'){
     // batchSetStatus undo — 把每筆 status 回到 snapshot 紀錄的 prevStatus
-    const updates={};let n=0;const restored=new Map();
+    /* 2026-10-20：只撤回「狀態還是批次改成的那個」的單（之後又被改過——例如已出貨、已完成——就不拉回去），
+       而且只寫狀態欄位（saveOne 逐欄比對），不再整張寫回蓋掉別台的修改 */
+    let n=0,skipped=0;const restored=new Map();
     for(const s of u.snapshot){
       const o=findO(s.id);
-      if(o){const curStatus=o.status;o.status=s.prevStatus;logActivity(o,`狀態：${curStatus} → ${s.prevStatus}（撤回批次）`);updates[s.id]=o;n++;restored.set(s.prevStatus,(restored.get(s.prevStatus)||0)+1)}
+      if(!o)continue;
+      if(s.to&&o.status!==s.to){skipped++;continue}
+      const curStatus=o.status;o.status=s.prevStatus;logActivity(o,`狀態：${curStatus} → ${s.prevStatus}（撤回批次）`);saveOne(o);n++;restored.set(s.prevStatus,(restored.get(s.prevStatus)||0)+1)
     }
-    _setSavingBadge();db.ref('orders').update(updates).catch(_saveError);
     renderList();updateCnt();
     const summary=[...restored.entries()].map(([k,v])=>`${k}×${v}`).join('、');
-    showToast(`✅ 已撤回批次：${n} 筆（${summary}）`)
+    showToast(`✅ 已撤回批次：${n} 筆（${summary}）`+(skipped?`，${skipped} 筆之後又改過狀態沒動`:''))
   }
 }
 // Toast 系統
@@ -2532,7 +2548,7 @@ function doReimport(){
     }else{orders.push(np);affected.push(np);added++}
   }
   // 只寫入影響到的訂單，不寫整包（節流網路 + 避免覆蓋他人正編輯）
-  const upd={};for(const o of affected)upd[o.id]=o;_setSavingBadge();db.ref('orders').update(upd).catch(_saveError);
+  for(const o of affected)saveOne(o);   // 2026-10-20：舊單只寫改到的欄位（不動 status/單號/備註…），新單整張寫
   updateCnt();
   alert(`✅ 重新匯入完成\n\n覆蓋更新：${updated} 筆\n新增：${added} 筆\n\n（狀態/安裝/加購/物流單號/備註保留）`);
   clearInput();
@@ -3298,7 +3314,7 @@ const _SHIP_AUTO_NEGOTIATE=['未確認','已確認','未接電'];
 /* 壓單成功後要不要把本機狀態改成「已出貨」。
    自從「平台沒結單就留著出貨鈕」(platformNeedsShip) 之後，已完成的單也按得到出貨鈕了 ——
    這些比「已出貨」更後面的狀態絕對不能被往回拉成已出貨，只記單號跟出貨痕跡就好。 */
-const _SHIP_NO_DOWNGRADE=['已完成','線下完','已取消','轉線下'];
+const _SHIP_NO_DOWNGRADE=['未收錢','已收錢','已完成','線下完','已取消','轉線下'];   // 未收錢/已收錢 在 ST 裡排在已出貨後面，也不能被拉回（2026-10-20）
 function applyShipStatus(o){if(!_SHIP_NO_DOWNGRADE.includes(o.status||''))o.status='已出貨';return o.status}
 const _MOMO_ST_SHORT={'請回覆':'未回報','已電聯，尚未確認配送日期':'已電聯','已確認指定配送日':'指配','已配送':'已配送',
  '暫時電聯不上(無須momo協助)':'電聯不上','多次電聯不上(2天3次以上)':'電聯不上×3','需配送加價協調中':'加價協調',
@@ -5263,7 +5279,7 @@ function batchSetStatus(s){
   }
   if(!confirm(`把選取的 ${sel.length} 筆訂單標記為「${s}」？`))return;
   // 紀錄每筆原 status 給 undo 用
-  const snapshot=sel.map(o=>({id:o.id,prevStatus:o.status}));
+  const snapshot=sel.map(o=>({id:o.id,prevStatus:o.status,to:s}));
   sel.forEach(o=>{const prev=o.status;o.status=s;logActivity(o,`批次狀態：${prev} → ${s}`)});
   pushUndo({kind:'bulk-restore-status',snapshot});
   // 只寫 status + note 兩個欄位（不寫整包 o）→ 別台剛改的金額/收款/單號不會被批次覆蓋洗掉
@@ -7929,7 +7945,7 @@ const MOMO_STATUS_MSG={
   '無適當選項，momo請協助':'無適當選項，momo請協助'
 };
 const _MOMO_STATUS_MSG_VALS=new Set(Object.values(MOMO_STATUS_MSG));
-function openShipMomo(oid){const o=findO(oid);if(!o)return;if(o.platform!=='MO'){alert('只有 MOMO 訂單可用此功能');return}shipId=oid;editId=null;_modalDirty=false;_shipBusy=false;
+function openShipMomo(oid){const o=findO(oid);if(!o)return;if(o.platform!=='MO'){alert('只有 MOMO 訂單可用此功能');return}shipId=oid;editId=null;_modalDirty=false;_shipBusy=false;_shipPrevSig=null;
 document.getElementById('modal-body').innerHTML=`<h3>📤 MOMO 出貨確認 / 物流單號回填</h3>
 <div style="background:#fef9ec;border:1px solid #f0e4b8;border-radius:8px;padding:10px 14px;font-size:11px;color:#8a6d0b;margin-bottom:12px;line-height:1.6">
 <b>⚠️ 安全機制：</b><br>
@@ -7968,7 +7984,7 @@ function onShipStatusChange(){const s=document.getElementById('s-status').value;
     copyText(msg,'已複製配送訊息：'+msg);
   }}
 
-let _shipBusy=false;
+let _shipBusy=false,_shipPrevSig=null,_pcPrevSig=null,_pcShipBusy=false;
 async function submitShip(force){
   await momoConfigReady;
   const o=findO(shipId);if(!o){alert('訂單已不存在');closeModal();return}
@@ -8002,6 +8018,8 @@ async function submitShip(force){
     if(!item.msgNote){alert('配送訊息必填（非已配送）');return}
   }
   const api=getMomoApi();const token=getMomoToken();if(!api||!token){alert('需先設定 API URL + Token');return}
+  /* 真送的內容一定要是剛剛預覽過的那份：預覽後又改了單號／物流／日期，真送鈕還在，會送出沒看過的內容（2026-10-20） */
+  if(force&&JSON.stringify(item)!==_shipPrevSig){alert('預覽之後內容有改過，請再按一次預覽確認後再真送');const rb=document.getElementById('ship-real-btn');if(rb)rb.style.display='none';return}
   // 防重入：出貨確認是不可逆動作，手機連點兩下會送兩次 → 鎖住並停用按鈕（比照其他網路 handler）
   if(_shipBusy)return;_shipBusy=true;
   const _dryBtn=document.getElementById('ship-dry-btn'),_realBtn=document.getElementById('ship-real-btn');
@@ -8017,6 +8035,7 @@ async function submitShip(force){
       _unlock();return;
     }
     if(data.dryRun){
+      _shipPrevSig=JSON.stringify(item);
       result.innerHTML=`<div style="background:#eff6ff;border:1px solid #93c5fd;color:#1e3a8a;padding:10px;border-radius:6px;font-size:12px"><b>🧪 DRY RUN — 沒有送到 MOMO</b><br>下面這份 payload 是按「真送」會送出的內容：<pre style="white-space:pre-wrap;font-size:10px;margin-top:6px;background:#fff;padding:8px;border-radius:4px">${esc(JSON.stringify(data.wouldSend,null,2))}</pre>確認沒問題就按「⚠️ 確認真送 MOMO」</div>`;
       document.getElementById('ship-real-btn').style.display='inline-block';
       _unlock();return;
@@ -8027,8 +8046,8 @@ async function submitShip(force){
     // Update local order
     let _autoStFrom=null;
     if(status==='已配送'){o.trackingNo=item.slipNo;o.delyGbStr=item.delyGbStr;o.shipTypeStr=item.shipTypeStr;o.packTypeStr=item.packTypeStr;o.packUnit=item.packUnit;applyShipStatus(o);o.shippedAt=new Date().toISOString();o.shippedBy=currentUser||'';o.shippedVia='出貨'}
-    else if(status==='無貨取消訂單'){o.status='已取消'}
-    else if(status==='暫時電聯不上(無須momo協助)'||status==='多次電聯不上(2天3次以上)'){o.status='未接電'}
+    else if(status==='無貨取消訂單'){o.status='已取消';if(o.invDeducted&&!o.invReturned)setTimeout(()=>invOfferReturn(o.id),900)}
+    else if(status==='暫時電聯不上(無須momo協助)'||status==='多次電聯不上(2天3次以上)'){/* 只從前段狀態改；已出貨／已完成的不往回拉（2026-10-20） */if(_SHIP_AUTO_NEGOTIATE.concat(['交涉中']).includes(o.status||''))o.status='未接電'}
     else if(status==='已確認指定配送日'){o.scmDelyDate=item.scmDelyDate;o.momoContacted=true;/* status 維持，等之後改「已配送」*/}
     else if(status==='已電聯，尚未確認配送日期'){
       o.momoContacted=true;o.momoContactedAt=new Date().toISOString();/* 電聯過但還沒喬到配送日 → 三態徽章顯示「已電聯待指配」*/
@@ -8089,7 +8108,7 @@ function _pcVendorCodeFromLabel(label){
    按「出貨」就照常把單號送去 PChome。改成平台狀態是自行出貨（SP，或 pchome+systempass 那種）也算。 */
 function pcLiveSelfShip(o){const L=pcLiveOf(o);return !!(L&&(L.kind==='sp'||L.vendor==='SP'||(L.vendor==='pchome'&&L.slip==='systempass')))}
 function pcIsSelfShipped(o){return !!(o&&o.platform==='PC'&&(o.pcSelfShipped===true||o.shippedVia==='自行出貨'||o.delyGbStr==='廠商自行出貨'||pcLiveSelfShip(o)));}
-function openShipPchome(oid){const o=findO(oid);if(!o)return;if(o.platform!=='PC'){alert('只有 PChome 訂單可用此功能');return}shipId=oid;editId=null;_modalDirty=false;
+function openShipPchome(oid){const o=findO(oid);if(!o)return;if(o.platform!=='PC'){alert('只有 PChome 訂單可用此功能');return}shipId=oid;editId=null;_modalDirty=false;_pcPrevSig=null;_pcShipBusy=false;
   const _spSelf=pcIsSelfShipped(o);
   if(_spSelf)alert('提醒：這張 PChome 單是「廠商自行出貨（SP）」'+(pcLiveSelfShip(o)?'，平台上已經是'+(_PC_LABEL[_pcState(pcLiveOf(o))]||'自行出貨'):'')+'。\n\n在這裡填的單號只會存在撈單本機，不會送去 PChome。\n（送過去會變成壓假單號、PChome 檢核卡住結不到帳）');
   const _spBanner=_spSelf?`<div style="background:#ecfdf5;border:1px solid #6ee7b7;border-radius:8px;padding:10px 14px;font-size:11px;color:#047857;margin-bottom:12px;line-height:1.6"><b>📦 此單是廠商自行出貨（SP）</b><br>PChome 已當自行出貨結掉。補寄回填單號會<b>只存本機、不回傳 PChome</b>（回傳會被判「單號回填過期」報錯）。</div>`:'';
@@ -8163,28 +8182,37 @@ async function submitShipPchome(real){
     summary=`標記不出貨${reason?'：'+reason:''}`;
   }
   if(!real){
+    _pcPrevSig=endpoint+JSON.stringify(payload);
     result.innerHTML=`<div style="background:#eff6ff;border:1px solid #93c5fd;color:#1e3a8a;padding:10px;border-radius:6px;font-size:12px"><b>🧪 預覽 — 還沒送到 PChome</b><br>${esc(summary)}<pre style="white-space:pre-wrap;font-size:10px;margin-top:6px;background:#fff;padding:8px;border-radius:4px">${esc(JSON.stringify(payload,null,2))}</pre>確認沒問題就按「⚠️ 確認真送 PChome」</div>`;
     document.getElementById('pc-real-btn').style.display='inline-block';
     return;
   }
+  // 真送＝剛剛預覽的那份；連點／預覽後改欄位都擋（2026-10-20）
+  if(endpoint+JSON.stringify(payload)!==_pcPrevSig){alert('預覽之後內容有改過，請再按一次預覽確認後再真送');const rb=document.getElementById('pc-real-btn');if(rb)rb.style.display='none';return}
+  if(_pcShipBusy)return;_pcShipBusy=true;
+  const _pcRb=document.getElementById('pc-real-btn');if(_pcRb)_pcRb.disabled=true;
+  const _pcUnlock=()=>{_pcShipBusy=false;if(_pcRb)_pcRb.disabled=false};
   result.innerHTML='<div style="color:var(--blu);font-size:12px">處理中...</div>';
   try{
     const r=await fetch(`${api}${endpoint}`,{method:'POST',headers:{'Content-Type':'application/json','X-API-Token':token},body:JSON.stringify(payload)});
     const data=await r.json();
-    if(!r.ok||!data.ok){result.innerHTML=`<div style="background:var(--pc-bg);border:1px solid var(--pc);color:var(--pc);padding:10px;border-radius:6px;font-size:12px"><b>❌ 失敗</b><br>${esc(data.error||'HTTP '+r.status)}<br><pre style="white-space:pre-wrap;font-size:10px;margin-top:6px">${esc(JSON.stringify(data.detail||data,null,2).slice(0,500))}</pre></div>`;return}
+    if(!r.ok||!data.ok){result.innerHTML=`<div style="background:var(--pc-bg);border:1px solid var(--pc);color:var(--pc);padding:10px;border-radius:6px;font-size:12px"><b>❌ 失敗</b><br>${esc(data.error||'HTTP '+r.status)}<br><pre style="white-space:pre-wrap;font-size:10px;margin-top:6px">${esc(JSON.stringify(data.detail||data,null,2).slice(0,500))}</pre></div>`;_pcUnlock();return}
     result.innerHTML=`<div style="background:var(--grn-bg);border:1px solid var(--grn);color:var(--grn);padding:10px;border-radius:6px;font-size:12px"><b>✅ PChome 已收到${mode==='ship'?'出貨回填':'不出貨標記'}</b><br>HTTP ${data.status||''}</div>`;
     if(mode==='ship'){o.trackingNo=payload.shipId||'';o.delyGbStr=(PC_SHIP_VENDORS.find(v=>v.code===payload.shipVendorId)||{}).name||payload.shipVendorId;applyShipStatus(o);o.shippedAt=new Date().toISOString();o.shippedBy=currentUser||'';o.shippedVia='出貨'}
-    else{o.status='已取消'}
+    else{o.status='已取消';if(o.invDeducted&&!o.invReturned)setTimeout(()=>invOfferReturn(o.id),900)}
+    _pcPrevSig=null;if(_pcRb)_pcRb.style.display='none';_pcShipBusy=false;
     _pcMarkLocal(o.orderNo, mode==='ship' ? 'checking' : 'cancelled', payload.shipId, payload.shipVendorId);
     logActivity(o,mode==='ship'?`PChome 出貨回填：${summary}`:`PChome ${summary}`);
     saveOne(o);renderList();_modalDirty=false;
     const localMsg=mode==='ship'?o.status:'已取消';
     setTimeout(()=>{closeModal();alert(`✅ 完成，訂單狀態已更新為「${localMsg}」`)},800);
-  }catch(err){result.innerHTML=`<div style="background:var(--pc-bg);border:1px solid var(--pc);color:var(--pc);padding:10px;border-radius:6px;font-size:12px"><b>❌ 網路錯誤</b><br>${esc(err.message)}</div>`}
+  }catch(err){_pcUnlock();result.innerHTML=`<div style="background:var(--pc-bg);border:1px solid var(--pc);color:var(--pc);padding:10px;border-radius:6px;font-size:12px"><b>❌ 網路錯誤</b><br>${esc(err.message)}</div>`}
 }
 // 一鍵「廠商自行出貨」— PChome 訂單免開視窗，直接用 SP(廠商自行出貨) 出貨。跳一次確認（真送不可復原）。
 // 自行出貨通常沒有貨運單號 → 用既有 trackingNo，沒有就用訂單編號當出貨參考。
+const _pcSelfInFlight=new Set();   // 送出中再按一次會再跳確認、再送一次（2026-10-20）
 async function quickShipPchomeSelf(oid){
+  if(_pcSelfInFlight.has(oid)){showToast('這張正在送 PChome，請稍等');return}
   await momoConfigReady;
   const o=findO(oid);if(!o){alert('訂單已不存在');return}
   if(o.platform!=='PC'){alert('只有 PChome 訂單可用此功能');return}
@@ -8197,6 +8225,7 @@ async function quickShipPchomeSelf(oid){
      自行出貨本來就沒有物流單號 —— 整個 shipId 欄位不送。 */
   if(!confirm(`【一鍵自行出貨】確定嗎？\n⚠️ PChome 送出後無法復原。\n\n訂單：${o.orderNo}\n${o.name||''} ${o.product||''} ×${qty}\n配送方式：廠商自行出貨 (SP)\n出貨單號：不送（自行出貨不壓單號）`))return;
   const payload={orderId:o.orderNo,shipVendorId:'SP',shipQty:qty};
+  if(_pcSelfInFlight.has(oid))return;_pcSelfInFlight.add(oid);
   try{
     const r=await fetch(`${api}/api/orders/pchome/shipinfo`,{method:'POST',headers:{'Content-Type':'application/json','X-API-Token':token},body:JSON.stringify(payload)});
     const data=await r.json();
@@ -8211,6 +8240,7 @@ async function quickShipPchomeSelf(oid){
     saveOne(o);renderList();
     alert(`✅ 已送出「廠商自行出貨」給 PChome\n訂單 ${o.orderNo} 狀態維持不動（等實際到貨你再自己改）`);
   }catch(err){alert('❌ 網路錯誤：'+err.message)}
+  finally{_pcSelfInFlight.delete(oid)}
 }
 document.getElementById('raw-input')?.addEventListener('paste',()=>setTimeout(runParse,200));
 
@@ -8322,10 +8352,9 @@ function schedBatchAssignInstaller(){
     if(!isServiceActive(o)){o.install='是'}
     o.installer=n;
     logActivity(o,`批次指派師傅 → ${n}`);
-    upd[oid]=o;count++;
+    saveOne(o);count++;   // 只寫改到的欄位（原本整張寫回，會蓋掉別台剛改的狀態／單號／收款）2026-10-20
   }
   if(!count){alert('沒有單可更新');return}
-  _setSavingBadge();db.ref('orders').update(upd).catch(_saveError);
   _schedBatch.clear();renderSchedule();_renderSchedBatchBar();
   showToast(`已指派 ${count} 筆給「${n}」`,null,null,4000);
 }
@@ -8347,10 +8376,9 @@ function schedBatchSchedule(){
     o.installDate=dTrim;
     o.installSlot=sTrim;
     logActivity(o,`批次排程 → ${dTrim} ${sTrim||'未排時段'}`);
-    upd[oid]=o;count++;
+    saveOne(o);count++;   // 只寫改到的欄位（原本整張寫回，會蓋掉別台剛改的狀態／單號／收款）2026-10-20
   }
   if(!count){alert('沒有單可更新');return}
-  _setSavingBadge();db.ref('orders').update(upd).catch(_saveError);
   _schedBatch.clear();renderSchedule();_renderSchedBatchBar();
   showToast(`已排程 ${count} 筆到 ${dTrim} ${sTrim||'未排時段'}`,null,null,4000);
 }
@@ -8363,10 +8391,9 @@ function schedBatchUnschedule(){
     if(!o.installDate&&!o.installSlot)continue;
     o.installDate='';o.installSlot='';
     logActivity(o,`批次取消排程 → 未排日`);
-    upd[oid]=o;count++;
+    saveOne(o);count++;   // 只寫改到的欄位（原本整張寫回，會蓋掉別台剛改的狀態／單號／收款）2026-10-20
   }
   if(!count){alert('沒有單需要取消（都已未排）');return}
-  _setSavingBadge();db.ref('orders').update(upd).catch(_saveError);
   _schedBatch.clear();renderSchedule();_renderSchedBatchBar();
   showToast(`已取消 ${count} 筆排程`,null,null,4000);
 }
@@ -8799,7 +8826,8 @@ function _dvRenderSchedule(list){
   return keys.map(k=>`<div style="margin-bottom:14px"><div style="font-weight:800;margin-bottom:6px">${k==='__none'?'🕓 未排定配送／施工日':'📅 '+esc(k)} <span class="pill" style="font-size:11px">${g[k].length} 單</span></div>${g[k].map(_dvCard).join('')}</div>`).join('');
 }
 // 依地區檢視：從地址抓縣市分組（規劃路線）
-const _dvRegion=o=>{const m=String(o.address||'').match(/^[一-龥]{2,3}[市縣]/);return m?m[0]:'未填地區'};
+// 先去掉郵遞區號、臺→台（原本「臺北市」被當寄送、「236新北市」落到未填地區）2026-10-20
+const _dvRegion=o=>{const m=String(o.address||'').replace(/^\d{3,6}\s*/,'').replace(/臺/g,'台').trim().match(/^[一-龥]{2,3}[市縣]/);return m?m[0]:'未填地區'};
 function _dvRenderRegion(list){
   const zones={'親送':{},'寄送':{},'未填':{}};
   list.forEach(o=>{const z=_dvShipMode(o);const k=_dvRegion(o);const g=zones[z];(g[k]||(g[k]=[])).push(o)});
@@ -10767,7 +10795,8 @@ function goalHit(g){ return g.target ? goalCount(g) >= g.target : false }
 function goalExpired(g){ return !!(g.end && g.end < todayStr() && !goalHit(g)) }
 function goalDaysLeft(g){
   if(!g.end) return null;
-  return Math.round((new Date(g.end+'T23:59:59') - Date.now()) / 86400000);
+  // 用「日期差」算，不看現在幾點（原本最後一天中午前顯示剩 1 天、過期隔天早上顯示今天最後一天）2026-10-20
+  return Math.round((new Date(g.end+'T00:00:00') - new Date(todayStr()+'T00:00:00')) / 86400000);
 }
 function goalPeriodText(g){
   if(!g.start && !g.end) return '不限期間';
@@ -13329,7 +13358,8 @@ async function stConvertRun(picked, targetMode){
 }
 
 // 手動按「轉店到店」——跳確認、跑、報結果
-async function stConvert(targetMode){
+async function stConvert(targetMode){if(_stConvBusy){alert('轉換還在跑，請等它跑完');return}_stConvBusy=true;try{return await _stConvertInner(targetMode)}finally{_stConvBusy=false}}
+async function _stConvertInner(targetMode){
   const picked = stRows.filter(r=>stPick.has(r.completeOrderNo) && r.canS2S);
   if(!picked.length) return;
   const names = picked.map(r=>r.completeOrderNo + '（' + r.delyGbName + '）').join('\n');
@@ -13455,7 +13485,11 @@ async function stLoadShipTypes(){
   stShipLoading = false; stRender();
 }
 
-async function stShipGo(){
+/* 防連點（2026-10-20）：跑完之前畫面會重畫出可以按的「確認出貨」，本機資料又還沒標已出貨，
+   再按一次會把「轉店到店」（切換型 API）跟出貨確認再送一輪 */
+let _stShipBusy=false,_stConvBusy=false;
+async function stShipGo(){if(_stShipBusy){alert('出貨確認還在跑，請等它跑完');return}_stShipBusy=true;try{return await _stShipGoInner()}finally{_stShipBusy=false}}
+async function _stShipGoInner(){
   // 出貨確認只能做「還沒印單」的單：
   //   shipped → 我們自己按過出貨確認的本機紀錄
   //   sending → MOMO 那邊已經是出貨中（已印單），第一步「貨源確認」會直接回 null 整批失敗
