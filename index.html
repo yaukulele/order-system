@@ -4954,13 +4954,16 @@ function toggleFilterPanel(){
 }
 /* 手機：篩選打開時，往下滑到訂單（整塊篩選已經滑出畫面上方）就自動收起來（阿淵 2026-10-18）。
    還看得到篩選的時候不收 —— 篩選很長，可能正在往下找按鈕；收起來時把畫面位置補回去，訂單不會跳。 */
-let _flAutoTick=false;
+/* 2026-10-20 修：篩選列在手機是 position:sticky 黏在頂端，永遠不會「滑出畫面」→ 原本的判斷永遠不成立、從來沒收過。
+   改成：手指往上滑（畫面往下捲）而且訂單已經捲到篩選底下（被蓋住）就收。 */
+let _flAutoTick=false,_flLastY=window.scrollY;
 window.addEventListener('scroll',()=>{if(_flAutoTick)return;_flAutoTick=true;requestAnimationFrame(()=>{_flAutoTick=false;
+  const y=window.scrollY,down=y>_flLastY+4;_flLastY=y;
   try{
-    if(!filterPanelOpen()||window.innerWidth>768)return;
+    if(!down||!filterPanelOpen()||window.innerWidth>768)return;
     const tab=document.getElementById('tab-list');if(!tab||tab.classList.contains('hidden'))return;
     const fr=tab.querySelector('.filter-row'),la=document.getElementById('list-area');if(!fr||!la)return;
-    if(fr.getBoundingClientRect().bottom>0)return;
+    if(la.getBoundingClientRect().top>=fr.getBoundingClientRect().bottom-4)return;
     const before=la.getBoundingClientRect().top;
     try{localStorage.setItem(FL_KEY,'0')}catch(e){}
     applyFilterPanel();
