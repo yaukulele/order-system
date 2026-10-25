@@ -7455,8 +7455,7 @@ async function batchKerry(){
         ${kerryShipDay()!==localDateISO()?`<div style="font-size:11px;color:#b45309">${(()=>{const w=new Date(localDateISO()+'T12:00:00').getDay();
         return (w===0||w===6)?('今天是'+['日','一','二','三','四','五','六'][w]+'，大榮不收件 → 順延')
           :(kerryPastCutoff()?('已過 '+KERRY_CUTOFF_HHMM[0]+':'+String(KERRY_CUTOFF_HHMM[1]).padStart(2,'0')+'，大榮今天收過了 → 順延'):'順延');})()}</div>`:''}</div>
-      <label>標籤從第幾格開始印<br><select id="k-slot" onchange="kerryReslot()">${[1,2,3,4,5,6].map(n=>`<option value="${n}">${n}</option>`).join('')}</select>
-        <span style="color:var(--dm)">（A4 六格：左排上到下 1-3、右排 4-6）</span></label>
+      <div>${kSlotGrid('k-slot',kSlotDefault(),'kerryReslotSoon')}</div>
     </div>
     <div style="font-size:11px;color:var(--dm);margin-bottom:6px">已勾選 ${sel.length} 筆、${groups.length} 種商品。才數、備註跟「📦 託運單」是同一份記憶。<br><b>分好幾箱寄</b>：才數打「5+3」＝分 2 箱（每箱一張獨立託運單、各自才數）；只打一個數字＝1 箱。數量 2 以上但分開裝箱的也用 + 分開。</div>
     <div style="max-height:44vh;overflow:auto;border:1px solid var(--bd);border-radius:8px">
@@ -7488,7 +7487,7 @@ async function batchKerry(){
   kerryEtpWarn();
   // 記住上次的出貨地；同一天接著印就從上次印到的下一格開始（半張貼紙接著用）
   const lo=_kLS('kerryOrigin');if(lo&&document.querySelector('#k-origin option[value="'+lo+'"]'))document.getElementById('k-origin').value=lo;
-  try{const ns=JSON.parse(_kLS('kerryNextSlot')||'null');if(ns&&ns.d===localDateISO()&&ns.s>=1&&ns.s<=6)document.getElementById('k-slot').value=String(ns.s)}catch(e){}
+  document.querySelectorAll('#modal-body [data-chg]').forEach(_kSlotPaint);
 }
 // 「今天已送大榮」清單：列今天出的每一筆、可勾選取消、重開標籤／明細（杰哥 2026-10-10）
 let _kerryToday=[],_kerryTodayAll=null,_ktTodayAt=0,_kerryTodayMode='';
@@ -7541,11 +7540,12 @@ function renderKerryTodayBox(){
       <button class="btn" style="font-size:12px" onclick="kerryTodayCheckAll(this)">全選</button>
       <button class="btn btn-r" style="font-size:12px" onclick="kerryCancelSelected()">↩ 取消勾選的</button>
       <button class="btn btn-g" style="font-size:12px" onclick="kerryLabelsToday(this)" title="勾哪幾張就補印哪幾張的標籤（不重新取號）">🖨 補印勾選的標籤</button>
-      <label style="font-size:11px;color:var(--dm)">從第 <select id="k-today-slot" style="font-size:11px">${[1,2,3,4,5,6].map(n=>`<option value="${n}">${n}</option>`).join('')}</select> 格印</label>
+      <div style="width:100%">${kSlotGrid('k-today-slot',kSlotDefault())}</div>
       <button class="btn" style="font-size:12px" onclick="kerryDetailToday(this)" title="司機來收貨時簽的那張清單。沒勾就是今天全部，有勾就只印勾的">📄 託運明細（司機簽收用）</button>
       <button class="btn" style="font-size:12px" onclick="loadKerryToday(true)">重新整理</button>
       <span style="font-size:11px;color:var(--dm)">今天有效 ${liveN} 筆${all.length>liveN?('、已取消 '+(all.length-liveN)):''}</span></div>
     <div style="font-size:10px;color:var(--dm);margin-top:4px">取消＝這邊標記作廢、單號釋放（大榮沒有取消 API，交站所前不要收就好）。</div>`;
+  _kSlotPaint(document.getElementById('k-today-slot'));
 }
 /* 勾選的補印標籤（阿淵 2026-10-19）：用當初送大榮的資料重出，不重新取號；已取消的不印。 */
 async function kerryLabelsToday(btn){
@@ -7553,10 +7553,11 @@ async function kerryLabelsToday(btn){
   if(!picked.length){alert('先在左邊打勾要補印的那幾張');return}
   const use=(_kerryTodayAll||[]).filter(s=>!s.cancelled&&s.row&&picked.indexOf(s.orderKey)>=0);
   if(!use.length){alert('勾選的這幾筆沒有可以印的資料（可能已取消）');return}
-  const slot=Number((document.getElementById('k-today-slot')||{}).value)||1;
+  const slots=kSlotsOf('k-today-slot'); if(!slots.length){alert('六宮格至少點一格要印的');return}
   const old=btn.textContent; btn.disabled=true; btn.textContent='產生中…';
   try{
-    const L=await kerryApi('/api/kerry/labels',{rows:use.map(s=>s.row),startSlot:slot});
+    const L=await kerryApi('/api/kerry/labels',{rows:use.map(s=>s.row),startSlot:slots[0],slots});
+    kSlotRemember(L,slots);
     const wrap=document.createElement('span'); wrap.innerHTML=await _kerryLabelLinks(L);
     btn.replaceWith(wrap);
   }catch(e){btn.disabled=false;btn.textContent=old;alert('標籤產生失敗：'+e.message)}
@@ -7695,7 +7696,7 @@ async function doKerry(){
     etp=fixed.replace(/-/g,'');
     const _el=document.getElementById('k-etp'); if(_el)_el.value=fixed;
   }
-  const slot=Number(document.getElementById('k-slot').value)||1;
+  const slot=kSlotsOf('k-slot'); if(!slot.length){alert('六宮格至少點一格要印的（綠色＝這格貼紙還空著）');return}
   const items=[];
   // 一箱一張託運單（件數 1、自己的才數）；分箱的第 2 箱起 orderKey 加 ~b2…，備註最前面標 (1/2)、(2/2)（放後面會被大榮 60 字上限切掉）
   groups.forEach((r,i)=>r.orders.forEach(o=>{const bx=vals[i],n=bx.length;bx.forEach((c,j)=>items.push({orderKey:j?o.id+KBOX+(j+1):o.id,origin,consignee:shipName(o),phone:bestPhone(o),
@@ -7788,13 +7789,10 @@ async function _doKerrySend(groups,st,items,vals,notes,origin,slot,gifts){
   let labelHtml='';
   if(okRows.length){
     try{
-      const L=await kerryApi('/api/kerry/labels',{rows:okRows,startSlot:slot});
-      const files=L.files||[L.id];
-      labelHtml=files.map((f,i)=>`<a class="btn btn-g" style="margin-right:6px" target="_blank" rel="noopener" href="${kLabelUrl(L,f)}">🖨 開啟標籤${files.length>1?'（第 '+(i+1)+' 張）':''}</a>`).join('')
-        +(L.startSlotIgnored?'<div style="font-size:11px;color:#b45309;margin-top:4px">起始格位移要等拿到大榮真的標籤 PDF 才做，這次從第 1 格印</div>':'');
+      const L=await kerryApi('/api/kerry/labels',{rows:okRows,startSlot:slot[0],slots:slot});
+      kSlotRemember(L,slot);
+      labelHtml=await _kerryLabelLinks(L);
     }catch(e){labelHtml='<div style="color:#b91c1c;font-size:12px">標籤產生失敗：'+esc(e.message)+'（單號已經取好、資料已送到大榮）<button class="btn" style="font-size:11px;margin-left:6px" onclick="kerryReslot()">重新產生標籤</button></div>'}
-    // 下一次（同一天）從印到的下一格開始
-    _kLS('kerryNextSlot',JSON.stringify({d:localDateISO(),s:((slot-1+okRows.length)%6)+1}));
   }
   // 存起來，讓改「標籤從第幾格開始印」時可以直接用原本的單號重印、不用再送一次大榮（稽核後 UX 修：杰哥 2026-10-10「改第二格沒辦法改」）
   _kerryLastRows = okRows.length ? okRows : null;
@@ -7905,15 +7903,59 @@ let _kerryLastRows=null;
 async function kerryReslot(){
   if(!_kerryLastRows||!_kerryLastRows.length)return;   // 還沒送出過就不用做
   const area=document.getElementById('k-label-area'); if(!area)return;
-  const slot=Number((document.getElementById('k-slot')||{}).value)||1;
-  area.innerHTML='<span style="font-size:12px;color:var(--dm)">重新產生標籤中…（第 '+slot+' 格）</span>';
+  const slots=kSlotsOf('k-slot'); if(!slots.length)return;
+  area.innerHTML='<span style="font-size:12px;color:var(--dm)">重新產生標籤中…（第 '+slots.join('、')+' 格）</span>';
   try{
-    const L=await kerryApi('/api/kerry/labels',{rows:_kerryLastRows,startSlot:slot});
+    const L=await kerryApi('/api/kerry/labels',{rows:_kerryLastRows,startSlot:slots[0],slots});
+    kSlotRemember(L,slots);
     area.innerHTML=await _kerryLabelLinks(L);
   }catch(e){area.innerHTML='<div style="color:#b91c1c;font-size:12px">標籤重產失敗：'+esc(e.message)+'</div>'}
 }
 
-function _kerrySlotPicker(){return `<label style="font-size:12px">標籤從第幾格開始印 <select id="k-slot2">${[1,2,3,4,5,6].map(n=>`<option value="${n}">${n}</option>`).join('')}</select></label>`}
+// 送出後才改格子 → 等使用者點完（0.8 秒沒再點）才重產，不要每點一下就跟大榮要一次 PDF
+let _kReslotT=0;
+function kerryReslotSoon(){clearTimeout(_kReslotT);_kReslotT=setTimeout(kerryReslot,800)}
+function _kerrySlotPicker(){return kSlotGrid('k-slot2',kSlotDefault())}
+/* 六宮格自己點要印哪幾格（杰哥 2026-10-25：選兩筆、系統記住今天從第 6 格開始 → 第 2 張被擠到下一頁）。
+   原本只能選「從第幾格開始」、而且一定連續往後排；貼紙上空的格子常常不連續（例如只剩 3 跟 6）。
+   改成直接點格子：綠色＝這格空著、要印；灰色＝已經貼掉了。標籤照格子號碼由小到大放，點的格子不夠才換一張新的從第 1 格接著印。
+   大榮 A4 的格子順序是「左排上到下 1,2,3、右排上到下 4,5,6」，畫面照實際貼紙的位置排。
+   印完會記住這張貼紙還剩哪幾格，同一天下次打開預設就點好那幾格（剩 0 格＝換新的一張，預設全選）。 */
+function kSlotDefault(){
+  try{const f=JSON.parse(_kLS('kerryFreeCells')||'null');if(f&&f.d===localDateISO()&&Array.isArray(f.c)&&f.c.length)return f.c}catch(e){}
+  try{const ns=JSON.parse(_kLS('kerryNextSlot')||'null');if(ns&&ns.d===localDateISO()&&ns.s>=1&&ns.s<=6)return [1,2,3,4,5,6].filter(n=>n>=ns.s)}catch(e){}   // 舊版記的「從第幾格」
+  return [1,2,3,4,5,6];
+}
+function kSlotGrid(id,sel,onchg){
+  const on=new Set((sel||[]).map(Number));
+  const cell=n=>`<button type="button" data-n="${n}" class="${on.has(n)?'on':''}" onclick="kSlotToggle(this)" style="display:flex;align-items:center;justify-content:center;text-align:center;width:46px;height:30px;border-radius:5px;font-size:12px;font-weight:700;cursor:pointer;padding:0">${n}</button>`;
+  return `<div style="font-size:12px">標籤印在哪幾格 <span style="font-size:10.5px;color:var(--dm)">（點格子切換：綠＝空的要印、灰＝已貼掉）</span></div>
+    <div style="display:flex;gap:8px;align-items:center;margin-top:3px">
+      <div id="${id}" data-chg="${onchg||''}" style="display:grid;grid-template-columns:46px 46px;grid-template-rows:repeat(3,30px);grid-auto-flow:column;gap:3px;padding:4px;border:1px solid var(--bd);border-radius:6px;background:var(--sf2)">${[1,2,3,4,5,6].map(cell).join('')}</div>
+      <div style="display:flex;flex-direction:column;gap:3px;align-items:flex-start">
+        <button type="button" class="btn" style="font-size:10.5px;padding:2px 8px" onclick="kSlotAll('${id}',1)">新的一張（全選）</button>
+        <button type="button" class="btn" style="font-size:10.5px;padding:2px 8px" onclick="kSlotAll('${id}',0)">全部清掉</button>
+        <span class="kslot-sum" data-for="${id}" style="font-size:10.5px;color:var(--dm)"></span></div></div>`;
+}
+function _kSlotPaint(g){
+  if(!g)return;
+  g.querySelectorAll('button').forEach(b=>{const o=b.classList.contains('on');
+    b.textContent=b.dataset.n+(o?' 印':'');
+    b.style.background=o?'#16a34a':'#fff';b.style.color=o?'#fff':'#9ca3af';b.style.border=o?'1px solid #15803d':'1px dashed #d1d5db';});
+  const sum=document.querySelector('.kslot-sum[data-for="'+g.id+'"]');
+  if(sum){const n=kSlotsOf(g.id).length;sum.textContent=n?('可印 '+n+' 張，超過才換新的一張'):'還沒點格子';sum.style.color=n?'var(--dm)':'#b91c1c'}
+}
+function kSlotsOf(id){const g=document.getElementById(id);if(!g)return [1];return [...g.querySelectorAll('button.on')].map(b=>Number(b.dataset.n)).sort((a,b)=>a-b)}
+function _kSlotChanged(g){_kSlotPaint(g);const f=g.dataset.chg;if(f&&typeof window[f]==='function'&&kSlotsOf(g.id).length)window[f]()}
+function kSlotToggle(b){b.classList.toggle('on');_kSlotChanged(b.parentElement)}
+function kSlotAll(id,v){const g=document.getElementById(id);if(!g)return;g.querySelectorAll('button').forEach(b=>b.classList.toggle('on',!!v));_kSlotChanged(g)}
+// 印完記住這張貼紙還剩哪幾格；後端舊版沒回 freeCells 就自己算（點的格子扣掉這次用掉的張數）
+function kSlotRemember(L,slots){
+  let free=L&&Array.isArray(L.freeCells)?L.freeCells:null;
+  if(!free){const n=(L&&(L.labels||L.count))||0;free=n>=slots.length?[]:slots.slice(n)}
+  _kLS('kerryFreeCells',JSON.stringify({d:localDateISO(),c:free.length?free:[1,2,3,4,5,6]}));
+  _kLS('kerryNextSlot','');
+}
 /* 標籤／明細的連結網址。有「票」就用票 —— 這些 PDF 上有客人姓名電話地址，
    而連結是真的 <a target=_blank>（程式開新分頁會被擋），所以網址一定會進瀏覽器歷史紀錄。
    以前網址直接帶主 API token，等於把鑰匙寫進歷史紀錄跟網址列（截圖、門市共用電腦都看得到）。
@@ -7927,7 +7969,8 @@ function kLabelUrl(L,f){
 async function _kerryLabelLinks(L){
   const files=L.files||[L.id];
   return files.map((f,i)=>`<a class="btn btn-g" style="margin-right:6px" target="_blank" rel="noopener" href="${kLabelUrl(L,f)}">🖨 開啟標籤${files.length>1?'（第 '+(i+1)+' 張）':''}</a>`).join('')
-    +(L.startSlotIgnored?'<div style="font-size:11px;color:#b45309;margin-top:4px">起始格位移要等拿到大榮真的標籤 PDF 才做，這次從第 1 格印</div>':'');
+    +(L.startSlotIgnored?'<div style="font-size:11px;color:#b45309;margin-top:4px">起始格位移要等拿到大榮真的標籤 PDF 才做，這次從第 1 格印</div>':'')
+    +(L.overflow?`<div style="font-size:11px;color:#b45309;margin-top:4px">點的空格不夠：有 ${L.overflow} 張印到下一張貼紙（共 ${L.pages} 頁）。要擠同一頁就多點幾格空的。</div>`:'');
 }
 // 補印：用當初送大榮的那份資料重出標籤，不重新取號
 async function batchKerryReprint(){
@@ -7938,6 +7981,7 @@ async function batchKerryReprint(){
     ${_kerrySlotPicker()}<div id="k-result2" style="margin-top:10px"></div>
     <div class="modal-ft"><button class="btn" onclick="closeModal()">關閉</button><button class="btn" id="k-go2d" title="司機來收貨時簽的那張清單，勾哪幾張就印哪幾張（不限今天）">📄 補印託運明細</button><button class="btn btn-g" id="k-go2">產生標籤</button></div>`;
   document.getElementById('modal-overlay').classList.remove('hidden');document.body.style.overflow='hidden';
+  _kSlotPaint(document.getElementById('k-slot2'));
   // 補印託運明細（阿淵 2026-10-19：原本只有「今天已送大榮」那區能印、而且只到 24 小時）
   document.getElementById('k-go2d').onclick=async()=>{
     const box=document.getElementById('k-result2');box.textContent='產生託運明細中…';
@@ -7948,7 +7992,8 @@ async function batchKerryReprint(){
   };
   document.getElementById('k-go2').onclick=async()=>{
     const box=document.getElementById('k-result2');box.textContent='產生中…';
-    try{const L=await kerryApi('/api/kerry/reprint',{orderKeys:sel.flatMap(kKeysOf),startSlot:Number(document.getElementById('k-slot2').value)||1});
+    const slots=kSlotsOf('k-slot2'); if(!slots.length){box.textContent='六宮格至少點一格要印的';return}
+    try{const L=await kerryApi('/api/kerry/reprint',{orderKeys:sel.flatMap(kKeysOf),startSlot:slots[0],slots});kSlotRemember(L,slots);
       box.innerHTML=`<div style="font-size:12px;margin-bottom:6px">找到 ${L.found} 張已出單的託運單（分箱的每箱一張）</div>`+await _kerryLabelLinks(L)}
     catch(e){box.innerHTML='<span style="color:#b91c1c">'+esc(e.message)+'</span>'}
   };
