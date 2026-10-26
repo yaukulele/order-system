@@ -7273,22 +7273,75 @@ async function ktRefresh(blns){
    按下去先強制跟大榮重查這張單的每一箱，任何一箱有收件／運送／送達紀錄就擋下來（貨已經在大榮手上，取消只會讓訂單跟貨對不起來）。
    查不到（大榮或網路掛掉）也不取消，寧可擋。只處理用系統（API）送的單；WEBEDI 舊單我們這邊沒有號碼池可以取消。
    真正取消走既有的 batchKerryCancel（同一套確認視窗：平台已壓出貨會列出警告）。 */
-async function ktCancel(oid,btn){
-  const o=findO(oid); if(!o)return;
-  if(!o.kerry||o.kerry.cancelled){alert('這張不是用撈單送大榮的（或已經取消），系統這邊沒辦法取消。WEBEDI 開的單請到大榮網頁處理。');return}
-  const blns=ktBlnsOf(o); if(!blns.length){alert('這張單沒有大榮單號');return}
-  const old=btn.textContent; btn.disabled=true; btn.textContent='跟大榮確認中…';
-  let ok=false;
+/* 大榮那邊還沒有任何動態（未收件）才可以取消／更改重送。查不到也算不行（寧可擋）。 */
+async function ktNotMoved(o,btn,what){
+  what=what||'取消';
+  if(!o.kerry||o.kerry.cancelled){alert('這張不是用撈單送大榮的（或已經取消），系統這邊沒辦法'+what+'。WEBEDI 開的單請到大榮網頁處理。');return false}
+  const blns=ktBlnsOf(o); if(!blns.length){alert('這張單沒有大榮單號');return false}
+  const old=btn?btn.textContent:''; if(btn){btn.disabled=true; btn.textContent='跟大榮確認中…'}
   try{
     await kerryApi('/api/kerry/track-refresh',{blns,force:true});
     const vals=await Promise.all(blns.map(b=>db.ref('kerryTrack/'+b).once('value').then(sn=>sn.val())));
     const unknown=blns.filter((b,i)=>!vals[i]);
     const moved=blns.map((b,i)=>({b,v:vals[i]})).filter(x=>x.v&&x.v.cls&&x.v.cls!=='none');
-    if(moved.length){alert('❌ 不能取消：大榮已經有這箱的紀錄了'+String.fromCharCode(10)+moved.map(x=>'　'+x.b+'：'+(x.v.s||KT_LABEL[x.v.cls]||x.v.cls)+(x.v.t?'（'+x.v.t+'）':'')).join(String.fromCharCode(10))+String.fromCharCode(10)+String.fromCharCode(10)+'貨已經在大榮手上，要改請打大榮客服 02-412-8999 報單號。');return}
-    if(unknown.length){alert('查不到大榮的最新貨態（'+unknown.join('、')+'），為了安全這次先不取消，請稍後再試。');return}
-    ok=true;
-  }catch(e){alert('跟大榮確認貨態失敗，為了安全這次先不取消：'+e.message);return}
-  finally{btn.disabled=false;btn.textContent=old}
+    if(moved.length){alert('❌ 不能'+what+'：大榮已經有這箱的紀錄了'+String.fromCharCode(10)+moved.map(x=>'　'+x.b+'：'+(x.v.s||KT_LABEL[x.v.cls]||x.v.cls)+(x.v.t?'（'+x.v.t+'）':'')).join(String.fromCharCode(10))+String.fromCharCode(10)+String.fromCharCode(10)+'貨已經在大榮手上，要改請打大榮客服 02-412-8999 報單號。');return false}
+    if(unknown.length){alert('查不到大榮的最新貨態（'+unknown.join('、')+'），為了安全這次先不'+what+'，請稍後再試。');return false}
+    return true;
+  }catch(e){alert('跟大榮確認貨態失敗，為了安全這次先不'+what+'：'+e.message);return false}
+  finally{if(btn){btn.disabled=false;btn.textContent=old}}
+}
+/* 大榮貨態分頁「更改重送」（杰哥 2026-10-26：送錯資料要能改了重送）。
+   流程＝確認大榮還沒收件 → 改收件人／電話／地址／品名（寫回訂單）→ 取消這次出單 → 直接開「大榮出貨」視窗重送。
+   重送會沿用原本的單號、大榮那邊走「修改託運」把資料蓋過去（出貨地不能換：換了客代會改不回來，後端會改發新號）。 */
+async function ktResend(oid,btn){
+  const o=findO(oid); if(!o)return;
+  if(!(await ktNotMoved(o,btn,'更改重送')))return;
+  const v=(x)=>esc(String(x==null?'':x));
+  const pushed=kerryPushedToPlat(o);
+  document.getElementById('modal-body').innerHTML=`<h3>更改後重送大榮</h3>
+    <div style="font-size:12px;color:var(--dm);margin-bottom:8px">${v(o.platform)} ${v(o.orderNo)}　單號 <span style="font-family:var(--mono)">${v(ktBlnsOf(o).join('、'))}</span>　大榮還沒收件，可以改</div>
+    <label style="display:block;font-size:12px;margin-top:6px">收件人<input id="kr-name" class="inp" style="width:100%" value="${v(shipName(o))}"></label>
+    <label style="display:block;font-size:12px;margin-top:6px">電話<input id="kr-phone" class="inp" style="width:100%" inputmode="tel" value="${v(bestPhone(o))}"></label>
+    <label style="display:block;font-size:12px;margin-top:6px">地址<input id="kr-addr" class="inp" style="width:100%" value="${v(o.address)}"></label>
+    <label style="display:block;font-size:12px;margin-top:6px">品名（標籤備註預設帶這個）<input id="kr-prod" class="inp" style="width:100%" value="${v(o.product)}"></label>
+    <div style="font-size:11.5px;color:var(--dm);line-height:1.7;margin-top:8px">才數、分箱、備註、指送日期在下一步「大榮出貨」視窗改。<br>重送會<b>沿用原本的單號</b>，大榮那邊的資料會被新的蓋過去，舊貼紙請撕掉、印新的貼。<br>出貨地請維持跟上次一樣（換出貨地系統會改發新號）。</div>
+    ${pushed?'<div style="font-size:12px;color:#b45309;background:#fef9ec;border-radius:8px;padding:7px 10px;margin-top:8px">這張已經回報給平台了：單號不變，平台那邊不用改。</div>':''}
+    <div id="kr-msg" style="font-size:12px;margin-top:8px;color:#b91c1c"></div>
+    <div class="modal-ft"><button class="btn" onclick="closeModal()">先不要</button><button class="btn" style="font-weight:700" id="kr-go" onclick="ktResendGo(${jsArg(o.id)})">存檔，下一步重送</button></div>`;
+  document.getElementById('modal-overlay').classList.remove('hidden');document.body.style.overflow='hidden';
+}
+async function ktResendGo(oid){
+  const o=findO(oid); if(!o)return;
+  const g=id=>String((document.getElementById(id)||{}).value||'').trim();
+  const name=g('kr-name'), phone=g('kr-phone').replace(/[\s-]/g,''), addr=g('kr-addr'), prod=g('kr-prod');
+  const msg=document.getElementById('kr-msg');
+  if(!name||!addr){msg.textContent='收件人和地址不能空白';return}
+  if(phone!==String(bestPhone(o)).replace(/[\s-]/g,'')&&!/^0\d{8,9}$/.test(phone)){msg.textContent='電話格式不對（09 開頭 10 碼或市話含區碼）';return}
+  const btn=document.getElementById('kr-go'); btn.disabled=true; btn.textContent='處理中…';
+  const changes=[];
+  if(name!==shipName(o)){changes.push('收件人 '+shipName(o)+'→'+name); o.rcvName=name}
+  if(phone!==bestPhone(o)){changes.push('電話 '+bestPhone(o)+'→'+phone); o.realPhone=phone}
+  if(addr!==(o.address||'')){changes.push('地址 '+(o.address||'')+'→'+addr); o.address=addr}
+  if(prod!==(o.product||'')){changes.push('品名 '+(o.product||'')+'→'+prod); o.product=prod}
+  let res;
+  try{res=await kerryApi('/api/kerry/cancel',{orderKeys:kKeysOf(o),confirm:'YES'})}
+  catch(e){msg.textContent='取消原本的出單失敗，沒有重送：'+e.message; btn.disabled=false; btn.textContent='存檔，下一步重送'; return}
+  const okRows=(res.results||[]).filter(x=>x.ok);
+  if(!okRows.length){msg.textContent='取消原本的出單失敗，沒有重送：'+((res.results||[])[0]||{}).error; btn.disabled=false; btn.textContent='存檔，下一步重送'; return}
+  if(res.mode==='prod'){
+    okRows.forEach(x=>{ if(o.trackingNo===x.bln)o.trackingNo='' });
+    if(o.delyGbStr==='大榮貨運')o.delyGbStr='';
+    o.kerry=Object.assign({},o.kerry||{},{cancelled:true,cancelledAt:new Date().toISOString()});
+  }
+  logActivity(o,'大榮更改重送：先取消原出單（'+okRows.map(x=>x.bln).join('、')+'）'+(changes.length?'，改 '+changes.join('；'):''));
+  saveOne(o);
+  closeModal();
+  selectedIds.clear(); selectedIds.add(o.id);
+  await batchKerry();   // 開大榮出貨視窗（只有這一張），確認才數／備註後送出
+}
+async function ktCancel(oid,btn){
+  const o=findO(oid); if(!o)return;
+  const ok=await ktNotMoved(o,btn,'取消');
   if(!ok)return;
   selectedIds.clear(); selectedIds.add(o.id);
   await batchKerryCancel();
@@ -7333,7 +7386,7 @@ function renderKerryTab(){
         <td style="padding:7px 8px;white-space:nowrap">${ktChip(r.b)}${r.bad&&(_ktFilter==='bad'||r.bad.kind==='alien')?'<div style="margin-top:3px">'+ktBadChip(r.o,r.b)+'</div>':''}</td>
         <td style="padding:7px 8px;font-size:11.5px">${r.v&&r.v.s?`${esc(r.v.s)}${r.v.st?'・'+esc(r.v.st):''}<div style="color:var(--dm);font-size:10.5px">${esc(r.v.t)}${ktDaysSince(r.v.t)!=null?'（'+ktDaysSince(r.v.t)+' 天前）':''}</div>`:'<span style="color:var(--dm)">—</span>'}</td>
         <td style="padding:7px 8px;white-space:nowrap">${(r.k==='none'||r.k==='unk')&&r.o.kerry&&!r.o.kerry.cancelled&&ktBlnsOf(r.o)[0]===r.b
-          ?`<button class="btn" style="font-size:11px;padding:2px 8px;color:#b91c1c;border-color:#fca5a5" onclick="event.stopPropagation();ktCancel(${jsArg(r.o.id)},this)" title="大榮還沒收件才能取消；按下去會先跟大榮重查一次">取消</button>`:''}</td></tr>`).join('')
+          ?`<button class="btn" style="font-size:11px;padding:2px 8px;color:#b91c1c;border-color:#fca5a5" onclick="event.stopPropagation();ktCancel(${jsArg(r.o.id)},this)" title="大榮還沒收件才能取消；按下去會先跟大榮重查一次">取消</button> <button class="btn" style="font-size:11px;padding:2px 8px;color:#1657b5;border-color:#93c5fd" onclick="event.stopPropagation();ktResend(${jsArg(r.o.id)},this)" title="送錯資料：改收件人／電話／地址／才數後重送（沿用原單號；大榮還沒收件才能改）">更改重送</button>`:''}</td></tr>`).join('')
         :`<tr><td colspan="7" style="padding:18px;text-align:center;color:var(--dm)">沒有符合的單</td></tr>`}
     </table></div>`;
   if(keepQ){const i=document.getElementById('ktab-q');i.focus();i.setSelectionRange(i.value.length,i.value.length)}
