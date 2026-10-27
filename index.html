@@ -3455,14 +3455,14 @@ function momoLiveBadge(o){
   }
   return h;
 }
-function momoDiffBadge(o){if(momoLiveStale())return '';const m=momoMismatch(o);return m?'<span class="ct-badge ct-diff" title="'+esc(m)+'">≠ 不一致</span>':''}
+function momoDiffBadge(o){if(momoLiveStale())return '';const m=momoMismatch(o);return m?'<span class="ct-badge ct-diff" style="cursor:pointer" title="'+esc(m)+'（點一下開「對狀態」修正）" onclick="event.stopPropagation();openMomoRecon()">≠ 不一致</span>':''}
 
 // ===== 依平台分派（MOMO / 三方走 momo*，PChome 走 pc*）=====
 function platformLiveBadge(o){return (o&&o.platform==='PC')?pcLiveBadge(o):momoLiveBadge(o)}
 function platformDiffBadge(o){
   if((o&&o.platform==='PC')?_pcStaleFor(o):momoLiveStale())return '';
   const m=(o&&o.platform==='PC')?pcMismatch(o):momoMismatch(o);
-  return m?'<span class="ct-badge ct-diff" title="'+esc(m)+'">≠ 不一致</span>':'';
+  return m?'<span class="ct-badge ct-diff" style="cursor:pointer" title="'+esc(m)+'（點一下開「對狀態」修正）" onclick="event.stopPropagation();openMomoRecon()">≠ 不一致</span>':'';
 }
 function platformFixPlan(o){return (o&&o.platform==='PC')?pcFixPlan(o):momoFixPlan(o)}
 // 「未回報／未壓單」＝ MOMO 還沒回報配送狀態，或 PChome 還沒壓單（含壓單失敗）
