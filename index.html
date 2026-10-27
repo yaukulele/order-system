@@ -7548,11 +7548,13 @@ async function batchKerry(){
 }
 // 「今天已送大榮」清單：列今天出的每一筆、可勾選取消、重開標籤／明細（杰哥 2026-10-10）
 let _kerryToday=[],_kerryTodayAll=null,_ktTodayAt=0,_kerryTodayMode='';
+/* 看幾天內送的（阿淵 2026-10-27：颱風＋連假，前幾天送大榮的標籤今天才印，原本只抓 24 小時找不到）。不記住，重開回到今天。*/
+let _ktTodayDays=1;
 async function loadKerryToday(force){
   if(!document.getElementById('k-today'))return;
   if(force||_kerryTodayAll===null||Date.now()-_ktTodayAt>60000){
     try{
-      const r=await kerryApi('/api/kerry/shipments?days=1');
+      const r=await kerryApi('/api/kerry/shipments?days='+_ktTodayDays);
       _kerryTodayAll=r.shipments||[]; _ktTodayAt=Date.now(); _kerryTodayMode=r.mode||'';
       _kerryToday=_kerryTodayAll.filter(s=>!s.cancelled);
     }catch(e){const b=document.getElementById('k-today');if(b)b.innerHTML='<div style="font-size:12px;color:#b91c1c">載入失敗：'+esc(e.message)+'</div>';return}
@@ -7576,7 +7578,10 @@ function kerryTodayUnlinked(s){
 function renderKerryTodayBox(){
   const box=document.getElementById('k-today'); if(!box)return;
   const all=_kerryTodayAll||[];
-  if(!all.length){box.innerHTML='<div style="font-size:12px;color:var(--dm)">今天還沒有送過大榮。</div>';return}
+  const daySel='<div style="display:flex;gap:6px;align-items:center;margin-bottom:6px;font-size:12px">看：'+
+    [[1,'今天'],[3,'最近 3 天'],[7,'最近 7 天']].map(([d,l])=>'<button class="fbtn'+(_ktTodayDays===d?' on':'')+'" onclick="_ktTodayDays='+d+';loadKerryToday(true)">'+l+'</button>').join('')+
+    (_ktTodayDays>1?'<span style="color:#b45309">前幾天送的也列出來，可以勾起來補印標籤／託運明細</span>':'')+'</div>';
+  if(!all.length){box.innerHTML=daySel+'<div style="font-size:12px;color:var(--dm)">'+(_ktTodayDays>1?'最近 '+_ktTodayDays+' 天':'今天')+'還沒有送過大榮。</div>';return}
   const rows=all.map(s=>{
     const t=s.uploadedAt?new Date(s.uploadedAt).toLocaleTimeString('zh-TW',{hour:'2-digit',minute:'2-digit'}):'';
     const cx=s.cancelled;
@@ -7592,15 +7597,15 @@ function renderKerryTodayBox(){
         <button class="btn" style="font-size:10px;padding:2px 7px" onclick="kerryOpenOne(this,${jsArg(s.orderKey)},'detail')">明細</button></td></tr>`;
   }).join('');
   const liveN=all.filter(s=>!s.cancelled).length;
-  box.innerHTML=`<table style="width:100%;font-size:12px;border-collapse:collapse"><tr style="color:var(--dm);font-size:11px"><th style="width:20px"></th><th style="text-align:left">收件人</th><th style="text-align:left">單號／時間</th><th></th></tr>${rows}</table>
+  box.innerHTML=daySel+`<table style="width:100%;font-size:12px;border-collapse:collapse"><tr style="color:var(--dm);font-size:11px"><th style="width:20px"></th><th style="text-align:left">收件人</th><th style="text-align:left">單號／時間</th><th></th></tr>${rows}</table>
     <div style="margin-top:8px;display:flex;gap:8px;align-items:center;flex-wrap:wrap">
-      <button class="btn" style="font-size:12px" onclick="kerryTodayCheckAll(this)">全選</button>
+      <button class="btn" style="font-size:12px" onclick="kerryTodayCheckAll(this)">${_ktTodayDays>1?'全選（含前幾天）':'全選'}</button>
       <button class="btn btn-r" style="font-size:12px" onclick="kerryCancelSelected()">↩ 取消勾選的</button>
       <button class="btn btn-g" style="font-size:12px" onclick="kerryLabelsToday(this)" title="勾哪幾張就補印哪幾張的標籤（不重新取號）">🖨 補印勾選的標籤</button>
       <div style="width:100%">${kSlotGrid('k-today-slot',kSlotDefault())}</div>
       <button class="btn" style="font-size:12px" onclick="kerryDetailToday(this)" title="司機來收貨時簽的那張清單。沒勾就是今天全部，有勾就只印勾的">📄 託運明細（司機簽收用）</button>
       <button class="btn" style="font-size:12px" onclick="loadKerryToday(true)">重新整理</button>
-      <span style="font-size:11px;color:var(--dm)">今天有效 ${liveN} 筆${all.length>liveN?('、已取消 '+(all.length-liveN)):''}</span></div>
+      <span style="font-size:11px;color:var(--dm)">${_ktTodayDays>1?'最近 '+_ktTodayDays+' 天':'今天'}有效 ${liveN} 筆${all.length>liveN?('、已取消 '+(all.length-liveN)):''}</span></div>
     <div style="font-size:10px;color:var(--dm);margin-top:4px">取消＝這邊標記作廢、單號釋放（大榮沒有取消 API，交站所前不要收就好）。</div>`;
   _kSlotPaint(document.getElementById('k-today-slot'));
 }
@@ -7647,11 +7652,12 @@ async function kerryDetailToday(btn){
 }
 // 「全選」只勾今天的 —— 昨天出的貨司機早就收走了，取消它只是把我們的單號清掉而已
 function kerryTodayCheckAll(btn){
-  const cbs=[...document.querySelectorAll('.k-today-cb:not(.k-today-old)')];
+  const wide=_ktTodayDays>1;
+  const cbs=[...document.querySelectorAll(wide?'.k-today-cb':'.k-today-cb:not(.k-today-old)')];
   const on=cbs.some(c=>!c.checked);
   cbs.forEach(c=>c.checked=on);
-  document.querySelectorAll('.k-today-cb.k-today-old').forEach(c=>c.checked=false);
-  if(btn)btn.textContent=on?'全不選':'全選（只勾今天）';
+  if(!wide)document.querySelectorAll('.k-today-cb.k-today-old').forEach(c=>c.checked=false);
+  if(btn)btn.textContent=on?'全不選':(wide?'全選（含前幾天）':'全選（只勾今天）');
 }
 async function kerryCancelSelected(){
   const keys=[...document.querySelectorAll('.k-today-cb:checked')].map(c=>c.value);
