@@ -3455,14 +3455,14 @@ function momoLiveBadge(o){
   }
   return h;
 }
-function momoDiffBadge(o){if(momoLiveStale())return '';const m=momoMismatch(o);return m?'<span class="ct-badge ct-diff" style="cursor:pointer" title="'+esc(m)+'（點一下開「對狀態」修正）" onclick="event.stopPropagation();openMomoRecon()">≠ 不一致</span>':''}
+function momoDiffBadge(o){if(momoLiveStale())return '';const m=momoMismatch(o);return m?'<span class="ct-badge ct-diff" style="cursor:pointer" title="'+esc(m)+'（點一下開「對狀態」修正）" onclick="event.stopPropagation();openMomoRecon(\''+esc(String(o.id))+'\')">≠ 不一致</span>':''}
 
 // ===== 依平台分派（MOMO / 三方走 momo*，PChome 走 pc*）=====
 function platformLiveBadge(o){return (o&&o.platform==='PC')?pcLiveBadge(o):momoLiveBadge(o)}
 function platformDiffBadge(o){
   if((o&&o.platform==='PC')?_pcStaleFor(o):momoLiveStale())return '';
   const m=(o&&o.platform==='PC')?pcMismatch(o):momoMismatch(o);
-  return m?'<span class="ct-badge ct-diff" style="cursor:pointer" title="'+esc(m)+'（點一下開「對狀態」修正）" onclick="event.stopPropagation();openMomoRecon()">≠ 不一致</span>':'';
+  return m?'<span class="ct-badge ct-diff" style="cursor:pointer" title="'+esc(m)+'（點一下開「對狀態」修正）" onclick="event.stopPropagation();openMomoRecon(\''+esc(String(o.id))+'\')">≠ 不一致</span>':'';
 }
 function platformFixPlan(o){return (o&&o.platform==='PC')?pcFixPlan(o):momoFixPlan(o)}
 // 「未回報／未壓單」＝ MOMO 還沒回報配送狀態，或 PChome 還沒壓單（含壓單失敗）
@@ -3903,21 +3903,24 @@ const _MOMO_FIX_GROUP={ship:'平台已出貨 → 本機補成已出貨',cancel:'
   note:'要去 MOMO 那邊處理（本機不動）'};
 
 let _momoReconRows=[];
-function openMomoRecon(){
+// onlyOid：從某一筆的「≠ 不一致」點進來 → 只列那一筆（阿淵 2026-10-27：全部列出來資訊太多怕誤按）
+function openMomoRecon(onlyOid){
+  if(typeof onlyOid!=='string')onlyOid='';
   if(momoLiveStale()){
     if(!confirm('平台資料已經過期（'+momoLiveAgeText()+'）。\n要先重新同步再對嗎？\n\n按確定＝先同步（建議），取消＝不對了'))return;
-    syncMomoLive().then(r=>{if(r&&r.ok)openMomoRecon()});
+    syncMomoLive().then(r=>{if(r&&r.ok)openMomoRecon(onlyOid)});
     return;
   }
   _momoReconRows=[];
   for(const o of orders){
+    if(onlyOid&&String(o.id)!==onlyOid)continue;
     const plan=platformFixPlan(o);
     if(plan)_momoReconRows.push({oid:o.id,plan});
   }
   _momoReconRows.sort((a,b)=>_MOMO_FIX_ORDER.indexOf(a.plan.kind)-_MOMO_FIX_ORDER.indexOf(b.plan.kind));
 
   const fixable=_momoReconRows.filter(r=>r.plan.patch).length;
-  let h='<h3>跟平台對狀態</h3>'+
+  let h='<h3>'+(onlyOid?'這一筆跟平台對狀態':'跟平台對狀態')+'</h3>'+
     '<div style="background:#eff6ff;border:1px solid #93c5fd;color:#1e3a8a;border-radius:8px;padding:10px 14px;font-size:11px;line-height:1.7;margin-bottom:12px">'+
     '平台資料 '+momoLiveAgeText()+'更新。以 MOMO／PChome 平台為準，找出本機跟平台對不上的單。<br>'+
     '<b>打勾的才會改，沒打勾的完全不動。</b>只改本機狀態，不會送任何東西到平台。'+
@@ -3957,8 +3960,9 @@ function openMomoRecon(){
   h+='</div>';
   h+='<div class="modal-ft">'+
      '<button class="btn" onclick="closeModal()">取消</button>'+
+     (onlyOid?'<button class="btn" onclick="openMomoRecon()" style="font-size:11px">看全部對不上的單</button>':
      '<button class="btn" onclick="_momoReconSelectAll(true)" style="font-size:11px">全選</button>'+
-     '<button class="btn" onclick="_momoReconSelectAll(false)" style="font-size:11px">全不選</button>'+
+     '<button class="btn" onclick="_momoReconSelectAll(false)" style="font-size:11px">全不選</button>')+
      '<button class="btn btn-g" id="momo-recon-apply" onclick="applyMomoRecon()">套用打勾的</button>'+
      '</div>'+
      '<div style="font-size:10px;color:var(--dm);text-align:right;margin-top:4px">全部可改 '+fixable+' 筆</div>';
