@@ -4559,6 +4559,16 @@ async function openInvDeduct(ids){
   document.getElementById('modal-overlay').classList.remove('hidden');document.body.style.overflow='hidden';
 }
 function invRender(){
+  // 改一筆就整個重畫 → 記住捲動位置跟游標，畫完放回去（2026-10-30：改完會跳回最上面，要一直往下拉）
+  const _mb=document.getElementById('modal-body'),_sc=document.getElementById('inv-scroll');
+  const _keep={mb:_mb?_mb.scrollTop:0,sc:_sc?_sc.scrollTop:0,fi:-1,ss:null,se:null};
+  if(_mb&&document.activeElement&&_mb.contains(document.activeElement)){const _all=[..._mb.querySelectorAll('input,select,button')];_keep.fi=_all.indexOf(document.activeElement);try{_keep.ss=document.activeElement.selectionStart;_keep.se=document.activeElement.selectionEnd}catch(e){}}
+  _invRenderInner();
+  const _mb2=document.getElementById('modal-body'),_sc2=document.getElementById('inv-scroll');
+  if(_sc2)_sc2.scrollTop=_keep.sc;if(_mb2)_mb2.scrollTop=_keep.mb;
+  if(_keep.fi>=0&&_mb2){const el=[..._mb2.querySelectorAll('input,select,button')][_keep.fi];if(el){try{el.focus({preventScroll:true});if(_keep.ss!=null&&el.setSelectionRange)el.setSelectionRange(_keep.ss,_keep.se)}catch(e){}}}
+}
+function _invRenderInner(){
   const dl='<datalist id="inv-dl">'+(_invItems||[]).map(it=>`<option value="${esc(invItemLabel(it))}"></option>`).join('')+'</datalist>';
   const rows=_invRows.map((r,ri)=>{const o=findO(r.id);if(!o)return '';
     const lines=r.lines.map((l,li)=>{const it=invFind(l.iid);const warn=[];
@@ -4584,7 +4594,7 @@ function invRender(){
   const nDed=_invRows.filter(r=>r.act==='deduct').length;
   document.getElementById('modal-body').innerHTML=`<h3>扣庫存</h3>
     <div style="font-size:12px;color:var(--dm);margin:4px 0 10px;line-height:1.6">訂單改成「已完成」，確認一下要扣庫存的哪一項。選過一次系統會記住，下次同一個商品自動帶出來。「不用扣」也會記住。<br><b>1 單要扣好幾個的</b>（例如弦「兩包優惠」）：把「扣」那格改成 2 再確認，會記住「每 1 單扣 2」，客人買 2 組就自動扣 4。</div>
-    ${dl}<div style="max-height:58vh;overflow:auto">${rows}</div>
+    ${dl}<div id="inv-scroll" style="max-height:58vh;overflow:auto">${rows}</div>
     <div id="inv-msg" style="font-size:12px;margin-top:6px"></div>
     <div class="modal-ft"><button class="btn" style="margin-right:auto" onclick="invManage()">記住的對應</button><button class="btn" onclick="closeModal()">先不處理</button><button class="btn btn-g" id="inv-go" onclick="invCommit()">確認（扣 ${nDed} 張）</button></div>`;
 }
