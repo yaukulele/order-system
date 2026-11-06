@@ -3906,7 +3906,9 @@ let _momoReconRows=[];
 // onlyOid：從某一筆的「≠ 不一致」點進來 → 只列那一筆（阿淵 2026-10-27：全部列出來資訊太多怕誤按）
 function openMomoRecon(onlyOid){
   if(typeof onlyOid!=='string')onlyOid='';
-  if(momoLiveStale()){
+  // 從 PChome 單的「≠ 不一致」點進來：那顆徽章已經用 PChome 自己的資料新舊判斷過，不要再被 MOMO 資料過期擋住（2026-11-07 debug）
+  const _one=onlyOid?findO(onlyOid):null;
+  if(!(_one&&_one.platform==='PC')&&momoLiveStale()){
     if(!confirm('平台資料已經過期（'+momoLiveAgeText()+'）。\n要先重新同步再對嗎？\n\n按確定＝先同步（建議），取消＝不對了'))return;
     syncMomoLive().then(r=>{if(r&&r.ok)openMomoRecon(onlyOid)});
     return;
@@ -7332,16 +7334,19 @@ async function ktResendGo(oid){
   if(!name||!addr){msg.textContent='收件人和地址不能空白';return}
   if(phone!==String(bestPhone(o)).replace(/[\s-]/g,'')&&!/^0\d{8,9}$/.test(phone)){msg.textContent='電話格式不對（09 開頭 10 碼或市話含區碼）';return}
   const btn=document.getElementById('kr-go'); btn.disabled=true; btn.textContent='處理中…';
-  const changes=[];
-  if(name!==shipName(o)){changes.push('收件人 '+shipName(o)+'→'+name); o.rcvName=name}
-  if(phone!==bestPhone(o)){changes.push('電話 '+bestPhone(o)+'→'+phone); o.realPhone=phone}
-  if(addr!==(o.address||'')){changes.push('地址 '+(o.address||'')+'→'+addr); o.address=addr}
-  if(prod!==(o.product||'')){changes.push('品名 '+(o.product||'')+'→'+prod); o.product=prod}
+  // 先算好要改哪些，取消大榮成功了才寫進訂單（2026-11-07 debug：原本先改記憶體裡的訂單再去取消，
+  // 取消失敗時畫面已經顯示新資料、之後任何一次存檔會把「沒有重送成功」的修改一起存上去）
+  const changes=[],patch={},_np=x=>String(x==null?'':x).replace(/[\s-]/g,'');
+  if(name!==shipName(o)){changes.push('收件人 '+shipName(o)+'→'+name); patch.rcvName=name}
+  if(phone!==_np(bestPhone(o))){changes.push('電話 '+bestPhone(o)+'→'+phone); patch.realPhone=phone}
+  if(addr!==(o.address||'')){changes.push('地址 '+(o.address||'')+'→'+addr); patch.address=addr}
+  if(prod!==(o.product||'')){changes.push('品名 '+(o.product||'')+'→'+prod); patch.product=prod}
   let res;
   try{res=await kerryApi('/api/kerry/cancel',{orderKeys:kKeysOf(o),confirm:'YES'})}
   catch(e){msg.textContent='取消原本的出單失敗，沒有重送：'+e.message; btn.disabled=false; btn.textContent='存檔，下一步重送'; return}
   const okRows=(res.results||[]).filter(x=>x.ok);
   if(!okRows.length){msg.textContent='取消原本的出單失敗，沒有重送：'+((res.results||[])[0]||{}).error; btn.disabled=false; btn.textContent='存檔，下一步重送'; return}
+  Object.assign(o,patch);
   if(res.mode==='prod'){
     okRows.forEach(x=>{ if(o.trackingNo===x.bln)o.trackingNo='' });
     if(o.delyGbStr==='大榮貨運')o.delyGbStr='';
