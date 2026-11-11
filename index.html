@@ -4033,7 +4033,8 @@ function prepareOrderRow(o,opts){
   const addrAttrs=[];
   if(o.addrMgmt)addrAttrs.push((o.addrMgmt==='有'?'有':'無')+'管');
   if(o.addrElev&&o.addrElev!=='不適用')addrAttrs.push((o.addrElev==='有'?'有':'無')+'梯');
-  let noteShort='';if(!(opts&&opts.skipNote)){const f=cleanNote(o.note).replace(/\n/g,' ');noteShort=f.length>80?f.slice(0,80)+'…':f}
+  // 備註是一行一行往後加的 → 倒過來排，列表看到的是最新狀態（2026-11-11 杰哥）
+  let noteShort='';if(!(opts&&opts.skipNote)){const f=cleanNote(o.note).split('\n').reverse().join(' ／ ');noteShort=f.length>80?f.slice(0,80)+'…':f}
   // 列表顯示優先：實際排程（installDate + installSlot）→ 客戶希望（installDay+installTime）
   const installInfo=isServiceActive(o)?(o.installDate?`${o.installDate.slice(5).replace('-','/')}${o.installSlot?' '+o.installSlot:''}`:(o.installDay?`${o.installDay}${o.installTime?' '+o.installTime:''}`:'')):'';
   const addonInfo=o.addon==='是'&&o.addonItems?o.addonItems.slice(0,16):'';
