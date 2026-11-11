@@ -444,6 +444,9 @@ tr.row-scm>td:first-child{box-shadow:inset 3px 0 0 #7c3aed}
 /* 行動版操作鈕：縮小 + 純文字 + 盡量擠一行（flex 自動換行，不再固定 92px 大格） */
 .ord-card-actions{display:flex;flex-wrap:wrap;gap:4px;margin-top:8px;padding-top:8px;border-top:1px dashed var(--bd)}
 .ord-card-actions button,.ord-card-actions a.act-link{flex:1 1 auto;text-decoration:none;min-height:30px;padding:5px 6px;font-size:11px;font-family:var(--sans);font-weight:600;border:1px solid var(--bd);background:var(--sf2);color:var(--tx);border-radius:6px;cursor:pointer;display:flex;align-items:center;justify-content:center;gap:2px;white-space:nowrap}
+.ord-card-actions .oc-fixed{flex:0 0 100%;display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:4px}
+.ord-card-actions .oc-slot{display:flex;gap:3px;min-width:0}
+.ord-card-actions .oc-slot>*{flex:1 1 0;min-width:0;overflow:hidden;text-overflow:ellipsis}
 .ord-card-actions button.primary{background:var(--mo);color:#fff;border-color:var(--mo)}
 .ord-card-actions button.danger{color:var(--pc);border-color:#e8a8a4}
 .ord-card-actions button.offline{color:#7e22ce;border-color:#d8b4fe}
@@ -4349,6 +4352,18 @@ function buildOrderActions(o,variant){
 // 有商品編號（MOMO goodsCode / PChome Prod.Id）→ 直接連到精準商品頁；
 // MOMO 一律用 /product/<編號>：舊的 GoodsDetail.jsp?i_code= 在手機上會被轉去 m.momoshop.com.tw 再轉回來，無限轉圈打不開。
 // 沒有編號（舊單 / 店內 / 學校）→ 退回用商品名稱搜尋。
+/* 手機卡片第一排固定四格：出貨｜安裝｜加購｜商品（杰哥 2026-11-11：「安裝的鍵會跑掉，幫我固定」）。
+   原本整排按鈕是「這張單有哪些就排哪些」，PChome 單多一顆 SP、或安裝款收完那顆不見，
+   後面每顆都會往前／往後擠。現在每格位置固定，這格沒東西就留白，不讓別顆補上來。 */
+function mobFixedSlots(o,a){
+  const oid=esc(o.id);
+  let inst=a.instPaid||a.quickAddInstall;
+  // 要安裝但還沒填安裝費、或自己配：照樣放一顆，位置才不會空掉讓人以為沒有
+  if(!inst&&isServiceActive(o))inst=`<button onclick="installCellClick('${oid}',event)" style="color:#0e7490;border-color:#67e8f9;background:#ecfeff" title="安裝／配送設定（點擊改）">${o.install==='配送'?'🚚 自己配':'🔧 安裝'}</button>`;
+  const addon=a.addonPaid||a.quickAddAddon;
+  const slot=(html,name)=>`<div class="oc-slot" data-slot="${name}">${html||''}</div>`;
+  return `<div class="oc-fixed">${slot((a.ship||'')+(a.shipDone||''),'ship')}${slot(inst,'install')}${slot(addon,'addon')}${slot(a.prodLink,'prod')}</div>`;
+}
 function prodIsExact(o){return ((o.platform==='MO'||o.platform==='MO3')&&o.goodsCode)||(o.platform==='PC'&&o.prodId)}
 function prodSearchUrl(o){
   if((o.platform==='MO'||o.platform==='MO3')&&o.goodsCode)return 'https://www.momoshop.com.tw/product/'+encodeURIComponent(String(o.goodsCode).trim());
@@ -5462,8 +5477,8 @@ ${r.ph?`<div class="ord-card-phone">📞 ${phoneTel(r.ph)}${copyBtn(r.ph,'電話
 ${o.address?`<div class="ord-card-addr">📍 ${mapsLink(o.address)}${copyBtn(o.address,'地址')}</div>`:''}
 ${r.noteShort?`<div class="ord-card-note">${esc(r.noteShort)}</div>`:''}
 <div class="ord-card-actions">
-${a.addrAck}${a.ship}${a.shipDone}${a.amtPaidBtn}${a.instPaid}${a.addonPaid}${a.quickAddInstall}${a.quickAddAddon}
-${a.prodLink}
+${mobFixedSlots(o,a)}
+${a.addrAck}${a.amtPaidBtn}
 ${a.fillLabel}
 ${a.sms}
 ${a.edit}
