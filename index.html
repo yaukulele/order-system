@@ -14165,7 +14165,7 @@ async function stShipRun(picked, cfg, boxMap){
    代價：列印走的是高解析度圖片（約 300dpi），條碼請第一次印出來掃一下確認。 */
 window.__stSavePdfPw = function(pw){ try{ stSetPdfPw(pw) }catch(e){} };
 
-function stOpenLabelViewer(w, arrayBuffer){
+function stOpenLabelViewer(w, arrayBuffer, kerryMode){
   const bytes = new Uint8Array(arrayBuffer);
   let bin = '';
   const CH = 0x8000;
@@ -14188,13 +14188,18 @@ function stOpenLabelViewer(w, arrayBuffer){
        以前寫 width:100% —— 硬把 A4 比例的圖撐滿紙寬，高度就超過一頁而溢出成第二頁；
        最後一張的 page-break-after:always 又會再多生一張白紙。兩個一起修。 */
     '@page{size:A4;margin:0}',
+    /* 杰哥 2026-11-12：「超商的貼紙不是大榮貼紙格式」—— 以前一打開就照 A4 原尺寸印在左上角，
+       要另外按「印大榮貼紙格式」才會排進格子，現場直接按列印就印錯。
+       超商模式（body.km）：列印時只印 #kp（照選的格子排好的 A4 3x2 版面），畫面上的預覽不印。 */
+    '#kp{display:none}',
+    '@media print{body.km #pages{display:none !important}body.km #kp{display:block}#kp .pg{position:relative;width:210mm;height:297mm;overflow:hidden;page-break-after:always;break-after:page}#kp .pg:last-child{page-break-after:auto;break-after:auto}#kp img{position:absolute;display:block}}',
     '@media print{#bar{display:none}body{background:#fff}#pages{padding:0}',
     /* height:auto + max-width:100% → 萬一瀏覽器邊界很寬也是等比例縮，不會被擠到下一頁 */
     'canvas{box-shadow:none;margin:0 auto;width:var(--pw);height:auto;max-width:100%;page-break-after:always;page-break-inside:avoid}',
     'canvas:last-child{page-break-after:auto}}',
     '</style></head><body>',
     /* #fill 是給主頁那邊回填完之後寫進來的（獨立一格，不會被解碼進度的訊息蓋掉） */
-    '<div id="bar"><span id="msg">解開標籤中…</span><span id="pw"></span><span id="fill" style="color:#1a7f37;font-weight:600"></span><button id="cleanpdf" style="display:none;background:#1a7f37">印乾淨 PDF（沒有網址頁尾）</button><span id="ksheet" style="display:none;align-items:center;gap:6px;border-left:1px solid #ddd9cf;padding-left:10px">大榮貼紙 A4 印在第幾格：<span id="kcells" style="display:inline-grid;grid-template-columns:34px 34px;grid-template-rows:repeat(3,20px);grid-auto-flow:column;gap:2px"></span><button id="kprint" style="background:#b45309">印大榮貼紙格式</button></span><button id="back">← 回系統</button></div><div id="pages"></div>',
+    '<div id="bar"><span id="msg">解開標籤中…</span><span id="pw"></span><span id="fill" style="color:#1a7f37;font-weight:600"></span><button id="cleanpdf" style="display:none;background:#1a7f37">印乾淨 PDF（沒有網址頁尾）</button><span id="ksheet" style="display:none;align-items:center;gap:6px;border-left:1px solid #ddd9cf;padding-left:10px">大榮貼紙 A4 印在第幾格：<span id="kcells" style="display:inline-grid;grid-template-columns:34px 34px;grid-template-rows:repeat(3,20px);grid-auto-flow:column;gap:2px"></span><button id="kprint" style="background:#b45309">印大榮貼紙格式</button></span><button id="back">← 回系統</button></div><div id="pages"></div><div id="kp"></div>',
     '<script src="' + PDFJS + 'pdf.min.js"><' + '/script>',
     '<script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"><' + '/script>',
     '<script>',
@@ -14250,7 +14255,33 @@ function stOpenLabelViewer(w, arrayBuffer){
        選的格子用完了才換新的一張從第 1 格接著印；跟大榮共用「今天這張貼紙剩哪幾格」的記憶。 */
     'var KSEL=[1,2,3,4,5,6];',
     'try{var _o=window.opener;if(_o&&_o.kSlotDefault)KSEL=_o.kSlotDefault().slice()}catch(e){}',
-    'function kPaint(){var box=document.getElementById("kcells");box.innerHTML="";for(var n=1;n<=6;n++){(function(n){var b=document.createElement("button");var on=KSEL.indexOf(n)>=0;b.textContent=n+(on?" 印":"");b.style.cssText="padding:0;font-size:11px;border-radius:4px;"+(on?"background:#16a34a;color:#fff;border:1px solid #15803d":"background:#fff;color:#9ca3af;border:1px dashed #d1d5db");b.onclick=function(){var i=KSEL.indexOf(n);if(i>=0)KSEL.splice(i,1);else KSEL.push(n);KSEL.sort();kPaint()};box.appendChild(b)})(n)}}',
+    'function kPaint(){var box=document.getElementById("kcells");box.innerHTML="";for(var n=1;n<=6;n++){(function(n){var b=document.createElement("button");var on=KSEL.indexOf(n)>=0;b.textContent=n+(on?" 印":"");b.style.cssText="padding:0;font-size:11px;border-radius:4px;"+(on?"background:#16a34a;color:#fff;border:1px solid #15803d":"background:#fff;color:#9ca3af;border:1px dashed #d1d5db");b.onclick=function(){var i=KSEL.indexOf(n);if(i>=0)KSEL.splice(i,1);else KSEL.push(n);KSEL.sort();kPaint();if(KM)kBuild()};box.appendChild(b)})(n)}}',
+    'var KM=' + JSON.stringify(!!kerryMode) + ', KFREE=null;',
+    /* 把標籤排進大榮 A4 3x2 的格子（跟 kSheetPdf 同一套算法），放在只有列印才看得到的 #kp */
+    'function kBuild(){',
+    ' var kp=document.getElementById("kp");kp.innerHTML="";KFREE=null;',
+    ' var cs=[].slice.call(document.querySelectorAll("#pages canvas"));if(!cs.length)return;',
+    ' if(!KSEL.length){say("請先點要印在哪幾格");return}',
+    ' var CW=105,CH=99,PAD=3,cells=KSEL.slice(),used=[],minScale=1,pg=null;',
+    ' function newPg(){pg=document.createElement("div");pg.className="pg";kp.appendChild(pg)}',
+    ' newPg();',
+    ' cs.forEach(function(c){',
+    '  if(!cells.length){newPg();cells=[1,2,3,4,5,6]}',
+    '  var n=cells.shift();used.push(n);',
+    '  var col=n<=3?0:1,row=(n-1)%3,x0=col*CW,y0=row*CH;',
+    '  var w=parseFloat(c.style.getPropertyValue("--pw")),h=parseFloat(c.style.getPropertyValue("--ph"));',
+    '  var aw=CW-2*PAD,ah=CH-2*PAD,s1=Math.min(1,aw/w,ah/h),s2=Math.min(1,aw/h,ah/w),rot=s2>s1+0.02,s=rot?s2:s1;minScale=Math.min(minScale,s);',
+    '  var src=c;if(rot){src=document.createElement("canvas");src.width=c.height;src.height=c.width;var g=src.getContext("2d");g.translate(src.width,0);g.rotate(Math.PI/2);g.drawImage(c,0,0)}',
+    '  var dw=(rot?h:w)*s,dh=(rot?w:h)*s,im=new Image();im.src=src.toDataURL("image/png");',
+    '  im.style.left=(x0+(CW-dw)/2).toFixed(2)+"mm";im.style.top=(y0+(CH-dh)/2).toFixed(2)+"mm";im.style.width=dw.toFixed(2)+"mm";im.style.height=dh.toFixed(2)+"mm";',
+    '  pg.appendChild(im);',
+    ' });',
+    ' KFREE=cells;',
+    ' say("已排成大榮貼紙格式：印在第 "+used.join("、")+" 格"+(kp.children.length>1?"（共 "+kp.children.length+" 張貼紙）":"")+(minScale<0.99?"，縮成 "+Math.round(minScale*100)+"% 放進一格，印完請先掃一下條碼":"")+"。要換格子點上面的格子再按列印（Ctrl/Cmd + P）");',
+    '}',
+    /* 印完記住這張貼紙還剩哪幾格（跟大榮共用），下一次預設就點好 */
+    'window.addEventListener("afterprint",function(){if(!KM||!KFREE)return;try{var _o=window.opener;if(_o&&_o._kLS&&_o.localDateISO)_o._kLS("kerryFreeCells",JSON.stringify({d:_o.localDateISO(),c:KFREE.length?KFREE:[1,2,3,4,5,6]}))}catch(e){}});',
+    'if(KM)document.body.className="km";',
     'function kSheetPdf(){',
     ' try{if(!window.jspdf||!window.jspdf.jsPDF){say("PDF 產生元件沒載進來（網路被擋？）");return}',
     '  var cs=[].slice.call(document.querySelectorAll("#pages canvas"));if(!cs.length)return;',
@@ -14303,7 +14334,8 @@ function stOpenLabelViewer(w, arrayBuffer){
     '   bar.textContent="已解開，正在開列印視窗…（沒跳出來就按 Ctrl/Cmd + P）";',
     '   document.getElementById("cleanpdf").style.display="";',
     '   document.getElementById("ksheet").style.display="inline-flex";',
-    '   setTimeout(function(){try{window.print()}catch(e){}},400);',
+    '   if(KM)kBuild();',
+    '   setTimeout(function(){try{window.print()}catch(e){}},KM?700:400);',
     '  }).catch(function(e){bar.textContent="畫面產生失敗："+(e&&e.message||e)});',
     ' }).catch(function(e){',
     '  if(e&&(e.name==="PasswordException"||/password/i.test(e.message||""))){',
@@ -14648,7 +14680,7 @@ function stPrintNosImpl(nos, type, preWin){
         // 超商：只解析看看裡面有什麼，不回填（理由寫在 stProbeStoreLabel 上面）
         else if(type === 'label') b.arrayBuffer().then(ab=>stProbeStoreLabel(ab, w)).catch(()=>{});
         // MOMO 的標籤 PDF 有加密，每次開都要打密碼。密碼記在本機，這裡自動帶進去解開再列印。
-        return b.arrayBuffer().then(ab=>{ stOpenLabelViewer(w, ab); return true });
+        return b.arrayBuffer().then(ab=>{ stOpenLabelViewer(w, ab, !stIsThird()); return true });
       }
       // 不是 PDF → 讀出後端寫的原因，講人話
       return b.text().then(t=>{
