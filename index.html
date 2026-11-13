@@ -4548,7 +4548,9 @@ function invSuggest(o){
     if(lines.length)return {lines,src:'上次選的'};
   }
   const name=invNorm((o.product||'')+' '+(o.specs||''));
-  const toks=new Set(String((o.product||'')+' '+(o.specs||'')).toUpperCase().split(/[\s【】\[\]()（）,，、\/+＋|｜:：~～]+/).map(invNorm).filter(Boolean));
+  /* 杰哥 2026-11-13：MOMO 品名常型號跟中文黏在一起（「DM-110最新入門級電子鼓」「DM-8全網狀鼓面」）→ 整段當一個字就對不到。
+     每一段再多收「開頭的英數字部分」（DM-110最新… → DM110），型號比對才抓得到。 */
+  const toks=new Set();String((o.product||'')+' '+(o.specs||'')).toUpperCase().split(/[\s【】\[\]()（）,，、\/+＋|｜:：~～]+/).forEach(t=>{const a=invNorm(t);if(a)toks.add(a);const m=t.match(/^[A-Z0-9][A-Z0-9\-._]*/);if(m){const b=invNorm(m[0]);if(b)toks.add(b)}});
   const exact=(_invItems||[]).filter(it=>{const n=invNorm(it.n);const n0=invNorm(String(it.n).split(/\s+/)[0]);
     return n0.length>=3&&(toks.has(n)||toks.has(n0))&&name.includes(invNorm(it.b).slice(0,4))});
   const rank=it=>{let s=0;const sp=String(o.specs||'')+String(o.product||'');const nn=String(it.n).toUpperCase();
