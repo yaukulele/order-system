@@ -8314,7 +8314,7 @@ document.getElementById('modal-body').innerHTML=`<h3>📤 MOMO 出貨確認 / �
 <div><b>地址：</b>${esc(o.address)}</div></div>
 <div class="fg"><div class="fi"><label>配送狀態 *</label><select id="s-status" onchange="onShipStatusChange()"><option>已配送</option><option>已確認指定配送日</option><option>已電聯，尚未確認配送日期</option><option>暫時電聯不上(無須momo協助)</option><option>多次電聯不上(2天3次以上)</option><option>需配送加價協調中</option><option>無貨取消訂單</option><option>收件資料有誤/不配送地區</option><option>無適當選項，momo請協助</option></select><div style="font-size:10px;color:var(--dm);margin-top:4px;line-height:1.5">💡 約配訂單需先選「已確認指定配送日」回押配送日，之後再切「已配送」回填單號。</div></div></div>
 <div id="ship-confirmDate" class="hidden"><div class="fg full"><div class="fi"><label>指定配送日 * <span style="font-size:10px;color:var(--mo)">（約配訂單必填，點選日期）</span></label><input id="s-scmDate" type="date" min="${localDateISO(new Date(Date.now()+86400000))}" style="font-family:var(--mono)"></div></div></div>
-<div id="ship-shipped"><div class="fg"><div class="fi"><label>物流公司 *</label><select id="s-dely">${MOMO_DELY_COMPANIES.map(c=>`<option ${(o.delyGbStr||'大榮貨運')===c?'selected':''}>${c}</option>`).join('')}</select></div><div class="fi"><label>配送單號 *</label><input id="s-slip" placeholder="物流單號" style="font-family:var(--mono)" value="${esc(o.trackingNo||'')}"></div></div><div class="fg"><div class="fi"><label>出貨包材 *</label><select id="s-shipType">${MOMO_SHIP_TYPES.map(t=>`<option ${(o.shipTypeStr||'原箱')===t?'selected':''}>${t}</option>`).join('')}</select></div><div class="fi"><label>包材類型 / 重量 <span style="font-size:10px;color:var(--ht)">（可空）</span></label><div style="display:flex;gap:4px"><input id="s-packType" placeholder="包材類型" value="${esc(o.packTypeStr||'')}" style="flex:1"><input id="s-packUnit" placeholder="重量" value="${esc(o.packUnit||'')}" style="width:60px"></div></div></div></div>
+<div id="ship-shipped"><div class="fg"><div class="fi"><label>物流公司 *</label><select id="s-dely" onchange="onShipDelyChange()">${MOMO_DELY_COMPANIES.map(c=>`<option ${(o.delyGbStr||'大榮貨運')===c?'selected':''}>${c}</option>`).join('')}</select></div><div class="fi"><label>配送單號 *</label><input id="s-slip" placeholder="物流單號" style="font-family:var(--mono)" value="${esc(o.trackingNo||'')}"></div></div><div class="fg"><div class="fi"><label>出貨包材 *</label><select id="s-shipType">${MOMO_SHIP_TYPES.map(t=>`<option ${(o.shipTypeStr||'原箱')===t?'selected':''}>${t}</option>`).join('')}</select></div><div class="fi"><label>包材類型 / 重量 <span style="font-size:10px;color:var(--ht)">（可空）</span></label><div style="display:flex;gap:4px"><input id="s-packType" placeholder="包材類型" value="${esc(o.packTypeStr||'')}" style="flex:1"><input id="s-packUnit" placeholder="重量" value="${esc(o.packUnit||'')}" style="width:60px"></div></div></div></div>
 <div id="ship-other" class="hidden"><div class="fg full"><div class="fi"><label>配送訊息 *（非已配送必填）</label><textarea id="s-msg" placeholder="例：客戶來電要求改配送日，預計 3/15 配送"></textarea></div></div></div>
 <div id="ship-result" style="margin-top:12px"></div>
 <div class="modal-ft">
@@ -8322,7 +8322,16 @@ document.getElementById('modal-body').innerHTML=`<h3>📤 MOMO 出貨確認 / �
 <button class="btn btn-b" onclick="submitShip(false)" id="ship-dry-btn">🧪 DRY RUN 預覽</button>
 <button class="btn" onclick="submitShip(true)" id="ship-real-btn" style="background:var(--pc);color:#fff;border-color:var(--pc);display:none">⚠️ 確認真送 MOMO</button>
 </div>`;
-document.getElementById('modal-overlay').classList.remove('hidden');document.body.style.overflow='hidden'}
+document.getElementById('modal-overlay').classList.remove('hidden');document.body.style.overflow='hidden';onShipDelyChange()}
+/* 物流公司選「其他」= 通常是自己安裝/自己送 → 配送單號自動帶 YA+今天日期+今天第幾筆（01 起）（2026-11-15 杰哥）
+   流水號 = 所有訂單裡已用過的 YA{今天}NN 最大號 +1；欄位是空的或是先前自動帶的才覆蓋，手打的不動 */
+function nextSelfSlip(){const day=localDateISO().replace(/-/g,'');let mx=0;
+  (orders||[]).forEach(x=>{const m=String(x.trackingNo||'').trim().match(/^YA(\d{8})(\d{2,})$/);if(m&&m[1]===day)mx=Math.max(mx,parseInt(m[2],10))});
+  return 'YA'+day+String(mx+1).padStart(2,'0')}
+function onShipDelyChange(){const sel=document.getElementById('s-dely'),inp=document.getElementById('s-slip');if(!sel||!inp)return;
+  const cur=(inp.value||'').trim();
+  if(sel.value==='其他'){if(!cur){inp.value=nextSelfSlip();inp.dataset.autoSlip=inp.value}}
+  else if(cur&&inp.dataset.autoSlip===cur){inp.value='';inp.dataset.autoSlip=''}}   // 從「其他」切回別家 → 清掉剛剛自動帶的號
 function onShipStatusChange(){const s=document.getElementById('s-status').value;
   // 三個輸入區塊互斥：
   // 已配送 → ship-shipped（物流公司+單號+包材）
