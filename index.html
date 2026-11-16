@@ -4345,7 +4345,9 @@ function buildOrderActions(o,variant){
       ?`<button onclick="fillLabelForOrder('${oid}',event)" style="color:#92400e;border-color:#f0c884;background:#fef9ec" title="把 MOMO 後台下載的宅配單 PDF 丟進來，補上真實姓名／電話／地址">補電話</button>`
       :`<button class="act" onclick="fillLabelForOrder('${oid}',event)" title="把 MOMO 後台下載的宅配單 PDF 丟進來，補上真實姓名／電話／地址" style="border-color:#f0c884;color:#92400e">補電話</button> `)
     :'';
-  return{addrAck,ship,shipDone,amtPaidBtn,instPaid,addonPaid,quickAddInstall,quickAddAddon,edit,copy,cam,del,prodLink,sms,fillLabel};
+  // 一鍵補寄：照這張單的客人資料另開一張不收費的補寄單（杰哥 2026-11-16）
+  const reship=isMob?`<button onclick="openReship('${oid}')" style="color:#c2410c;border-color:#fdba74" title="少寄/寄錯/壞掉要再寄東西 → 照這張單的姓名電話地址自動建一張補寄單">補寄</button>`:`<button class="act" onclick="openReship('${oid}')" title="少寄/寄錯/壞掉要再寄東西 → 照這張單的姓名電話地址自動建一張補寄單" style="border-color:#fdba74;color:#c2410c">補寄</button> `;
+  return{addrAck,ship,shipDone,amtPaidBtn,instPaid,addonPaid,quickAddInstall,quickAddAddon,edit,copy,cam,del,prodLink,sms,fillLabel,reship};
 }
 
 // 商品頁網址 — 重複確認訂單買的商品用
@@ -5428,7 +5430,7 @@ const checked=selectedIds.has(o.id);
 // 規格併入品名 cell — 用小 pill 顯示，省一整欄寬度給操作欄
 // 規格放最前面 — 之前放品名後面，品名太長會被 truncate 切掉，看不到規格要點編輯。
 const prodSpecCombined=`<span style="display:flex;align-items:center;min-width:0">${r.ps.specs?`<span class="spec-pill" title="${esc(r.ps.specs)}" style="margin-right:6px;flex-shrink:0">${esc(r.ps.specs)}</span>`:''}<span style="overflow:hidden;text-overflow:ellipsis;min-width:0">${escWithHL(r.ps.name)}</span>${stockBadge(o)}</span>`;
-h+=`<tr${r.scmActive?' class="row-scm"':''}><td class="batch-cell"><input type="checkbox" data-oid="${o.id}" ${checked?'checked':''} onclick="toggleRowSelected('${o.id}')"></td><td class="mono" style="width:56px">${fmtD(o.date)}${r.newBadge?' '+r.newBadge:''}</td><td style="width:44px;text-align:center">${platformPill(o.platform)}${r.addrBadge?' '+r.addrBadge:''}</td><td class="prod-cell" onclick="openEdit('${oid}')" style="cursor:pointer" title="點擊編輯：${esc(o.product)}">${prodSpecCombined}</td><td class="tab-list-mobile-hide qty-cell"><input type="text" inputmode="numeric" value="${r.qty}" oninput="this.value=cn(this.value);setQty('${oid}',this.value)" class="fee-input qty-input" style="width:34px${r.qty>1?';border-color:var(--mo);background:var(--mo-bg);color:var(--mo);font-weight:800':''}"></td><td class="name-cell" title="${r.ph?'電話 '+esc(r.ph):''}${o.address?'\n地址 '+esc(o.address):''}${r.noteShort?'\n備註 '+esc(r.noteShort):''}"><span style="white-space:normal">${o.name?`<span style="cursor:pointer;white-space:nowrap;text-decoration:underline;text-decoration-style:dotted;text-decoration-color:var(--ht);text-underline-offset:2px" onclick="event.stopPropagation();searchCustomerOrders(${jsArg(o.name)})" title="🔒 鎖定看「${esc(o.name)}」的所有訂單">${escWithHL(o.name)}</span>`:'(無姓名)'}${r.region?`<span style="font-size:9px;color:#1657b5;background:#e8eef9;border-radius:3px;padding:1px 5px;margin-left:5px;font-weight:700;white-space:nowrap;display:inline-block" title="${esc(o.address||'')}">${esc(r.region)}</span>`:''}${r.remoteBadge?`<span style="margin-left:4px">${r.remoteBadge}</span>`:''}${r.scmBadge?`<span style="margin-left:4px">${r.scmBadge}</span>`:''}</span>${r.ph?`<div style="font-size:9px;color:var(--dm);font-family:var(--mono);margin-top:1px;max-width:140px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${phoneTel(r.ph)}</div>`:''}${r.noteShort?`<div style="font-size:9px;color:#b45309;background:#fef9ec;border-radius:3px;padding:2px 5px;margin-top:2px;max-width:190px;white-space:normal;line-height:1.3;overflow:hidden;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical" title="${esc(r.noteShort)}">${escWithHL(r.noteShort)}</div>`:''}</td><td class="tab-list-mobile-hide acc-cell">${ib}</td><td class="tab-list-mobile-hide acc-cell">${ab}</td><td class="total-cell" id="tot-${oid}" style="width:78px">${$(tot(o))}${r.trackInfo}</td><td style="width:96px;white-space:nowrap"><button class="${stCls(o.status)}" onclick="openStatusMenu('${oid}',event)" title="本機狀態（點擊修改）">${o.status} ▾</button>${ktChipFor(o,true)}${(r.momoBadge||r.momoDiff)?`<div style="margin-top:3px;display:flex;flex-direction:column;gap:2px;align-items:flex-start">${r.momoBadge}${r.momoDiff}</div>`:''}</td><td class="act-cell"><div class="act-wrap">${a.addrAck}${a.ship}${a.shipDone}${a.amtPaidBtn}${a.instPaid}${a.addonPaid}${a.prodLink}${a.fillLabel}${a.sms}${a.edit}${a.copy}${a.cam}${a.del}</div></td></tr>`});
+h+=`<tr${r.scmActive?' class="row-scm"':''}><td class="batch-cell"><input type="checkbox" data-oid="${o.id}" ${checked?'checked':''} onclick="toggleRowSelected('${o.id}')"></td><td class="mono" style="width:56px">${fmtD(o.date)}${r.newBadge?' '+r.newBadge:''}</td><td style="width:44px;text-align:center">${platformPill(o.platform)}${r.addrBadge?' '+r.addrBadge:''}</td><td class="prod-cell" onclick="openEdit('${oid}')" style="cursor:pointer" title="點擊編輯：${esc(o.product)}">${prodSpecCombined}</td><td class="tab-list-mobile-hide qty-cell"><input type="text" inputmode="numeric" value="${r.qty}" oninput="this.value=cn(this.value);setQty('${oid}',this.value)" class="fee-input qty-input" style="width:34px${r.qty>1?';border-color:var(--mo);background:var(--mo-bg);color:var(--mo);font-weight:800':''}"></td><td class="name-cell" title="${r.ph?'電話 '+esc(r.ph):''}${o.address?'\n地址 '+esc(o.address):''}${r.noteShort?'\n備註 '+esc(r.noteShort):''}"><span style="white-space:normal">${o.name?`<span style="cursor:pointer;white-space:nowrap;text-decoration:underline;text-decoration-style:dotted;text-decoration-color:var(--ht);text-underline-offset:2px" onclick="event.stopPropagation();searchCustomerOrders(${jsArg(o.name)})" title="🔒 鎖定看「${esc(o.name)}」的所有訂單">${escWithHL(o.name)}</span>`:'(無姓名)'}${r.region?`<span style="font-size:9px;color:#1657b5;background:#e8eef9;border-radius:3px;padding:1px 5px;margin-left:5px;font-weight:700;white-space:nowrap;display:inline-block" title="${esc(o.address||'')}">${esc(r.region)}</span>`:''}${r.remoteBadge?`<span style="margin-left:4px">${r.remoteBadge}</span>`:''}${r.scmBadge?`<span style="margin-left:4px">${r.scmBadge}</span>`:''}</span>${r.ph?`<div style="font-size:9px;color:var(--dm);font-family:var(--mono);margin-top:1px;max-width:140px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${phoneTel(r.ph)}</div>`:''}${r.noteShort?`<div style="font-size:9px;color:#b45309;background:#fef9ec;border-radius:3px;padding:2px 5px;margin-top:2px;max-width:190px;white-space:normal;line-height:1.3;overflow:hidden;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical" title="${esc(r.noteShort)}">${escWithHL(r.noteShort)}</div>`:''}</td><td class="tab-list-mobile-hide acc-cell">${ib}</td><td class="tab-list-mobile-hide acc-cell">${ab}</td><td class="total-cell" id="tot-${oid}" style="width:78px">${$(tot(o))}${r.trackInfo}</td><td style="width:96px;white-space:nowrap"><button class="${stCls(o.status)}" onclick="openStatusMenu('${oid}',event)" title="本機狀態（點擊修改）">${o.status} ▾</button>${ktChipFor(o,true)}${(r.momoBadge||r.momoDiff)?`<div style="margin-top:3px;display:flex;flex-direction:column;gap:2px;align-items:flex-start">${r.momoBadge}${r.momoDiff}</div>`:''}</td><td class="act-cell"><div class="act-wrap">${a.addrAck}${a.ship}${a.shipDone}${a.amtPaidBtn}${a.instPaid}${a.addonPaid}${a.prodLink}${a.fillLabel}${a.sms}${a.edit}${a.copy}${a.reship}${a.cam}${a.del}</div></td></tr>`});
 h+='</tbody></table></div>';if(dtrunc)h+=`<div style="text-align:center;padding:12px 8px"><button class="btn" onclick="_deskExpand=true;renderList()">顯示全部 ${fl.length} 筆（目前先顯示前 ${DLIMIT} 筆，避免大量訂單卡頓）</button></div>`;h+='</div>';
 // 水平捲動位置沿用上一次 render — 視窗不夠寬要滑到右邊看操作鈕時，按一下鈕就整個彈回最左邊（姓名/尚未電聯 那排跟著跳掉）很難用
 const _prevSL=document.querySelector('#list-area .tbl-scroll')?.scrollLeft||0;
@@ -5485,6 +5487,7 @@ ${a.fillLabel}
 ${a.sms}
 ${a.edit}
 ${a.copy}
+${a.reship}
 ${a.cam}
 ${a.del}
 </div></div>`});
@@ -6043,7 +6046,7 @@ ${o.platform==='ST'?`<div style="border:1px solid var(--bd);border-radius:8px;pa
 <div class="fg" style="margin-top:10px"><div class="fi"><label>狀態</label><select id="e-st">${ST.map(s=>`<option ${o.status===s?'selected':''}>${s}</option>`).join('')}</select></div></div>
 ${(o.photos&&o.photos.length)?`<div class="fg full"><div class="fi"><label>📷 出貨照片（${o.photos.length} 張，點圖放大）</label><div style="display:flex;gap:6px;flex-wrap:wrap;padding:8px;background:var(--sf2);border:1px solid var(--bd);border-radius:8px">${o.photos.map((p,i)=>`<div style="position:relative"><a href="${esc(p.url)}" target="_blank" rel="noopener" style="display:block;width:88px;height:88px;border-radius:6px;overflow:hidden;border:1px solid var(--bd);background:#fff"><img src="${esc(p.url)}" style="width:100%;height:100%;object-fit:cover;display:block" loading="lazy"></a><button onclick="removeOrderPhoto('${o.id}',${i})" style="position:absolute;top:-6px;right:-6px;width:22px;height:22px;border-radius:50%;background:var(--pc);color:#fff;border:0;font-size:12px;cursor:pointer;font-weight:700;line-height:1" title="刪除此照片">×</button><div style="font-size:9px;color:var(--dm);text-align:center;margin-top:2px;font-family:var(--mono)">${new Date(p.ts).toLocaleString('zh-TW',{month:'2-digit',day:'2-digit',hour:'2-digit',minute:'2-digit'})}</div></div>`).join('')}</div></div></div>`:''}
 <div class="fg full"><div class="fi"><label>備註（新增即時同步・自動記錄誰＋時間）</label><div class="note-presets">${['不安裝不加購-直接出貨！','壓SP.貨到直接出！','電聯不上已壓SP','日期壓後面一點，貨到出貨。','已加line交涉中','要到電話！'].map(t=>`<button type="button" class="note-preset-chip" data-preset="${esc(t)}" onclick="noteQuickAdd(this.dataset.preset)">${esc(t)}</button>`).join('')}</div><div style="display:flex;gap:6px;margin-top:2px"><input id="e-note-add" placeholder="輸入備註，Enter 或按新增（即時同步）" onkeydown="if(event.key==='Enter'&&!imeBusy(event)){event.preventDefault();noteAddFromInput()}" style="flex:1;padding:6px 10px;border:1px solid var(--grn);border-radius:6px;font-size:12px;font-family:var(--sans);outline:none;background:var(--grn-bg)"><button type="button" class="btn btn-g" onclick="noteAddFromInput()" style="white-space:nowrap">＋ 新增</button></div><div id="e-note-timeline" style="margin-top:8px;max-height:230px;overflow:auto;background:var(--sf2);border:1px solid var(--bd);border-radius:8px;padding:4px 10px">${noteHistoryHTML(o.note,o.id)}</div><div style="margin-top:6px"><button type="button" class="btn" style="font-size:11px" onclick="toggleNoteRaw(this)">✎ 編輯／刪除舊備註（整段覆蓋）</button></div><textarea id="e-note" data-dirty="0" oninput="this.dataset.dirty='1';_modalDirty=true" style="display:none;margin-top:6px" placeholder="直接改整段（含舊紀錄）；儲存會覆蓋整段，請小心">${esc(o.note)}</textarea></div></div>
-<div class="modal-ft"><button class="btn" onclick="closeModal()">取消</button><button class="btn btn-g" onclick="saveEdit()">儲存</button></div>`;
+<div class="modal-ft"><button class="btn" onclick="openReship('${oid}')" style="margin-right:auto;color:#c2410c;border-color:#fdba74" title="照這張單的客人資料另開一張補寄單">📦 補寄</button><button class="btn" onclick="closeModal()">取消</button><button class="btn btn-g" onclick="saveEdit()">儲存</button></div>`;
 document.getElementById('modal-overlay').classList.remove('hidden');document.body.style.overflow='hidden';
 // 初始化 mismatch hint（如果開啟編輯的單已經有客戶希望 + 實際排程不符 → 馬上顯示提示）
 if(typeof updateInstallMismatchHint==='function')updateInstallMismatchHint();
@@ -6692,6 +6695,52 @@ function saveExpoSale(){
   showToast(`✅ 已加入店內寄出單：${name} ｜ ${product} ｜ ${isFree?'不收費（補寄／換貨）':'$'+total.toLocaleString()}`,null,null,4000);
   showTab('list');
 }
+
+// ===== 一鍵補寄（杰哥 2026-11-16：「商品可能會需要補寄東西，按了自動重新建立一單，可以備注補寄什麼」）=====
+/* 照原單的姓名／電話／地址另開一張「店寄 EXPO」補寄單：不收費、不追貨款、狀態「已確認」等出貨。
+   🔴 單號刻意用 EXPO- 開頭，不沿用原本的 MOMO／PChome 單號 —— 平台狀態同步、自動抓單去重、出貨回填都是看單號，
+      共用單號會讓補寄單被當成平台單去壓出貨、或被對狀態改掉。原單號記在 reshipOfNo + 備註。
+   原單也會留一行紀錄「建立補寄單 EXPO-xxx：品項」，兩邊都查得到。 */
+function openReship(oid){const o=findO(oid);if(!o)return;
+  if(editId&&_modalDirty&&!confirm('編輯視窗有改到還沒儲存的東西，切去補寄會丟掉，確定嗎？'))return;
+  editId=null;shipId=null;_modalDirty=false;_reshipFrom=oid;
+  const prev=orders.filter(x=>x.reshipOf===oid);
+  document.getElementById('modal-body').innerHTML=`<h3>📦 補寄</h3>
+<div style="background:var(--sf2);border:1px solid var(--bd);border-radius:8px;padding:10px 14px;font-size:11px;margin-bottom:12px;line-height:1.6">
+<div><b>原單：</b>${platformPill(o.platform)} <span class="mono">${esc(o.orderNo||'')}</span>　${esc(fmtD(o.date)||'')}</div>
+<div><b>原商品：</b>${esc(o.product||'')}${o.specs?'（'+esc(o.specs)+'）':''} × ${o.qty||1}</div>
+${prev.length?`<div style="color:#c2410c;margin-top:4px"><b>這張單已經補寄過 ${prev.length} 次：</b>${prev.map(x=>esc(fmtD(x.date)+' '+(x.product||''))).join('、')}</div>`:''}</div>
+<div class="fg full"><div class="fi"><label>補寄什麼 *</label><input id="rs-product" placeholder="例：琴袋、變壓器、少寄的踏板、換新的導線"></div></div>
+<div class="fg"><div class="fi"><label>數量</label><input id="rs-qty" type="text" inputmode="numeric" value="1" oninput="this.value=cn(this.value)"></div><div class="fi"><label>出貨日期</label><input type="date" id="rs-date" value="${localDateISO()}"></div></div>
+<div class="fg full"><div class="fi"><label>備註（為什麼補寄、誰說的…）</label><textarea id="rs-note" placeholder="例：客人說少了琴袋，原廠答應補；或 鼓棒斷了換新"></textarea></div></div>
+<div class="fg"><div class="fi"><label>收件人</label><input id="rs-name" value="${esc(o.name||'')}"></div><div class="fi"><label>電話</label><input id="rs-phone" value="${esc(o.realPhone||o.phone||'')}"></div></div>
+<div class="fg full"><div class="fi"><label>地址 <span style="font-size:10px;color:var(--ht)">（客人要寄別的地方就直接改）</span></label><input id="rs-addr" value="${esc(o.address||'')}"></div></div>
+<div style="font-size:11px;color:var(--dm);margin-top:6px;line-height:1.6">會建一張<b>不收費</b>的「店寄」補寄單（單號 EXPO- 開頭，不會被當成 MOMO／PChome 的單去壓出貨），原單也會留紀錄。</div>
+<div class="modal-ft"><button class="btn" onclick="closeModal()">取消</button><button class="btn btn-g" onclick="saveReship()" id="rs-save">建立補寄單</button></div>`;
+  document.getElementById('modal-overlay').classList.remove('hidden');document.body.style.overflow='hidden';
+  setTimeout(()=>{const el=document.getElementById('rs-product');if(el)el.focus()},50)}
+var _reshipFrom=null;
+function saveReship(){const src=findO(_reshipFrom);if(!src){alert('原單已不存在');closeModal();return}
+  const product=(document.getElementById('rs-product').value||'').trim();
+  if(!product){alert('請填「補寄什麼」');document.getElementById('rs-product').focus();return}
+  const btn=document.getElementById('rs-save');if(btn){if(btn.disabled)return;btn.disabled=true}   // 防連點建兩張
+  const qty=Math.max(1,parseInt(document.getElementById('rs-qty').value,10)||1);
+  const date=document.getElementById('rs-date').value||localDateISO();
+  const name=(document.getElementById('rs-name').value||'').trim()||src.name||'';
+  const phone=(document.getElementById('rs-phone').value||'').trim();
+  const addr=(document.getElementById('rs-addr').value||'').trim();
+  const userNote=(document.getElementById('rs-note').value||'').trim();
+  const srcLabel=platName(src.platform)+' '+(src.orderNo||'');
+  const noteParts=['📦 補寄（原單 '+srcLabel+'）','補寄：'+product+(qty>1?' x '+qty:''),'不收費（補寄）'];
+  if(userNote)noteParts.push(userNote);
+  const o={id:gid(),date,dateFmt:fmtD(date),platform:'EXPO',orderNo:'EXPO-'+Date.now().toString().slice(-9),product:'【補寄】'+product,specs:'',name,phone,realPhone:phone,address:addr,addrMgmt:src.addrMgmt||'',addrElev:src.addrElev||'',install:'否',installFee:0,installDay:'',installTime:'',installPaidAmount:0,addon:'否',addonFee:0,addonItems:'',addonPaidAmount:0,amount:0,amountDue:false,amountPaid:0,qty,status:'已確認',note:noteParts.join('\n'),delyGbStr:'',trackingNo:'',reshipOf:src.id,reshipOfNo:src.orderNo||''};
+  logActivity(o,'補寄建單（原單 '+srcLabel+'）');
+  orders.push(o);
+  _setSavingBadge();db.ref('orders/'+o.id).set(o).catch(_saveError);
+  logActivity(src,'建立補寄單 '+o.orderNo+'：'+product+(qty>1?' x '+qty:''));saveOne(src);
+  _modalDirty=false;_reshipFrom=null;closeModal();updateCnt();
+  if(typeof renderList==='function')renderList();
+  showToast('✅ 已建立補寄單：'+name+'｜'+product+(qty>1?' x '+qty:''),null,null,4000)}
 
 // ===== 同行調貨 modal =====
 // 杰哥 2026-09-07 交辦：跟別家樂器行互相調貨也要進系統，單號開頭一個「調」字。
