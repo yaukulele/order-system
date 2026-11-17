@@ -1268,7 +1268,7 @@ body.has-batch-bar .main{padding-bottom:140px}
 <div class="card" style="background:linear-gradient(135deg,#e0e7ff,#fff);border:1px solid #a5b4fc"><div class="card-h" style="background:transparent"><h3>🔁 同行調貨</h3><div class="btn-row" style="justify-content:flex-end"><button class="btn" onclick="openTradeModal()" style="background:#4338ca;border-color:#4338ca;color:#fff;font-weight:700;flex:0 0 auto;min-width:130px" title="同行之間互相調貨（單號開頭「調」）">+ 新增訂單</button></div></div></div>
 <div class="card" style="background:linear-gradient(135deg,#ccfbf1,#fff);border:1px solid #5eead4"><div class="card-h" style="background:transparent"><h3>🎓 學校團購</h3><div class="btn-row" style="justify-content:flex-end"><button class="btn" onclick="openSchoolModal()" style="background:#0d9488;border-color:#0d9488;color:#fff;font-weight:700;flex:0 0 auto;min-width:130px" title="學校班級團購建單（學生 / 團購學校 / 年級班級）">+ 新增訂單</button></div></div></div>
 <div class="card" style="background:linear-gradient(135deg,#fff1e8,#fff);border:1px solid #fdba74"><div class="card-h" style="background:transparent"><h3>📦 店內寄出</h3><div class="btn-row" style="justify-content:flex-end"><button class="btn" onclick="openExpoModal()" style="background:#ea580c;border-color:#ea580c;color:#fff;font-weight:700;flex:0 0 auto;min-width:130px" title="店內成交、要寄給客人的單（帶價／訂金找零自動算）">+ 新增訂單</button></div></div></div>
-<div class="card" id="card-paste-quick" style="background:linear-gradient(135deg,#ecfdf5,#fff);border:1px solid #6ee7b7"><div class="card-h" style="background:transparent"><h3>✍️ 貼上文字快速建單</h3></div><div class="card-b"><div style="font-size:12px;color:var(--dm);line-height:1.7;margin-bottom:8px">直接貼四行（或用 <b>／</b> 隔開）：<b>品項</b>、<b>姓名</b>、<b>電話</b>、<b>地址</b>，一鍵生成一筆要出貨的訂單。<br><span style="color:var(--ht)">例：uc10 AM ／ 顏建杰 ／ 0983638128 ／ 新北市板橋區</span><br><span style="color:var(--ht)">順序不一樣也沒關係 —— 09 開頭的當電話、有縣市或路街巷弄的當地址、純中文 2~4 字的當姓名，剩下的就是品項。</span></div><div style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:8px" id="pc-type-seg"><button type="button" class="fbtn on" data-pctype="online" onclick="pcSetType('online',this)">線上銷售</button><button type="button" class="fbtn" data-pctype="reship" onclick="pcSetType('reship',this)">補寄</button><button type="button" class="fbtn" data-pctype="trade" onclick="pcSetType('trade',this)">同行調貨</button><button type="button" class="fbtn" data-pctype="web" onclick="pcSetType('web',this)" title="官網的單（已付款的會自動進來，這裡是手動補）">官網銷售</button></div><textarea id="pc-text" oninput="pcRenderPreview()" placeholder="uc10 AM&#10;顏建杰&#10;0983638128&#10;新北市板橋區" style="width:100%;min-height:96px;font-size:13px;font-family:inherit;border:1px solid #d1d5db;border-radius:10px;padding:9px;box-sizing:border-box;resize:vertical"></textarea><div style="display:flex;gap:6px;flex-wrap:wrap;align-items:center;margin-top:8px" id="pc-money-row"><span style="font-size:12px;color:var(--dm);font-weight:600">金額</span><input id="pc-amt" inputmode="numeric" placeholder="例：19000" oninput="this.value=cn(this.value);pcRenderPreview()" style="width:110px;padding:6px 10px;border:1px solid #d1d5db;border-radius:10px;font-size:13px"><button type="button" class="fbtn on" data-pcpaid="0" onclick="pcSetPaid(false,this)">未收</button><button type="button" class="fbtn" data-pcpaid="1" onclick="pcSetPaid(true,this)">已收</button><span style="font-size:11px;color:var(--ht)">標未收的會進「未收款」清單一直提醒，收到再按已收</span></div><div id="pc-preview" style="font-size:12px;margin:8px 0"></div><div class="btn-row" style="justify-content:flex-end;margin-top:4px"><button class="btn" onclick="pasteQuickCreate()" style="background:#059669;border-color:#059669;color:#fff;font-weight:700;min-width:130px">+ 建立訂單</button></div></div></div>
+<div class="card" id="card-paste-quick" style="background:linear-gradient(135deg,#ecfdf5,#fff);border:1px solid #6ee7b7"><div class="card-h" style="background:transparent"><h3>✍️ 貼上文字快速建單</h3></div><div class="card-b"><div style="font-size:12px;color:var(--dm);line-height:1.7;margin-bottom:8px">直接貼四行（或用 <b>／</b> 隔開）：<b>品項</b>、<b>姓名</b>、<b>電話</b>、<b>地址</b>，一鍵生成一筆要出貨的訂單。<br><span style="color:var(--ht)">例：uc10 AM ／ 顏建杰 ／ 0983638128 ／ 新北市板橋區</span><br><span style="color:var(--ht)">順序不一樣也沒關係 —— 09 開頭的當電話、有縣市或路街巷弄的當地址、純中文 2~4 字的當姓名，剩下的就是品項。</span><br><span style="color:#047857">客人 LINE 整段貼也可以：「總金額：30000」自動填金額；「+耳機」「替換」「運送／安裝」放備註；多留的第二位聯絡人也放備註。</span></div><div style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:8px" id="pc-type-seg"><button type="button" class="fbtn on" data-pctype="online" onclick="pcSetType('online',this)">線上銷售</button><button type="button" class="fbtn" data-pctype="reship" onclick="pcSetType('reship',this)">補寄</button><button type="button" class="fbtn" data-pctype="trade" onclick="pcSetType('trade',this)">同行調貨</button><button type="button" class="fbtn" data-pctype="web" onclick="pcSetType('web',this)" title="官網的單（已付款的會自動進來，這裡是手動補）">官網銷售</button></div><textarea id="pc-text" oninput="pcRenderPreview()" placeholder="uc10 AM&#10;顏建杰&#10;0983638128&#10;新北市板橋區" style="width:100%;min-height:96px;font-size:13px;font-family:inherit;border:1px solid #d1d5db;border-radius:10px;padding:9px;box-sizing:border-box;resize:vertical"></textarea><div style="display:flex;gap:6px;flex-wrap:wrap;align-items:center;margin-top:8px" id="pc-money-row"><span style="font-size:12px;color:var(--dm);font-weight:600">金額</span><input id="pc-amt" inputmode="numeric" placeholder="例：19000" oninput="this.value=cn(this.value);pcRenderPreview()" style="width:110px;padding:6px 10px;border:1px solid #d1d5db;border-radius:10px;font-size:13px"><button type="button" class="fbtn on" data-pcpaid="0" onclick="pcSetPaid(false,this)">未收</button><button type="button" class="fbtn" data-pcpaid="1" onclick="pcSetPaid(true,this)">已收</button><span style="font-size:11px;color:var(--ht)">標未收的會進「未收款」清單一直提醒，收到再按已收</span></div><div id="pc-preview" style="font-size:12px;margin:8px 0"></div><div class="btn-row" style="justify-content:flex-end;margin-top:4px"><button class="btn" onclick="pasteQuickCreate()" style="background:#059669;border-color:#059669;color:#fff;font-weight:700;min-width:130px">+ 建立訂單</button></div></div></div>
 <div class="card" style="background:var(--card-momo-bg);border:1px solid var(--card-momo-bd)"><div class="card-h" style="background:transparent"><h3>🚀 自動抓 MOMO</h3><div class="btn-row" style="justify-content:flex-end"><button class="btn btn-g" id="momo-auto-btn" onclick="fetchMomoAuto()" style="background:var(--mo);border-color:var(--mo);flex:0 0 auto;min-width:130px" title="自動抓 MOMO 未出貨訂單">🔄 抓取</button></div></div><div class="card-b" style="padding:8px 16px"><div id="momo-auto-status" style="font-size:11px;color:var(--dm);font-family:var(--mono)"></div></div></div>
 <div class="card" style="background:#fff1f2;border:1px solid #fda4af"><div class="card-h" style="background:transparent"><h3>🚚 自動抓 MOMO 第三方</h3><div class="btn-row" style="justify-content:flex-end"><button class="btn btn-g" id="momo3-auto-btn" onclick="fetchMomoThirdAuto()" style="background:#f43f5e;border-color:#f43f5e;flex:0 0 auto;min-width:130px" title="抓 MOMO 第三方物流 未出貨訂單（跑遍物流商合併）">🔄 抓取</button></div></div><div class="card-b" style="padding:8px 16px"><div id="momo3-auto-status" style="font-size:11px;color:var(--dm);font-family:var(--mono)"></div></div></div>
 <div class="card" style="background:var(--card-pc-bg);border:1px solid var(--card-pc-bd)"><div class="card-h" style="background:transparent"><h3>🛒 自動抓 PChome</h3><div class="btn-row" style="justify-content:flex-end"><button class="btn btn-g" id="pchome-auto-btn" onclick="fetchPchomeAuto()" style="background:var(--pc);border-color:var(--pc);flex:0 0 auto;min-width:130px" title="自動抓 PChome 未出貨訂單（共用 MOMO API Token）">🔄 抓取</button></div></div><div class="card-b" style="padding:8px 16px"><div id="pchome-auto-status" style="font-size:11px;color:var(--dm);font-family:var(--mono)"></div></div></div><div class="card" style="background:#f5f3ff;border:1px solid #c4b5fd"><div class="card-h" style="background:transparent"><h3>📩 簡訊設定</h3><div class="btn-row" style="justify-content:flex-end"><button class="btn" onclick="editSmsTemplate()" style="border-color:#a78bfa;color:#7c3aed;flex:0 0 auto;min-width:130px" title="編輯發給客戶的簡訊範本">✏️ 改範本</button></div></div><div class="card-b" style="padding:8px 16px"><div id="sms-balance" style="font-size:11px;color:var(--dm);font-family:var(--mono)">剩餘點數：發送後自動更新</div></div></div></div>
@@ -6558,31 +6558,67 @@ function pcIsAddr(s){
   return false;
 }
 function pcIsName(s){return /^[\u4e00-\u9fff\u00b7\u2027\u30fb]{2,4}$/.test(s)&&!pcIsAddr(s)}
+/* 杰哥 2026-11-17：客人 LINE 整段貼進來（總金額／商品／加購／運送／姓名電話地址／第二聯絡人），
+   原本除了姓名電話地址全塞進品項。改成：
+     「總金額：30000」→ 金額欄｜第一個商品行 → 品項（顏色移到型號後）｜+加購、替換、運送安裝說明 → 備註
+     第二組姓名＋電話 → 備註「另一位聯絡人」，主要電話不會被蓋掉 */
+var PC_NOTE_RE=/^[+＋]|替換|換成|改成|改為|不含|含安裝|運送|到府|宅配|自取|安裝|備註|多留|加購|另外|另一|太太|先生|老婆|老公|聯絡|贈品|附贈/;
+var PC_AMT_RE=/(總金額|總額|金額|總價|合計|總計|共計|售價|價格|報價)\s*[:：]?\s*(?:NT\$?|\$)?\s*([\d,，]{3,})\s*元?/i;
+function pcTidyProduct(s){
+  s=s.replace(/[，,、]+/g,' ').replace(/\s+/g,' ').trim();
+  // 「FP-40 全套組 白色」→「FP-40 白色 全套組」：顏色放型號後面，跟庫存品名一樣
+  var m=s.match(/^(\S+)\s+(.+?)\s+((?:[\u4e00-\u9fff]{1,2})色)$/);
+  if(m&&/[A-Za-z0-9]/.test(m[1]))s=m[1]+' '+m[3]+' '+m[2];
+  return s;
+}
 function pcParse(raw){
-  var clean=(raw||'').replace(/\r/g,'').trim();
+  var clean=fwToHw((raw||'').replace(/\r/g,'')).trim();
   if(!clean)return null;
   var parts=clean.split('\n').map(function(s){return s.trim()}).filter(Boolean);
   if(parts.length<=1)parts=clean.split(/[／/、,|\t]+| {2,}/).map(function(s){return s.trim()}).filter(Boolean);
   if(!parts.length)return null;
   var phRe=/^(?:\+?886-?|0)?9\d{2}[- ]?\d{3}[- ]?\d{3}$|^0\d{1,2}[- ]?\d{6,8}$/;
   var norm=function(s){return s.replace(/[^\d]/g,'').replace(/^886/,'0')};
-  var rest=parts.slice();
-  // 1) 電話
-  var phone='';
-  for(var i=0;i<rest.length;i++){if(phRe.test(rest[i].replace(/\s/g,''))){phone=norm(rest[i]);rest.splice(i,1);break}}
-  // 2) 地址（可能被拆成好幾行 → 全部收走再接起來）
-  var addrParts=[];
-  for(var j=rest.length-1;j>=0;j--){if(pcIsAddr(rest[j])){addrParts.unshift(rest[j]);rest.splice(j,1)}}
-  var address=addrParts.join(' ').trim();
-  // 3) 姓名：剩下的裡面「只有一個」像姓名才採用；兩個都像就不猜，照原本位置來
-  var name='',nameIdx=-1,nameHits=0;
-  for(var k=0;k<rest.length;k++){if(pcIsName(rest[k])){nameHits++;nameIdx=k}}
-  if(rest.length>=2&&nameHits===1){name=rest[nameIdx];rest.splice(nameIdx,1)}
-  else if(rest.length>=2){name=rest[1];rest.splice(1,1)}
-  else if(rest.length===1&&nameHits===1&&address){name=rest[0];rest=[]}
-  // 4) 剩下的都是品項
-  var product=rest.join(' ').trim();
-  return {product:product,name:name,phone:phone,address:address};
+  // 每行標類型，保留原始順序（找「電話上面那個名字」要用）
+  // 「陳大文 0911222333」同一行 → 拆成姓名、電話兩行
+  parts=parts.reduce(function(a,t){var m=t.match(/^(.*?)[\s:：]*((?:\+?886-?|0)9\d{2}[- ]?\d{3}[- ]?\d{3})$/);if(m&&m[1]&&pcIsName(m[1].replace(/(電話|手機)$/,'').trim())){a.push(m[1].replace(/(電話|手機)$/,'').trim(),m[2])}else a.push(t);return a},[]);
+  var L=parts.map(function(t){return {t:t,k:''}});
+  var amount=0;
+  L.forEach(function(x){
+    if(!x.k&&!amount){var m=x.t.match(PC_AMT_RE);if(m){amount=parseInt(m[2].replace(/[,，]/g,''))||0;x.k='amt'}}
+  });
+  // 電話：第一支是主要，其他當另一位聯絡人
+  var phones=[];
+  L.forEach(function(x){if(!x.k&&phRe.test(x.t.replace(/\s/g,''))){x.k='ph';phones.push(x)}});
+  L.forEach(function(x){if(!x.k&&pcIsAddr(x.t))x.k='addr'});
+  L.forEach(function(x){if(!x.k&&pcIsName(x.t))x.k='nm'});
+  var phone=phones.length?norm(phones[0].t):'';
+  var address=L.filter(function(x){return x.k==='addr'}).map(function(x){return x.t}).join(' ').trim();
+  var names=L.filter(function(x){return x.k==='nm'});
+  var name='',extras=[];
+  var nameBefore=function(ph){var i=L.indexOf(ph);for(var j=i-1;j>=0&&j>=i-2;j--){if(L[j].k==='nm'&&!L[j].used)return L[j]}return null};
+  if(phones.length>=2&&names.length>=1){
+    // 多組聯絡人：每支電話配它上面的名字
+    phones.forEach(function(ph,ix){var n=nameBefore(ph);if(n)n.used=true;
+      if(ix===0)name=n?n.t:'';else extras.push(((n?n.t+' ':'')+norm(ph.t)).trim())});
+    if(!name){var f=names.find(function(n){return !n.used});if(f){f.used=true;name=f.t}}
+    names.forEach(function(n){if(!n.used){n.used=true;extras.push(n.t)}});
+  }else if(names.length===1){name=names[0].t;names[0].used=true}
+  else if(names.length>=2&&phones.length===1){var nb=nameBefore(phones[0]);if(nb){nb.used=true;name=nb.t}}
+  // 其他：備註行 vs 品項行
+  var other=L.filter(function(x){return !x.k||(x.k==='nm'&&!x.used)});
+  var prodLines=[],notes=[];
+  other.forEach(function(x){if(x.k!=='nm'&&PC_NOTE_RE.test(x.t))notes.push(x.t);else prodLines.push(x)});
+  // 兩個以上都像姓名、又沒有多組電話 → 照舊位置規則：第二行當姓名
+  if(!name&&names.length>=2){var cand=prodLines.filter(function(x){return x.k==='nm'});
+    if(prodLines.length>=2){var pick=prodLines[1];name=pick.t;prodLines.splice(1,1)}}
+  else if(!name&&prodLines.length>=2&&!names.length){name=prodLines[1].t;prodLines.splice(1,1)}
+  var product=prodLines.map(function(x){return x.t}).join(' ').trim();
+  if(prodLines.length===1)product=pcTidyProduct(product);
+  if(extras.length)notes.push('另一位聯絡人：'+extras.join('、'));
+  // 品項空、但有備註 → 備註第一行升為品項
+  if(!product&&notes.length&&!/^另一位聯絡人/.test(notes[0]))product=notes.shift().replace(/^[+＋]\s*/,'');
+  return {product:product,name:name,phone:phone,address:address,amount:amount,note:notes.join('\n')};
 }
 
 function pcRenderPreview(){
@@ -6591,11 +6627,14 @@ function pcRenderPreview(){
   if(!p){box.innerHTML='';return}
   var label={online:'線上銷售',reship:'補寄（不收費）',trade:'同行調貨',web:'官網銷售'}[_pcType];
   var row=function(k,v){return '<div style="display:flex;gap:6px"><span style="color:var(--ht);min-width:44px">'+k+'</span><span>'+(v?esc(v):'<span style="color:#dc2626">（缺）</span>')+'</span></div>'};
-  var amt=parseAmt((document.getElementById('pc-amt')||{}).value||'')||0;
+  var ia=document.getElementById('pc-amt');
+  if(ia&&p.amount&&(!ia.value||ia.dataset.auto===ia.value)){ia.value=String(p.amount);ia.dataset.auto=ia.value}
+  var amt=parseAmt((ia||{}).value||'')||0;
   var money=amt?('$'+amt.toLocaleString()+'　'+(_pcPaid?'已收':'<span style="color:#dc2626;font-weight:700">未收 — 會進未收款清單</span>')):'';
   box.innerHTML='<div style="background:#f0fdf4;border:1px solid #bbf7d0;border-radius:8px;padding:8px 10px">'
     +'<div style="font-weight:700;color:#047857;margin-bottom:4px">將建立一筆【'+label+'】訂單：</div>'
     +row('品項',p.product)+row('姓名',p.name)+row('電話',p.phone)+row('地址',p.address)
+    +(p.note?'<div style="display:flex;gap:6px"><span style="color:var(--ht);min-width:44px">備註</span><span style="white-space:pre-line">'+esc(p.note)+'</span></div>':'')
     +(amt?'<div style="display:flex;gap:6px"><span style="color:var(--ht);min-width:44px">金額</span><span>'+money+'</span></div>':'')+'</div>';
 }
 function pasteQuickCreate(){
@@ -6609,7 +6648,7 @@ function pasteQuickCreate(){
      🔴 一定要有這個旗標，不能只看 amount：MOMO／PChome 的單貨款是平台收的，
      沒有旗標就會讓全庫一千多張單一夕之間全變成「未收款」，整個提醒就廢了。
      補寄不收費，所以不追。 */
-  var amt=parseAmt((document.getElementById('pc-amt')||{}).value||'')||0;
+  var amt=parseAmt((document.getElementById('pc-amt')||{}).value||'')||p.amount||0;
   var due=amt>0&&_pcType!=='reship';
   var base={id:gid(),date:date,dateFmt:fmtD(date),specs:'',name:name,phone:p.phone,realPhone:p.phone,address:p.address,addrMgmt:'',addrElev:'',install:'否',installFee:0,installDay:'',installTime:'',installPaidAmount:0,addon:'否',addonFee:0,addonItems:'',addonPaidAmount:0,amount:amt,amountDue:due,amountPaid:due?(_pcPaid?amt:0):0,qty:1,status:'已確認',delyGbStr:'',trackingNo:''};
   var o;
@@ -6622,11 +6661,13 @@ function pasteQuickCreate(){
   }else{
     o=Object.assign({},base,{platform:'ST',orderNo:'ON-'+Date.now().toString().slice(-9),product:p.product,note:'🛒 線上銷售（貼上快速建單）'});
   }
+  if(p.note)o.note=(o.note?o.note+'
+':'')+p.note;
   logActivity(o,typeLabel+'快速建單'+(amt?('　金額 $'+amt.toLocaleString()+'　'+(due?(_pcPaid?'已收':'未收'):'不追貨款')):''));
   orders.push(o);
   _setSavingBadge();db.ref('orders/'+o.id).set(o).catch(_saveError);
   var ta=document.getElementById('pc-text');if(ta)ta.value='';
-  var ia=document.getElementById('pc-amt');if(ia)ia.value='';
+  var ia=document.getElementById('pc-amt');if(ia){ia.value='';delete ia.dataset.auto}
   pcRenderPreview();
   updateCnt();
   showToast('✅ 已建立【'+typeLabel+'】：'+name+'｜'+p.product+(due&&!_pcPaid?('｜貨款未收 $'+amt.toLocaleString()):''),null,null,3800);
