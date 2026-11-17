@@ -6661,8 +6661,7 @@ function pasteQuickCreate(){
   }else{
     o=Object.assign({},base,{platform:'ST',orderNo:'ON-'+Date.now().toString().slice(-9),product:p.product,note:'🛒 線上銷售（貼上快速建單）'});
   }
-  if(p.note)o.note=(o.note?o.note+'
-':'')+p.note;
+  if(p.note)o.note=(o.note?o.note+'\n':'')+p.note;
   logActivity(o,typeLabel+'快速建單'+(amt?('　金額 $'+amt.toLocaleString()+'　'+(due?(_pcPaid?'已收':'未收'):'不追貨款')):''));
   orders.push(o);
   _setSavingBadge();db.ref('orders/'+o.id).set(o).catch(_saveError);
