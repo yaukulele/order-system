@@ -4668,6 +4668,11 @@ async function invCommit(){
       if(r.act==='later')continue;
       if(r.act==='skip'){
         o.invSkip=true;logActivity(o,'庫存：不用扣（廠商直出／不在庫存／已手動扣）');saveOne(o);
+        // 庫存裡對得到這個商品（記過品項、或型號猜得到）→ 多半是「已手動扣」，只這張不扣、不記住；
+        // 不然以後同商品同規格的單全部被當成不用扣，連有貨／缺貨標籤都不見（2026-11-17 NP-15 白色耳機組）
+        const _m=_stkMap&&_stkMap[key],_mine=_m&&_m.txt===invKeyText(o)&&Array.isArray(_m.lines)&&_m.lines.length;
+        const _g=(!_mine&&_stkIdx)?stkGuess(o,_stkIdx):[];
+        if(_mine||_g.length){res.push(`${esc(o.name)}：不扣（只這張，庫存有這個品項所以不記住）`);continue}
         await db.ref('invMap/'+key).set({txt:invKeyText(o),skip:true,name:String(o.product||'').slice(0,80),spec:o.specs&&o.specs!=='無'?String(o.specs).slice(0,60):'',plat:o.platform,by:currentUser||'',at:new Date().toISOString()});
         res.push(`${esc(o.name)}：不扣（已記住）`);continue;
       }
