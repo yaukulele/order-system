@@ -5220,7 +5220,8 @@ function stkStart(){
 }
 function stkRerender(){clearTimeout(_stkRenderT);_stkRenderT=setTimeout(()=>{try{renderList()}catch(e){}},300)}
 const stkBase=n=>{const t=String(n||'').trim();const m=t.match(/^[A-Za-z0-9\-+._\/]+/);return m?m[0]:t.split(/\s+/)[0]};
-const stkCode=it=>invNorm(String(it.n||'').trim().slice(stkBase(it.n).length));
+// 「SLG 200 CRB」這種型號被空格拆開的，顏色代碼取最後一段
+const stkCode=it=>{const t=String(it.n||'').trim();if(!stkIsModel(invNorm(stkBase(t)))){const p=t.split(/\s+/);if(p.length>=3)return invNorm(p[p.length-1])}return invNorm(t.slice(stkBase(t).length))};
 const stkIsModel=t=>t.length>=3&&/\d/.test(t)&&/[A-Z]/.test(t);
 function stkTokens(o){
   // aNueNue 品名寫「Nino 520」、庫存寫「N520AC」→ 先把 NINO 換成 N
@@ -5229,10 +5230,10 @@ function stkTokens(o){
   for(let i=0;i+1<parts.length;i++){const gap=text.slice(parts[i].index+parts[i][0].length,parts[i+1].index);if(/^[\s\-._\/]*$/.test(gap))set.add(parts[i][0]+parts[i+1][0])}
   return set;
 }
-const STK_COLORS=[[/黑|BLACK|BK/i,['BK','BL','B','BB','BLK','MB','黑','黑色']],[/白|WHITE|WH/i,['WH','W','WHT','PWH','白','白色']],[/紅|RED|RD/i,['RM','RED','RD','R','MR','CR','紅','紅色']],
+const STK_COLORS=[[/黑|BLACK|BK/i,['BK','BL','B','BB','BLK','MB','黑','黑色']],[/白|WHITE|WH/i,['WH','W','WHT','PWH','白','白色']],[/紅|RED|RD/i,['RM','RED','RD','R','MR','CR','CRB','紅','紅色']],
   [/藍|BLUE/i,['DBM','BU','BLU','BA','TBL','藍','藍色']],[/琥珀|漸層|夕陽|日落|SUNBURST/i,['OVS','TBS','SB','VS']],[/綠|GREEN/i,['GN','GR','G','BF','IG','綠','綠色']],[/原木|木色|自然|NATURAL/i,['NT','N','NAT']]];
 function stkBuildIndex(items){
-  const models=new Map(),names=new Map(),full=new Map();
+  const models=new Map(),names=new Map(),full=new Map(),split=new Map();
   for(const it of items){
     const f=invNorm(it.n);if(stkIsModel(f)&&/^[A-Z0-9]+$/.test(f)){if(!full.has(f))full.set(f,[]);full.get(f).push(it)}
     const b=invNorm(stkBase(it.n));
@@ -5240,14 +5241,16 @@ function stkBuildIndex(items){
     const parts=String(it.n||'').trim().split(/\s+/).map(invNorm);
     if(parts.length<2||!parts.some(x=>/^[A-Z0-9]+$/.test(x)&&/\d/.test(x)))continue;
     const k=parts.join(' ');if(!names.has(k))names.set(k,{parts,items:[]});names.get(k).items.push(it);
+    // 「SLG 200 CRB」→ 另外記成型號 SLG200、顏色 CRB，訂單寫 SLG200S 深紅漸層 也找得到（2026-11-17）
+    if(parts.length>=3&&/^[A-Z]+$/.test(parts[0])&&/^\d+$/.test(parts[1])){const sk=parts[0]+parts[1];if(!split.has(sk))split.set(sk,[]);split.get(sk).push(it)}
   }
-  return {models,names,full};
+  return {models,names,full,split};
 }
 function stkGuess(o,idx){
   const tokens=stkTokens(o);const raw=invNorm(`${o.product||''}${o.specs||''}`.normalize('NFKC'));
   // 訂單寫 YDP105R、庫存寫 YDP-105 → 型號後面黏的字母去掉再試一次（只在完全對不到時才用）
   const find=toks=>{let fullHit=null,best=null;
-    for(const t of toks){if(idx.full.has(t)&&(!fullHit||t.length>fullHit.length))fullHit=t;if(idx.models.has(t)&&(!best||t.length>best.length))best=t}
+    for(const t of toks){if(idx.full.has(t)&&(!fullHit||t.length>fullHit.length))fullHit=t;if((idx.models.has(t)||idx.split.has(t))&&(!best||t.length>best.length))best=t}
     return {fullHit,best}};
   let {fullHit,best}=find(tokens);
   if(!fullHit&&!best){const alt=new Set();for(const t of tokens){const m=t.match(/^([A-Z]*\d+)[A-Z]{1,2}$/);if(m&&stkIsModel(m[1]))alt.add(m[1])}({fullHit,best}=find(alt))}
@@ -5255,7 +5258,8 @@ function stkGuess(o,idx){
   if(!best){let hit=null,len=0;
     for(const {parts,items} of idx.names.values()){if(!parts.every(x=>/^[A-Z0-9]+$/.test(x)?tokens.has(x):raw.includes(x)))continue;const l=parts.join('').length;if(l>len){hit=items;len=l}}
     return hit?hit.map(it=>it.id):[]}
-  const vs=idx.models.get(best);if(vs.length===1)return [vs[0].id];
+  const sb=best.match(/^([A-Z]+\d+)[A-Z]{1,2}$/);
+  const vs=[...(idx.models.get(best)||[]),...(idx.split.get(best)||[]),...(sb&&!idx.models.has(sb[1])?(idx.split.get(sb[1])||[]):[])];if(vs.length===1)return [vs[0].id];
   const direct=vs.filter(it=>stkCode(it).length>=2&&tokens.has(stkCode(it)));if(direct.length)return direct.map(it=>it.id);
   for(const text of [String(o.specs||''),String(o.product||'')])for(const [re,codes] of STK_COLORS){if(!re.test(text))continue;const hit=vs.filter(it=>codes.includes(stkCode(it)));if(hit.length)return hit.map(it=>it.id)}
   return vs.map(it=>it.id);
