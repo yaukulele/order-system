@@ -7704,7 +7704,8 @@ function renderKerryTab(){
     ['move','運送中',cnt.move||0],['none','未收件',(cnt.none||0)+(cnt.unk||0)],['done','已送達',cnt.done||0],['all','全部',rows.length]];
   let show=rows.filter(r=>_ktFilter==='all'?true:_ktFilter==='bad'?!!r.bad:_ktFilter==='active'?r.k!=='done':_ktFilter==='none'?(r.k==='none'||r.k==='unk'):r.k===_ktFilter);
   if(q)show=show.filter(r=>[r.b,r.o.orderNo,r.o.name,r.o.product,r.o.phone].some(x=>String(x||'').toUpperCase().includes(q)));
-  show.sort((a,b)=>(order[a.k]-order[b.k])||(_ktFilter==='bad'?String(a.b).localeCompare(String(b.b)):0)||String(b.o.date||'').localeCompare(String(a.o.date||'')));
+  const _ktTop=k=>(k==='issue'?0:k==='stale'?1:2), _ktAt=o=>(o.kerry&&o.kerry.at)?String(new Date(o.kerry.at).getTime()).padStart(15,'0'):String(Date.parse(String(o.date||''))||0).padStart(15,'0');
+  show.sort((a,b)=>(_ktTop(a.k)-_ktTop(b.k))||(_ktFilter==='bad'?String(a.b).localeCompare(String(b.b)):0)||_ktAt(b.o).localeCompare(_ktAt(a.o)));   // 越新的越上面（2026-11-18）
   const keepQ=document.activeElement&&document.activeElement.id==='ktab-q';
   // 預設打開（阿淵 2026-10-19：要一進來就看到今天出的貨）；自己收起來會記住
   const _kb=document.getElementById('k-today-box');
@@ -7919,7 +7920,8 @@ function renderKerryTodayBox(){
     [[1,'今天'],[3,'最近 3 天'],[7,'最近 7 天']].map(([d,l])=>'<button class="fbtn'+(_ktTodayDays===d?' on':'')+'" onclick="_ktTodayDays='+d+';loadKerryToday(true)">'+l+'</button>').join('')+
     (_ktTodayDays>1?'<span style="color:#b45309">前幾天送的也列出來，可以勾起來補印標籤／託運明細</span>':'')+'</div>';
   if(!all.length){box.innerHTML=daySel+'<div style="font-size:12px;color:var(--dm)">'+(_ktTodayDays>1?'最近 '+_ktTodayDays+' 天':'今天')+'還沒有送過大榮。</div>';return}
-  const rows=all.map(s=>{
+  // 越新的越上面（員工 2026-11-18：不用往後拉）
+  const rows=all.slice().sort((a,b)=>String(b.uploadedAt||'').localeCompare(String(a.uploadedAt||''))).map(s=>{
     const t=s.uploadedAt?new Date(s.uploadedAt).toLocaleTimeString('zh-TW',{hour:'2-digit',minute:'2-digit'}):'';
     const cx=s.cancelled;
     /* 後端給的是「最近 24 小時」不是「今天」→ 早上看會混進昨天下午出的單。
@@ -13640,6 +13642,18 @@ function stStatusCell(r){
   return esc2(t);
 }
 
+/* 越新的越上面（員工 2026-11-18：「剛印出的單能在最上面」）
+   排序鍵 = 最後一次動作時間：印標籤時間、出貨確認時間取較新的；都沒有（還沒處理）就照轉單日。
+   有動作的一律排在還沒處理的前面，剛印完的那幾張就在第一列。原地排序（stable），勾選用單號記，不受影響。 */
+function stSortNewest(){
+  let pr = {};
+  try{ pr = JSON.parse(localStorage.getItem(ST_PRINTED_KEY)||'{}') }catch(e){}
+  const sh = {};
+  stShipped().forEach(x=>{ if(x && x.completeOrderNo) sh[x.completeOrderNo] = x.at || 0 });
+  const act = r=>Math.max(+pr[stNormNo(r.completeOrderNo)] || 0, +sh[r.completeOrderNo] || 0);
+  const day = r=>{ const t = Date.parse(String(r.lastPricDate||'').replace(/\//g,'-')); return isNaN(t) ? 0 : t };
+  stRows.sort((a,b)=>(act(b) - act(a)) || (day(b) - day(a)));
+}
 function stRender(){
   const box = $s('st-body'); if(!box) return;
   const cnt = $s('stores-cnt');
@@ -13765,6 +13779,7 @@ function stRender(){
       + (stIsThird()?'出貨地址':'取貨門市') + '</th>'
       + '<th>收件人</th><th>商品</th><th>配送狀態</th><th>轉單日</th></tr></thead><tbody>';
     const groups = stGroups();
+    stSortNewest();
     stRows.forEach((r, i)=>{
       const no = r.completeOrderNo || '';
       const on = stPick.has(no);
