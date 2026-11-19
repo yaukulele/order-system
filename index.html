@@ -11784,15 +11784,16 @@ function renderRec(){
    ========================================================================= */
 const LQ_PF = ['MOMO','PChome'];   // 官網杰哥自己處理（11/19）
 const LQ_CK = '<svg viewBox="0 0 24 24"><path d="M5 12.5l4.5 4.5L19 7.5"/></svg>';
+function lqDate(ts){ if(!ts) return ''; const d=new Date(ts), p=n=>String(n).padStart(2,'0'); return d.getFullYear()+'/'+p(d.getMonth()+1)+'/'+p(d.getDate())+' '+p(d.getHours())+':'+p(d.getMinutes()) }
 function lqPfList(x){ return LQ_PF.filter(p=>x.pf && x.pf[p] != null) }
 function lqRowHTML(x){
   const pfs = lqPfList(x);
   const okN = pfs.filter(p=>x.pf[p]===1).length;
   const meta = [];
-  meta.push('<b>'+esc(x.createdBy||'')+'</b> '+fmtTime(x.createdAt)+' 加入');
+  meta.push('<b>'+esc(x.createdBy||'')+'</b> '+lqDate(x.createdAt)+' 加入');
   if(x.assignee) meta.push('負責 <b>'+esc(x.assignee)+'</b>');
   if(pfs.length) meta.push('平台 '+okN+'/'+pfs.length);
-  if(x.done) meta.push('<b>'+esc(x.doneBy||'')+'</b> '+fmtTime(x.doneAt)+' 完成');
+  if(x.done) meta.push('<span style="color:var(--grn);font-weight:700">'+esc(x.doneBy||'')+' '+lqDate(x.doneAt)+' 上架完成</span>');
   return '<div class="lq-row'+(x.done?' done':'')+'" data-id="'+esc(x.id)+'">'
     + '<button class="lq-ck" data-a="done" title="'+(x.done?'取消完成':'全部上架完成，打勾')+'">'+LQ_CK+'</button>'
     + '<div class="lq-main">'
@@ -11802,10 +11803,10 @@ function lqRowHTML(x){
     +   (pfs.length ? '<div class="lq-pf">'+pfs.map(p=>{
           const ok = x.pf[p]===1, by = (x.pfBy||{})[p];
           return '<button class="lq-p'+(ok?' ok':'')+'" data-a="pf" data-p="'+esc(p)+'" title="'+(ok?'點一下改回還沒上':'上好了點一下打勾')+'">'
-            + '<span class="bx"></span>'+esc(p)+(ok&&by?'<span class="t">'+esc(by.by||'')+' '+fmtTime(by.at)+'</span>':'')+'</button>';
+            + '<span class="bx"></span>'+esc(p)+(ok&&by?'<span class="t">'+esc(by.by||'')+' '+lqDate(by.at)+'</span>':'')+'</button>';
         }).join('')+'</div>' : '')
     +   '<div class="lq-prog"><input data-a="prog" maxlength="120" placeholder="進度到哪：例 等照片／文案寫好待審／MOMO 送審中" value="'+esc(x.progress||'')+'">'
-    +     (x.progressBy ? '<span class="who">'+esc(x.progressBy)+' '+fmtTime(x.progressAt)+' 更新</span>' : '')
+    +     (x.progressBy ? '<span class="who">'+esc(x.progressBy)+' '+lqDate(x.progressAt)+' 更新</span>' : '')
     +   '</div>'
     + '</div>'
     + '<button class="lq-ed" data-a="edit" title="編輯">編輯</button>'
