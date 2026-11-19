@@ -11798,7 +11798,7 @@ function lqRowHTML(x){
     + '<div class="lq-main">'
     +   '<div class="lq-name">'+esc(x.name||'')+'</div>'
     +   '<div class="lq-meta">'+meta.join('　·　')+'</div>'
-    +   (x.note ? '<div class="lq-meta" style="color:var(--dm)">備註：'+esc(x.note)+'</div>' : '')
+    +   (x.note ? '<div class="lq-meta" style="color:var(--dm)">備註：'+esc(x.note).replace(/https?:\/\/[^\s<　（）]+/g, u=>'<a href="'+u+'" target="_blank" rel="noopener" style="color:var(--blu);text-decoration:underline">'+(u.length>48?u.slice(0,45)+'…':u)+'</a>')+'</div>' : '')
     +   (pfs.length ? '<div class="lq-pf">'+pfs.map(p=>{
           const ok = x.pf[p]===1, by = (x.pfBy||{})[p];
           return '<button class="lq-p'+(ok?' ok':'')+'" data-a="pf" data-p="'+esc(p)+'" title="'+(ok?'點一下改回還沒上':'上好了點一下打勾')+'">'
