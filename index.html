@@ -1045,6 +1045,39 @@ body.has-batch-bar .main{padding-bottom:140px}
 .tdmod .vtabs{padding:0}
 #tab-todo{padding-bottom:30px}
 
+/* ===== 待上架清單（杰哥 2026-11-19）===== */
+.tdmod .lq-add{display:flex;gap:8px;align-items:flex-start;margin:12px 0 4px}
+.tdmod .lq-add textarea{min-height:42px;height:42px;flex:1;resize:vertical}
+.tdmod .lq-list{display:flex;flex-direction:column;gap:8px;padding-top:6px}
+.tdmod .lq-row{display:flex;gap:12px;align-items:flex-start;background:var(--sf);border:1px solid var(--bd);border-radius:12px;padding:11px 13px}
+.tdmod .lq-row.done{background:var(--sf2);opacity:.78}
+.tdmod .lq-ck{flex:0 0 auto;width:26px;height:26px;border-radius:8px;border:2px solid var(--bd);background:var(--sf);display:flex;align-items:center;justify-content:center;margin-top:1px;color:transparent}
+.tdmod .lq-ck:hover{border-color:var(--grn)}
+.tdmod .lq-ck svg{width:15px;height:15px;stroke:currentColor;fill:none;stroke-width:3;stroke-linecap:round;stroke-linejoin:round}
+.tdmod .lq-row.done .lq-ck{background:var(--grn);border-color:var(--grn);color:#fff}
+.tdmod .lq-main{flex:1;min-width:0}
+.tdmod .lq-name{font-size:14px;font-weight:700;color:var(--tx);line-height:1.5;word-break:break-word}
+.tdmod .lq-row.done .lq-name{text-decoration:line-through;color:var(--dm)}
+.tdmod .lq-meta{font-size:11px;color:var(--ht);font-weight:500;margin-top:2px}
+.tdmod .lq-meta b{color:var(--dm);font-weight:700}
+.tdmod .lq-pf{display:flex;gap:6px;flex-wrap:wrap;margin-top:7px}
+.tdmod .lq-p{padding:4px 11px;border-radius:20px;border:1px solid var(--bd);background:var(--sf2);font-size:11.5px;font-weight:700;color:var(--dm);display:inline-flex;align-items:center;gap:5px}
+.tdmod .lq-p:hover{border-color:var(--grn)}
+.tdmod .lq-p .bx{width:12px;height:12px;border-radius:3px;border:1.5px solid currentColor;display:inline-block}
+.tdmod .lq-p.ok{background:var(--grn-bg);border-color:var(--grn);color:var(--grn)}
+.tdmod .lq-p.ok .bx{background:var(--grn);border-color:var(--grn)}
+.tdmod .lq-p .t{font-weight:500;font-size:10.5px;opacity:.85}
+.tdmod .lq-prog{display:flex;gap:8px;align-items:center;margin-top:8px}
+.tdmod .lq-prog input{padding:7px 10px;font-size:12.5px;flex:1;min-width:0;background:var(--amb-bg);border-color:transparent}
+.tdmod .lq-prog input:focus{background:var(--sf);border-color:var(--grn)}
+.tdmod .lq-prog .who{font-size:10.5px;color:var(--ht);white-space:nowrap}
+.tdmod .lq-ed{flex:0 0 auto;border:0;background:none;color:var(--ht);font-size:12px;padding:4px 6px;border-radius:6px}
+.tdmod .lq-ed:hover{background:var(--sf2);color:var(--tx)}
+.tdmod .lq-pick{display:flex;gap:6px;flex-wrap:wrap}
+.tdmod .lq-pick button{padding:7px 14px;border-radius:20px;border:1px solid var(--bd);background:var(--sf);font-size:12px;font-weight:700;color:var(--dm)}
+.tdmod .lq-pick button.on{background:var(--tx);color:var(--bg);border-color:var(--tx)}
+@media(max-width:860px){.tdmod .lq-row{padding:10px 11px;gap:10px}.tdmod .lq-prog{flex-wrap:wrap}.tdmod .lq-prog input{flex:1 1 100%}.tdmod .lq-prog .who{width:100%}.tdmod .lq-add{flex-direction:column}.tdmod .lq-add .btn{width:100%}}
+
 /* ===== 排班時間用拉的（滑桿） ===== */
 .tm-box{background:var(--sf2);border:1px solid var(--bd);border-radius:12px;padding:14px 15px;margin-bottom:13px}
 .tm-big{display:flex;align-items:baseline;gap:8px;justify-content:center;margin-bottom:3px}
@@ -1292,6 +1325,7 @@ body.has-batch-bar .main{padding-bottom:140px}
       <button class="vtab on" data-v="notes">便利貼<span class="n" id="vt-notes">0</span></button>
       <button class="vtab" data-v="goals">個人目標<span class="n" id="vt-goals">0</span></button>
       <button class="vtab" data-v="rec">我的紀錄</button>
+      <button class="vtab" data-v="lq">待上架<span class="n" id="vt-lq">0</span></button>
     </div>
     <span class="td-sp"></span>
     <button class="icon-btn hidden" id="set-b" title="提醒設定（管理員）">
@@ -1317,6 +1351,15 @@ body.has-batch-bar .main{padding-bottom:140px}
     <div class="bar" id="rbar"></div>
     <div class="rc-nums" id="rc-nums"></div>
     <div class="rc-list" id="rc-list"></div>
+  </div>
+  <div id="view-lq" class="hidden">
+    <div class="lq-add"><textarea id="lq-quick" placeholder="要上架的商品，一行一個（可一次貼很多行）&#10;例：Yamaha YDP-145 白色"></textarea><button class="btn btn-g" id="lq-quick-b">加入清單</button></div>
+    <div class="bar" id="lq-bar"></div>
+    <div class="lq-list" id="lq-list"></div>
+    <div class="done-sec">
+      <div class="done-h" id="lq-done-h"><svg viewBox="0 0 24 24"><path d="M9 18l6-6-6-6"/></svg><span id="lq-done-t">已上架完成</span></div>
+      <div class="lq-list hidden" id="lq-done"></div>
+    </div>
   </div>
 </div>
 <div class="main hidden pmod" id="tab-punch">
@@ -10505,6 +10548,7 @@ const PATHS = {
   snooze:   'todoSnooze',
   goals:    'goals',
   anc:      'announcements',   // 公告：常駐提醒，不會被勾掉
+  lq:       'listingQueue',    // 待上架清單（2026-11-19）
   log:      'activityLog'       // 沿用主系統的操作紀錄
 };
 
@@ -10539,6 +10583,8 @@ let fCat = 'all', fMine = false;
 let doneRange = 'today';   // 已完成要看多遠：today | 7 | 30 | all
 let goals = [];
 let ancs = [];                                    // 公告（常駐提醒，不進提醒輪迴）
+let lqs = [];                                     // 待上架清單
+let lqF = 'all';                                  // 待上架篩選：all | 某平台還沒上
 let view = 'notes';                               // 'notes' | 'goals'
 let gWho = '';                                    // 目標頁的人員篩選（管理員限定，'' = 全部人）
 let sessionStart = Date.now();
@@ -10636,6 +10682,11 @@ function onReady(){
     goals = Object.keys(v).map(k=>Object.assign({id:k}, v[k]));
     render();
   });
+  db.ref(PATHS.lq).on('value', s=>{
+    const v = s.val() || {};
+    lqs = Object.keys(v).map(k=>Object.assign({id:k}, v[k]));
+    render();
+  });
   db.ref(PATHS.anc).on('value', s=>{
     const v = s.val() || {};
     ancs = Object.keys(v).map(k=>Object.assign({id:k}, v[k])).sort((a,b)=>(b.at||0)-(a.at||0));
@@ -10644,7 +10695,13 @@ function onReady(){
 
   $('vtabs').querySelectorAll('.vtab').forEach(b=>b.onclick=()=>setView(b.dataset.v));
   // 新增鈕看目前在哪一頁：便利貼頁開便利貼、目標頁開目標
-  $('add-b').onclick = ()=> view==='goals' ? openGoalEdit(null) : openEdit(null);
+  $('add-b').onclick = ()=> view==='goals' ? openGoalEdit(null) : view==='lq' ? openLQEdit(null) : openEdit(null);
+  $('lq-quick-b').onclick = lqQuickAdd;
+  $('lq-quick').onkeydown = e=>{ if(e.key==='Enter' && (e.ctrlKey||e.metaKey)){ e.preventDefault(); lqQuickAdd() } };
+  $('lq-done-h').onclick = ()=>{
+    const g = $('lq-done'), h = $('lq-done-h');
+    g.classList.toggle('hidden'); h.classList.toggle('open');
+  };
   $('bell').onclick  = ()=>{ try{ showTab('todo') }catch(_){} };
   $('set-b').onclick = openSettings;
   $('done-h').onclick = ()=>{
@@ -10654,7 +10711,7 @@ function onReady(){
   };
   if(lsGet('todoSysDoneOpen', false)){ $('done-grid').classList.remove('hidden'); $('done-h').classList.add('open') }
   try{ const _dr = localStorage.getItem('todoDoneRange'); if(_dr) doneRange = _dr }catch(_){}
-  setView(lsGet('todoSysView', 'notes') === 'goals' ? 'goals' : 'notes');
+  { const _v = lsGet('todoSysView', 'notes'); setView(_v === 'goals' || _v === 'lq' ? _v : 'notes'); }
 
   setInterval(tick, 20000);
   setTimeout(tick, 2500);
@@ -10757,6 +10814,7 @@ function render(){
   renderAnc();
   renderGoals();
   renderRec();
+  renderLQ();
 }
 
 /* =========================================================================
@@ -11717,6 +11775,173 @@ function renderRec(){
     : '<div class="g-empty">還沒有紀錄。勾完一張便利貼、或在目標按一次加一，這裡就會長出來。</div>');
 }
 
+/* =========================================================================
+   待上架清單（杰哥 2026-11-19）
+   輸入要上架的商品 → 每個平台各自打勾（看得出上到哪）→ 進度欄隨手寫 → 全部上完打勾。
+   全部人都看得到、都能改；刪除只有建立者和管理員。
+   資料：listingQueue/{id} = {name, pf:{官網:0|1,...}, pfBy:{官網:{by,at}}, progress, progressBy, progressAt,
+                              assignee, note, done, doneBy, doneAt, createdBy, createdAt}
+   ========================================================================= */
+const LQ_PF = ['MOMO','PChome'];   // 官網杰哥自己處理（11/19）
+const LQ_CK = '<svg viewBox="0 0 24 24"><path d="M5 12.5l4.5 4.5L19 7.5"/></svg>';
+function lqPfList(x){ return LQ_PF.filter(p=>x.pf && x.pf[p] != null) }
+function lqRowHTML(x){
+  const pfs = lqPfList(x);
+  const okN = pfs.filter(p=>x.pf[p]===1).length;
+  const meta = [];
+  meta.push('<b>'+esc(x.createdBy||'')+'</b> '+fmtTime(x.createdAt)+' 加入');
+  if(x.assignee) meta.push('負責 <b>'+esc(x.assignee)+'</b>');
+  if(pfs.length) meta.push('平台 '+okN+'/'+pfs.length);
+  if(x.done) meta.push('<b>'+esc(x.doneBy||'')+'</b> '+fmtTime(x.doneAt)+' 完成');
+  return '<div class="lq-row'+(x.done?' done':'')+'" data-id="'+esc(x.id)+'">'
+    + '<button class="lq-ck" data-a="done" title="'+(x.done?'取消完成':'全部上架完成，打勾')+'">'+LQ_CK+'</button>'
+    + '<div class="lq-main">'
+    +   '<div class="lq-name">'+esc(x.name||'')+'</div>'
+    +   '<div class="lq-meta">'+meta.join('　·　')+'</div>'
+    +   (x.note ? '<div class="lq-meta" style="color:var(--dm)">備註：'+esc(x.note)+'</div>' : '')
+    +   (pfs.length ? '<div class="lq-pf">'+pfs.map(p=>{
+          const ok = x.pf[p]===1, by = (x.pfBy||{})[p];
+          return '<button class="lq-p'+(ok?' ok':'')+'" data-a="pf" data-p="'+esc(p)+'" title="'+(ok?'點一下改回還沒上':'上好了點一下打勾')+'">'
+            + '<span class="bx"></span>'+esc(p)+(ok&&by?'<span class="t">'+esc(by.by||'')+' '+fmtTime(by.at)+'</span>':'')+'</button>';
+        }).join('')+'</div>' : '')
+    +   '<div class="lq-prog"><input data-a="prog" maxlength="120" placeholder="進度到哪：例 等照片／文案寫好待審／MOMO 送審中" value="'+esc(x.progress||'')+'">'
+    +     (x.progressBy ? '<span class="who">'+esc(x.progressBy)+' '+fmtTime(x.progressAt)+' 更新</span>' : '')
+    +   '</div>'
+    + '</div>'
+    + '<button class="lq-ed" data-a="edit" title="編輯">編輯</button>'
+    + '</div>';
+}
+function renderLQ(){
+  const box = $('lq-list'); if(!box) return;
+  const open = lqs.filter(x=>!x.done).sort((a,b)=>(a.createdAt||0)-(b.createdAt||0));   // 先加的先做
+  const done = lqs.filter(x=>x.done).sort((a,b)=>(b.doneAt||0)-(a.doneAt||0));
+  $('vt-lq').textContent = open.length;
+  const miss = p => open.filter(x=>x.pf && x.pf[p]===0).length;
+  let bar = '<button class="chip'+(lqF==='all'?' on':'')+'" data-f="all">全部<span class="n">'+open.length+'</span></button>';
+  LQ_PF.forEach(p=>{ bar += '<button class="chip'+(lqF===p?' on':'')+'" data-f="'+esc(p)+'">還沒上 '+esc(p)+'<span class="n">'+miss(p)+'</span></button>' });
+  $('lq-bar').innerHTML = bar;
+  $('lq-bar').querySelectorAll('.chip').forEach(b=>b.onclick=()=>{ lqF=b.dataset.f; renderLQ() });
+  const shown = lqF==='all' ? open : open.filter(x=>x.pf && x.pf[lqF]===0);
+  // 正在打進度的那一格不要被別人的更新洗掉
+  const ae = document.activeElement, keep = ae && ae.dataset && ae.dataset.a==='prog' && ae.closest('.lq-row') ? {id:ae.closest('.lq-row').dataset.id, v:ae.value, s:ae.selectionStart} : null;
+  box.innerHTML = shown.length ? shown.map(lqRowHTML).join('')
+    : '<div class="g-empty">'+(open.length?'這個平台都上好了':'目前沒有待上架的商品。<br>上面輸入框打商品名稱，一行一個，按「加入清單」。')+'</div>';
+  $('lq-done-t').innerHTML = '已上架完成 <span class="dn-n">'+done.length+'</span>';
+  $('lq-done').innerHTML = done.length ? done.slice(0,200).map(lqRowHTML).join('') : '<div class="g-empty">還沒有完成的</div>';
+  [box, $('lq-done')].forEach(bindLQ);
+  if(keep){ const i = box.querySelector('.lq-row[data-id="'+CSS.escape(keep.id)+'"] input[data-a="prog"]'); if(i){ i.value=keep.v; i.focus(); try{i.setSelectionRange(keep.s,keep.s)}catch(_){} } }
+}
+function bindLQ(root){
+  root.querySelectorAll('.lq-row').forEach(row=>{
+    const id = row.dataset.id, x = lqs.find(y=>y.id===id); if(!x) return;
+    const ref = db.ref(PATHS.lq+'/'+id);
+    row.querySelector('[data-a="done"]').onclick = async ()=>{
+      await authReady;
+      const pfs = lqPfList(x), left = pfs.filter(p=>x.pf[p]!==1);
+      if(!x.done && left.length && !confirm('還有 '+left.join('、')+' 沒打勾，確定整筆算上架完成？')) return;
+      try{
+        if(x.done){ await ref.update({done:false, doneBy:null, doneAt:null}); logAction('待上架 取消完成', x.name) }
+        else { await ref.update({done:true, doneBy:me, doneAt:firebase.database.ServerValue.TIMESTAMP}); logAction('待上架 完成', x.name); toast('已完成：'+x.name) }
+      }catch(e){ toast('儲存失敗：'+e.message) }
+    };
+    row.querySelectorAll('[data-a="pf"]').forEach(b=>b.onclick = async ()=>{
+      await authReady;
+      const p = b.dataset.p, ok = x.pf[p]===1;
+      const up = {}; up['pf/'+p] = ok?0:1; up['pfBy/'+p] = ok?null:{by:me, at:firebase.database.ServerValue.TIMESTAMP};
+      try{
+        await ref.update(up);
+        logAction('待上架 '+p+(ok?' 取消':' 已上'), x.name);
+        if(!ok && !x.done && lqPfList(x).every(q=>q===p || x.pf[q]===1)) toast('平台都上好了，確認沒問題就在左邊打勾完成', 4500);
+      }catch(e){ toast('儲存失敗：'+e.message) }
+    });
+    const inp = row.querySelector('[data-a="prog"]');
+    const saveProg = async ()=>{
+      const v = inp.value.trim();
+      if(v === (x.progress||'')) return;
+      await authReady;
+      try{
+        await ref.update({progress:v, progressBy:me, progressAt:firebase.database.ServerValue.TIMESTAMP});
+        logAction('待上架 進度', x.name+'：'+v);
+      }catch(e){ toast('儲存失敗：'+e.message) }
+    };
+    inp.onkeydown = e=>{ if(e.key==='Enter'){ e.preventDefault(); inp.blur() } };
+    inp.onblur = saveProg;
+    row.querySelector('[data-a="edit"]').onclick = ()=>openLQEdit(id);
+  });
+}
+async function lqQuickAdd(){
+  const ta = $('lq-quick');
+  const names = ta.value.split(/\r?\n/).map(t=>t.trim()).filter(Boolean);
+  if(!names.length){ toast('先打要上架的商品名稱'); ta.focus(); return }
+  await authReady;
+  const pf = {}; LQ_PF.forEach(p=>pf[p]=0);
+  try{
+    for(const n of names){
+      await db.ref(PATHS.lq).push({name:n.slice(0,120), pf:pf, progress:'', done:false, createdBy:me, createdAt:firebase.database.ServerValue.TIMESTAMP});
+    }
+    logAction('待上架 新增', names.join('、'));
+    ta.value = ''; lqF = 'all';
+    toast('已加入 '+names.length+' 項（MOMO、PChome 都要上，按「編輯」可改）', 4000);
+  }catch(e){ toast('新增失敗：'+e.message) }
+}
+function openLQEdit(id){
+  const x = id ? lqs.find(y=>y.id===id) : null;
+  const sel = x ? new Set(lqPfList(x)) : new Set(LQ_PF);
+  const names = Object.keys(users);
+  const ov = document.createElement('div');
+  ov.className = 'ov'; ov.style.zIndex = '320';
+  ov.innerHTML = '<div class="md" style="max-width:480px">'
+    + '<h3>'+(x?'編輯待上架':'新增待上架')+'</h3>'
+    + '<div class="fld"><label>'+(x?'商品':'商品（一行一個，可一次加很多）')+'</label>'
+    +   (x ? '<input id="lq-name" maxlength="120" value="'+esc(x.name||'')+'">' : '<textarea id="lq-name" placeholder="例：Yamaha YDP-145 白色"></textarea>')+'</div>'
+    + '<div class="fld"><label>要上哪些平台（點選）</label><div class="lq-pick" id="lq-pick">'
+    +   LQ_PF.map(p=>'<button type="button" data-p="'+esc(p)+'"'+(sel.has(p)?' class="on"':'')+'>'+esc(p)+'</button>').join('')+'</div></div>'
+    + '<div class="fld"><label>負責的人（可不選）</label><select id="lq-who"><option value="">不指定</option>'
+    +   names.map(n=>'<option value="'+esc(n)+'"'+(x&&x.assignee===n?' selected':'')+'>'+esc(n)+'</option>').join('')+'</select></div>'
+    + '<div class="fld"><label>備註（可留白）</label><input id="lq-note" maxlength="200" placeholder="例：圖用原廠、價格照 MOMO" value="'+esc(x?(x.note||''):'')+'"></div>'
+    + '<div class="md-ft">'
+    +   (x && (isAdmin()||x.createdBy===me) ? '<button class="btn btn-r left" id="lq-del">刪除</button>' : '')
+    +   '<button class="btn" id="lq-cancel">取消</button><button class="btn btn-g" id="lq-save">儲存</button>'
+    + '</div></div>';
+  tdLayer().appendChild(ov);
+  ov.onclick = e=>{ if(e.target===ov) ov.remove() };
+  ov.querySelector('#lq-cancel').onclick = ()=>ov.remove();
+  ov.querySelectorAll('#lq-pick button').forEach(b=>b.onclick=()=>b.classList.toggle('on'));
+  const delB = ov.querySelector('#lq-del');
+  if(delB) delB.onclick = async ()=>{
+    await authReady;
+    if(!confirm('確定刪除「'+(x.name||'')+'」？')) return;
+    try{ await db.ref(PATHS.lq+'/'+id).remove(); logAction('待上架 刪除', x.name); ov.remove(); toast('已刪除') }
+    catch(e){ toast('刪除失敗：'+e.message) }
+  };
+  ov.querySelector('#lq-save').onclick = async ()=>{
+    await authReady;
+    const want = [...ov.querySelectorAll('#lq-pick button.on')].map(b=>b.dataset.p);
+    const assignee = ov.querySelector('#lq-who').value || '';
+    const note = ov.querySelector('#lq-note').value.trim();
+    try{
+      if(x){
+        const name = ov.querySelector('#lq-name').value.trim();
+        if(!name){ toast('商品名稱不能空白'); return }
+        // 已經打勾的平台保留勾勾；新加的平台從「還沒上」開始
+        const pf = {}; want.forEach(p=>pf[p] = (x.pf && x.pf[p]===1) ? 1 : 0);
+        const pfBy = {}; want.forEach(p=>{ if(pf[p]===1 && x.pfBy && x.pfBy[p]) pfBy[p]=x.pfBy[p] });
+        await db.ref(PATHS.lq+'/'+id).update({name:name.slice(0,120), pf:pf, pfBy:pfBy, assignee:assignee, note:note, editedBy:me, editedAt:firebase.database.ServerValue.TIMESTAMP});
+        logAction('待上架 編輯', name);
+      }else{
+        const list = ov.querySelector('#lq-name').value.split(/\r?\n/).map(t=>t.trim()).filter(Boolean);
+        if(!list.length){ toast('先打要上架的商品名稱'); return }
+        const pf = {}; want.forEach(p=>pf[p]=0);
+        for(const n of list) await db.ref(PATHS.lq).push({name:n.slice(0,120), pf:pf, assignee:assignee, note:note, progress:'', done:false, createdBy:me, createdAt:firebase.database.ServerValue.TIMESTAMP});
+        logAction('待上架 新增', list.join('、'));
+      }
+      ov.remove(); toast('已儲存');
+      if(view!=='lq') setView('lq');
+    }catch(e){ toast('儲存失敗：'+e.message) }
+  };
+  setTimeout(()=>ov.querySelector('#lq-name').focus(), 60);
+}
+
 function setView(v){
 
   view = v;
@@ -11724,7 +11949,8 @@ function setView(v){
   $('view-notes').classList.toggle('hidden', v!=='notes');
   $('view-goals').classList.toggle('hidden', v!=='goals');
   $('view-rec').classList.toggle('hidden', v!=='rec');
-  $('add-b').classList.toggle('hidden', v==='rec');   // 紀錄頁沒有東西可以新增
+  $('view-lq').classList.toggle('hidden', v!=='lq');
+  $('add-b').classList.toggle('hidden', v==='rec' || v==='lq');   // 紀錄頁沒東西新增；待上架頁上面就有輸入框
   $('add-b').textContent = v==='goals' ? '＋ 新目標' : '＋ 新增';
   lsSet('todoSysView', v);
   render();
