@@ -3561,6 +3561,7 @@ async function _syncPcLive(base,token){
     m[id]={kind:o.kind,st:o.shipCheckStatus||'',slip:o.shipId||'',vendor:o.shipVendorId||'',
       trans:_momoDateISO(o.transDate),vship:_momoDateISO(o.vendorShipDate),ship:_momoDateISO(o.shipDate),
       pre:_momoDateISO(o.preOrderDate),   // 預購出貨日（只有預購商品的單才有）
+      prom:_momoDateISO(o.promiseDate||''),   // 與客約出貨日（1.2.14，2026-11-27）
       at:Date.now()};
   }
   _pcLive=m;_pcLiveAt=Date.now();
@@ -3635,6 +3636,20 @@ function pcPreOrderDate(o){
   const L=pcLiveOf(o);
   return (L&&L.pre)||'';
 }
+/* 與客約出貨日（PChome 1.2.14，杰哥 2026-11-27）：平台快照優先，沒有再用本機記的 */
+function pcPromiseDate(o){
+  if(!o||o.platform!=='PC') return '';
+  const own=_momoDateISO(o.pcPromiseDate||'');
+  const L=pcLiveOf(o);
+  return (L&&L.prom)||own||'';
+}
+function promiseBadge(o){
+  const d=pcPromiseDate(o); if(!d) return '';
+  const L=pcLiveOf(o);
+  const done=L?!['open','error'].includes(L.kind):(!isPending(o.status)||!!o.trackingNo);
+  if(done) return '';
+  return '<span class="ct-badge ct-pre" title="'+esc('PChome 已壓「與客約 '+d+' 出」')+'">客約 '+esc(d.slice(5).replace('-','/'))+' 出</span>';
+}
 function preOrderBadge(o){
   if(!o||o.platform!=='PC') return '';
   const d=pcPreOrderDate(o);
@@ -3663,6 +3678,9 @@ function pcFineRisk(o){
   const pre=pcPreOrderDate(o);
   let preOrder=false;
   if(pre&&pre>due){due=pre;preOrder=true}
+  /* 與客約出貨日（杰哥 2026-11-27）：壓了客約日的單，期限就是那天，之前不算逾期 */
+  const prom=pcPromiseDate(o);
+  if(prom&&prom>due){due=prom;preOrder=true}
   const today=localDateISO();
   return {due,base,preOrder,pre,level:today>due?'over':today===due?'today':'soon',failed:L.kind==='error'};
 }
@@ -3778,6 +3796,7 @@ async function pcRecheckIds(nos){
     const next={kind:o.kind,st:o.shipCheckStatus||'',slip:o.shipId||'',vendor:o.shipVendorId||'',
       trans:_momoDateISO(o.transDate),vship:_momoDateISO(o.vendorShipDate),ship:_momoDateISO(o.shipDate),
       pre:_momoDateISO(o.preOrderDate),   // 預購出貨日（只有預購商品的單才有）
+      prom:_momoDateISO(o.promiseDate||''),   // 與客約出貨日（1.2.14，2026-11-27）
       at:Date.now()};
     if(prev&&prev.kind!==next.kind)changed.push({no:id,from:prev.kind,to:next.kind});
     _pcLive[id]=next;
@@ -4112,7 +4131,7 @@ function prepareOrderRow(o,opts){
   else if(_ct==='called')scmBadge=`<span class="ct-badge ct-called" title="已電聯客戶，尚未確認配送日">已電聯待指配</span>`;
   else if(_ct==='none')scmBadge=`<span class="ct-badge ct-none" title="MOMO 尚未電聯客戶排配送">尚未電聯</span>`;
   // MOMO 平台實際狀態（唯讀同步來的）＋ 跟本機狀態對不上的標記
-  const momoBadge=platformLiveBadge(o)+momoReturnBadge(o)+preOrderBadge(o);
+  const momoBadge=platformLiveBadge(o)+momoReturnBadge(o)+preOrderBadge(o)+promiseBadge(o);
   const momoDiff=platformDiffBadge(o);
   return{ps,ph,qty,addrAttrs,noteShort,installInfo,addonInfo,newBadge,addrBadge,trackInfo,region,remoteBadge,scmDate,scmActive,scmBadge,momoBadge,momoDiff};
 }
@@ -6147,7 +6166,7 @@ document.getElementById('modal-body').innerHTML=`<h3>編輯訂單${customerHisto
 <div class="fi"><label>加購內容（例如：琴架、變壓器、調音器…）</label><input type="text" id="e-addonitems" value="${esc(o.addonItems||'')}" placeholder="加購了什麼" list="addon-items-suggestions"></div></div></div>
 <datalist id="addon-items-suggestions">${getAddonSuggestions().map(s=>`<option value="${esc(s)}"></option>`).join('')}</datalist>
 <div class="total-box"><div class="t-label">合計金額</div><div class="t-val" id="e-tot">$${tot(o).toLocaleString()}</div>${(o.saleAmt!=null||o.netAmt!=null)?`<div style="font-size:11px;color:var(--dm);margin-top:4px">商品 售價 ${o.saleAmt!=null?'$'+Number(o.saleAmt).toLocaleString():'—'} ／ 實拿 ${o.netAmt!=null?'$'+Number(o.netAmt).toLocaleString():'—'}${o.pxEst?'（估）':''}</div>`:''}</div>
-${o.platform==='ST'?`<div style="border:1px solid var(--bd);border-radius:8px;padding:12px;margin:8px 0;background:var(--sf2)"><div style="font-size:12px;font-weight:700;margin-bottom:8px">📦 物流 <span style="font-weight:400;color:var(--dm);font-size:10px">（外送/寄送才需填）</span></div><div class="fg"><div class="fi"><label>物流公司</label><select id="e-dely"><option value="">— 未填（現場取走） —</option>${_delyOpts(o,MOMO_DELY_COMPANIES)}</select></div><div class="fi"><label>物流單號</label><input id="e-tracking" value="${esc(o.trackingNo||'')}" placeholder="(可空)" style="font-family:var(--mono)"></div></div><div style="margin-top:6px;font-size:10px;color:var(--dm)">店內訂單通常現場取走，物流可空</div></div>`:`<div style="border:1px solid var(--bd);border-radius:8px;padding:12px;margin:8px 0;background:var(--sf2)"><div style="font-size:12px;font-weight:700;margin-bottom:8px">📦 物流</div><div class="fg"><div class="fi"><label>物流公司</label><select id="e-dely"><option value="">— 未填 —</option>${_delyOpts(o,o.platform==='PC'?[...MOMO_DELY_COMPANIES,'廠商自行出貨']:MOMO_DELY_COMPANIES)}</select></div><div class="fi"><label>物流單號</label><input id="e-tracking" value="${esc(o.trackingNo||'')}" placeholder="物流單號" style="font-family:var(--mono)"></div></div>${o.platform==='MO'?`<div style="margin-top:8px;display:flex;gap:8px;align-items:center;flex-wrap:wrap"><button type="button" class="btn" onclick="syncShipFromEdit()" style="background:var(--mo);color:#fff;border-color:var(--mo);font-size:11px;font-weight:700">📤 同步到 MOMO 後台</button><span style="font-size:10px;color:var(--dm)">用上面的單號開「出貨確認」回填到 MOMO（會跳 DRY RUN 預覽）</span></div>`:o.platform==='MO3'?`<div style="margin-top:8px;display:flex;gap:8px;align-items:center;flex-wrap:wrap"><button type="button" class="btn" onclick="fetchThirdLabelForEdit(this)" style="background:var(--mo);color:#fff;border-color:var(--mo);font-size:11px;font-weight:700">📥 補抓託運單電話/地址</button><span style="font-size:10px;color:var(--dm)">第三方單個資遮罩 → 從 MOMO 託運單解出代撥電話＋完整地址</span></div>`:o.platform==='PC'?`<div style="margin-top:8px;display:flex;gap:8px;align-items:center;flex-wrap:wrap"><button type="button" class="btn" onclick="syncShipPchomeFromEdit()" style="background:var(--pc);color:#fff;border-color:var(--pc);font-size:11px;font-weight:700">📤 回填到 PChome 後台</button><span style="font-size:10px;color:var(--dm)">用上面的單號開「出貨回填」送到 PChome</span></div>`:''}</div>`}
+${o.platform==='ST'?`<div style="border:1px solid var(--bd);border-radius:8px;padding:12px;margin:8px 0;background:var(--sf2)"><div style="font-size:12px;font-weight:700;margin-bottom:8px">📦 物流 <span style="font-weight:400;color:var(--dm);font-size:10px">（外送/寄送才需填）</span></div><div class="fg"><div class="fi"><label>物流公司</label><select id="e-dely"><option value="">— 未填（現場取走） —</option>${_delyOpts(o,MOMO_DELY_COMPANIES)}</select></div><div class="fi"><label>物流單號</label><input id="e-tracking" value="${esc(o.trackingNo||'')}" placeholder="(可空)" style="font-family:var(--mono)"></div></div><div style="margin-top:6px;font-size:10px;color:var(--dm)">店內訂單通常現場取走，物流可空</div></div>`:`<div style="border:1px solid var(--bd);border-radius:8px;padding:12px;margin:8px 0;background:var(--sf2)"><div style="font-size:12px;font-weight:700;margin-bottom:8px">📦 物流</div><div class="fg"><div class="fi"><label>物流公司</label><select id="e-dely"><option value="">— 未填 —</option>${_delyOpts(o,o.platform==='PC'?[...MOMO_DELY_COMPANIES,'廠商自行出貨']:MOMO_DELY_COMPANIES)}</select></div><div class="fi"><label>物流單號</label><input id="e-tracking" value="${esc(o.trackingNo||'')}" placeholder="物流單號" style="font-family:var(--mono)"></div></div>${o.platform==='MO'?`<div style="margin-top:8px;display:flex;gap:8px;align-items:center;flex-wrap:wrap"><button type="button" class="btn" onclick="syncShipFromEdit()" style="background:var(--mo);color:#fff;border-color:var(--mo);font-size:11px;font-weight:700">📤 同步到 MOMO 後台</button><span style="font-size:10px;color:var(--dm)">用上面的單號開「出貨確認」回填到 MOMO（會跳 DRY RUN 預覽）</span></div>`:o.platform==='MO3'?`<div style="margin-top:8px;display:flex;gap:8px;align-items:center;flex-wrap:wrap"><button type="button" class="btn" onclick="fetchThirdLabelForEdit(this)" style="background:var(--mo);color:#fff;border-color:var(--mo);font-size:11px;font-weight:700">📥 補抓託運單電話/地址</button><span style="font-size:10px;color:var(--dm)">第三方單個資遮罩 → 從 MOMO 託運單解出代撥電話＋完整地址</span></div>`:o.platform==='PC'?`<div style="margin-top:8px;display:flex;gap:8px;align-items:center;flex-wrap:wrap"><button type="button" class="btn" onclick="syncShipPchomeFromEdit()" style="background:var(--pc);color:#fff;border-color:var(--pc);font-size:11px;font-weight:700">📤 回填到 PChome 後台</button><span style="font-size:10px;color:var(--dm)">用上面的單號開「出貨回填」送到 PChome</span></div><div style="margin-top:8px;display:flex;gap:6px;align-items:center;flex-wrap:wrap"><button type="button" class="btn" onclick="pcPromiseToggle()" style="font-size:11px;font-weight:700;color:var(--pc);border-color:var(--pc)">📅 與客約出貨日</button><span id="pc-prom-cur" style="font-size:10px;color:var(--dm)">${pcPromiseDate(o)?'目前：客約 '+esc(pcPromiseDate(o))+' 出':'會晚出貨的單才要按；有現貨按「送大榮」會自動壓'}</span></div><div id="pc-prom-row" style="display:none;margin-top:6px;gap:6px;align-items:center;flex-wrap:wrap"><input type="date" id="pc-prom-date" style="font-size:12px;padding:3px 6px"><button type="button" class="btn" onclick="pcPromiseSubmit(this)" style="background:var(--pc);color:#fff;border-color:var(--pc);font-size:11px;font-weight:700">壓到 PChome</button><span id="pc-prom-msg" style="font-size:11px"></span></div>`:''}</div>`}
 <div class="fg" style="margin-top:10px"><div class="fi"><label>狀態</label><select id="e-st">${ST.map(s=>`<option ${o.status===s?'selected':''}>${s}</option>`).join('')}</select></div></div>
 ${(o.photos&&o.photos.length)?`<div class="fg full"><div class="fi"><label>📷 出貨照片（${o.photos.length} 張，點圖放大）</label><div style="display:flex;gap:6px;flex-wrap:wrap;padding:8px;background:var(--sf2);border:1px solid var(--bd);border-radius:8px">${o.photos.map((p,i)=>`<div style="position:relative"><a href="${esc(p.url)}" target="_blank" rel="noopener" style="display:block;width:88px;height:88px;border-radius:6px;overflow:hidden;border:1px solid var(--bd);background:#fff"><img src="${esc(p.url)}" style="width:100%;height:100%;object-fit:cover;display:block" loading="lazy"></a><button onclick="removeOrderPhoto('${o.id}',${i})" style="position:absolute;top:-6px;right:-6px;width:22px;height:22px;border-radius:50%;background:var(--pc);color:#fff;border:0;font-size:12px;cursor:pointer;font-weight:700;line-height:1" title="刪除此照片">×</button><div style="font-size:9px;color:var(--dm);text-align:center;margin-top:2px;font-family:var(--mono)">${new Date(p.ts).toLocaleString('zh-TW',{month:'2-digit',day:'2-digit',hour:'2-digit',minute:'2-digit'})}</div></div>`).join('')}</div></div></div>`:''}
 <div class="fg full"><div class="fi"><label>備註（新增即時同步・自動記錄誰＋時間）</label><div class="note-presets">${['不安裝不加購-直接出貨！','壓SP.貨到直接出！','電聯不上已壓SP','日期壓後面一點，貨到出貨。','已加line交涉中','要到電話！'].map(t=>`<button type="button" class="note-preset-chip" data-preset="${esc(t)}" onclick="noteQuickAdd(this.dataset.preset)">${esc(t)}</button>`).join('')}</div><div style="display:flex;gap:6px;margin-top:2px"><input id="e-note-add" placeholder="輸入備註，Enter 或按新增（即時同步）" onkeydown="if(event.key==='Enter'&&!imeBusy(event)){event.preventDefault();noteAddFromInput()}" style="flex:1;padding:6px 10px;border:1px solid var(--grn);border-radius:6px;font-size:12px;font-family:var(--sans);outline:none;background:var(--grn-bg)"><button type="button" class="btn btn-g" onclick="noteAddFromInput()" style="white-space:nowrap">＋ 新增</button></div><div id="e-note-timeline" style="margin-top:8px;max-height:230px;overflow:auto;background:var(--sf2);border:1px solid var(--bd);border-radius:8px;padding:4px 10px">${noteHistoryHTML(o.note,o.id)}</div><div style="margin-top:6px"><button type="button" class="btn" style="font-size:11px" onclick="toggleNoteRaw(this)">✎ 編輯／刪除舊備註（整段覆蓋）</button></div><textarea id="e-note" data-dirty="0" oninput="this.dataset.dirty='1';_modalDirty=true" style="display:none;margin-top:6px" placeholder="直接改整段（含舊紀錄）；儲存會覆蓋整段，請小心">${esc(o.note)}</textarea></div></div>
@@ -6502,6 +6521,53 @@ function syncShipPchomeFromEdit(){
   saveEdit();
   if(editId!==null)return; // saveEdit 被取消（驗證沒過）→ 不開回填 modal
   setTimeout(()=>openShipPchome(oid),120);
+}
+/* 📅 與客約出貨日（杰哥 2026-11-27）：特殊情況會晚出的 PChome 單，手動選日期壓到 PChome。
+   可選範圍＝轉單日 +1~16 天（PChome 規定）；已填出貨單號就不能再改。 */
+function _pcPromRange(o){
+  const L=pcLiveOf(o); const base=(L&&L.trans)||_momoDateISO(o.date||'');
+  if(!base) return null;
+  const t=new Date(base+'T00:00:00');
+  const f=d=>{const x=new Date(t);x.setDate(x.getDate()+d);return x.getFullYear()+'-'+String(x.getMonth()+1).padStart(2,'0')+'-'+String(x.getDate()).padStart(2,'0')};
+  return {min:f(1),max:f(16)};
+}
+function pcPromiseToggle(){
+  const o=findO(editId); if(!o) return;
+  const row=document.getElementById('pc-prom-row'); if(!row) return;
+  const show=row.style.display==='none'; row.style.display=show?'flex':'none'; if(!show) return;
+  const inp=document.getElementById('pc-prom-date'); const rg=_pcPromRange(o);
+  if(rg){inp.min=rg.min;inp.max=rg.max}
+  const nw=_nextWorkday(localDateISO());
+  inp.value=pcPromiseDate(o)||(rg?(nw>rg.min?nw:rg.min):nw);
+  document.getElementById('pc-prom-msg').innerHTML=rg?'<span style="color:var(--dm)">可選 '+rg.min.slice(5)+' ~ '+rg.max.slice(5)+'</span>':'';
+}
+async function pcPromiseSubmit(btn){
+  const o=findO(editId); if(!o) return;
+  const msg=document.getElementById('pc-prom-msg'); const d=document.getElementById('pc-prom-date').value;
+  if(!d){msg.innerHTML='<span style="color:#b91c1c">先選日期</span>';return}
+  if(!String(o.orderNo||'').trim()){msg.innerHTML='<span style="color:#b91c1c">這張沒有 PChome 訂單編號</span>';return}
+  if(!confirm('把 PChome 訂單 '+o.orderNo+' 壓成「與客約 '+d+' 出」？'))return;
+  btn.disabled=true; msg.innerHTML='<span style="color:var(--dm)">送出中…</span>';
+  try{
+    await momoConfigReady;
+    const r=await fetch(getMomoApi()+'/api/orders/pchome/promise',{method:'POST',headers:{'Content-Type':'application/json','X-API-Token':getMomoToken()},body:JSON.stringify({orderId:o.orderNo,date:d,confirm:'YES'})});
+    const j=await r.json().catch(()=>({}));
+    if(r.ok&&j.ok){
+      const pd=_momoDateISO(j.promiseDate||d); o.pcPromiseDate=pd; _pcPromLocal(o.orderNo,pd);
+      logActivity(o,`PChome 與客約出貨日：${pd}（手動）`); saveOne(o);
+      msg.innerHTML='<span style="color:#15803d;font-weight:700">已壓：客約 '+esc(pd)+' 出</span>';
+      const c=document.getElementById('pc-prom-cur'); if(c)c.textContent='目前：客約 '+pd+' 出';
+    }else{
+      msg.innerHTML='<span style="color:#b91c1c">沒成功：'+esc(String(j.error||('HTTP '+r.status)).slice(0,140))+'</span>';
+      logActivity(o,`PChome 與客約出貨日壓失敗：${String(j.error||r.status).slice(0,120)}`); saveOne(o);
+    }
+  }catch(e){msg.innerHTML='<span style="color:#b91c1c">連線失敗：'+esc(String(e.message||e))+'</span>'}
+  btn.disabled=false;
+}
+function _pcPromLocal(orderNo,d){
+  const no=String(orderNo||'').trim(); if(!no||!_pcLive[no]) return;
+  _pcLive[no]=Object.assign({},_pcLive[no],{prom:d});
+  try{const raw=JSON.parse(localStorage.getItem(MOMO_LIVE_KEY)||'{}');raw.pc=_pcLive;raw.pcAt=_pcLiveAt;localStorage.setItem(MOMO_LIVE_KEY,JSON.stringify(raw))}catch(e){}
 }
 let _modalDirty=false;
 function closeModal(){
@@ -7929,7 +7995,7 @@ async function batchKerry(){
           <label style="display:flex;gap:4px;align-items:center;font-size:10.5px;margin-top:4px;color:#b45309;cursor:pointer"><input type="checkbox" id="kgift_${i}" onchange="kGiftToggle(${i})"> 只寄贈品／部分（才數不記憶）</label></td></tr>`;}).join('')}
     </table></div>
     ${st.mode==='prod'
-      ?`<label style="display:flex;gap:6px;align-items:center;font-size:12px;margin-top:8px"><input type="checkbox" id="k-autopush" checked> 送完自動壓 MOMO／PChome（大榮貨運＋這次的單號；MOMO 會先押指定配送日＝指送日期再壓已配送；PChome 自行出貨 SP 的單不壓）</label>`
+      ?`<label style="display:flex;gap:6px;align-items:center;font-size:12px;margin-top:8px"><input type="checkbox" id="k-autopush" checked> 送完自動壓 MOMO／PChome（大榮貨運＋這次的單號；MOMO 會先押指定配送日＝指送日期再壓已配送；PChome 會先壓「與客約＝出貨日」再壓單號；PChome 自行出貨 SP 的單不壓）</label>`
       :`<div style="font-size:11px;color:var(--dm);margin-top:8px">正式模式送完會自動壓 MOMO／PChome；現在是${st.mode==='test'?'測試':'模擬'}模式，不會壓（測試號不能給平台）。</div>`}
     <div id="k-result" style="margin-top:10px"></div>
     <div class="modal-ft"><button class="btn" onclick="closeModal()">關閉</button>
@@ -8328,14 +8394,28 @@ async function kerryAutoPush(targets,etp,shipYmd){
         if(!L||pcEntryStale(L)||L.missing){out.push({o,skip:true,msg:'查不到這張在 PChome 的目前狀態，怕是自行出貨單，沒自動壓（請用 📤 出貨回填手動壓）'});continue}
         if(L.kind==='sp'||L.vendor==='SP'||(L.vendor==='pchome'&&L.slip==='systempass')){out.push({o,skip:true,msg:'PChome 上是廠商自行出貨（SP），照規定不壓單號'});continue}
         if(L&&['checking','shipped','sp','cancelled'].includes(L.kind)){out.push({o,skip:true,msg:'PChome 已經'+(_PC_LABEL[_pcState(L)]||L.kind)+'，沒重壓'});continue}
+        /* 與客約出貨日（杰哥 2026-11-27「有現貨我按了大榮出貨自動壓時間然後出貨單」）：
+           一定要在壓單號之前（填了單號 PChome 就不給改）。日期＝這次的出貨日，後端會夾在轉單日 +1~16 天內；
+           平台已經有約定日（之前手動壓過）就不動。壓失敗不擋後面的單號。 */
+        let promMsg='';
+        try{
+          const sdISO=_sd.length===8?_sd.slice(0,4)+'-'+_sd.slice(4,6)+'-'+_sd.slice(6,8):localDateISO();
+          const rp=await fetch(`${api}/api/orders/pchome/promise`,{method:'POST',headers:{'Content-Type':'application/json','X-API-Token':token},body:JSON.stringify({orderId:o.orderNo,date:sdISO,auto:true,confirm:'YES'})});
+          const dp=await rp.json().catch(()=>({}));
+          if(rp.ok&&dp.ok){
+            const pd=_momoDateISO(dp.promiseDate||''); if(pd){o.pcPromiseDate=pd;_pcPromLocal(o.orderNo,pd)}
+            if(!dp.skip){logActivity(o,`PChome 與客約出貨日：${pd}（送大榮後自動壓）`);promMsg='客約 '+pd.slice(5)+' 出 → '}
+            else promMsg='（'+(dp.note||'客約日沒改')+'）';
+          }else{promMsg='（客約日沒壓成功：'+String(dp.error||('HTTP '+rp.status)).slice(0,60)+'）';logActivity(o,`PChome 與客約出貨日自動壓失敗：${String(dp.error||rp.status).slice(0,120)}`)}
+        }catch(e){promMsg='（客約日連線失敗）'}
         const payload={orderId:o.orderNo,shipVendorId:'Kerry',shipId:bln,shipQty:parseInt(o.qty)||1};
         const r=await fetch(`${api}/api/orders/pchome/shipinfo`,{method:'POST',headers:{'Content-Type':'application/json','X-API-Token':token},body:JSON.stringify(payload)});
         const d=await r.json().catch(()=>({}));
-        if(!r.ok||!d.ok){out.push({o,ok:false,msg:'PChome 沒收：'+String(d.error||('HTTP '+r.status)).slice(0,120)+'（請用 📤 出貨回填手動壓）'});logActivity(o,`自動壓 PChome 失敗：${String(d.error||r.status).slice(0,120)}`);saveOne(o);continue}
+        if(!r.ok||!d.ok){out.push({o,ok:false,msg:(promMsg.startsWith('客約')?promMsg+'但 ':'')+'PChome 沒收：'+String(d.error||('HTTP '+r.status)).slice(0,120)+'（請用 📤 出貨回填手動壓）'});logActivity(o,`自動壓 PChome 失敗：${String(d.error||r.status).slice(0,120)}`);saveOne(o);continue}
         applyShipStatus(o);o.shippedAt=new Date().toISOString();o.shippedBy=currentUser||'';o.shippedVia='出貨';
         _pcMarkLocal(o.orderNo,'checking',bln,'Kerry');
         logActivity(o,`PChome 出貨回填：出貨：大榮貨運 ｜ 單號 ${bln} ｜ ${payload.shipQty} 件（送大榮後自動壓）`);saveOne(o);
-        out.push({o,ok:true,msg:'已壓：大榮 '+bln});
+        out.push({o,ok:true,msg:'已壓：'+(promMsg.startsWith('客約')?promMsg:'')+'大榮 '+bln+(promMsg.startsWith('（')?' '+promMsg:'')});
       }
     }catch(e){out.push({o,ok:false,msg:'連線失敗：'+String(e&&e.message||e).slice(0,80)+'（請手動壓）'});
       // 2026-10-19 詹韋賢 PC 單自動壓沒成功卻查不到原因 —— 例外也要留紀錄
