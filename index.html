@@ -4293,7 +4293,18 @@ function buildOrderActions(o,variant){
   const _tipMo=esc('回填物流單號到 MOMO'+_shipTip);
   const _tipSp=esc('一鍵用 PChome 的「廠商自行出貨 (SP)」方式壓單（會先確認）'+_shipTip);
   const _tipPc=esc('回填物流單號到 PChome'+_shipTip);
-  const ship=(isPending(o.status)||_shipByPlat)
+  /* 列表一鍵「壓大榮」（杰哥 2026-11-27「一定要進訂單嗎？外面這層就能有按鈕」）：
+     已經送過大榮、平台還沒壓的單 → 直接按：PChome 先壓與客約＝出貨日再壓單號；MOMO 先押指定配送日再壓已配送。
+     走跟「送大榮自動壓平台」同一條（kerryAutoPush），SP 自行出貨單一樣擋掉。 */
+  const _kBln=(o.kerry&&o.kerry.bln&&o.trackingNo===o.kerry.bln)?o.kerry.bln:'';
+  const _kPush=_kBln&&(o.platform==='PC'||o.platform==='MO')&&!(o.platform==='PC'&&pcIsSelfShipped(o))&&(isPending(o.status)||_shipByPlat)&&!(o.shippedVia==='出貨'&&o.shippedAt);
+  const _tipK=esc('把大榮 '+_kBln+' 壓到 '+(o.platform==='PC'?'PChome（先壓與客約＝出貨日，再壓單號）':'MOMO（先押指定配送日，再壓已配送）'));
+  const kPushBtn=_kPush
+    ?(isMob
+      ?`<button class="primary" onclick="quickKerryPush('${oid}',this)" title="${_tipK}" style="background:#b45309;border-color:#b45309">壓大榮</button> `
+      :`<button class="act" onclick="quickKerryPush('${oid}',this)" title="${_tipK}" style="border-color:#b45309;color:#fff;background:#b45309;font-weight:700">壓大榮</button> `)
+    :'';
+  const ship=kPushBtn+((isPending(o.status)||_shipByPlat)
     ?(o.platform==='MO'
       ?(isMob
         ?`<button class="primary" onclick="openShipMomo('${oid}')" title="${_tipMo}">出貨</button>`
@@ -4303,7 +4314,7 @@ function buildOrderActions(o,variant){
         ?`<button class="primary" onclick="quickShipPchomeSelf('${oid}')" title="${_tipSp}" style="background:#0d9488;border-color:#0d9488">SP</button> <button class="primary" onclick="openShipPchome('${oid}')" title="${_tipPc}" style="background:var(--pc);border-color:var(--pc)">出貨</button>`
         :`<button class="act" onclick="quickShipPchomeSelf('${oid}')" title="${_tipSp}" style="border-color:#0d9488;color:#0d9488;font-weight:700">SP</button> <button class="act" onclick="openShipPchome('${oid}')" title="${_tipPc}" style="border-color:var(--pc);color:var(--pc);font-weight:700">出貨</button> `)
       :'')
-    :'';
+    :'');
   // 出貨痕跡：按過「出貨／SP（自行出貨）」後蓋一個綠色 ✓ 記號（含時間/誰按的），避免不確定按過沒
   const shipDone=o.shippedAt?(()=>{
     const d=new Date(o.shippedAt);const md=(d.getMonth()+1)+'/'+d.getDate();const via=o.shippedVia||'出貨';
@@ -8331,6 +8342,23 @@ async function _doKerrySend(groups,st,items,vals,notes,origin,slot,gifts){
    - MOMO：平台快照說這張已經不在未出貨（已出貨／已結案），或已經是「已配送」
    - PChome：按過 SP 自行出貨的（🔴 鐵則：SP 單絕不壓單號，壓了結不到帳）；平台已結單／檢核中／已取消
    MOMO 約配單如果還沒回押指定配送日，MOMO 可能會拒絕「已配送」→ 會列在失敗裡，照舊用 📤 出貨確認手動處理。 */
+async function quickKerryPush(oid,btn){
+  const o=findO(oid); if(!o) return;
+  const bln=o.kerry&&o.kerry.bln;
+  if(!bln||o.trackingNo!==bln){alert('這張沒有大榮單號（或單號被改過），請用「出貨」手動回填');return}
+  // 出貨日＝當初送大榮那天（本機時間）
+  const at=o.kerry.at?new Date(o.kerry.at):new Date();
+  const ymd=at.getFullYear()+String(at.getMonth()+1).padStart(2,'0')+String(at.getDate()).padStart(2,'0');
+  const what=o.platform==='PC'?'PChome：先壓「與客約 '+ymd.slice(4,6)+'/'+ymd.slice(6)+' 出」，再回填大榮 '+bln:'MOMO：先押指定配送日，再壓已配送 大榮 '+bln;
+  if(!confirm((o.name||'')+'\n'+what+'\n\n確定送出？'))return;
+  if(btn){btn.disabled=true;btn.textContent='壓中…'}
+  try{
+    const pr=await kerryAutoPush([{o,x:{bln}}],'',ymd);
+    const r=pr&&pr[0];
+    alert(r?((r.ok?'✅ ':r.skip?'略過：':'❌ ')+r.msg):'沒有結果，請重新整理再看');
+  }catch(e){alert('連線失敗：'+(e&&e.message||e))}
+  if(btn&&btn.isConnected){btn.disabled=false;btn.textContent='壓大榮'}
+}
 async function kerryAutoPush(targets,etp,shipYmd){
   await momoConfigReady;
   /* MOMO 指定配送日（阿淵 2026-10-19「都做」）：按大榮出貨後先壓「已確認指定配送日」再壓「已配送」。
