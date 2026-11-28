@@ -6159,8 +6159,8 @@ document.getElementById('modal-body').innerHTML=`<h3>編輯訂單${customerHisto
 <div class="fg full"><div class="fi"><label>📱 真實電話（手動填入，例如客戶 LINE 或來電留下的）</label><div style="display:flex;gap:8px;align-items:center"><input id="e-realPhone" value="${esc(o.realPhone||'')}" placeholder="客戶真實手機，留空表示沒有" inputmode="tel" style="flex:1;min-width:0;border-color:var(--grn);background:var(--grn-bg)"><button type="button" class="btn" onclick="smsFromEdit('${o.id}',event)" title="用此電話發簡訊邀客戶加 LINE（09 開頭）" style="white-space:nowrap;border-color:#c4b5fd;color:#7c3aed;font-weight:700">📩 發訊息</button></div></div></div>
 <div class="fg full"><div class="fi"><label>地址</label><input id="e-addr" value="${esc(o.address)}"></div></div>
 <div class="fg" style="margin-bottom:8px"><div class="fi"><label>🏢 管理室</label><div class="sched-row" id="e-mgmt"><button class="sched-btn ${o.addrMgmt==='有'?'picked':''}" onclick="pickRadio('e-mgmt','有',this)">有</button><button class="sched-btn ${o.addrMgmt==='無'?'picked':''}" onclick="pickRadio('e-mgmt','無',this)">無</button><button class="sched-btn ${(!o.addrMgmt||o.addrMgmt==='')?'picked':''}" onclick="pickRadio('e-mgmt','',this)">未填</button></div></div><div class="fi"><label>🛗 電梯（2 樓以上）</label><div class="sched-row" id="e-elev"><button class="sched-btn ${o.addrElev==='有'?'picked':''}" onclick="pickRadio('e-elev','有',this)">有</button><button class="sched-btn ${o.addrElev==='無'?'picked':''}" onclick="pickRadio('e-elev','無',this)">無</button><button class="sched-btn ${o.addrElev==='不適用'?'picked':''}" onclick="pickRadio('e-elev','不適用',this)">不適用</button><button class="sched-btn ${(!o.addrElev||o.addrElev==='')?'picked':''}" onclick="pickRadio('e-elev','',this)">未填</button></div></div></div>
-<div class="fg"><div class="fi"><label>數量</label><input type="text" inputmode="numeric" id="e-qty" value="${o.qty||1}" oninput="this.value=cn(this.value)"></div><div class="fi"><label>商品金額</label><input type="text" inputmode="numeric" id="e-amt" value="${o.amount||''}" oninput="this.value=cn(this.value);calcT()"></div></div>
-<div class="fg"><div class="fi"><label>貨款 <span style="font-size:10px;color:var(--ht)">（這筆的錢要我們自己跟客人收才選）</span></label><select id="e-amtdue"><option value="">不追貨款（平台代收／不適用）</option><option value="unpaid" ${o.amountDue&&!(Number(o.amount||0)>0&&Number(o.amountPaid||0)>=Number(o.amount||0))?'selected':''}>貨款未收</option><option value="paid" ${o.amountDue&&Number(o.amountPaid||0)>=Number(o.amount||0)&&Number(o.amount||0)>0?'selected':''}>貨款已收</option></select></div></div>
+<div class="fg"><div class="fi"><label>數量</label><input type="text" inputmode="numeric" id="e-qty" value="${o.qty||1}" oninput="this.value=cn(this.value)"></div><div class="fi"><label>商品金額</label><input type="text" inputmode="numeric" id="e-amt" value="${o.amount||''}" oninput="this.value=cn(this.value);calcT();updateAmtPaidHint()"></div></div>
+<div class="fg"><div class="fi"><label>貨款 <span style="font-size:10px;color:var(--ht)">（這筆的錢要我們自己跟客人收才選）</span></label><select id="e-amtdue" onchange="onAmtDueChg()"><option value="">不追貨款（平台代收／不適用）</option><option value="unpaid" ${o.amountDue&&!(Number(o.amount||0)>0&&Number(o.amountPaid||0)>=Number(o.amount||0))?'selected':''}>貨款未收／收訂金</option><option value="paid" ${o.amountDue&&Number(o.amountPaid||0)>=Number(o.amount||0)&&Number(o.amount||0)>0?'selected':''}>貨款已收齊</option></select></div><div class="fi ${o.amountDue?'':'hidden'}" id="e-amtpaid-wrap"><label>貨款已收 <span style="font-weight:400;color:var(--ht);font-size:10px">（訂金填這，0=未收，可填部分）</span></label><input type="text" inputmode="numeric" id="e-amtpaid" value="${o.amountDue&&Number(o.amountPaid||0)>0?o.amountPaid:''}" oninput="this.value=cn(this.value);onAmtPaidInp()" placeholder="0"></div></div><div id="ea-paid-hint" style="font-size:11px;color:var(--dm);margin-top:-4px;margin-bottom:6px;padding:4px 8px;background:var(--sf2);border-radius:4px;display:none"></div>
 <div style="border:1px solid var(--bd);border-radius:8px;padding:12px;margin:8px 0;background:var(--sf2)"><div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px"><span style="font-size:12px;font-weight:700">安裝/配送</span><select id="ei-sel" onchange="togEISel()" title="直接選：待確認 / 要安裝 / 要配送 / 不安裝" style="font-size:12px;font-weight:700;padding:6px 10px;border:1px solid var(--bd);border-radius:6px;background:var(--sf);cursor:pointer"><option value="未確認" ${(!o.install||o.install==='未確認')?'selected':''}>待確認</option><option value="是" ${o.install==='是'?'selected':''}>要安裝</option><option value="配送" ${o.install==='配送'?'selected':''}>要配送</option><option value="否" ${o.install==='否'?'selected':''}>不安裝</option></select></div>
 <div id="ei-panel" class="${isServiceActive(o)?'':'hidden'}"><div class="fg"><div class="fi"><label>安裝費用</label><input type="text" inputmode="numeric" id="e-instf" value="${o.installFee||''}" oninput="this.value=cn(this.value);calcT();updateInstallPaidHint()"></div><div class="fi"><label>安裝已收 <span style="font-weight:400;color:var(--ht);font-size:10px">（0=未收，可填部分）</span></label><input type="text" inputmode="numeric" id="e-instpaid" value="${o.installPaidAmount||''}" oninput="this.value=cn(this.value);updateInstallPaidHint()" placeholder="0"></div></div>
 <div id="ei-paid-hint" style="font-size:11px;color:var(--dm);margin-top:-4px;margin-bottom:6px;padding:4px 8px;background:var(--sf2);border-radius:4px;display:none"></div>
@@ -6188,6 +6188,7 @@ if(typeof updateInstallMismatchHint==='function')updateInstallMismatchHint();
 // 初始化已收款提示（應收/已收/還缺）
 if(typeof updateInstallPaidHint==='function')updateInstallPaidHint();
 if(typeof updateAddonPaidHint==='function')updateAddonPaidHint();
+if(typeof updateAmtPaidHint==='function')updateAmtPaidHint();
 // updateInstallPaidHint/updateAddonPaidHint 會把 _modalDirty 設成 true（共用通用 hint 函式），
 // 但初始化呼叫不算用戶 dirty — reset 一下
 _modalDirty=false;}
@@ -6294,6 +6295,10 @@ function _paidHint(feeId,paidId,hintId){
   else if(paid>=fee)el.innerHTML='<span style="color:var(--grn);font-weight:700">✓ 已收齊</span>'+(paid>fee?`<span style="color:var(--ht)">　（多收 $${(paid-fee).toLocaleString()}）</span>`:'');
   else el.innerHTML=`<span style="color:#b45309;font-weight:700">⚠ 部分已收，還缺 $${(fee-paid).toLocaleString()}</span><span style="color:var(--ht)">　（應 $${fee.toLocaleString()} / 已收 $${paid.toLocaleString()}）</span>`;
 }
+/* 貨款可收訂金（lushedan 2026-11-28：官網 LINE 單要記訂金多少、還缺多少） */
+function updateAmtPaidHint(){_modalDirty=true;const s=document.getElementById('e-amtdue');const h=document.getElementById('ea-paid-hint');if(!s||!h)return;if(s.value===''){h.style.display='none';return}_paidHint('e-amt','e-amtpaid','ea-paid-hint')}
+function onAmtDueChg(){const s=document.getElementById('e-amtdue'),w=document.getElementById('e-amtpaid-wrap'),p=document.getElementById('e-amtpaid');if(!s||!p)return;if(w)w.classList.toggle('hidden',s.value==='');const amt=parseInt(document.getElementById('e-amt').value)||0;const cur=parseAmt(p.value)||0;if(s.value==='paid'&&amt>0)p.value=String(amt);else if(s.value==='unpaid'&&amt>0&&cur>=amt)p.value='';else if(s.value==='')p.value='';updateAmtPaidHint()}
+function onAmtPaidInp(){const s=document.getElementById('e-amtdue'),p=document.getElementById('e-amtpaid');if(!s||!p)return;const amt=parseInt(document.getElementById('e-amt').value)||0;const cur=parseAmt(p.value)||0;s.value=(amt>0&&cur>=amt)?'paid':'unpaid';updateAmtPaidHint()}
 function updateInstallPaidHint(){_modalDirty=true;_paidHint('e-instf','e-instpaid','ei-paid-hint')}
 function updateAddonPaidHint(){_modalDirty=true;_paidHint('e-addonf','e-addonpaid','ea-paid-hint')}
 // 三段循環：未確認 → 是（要安裝） → 否（不安裝） → 未確認
@@ -6387,10 +6392,13 @@ else{o.addonFee=parseInt(document.getElementById('e-addonf').value)||0;o.addonIt
     const _v=_dueSel.value;
     const _was=_snap.amountDue?(Number(_snap.amountPaid||0)>=Number(_snap.amount||0)&&Number(_snap.amount||0)>0?'paid':'unpaid'):'';
     o.amountDue=_v!=='';
-    o.amountPaid=_v==='paid'?(Number(o.amount)||0):0;
+    const _paidOld=Number(_snap.amountPaid||0);
+    const _pi=document.getElementById('e-amtpaid');
+    o.amountPaid=_v===''?0:(_v==='paid'?(Number(o.amount)||0):(parseAmt(_pi?_pi.value:'')||0));
+    if(_v!==''&&_v===_was&&o.amountPaid!==_paidOld)logActivity(o,`貨款已收 ${_paidOld===0?'未收':'$'+_paidOld.toLocaleString()} → ${o.amountPaid===0?'未收':'$'+o.amountPaid.toLocaleString()}${o.amount?'（應 $'+Number(o.amount).toLocaleString()+'）':''}（編輯視窗）`);
     if(_v!==_was){
       const _lbl={'':'不追貨款',unpaid:'貨款未收',paid:'貨款已收'};
-      logActivity(o,`貨款：${_lbl[_was]||'不追貨款'} → ${_lbl[_v]}${o.amount?' $'+Number(o.amount).toLocaleString():''}（編輯視窗）`);
+      logActivity(o,`貨款：${_lbl[_was]||'不追貨款'} → ${_lbl[_v]}${o.amount?' $'+Number(o.amount).toLocaleString():''}${_v==='unpaid'&&o.amountPaid>0?'，已收訂金 $'+o.amountPaid.toLocaleString():''}（編輯視窗）`);
     }
   }
 }
